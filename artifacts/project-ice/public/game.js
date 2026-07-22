@@ -50,6 +50,9 @@ const teamProfileScreen    = document.getElementById('team-profile-screen');
 const prospectsScreen      = document.getElementById('prospects-screen');
 const eventScreen          = document.getElementById('event-screen');
 const tryoutSummaryScreen  = document.getElementById('tryout-summary-screen');
+const coachIntroScreen     = document.getElementById('coach-intro-screen');
+const skatingEvalScreen    = document.getElementById('skating-eval-screen');
+const skatingResultsScreen = document.getElementById('skating-results-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -176,8 +179,9 @@ const EventSystem = (() => {
       location:    'Eastdale Ice Arena',
       objective:   'Impress the coaching staff.',
       description: 'Your first real chance to prove you belong. The coaches are watching every shift — your skating, your decisions, your compete level. Play your game.',
-      // When the player presses Begin Event, this screen is shown instead of the toast.
-      completeScreen: 'tryout-summary',
+      // When the player presses Begin Event, route to the Coach Intro screen
+      // which explains the drill before play begins.
+      completeScreen: 'tryout-freshman-intro',
     },
     'recovery': {
       title:       'Recovery',
@@ -305,6 +309,9 @@ function showScreen(screenName) {
   prospectsScreen.classList.add('screen--hidden');
   eventScreen.classList.add('screen--hidden');
   tryoutSummaryScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -366,6 +373,15 @@ function showScreen(screenName) {
   }
   if (screenName === 'tryout-summary') {
     tryoutSummaryScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'coach-intro') {
+    coachIntroScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'skating-eval') {
+    skatingEvalScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'skating-results') {
+    skatingResultsScreen.classList.remove('screen--hidden');
   }
 
   Game.screen = screenName;
@@ -1541,7 +1557,10 @@ function openTryoutSummary(context) {
 // Maps EVENT_CATALOG completeScreen keys → their handler functions.
 // Add new entries here as more event types receive completion screens.
 const COMPLETE_SCREENS = {
-  'tryout-summary': () => openTryoutSummary('first-time'),
+  // 'tryout-freshman-intro' → show Coach Reynolds intro before the first drill
+  'tryout-freshman-intro': () => showScreen('coach-intro'),
+  // 'tryout-summary' → open the tryout summary (used by results "Continue")
+  'tryout-summary':        () => openTryoutSummary('first-time'),
 };
 
 // Begin Event — if the event defines a completeScreen, navigate there.
@@ -1559,6 +1578,308 @@ document.getElementById('btn-ev-begin').addEventListener('click', () => {
 // ── Tryout Summary navigation ─────────────────────────────────
 
 // Back: first-time → return to event screen (arena); history → return to hub
+// ════════════════════════════════════════════════════════════════
+// SKATING DRILL
+// Manages the 3-decision skating evaluation drill.
+// Call SkatingDrill.start() to begin from the coach intro screen.
+// ════════════════════════════════════════════════════════════════
+
+const SkatingDrill = (() => {
+
+  // ── Decisions ─────────────────────────────────────────────
+  // Each entry: a situation prompt + 2-3 choices.
+  // range: [min, max] points this choice contributes (out of ~33 per decision).
+  // outcome: the brief coaching reaction displayed after the player picks.
+  const DECISIONS = [
+    {
+      prompt: 'Coach blows the whistle. Skaters line up at the blue line. The first sprint is about to begin. How do you approach it?',
+      choices: [
+        {
+          label:   'Explode off the line',
+          desc:    'Max acceleration from the first stride.',
+          range:   [26, 34],
+          outcome: 'You rocket off the line. Clean first stride, full extension. The coaches clock your burst.',
+        },
+        {
+          label:   'Build your speed gradually',
+          desc:    'Controlled start — find your stride early.',
+          range:   [22, 28],
+          outcome: 'Smooth build. Your stride lengthens through mid-ice. Consistent and efficient.',
+        },
+        {
+          label:   'Watch the pack first',
+          desc:    'Read how the other skaters set up.',
+          range:   [13, 21],
+          outcome: 'A half-beat of hesitation. You find your stride late. Coach Reynolds makes a note.',
+        },
+      ],
+    },
+    {
+      prompt: 'You hit the first hard corner at full speed. A tight turn — every edge counts here.',
+      choices: [
+        {
+          label:   'Drive the inside edge hard',
+          desc:    'Aggressive carve — carry all your speed through the turn.',
+          range:   [25, 33],
+          outcome: 'Sharp carve through the arc. You hold your speed. Heads turn on the bench.',
+        },
+        {
+          label:   'Balanced edge, clean cut',
+          desc:    'Technique over aggression — efficient and controlled.',
+          range:   [22, 28],
+          outcome: 'Textbook turn. Clean edges, controlled speed. The coaches see solid fundamentals.',
+        },
+        {
+          label:   'Wide arc to carry momentum',
+          desc:    'Give yourself room to stay fast through the corner.',
+          range:   [17, 25],
+          outcome: 'You carry decent speed but the arc is loose. Not as tight as the coaches want.',
+        },
+      ],
+    },
+    {
+      prompt: 'Final straight. Twenty feet to the finish cone. The coaching staff is watching your compete level.',
+      choices: [
+        {
+          label:   'Dig deep — leave nothing behind',
+          desc:    'Max effort all the way through the line.',
+          range:   [26, 34],
+          outcome: "Full gas to the line. Legs burning. You don't ease up an inch. Compete noted.",
+        },
+        {
+          label:   'Hold your stride',
+          desc:    'Efficient and controlled — finish strong.',
+          range:   [22, 28],
+          outcome: 'Steady to the line. Efficient, repeatable. You look like you have more in the tank.',
+        },
+        {
+          label:   'Ease into the finish',
+          desc:    'Save energy for the next drill.',
+          range:   [11, 19],
+          outcome: 'You coast the last few strides. Coach Reynolds stops writing.',
+        },
+      ],
+    },
+  ];
+
+  const NPC_POOL = [
+    'Ethan Brooks',  'Mason Carter', 'Luke Jensen',  'Jake Murray',
+    'Cody Park',     'Tyler Voss',   'Brandon Lee',  'Connor Walsh',
+    'Dylan Shaw',    'Nate Rourke',  'Austin Reid',  'Hunter Cole',
+  ];
+
+  // ── Internal state ─────────────────────────────────────────
+  let _state = {};
+
+  function _resetState() {
+    _state = {
+      decisionIndex:  0,
+      decisionScores: [],
+      totalScore:     0,
+      grade:          '',
+      feedback:       '',
+      npcResults:     [],
+    };
+  }
+
+  // ── Helpers ────────────────────────────────────────────────
+  function _el(id) { return document.getElementById(id); }
+
+  function _roll([min, max]) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function _letterGrade(s) {
+    if (s >= 97) return 'A+';
+    if (s >= 93) return 'A';
+    if (s >= 90) return 'A\u2212'; // A−
+    if (s >= 87) return 'B+';
+    if (s >= 83) return 'B';
+    if (s >= 80) return 'B\u2212';
+    if (s >= 77) return 'C+';
+    if (s >= 73) return 'C';
+    if (s >= 70) return 'C\u2212';
+    if (s >= 67) return 'D+';
+    if (s >= 63) return 'D';
+    if (s >= 60) return 'D\u2212';
+    return 'F';
+  }
+
+  function _coachFeedback(score) {
+    if (score >= 90) return 'Outstanding skating. Your acceleration and edge work stood out from the group. Coach Reynolds circled your name.';
+    if (score >= 80) return 'Good evaluation. Above-average speed with solid technique through the corners. You belong on this ice.';
+    if (score >= 70) return 'Decent showing. A few breakdowns in the turns, but your compete level came through.';
+    if (score >= 60) return 'Average result. Work on your edge transitions — the raw speed is there, but technique needs to catch up.';
+    return 'Tough eval today. Skating is the foundation of everything at this level. Keep putting in the reps.';
+  }
+
+  function _generateNpcs(playerScore) {
+    const names = [...NPC_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
+    return names.map(name => {
+      const delta = Math.floor(Math.random() * 14) - 6; // -6 to +7
+      const score = Math.max(52, Math.min(99, playerScore + delta));
+      return { name, score };
+    });
+  }
+
+  // ── Render: active decision ────────────────────────────────
+  function _renderDecision() {
+    const dec   = DECISIONS[_state.decisionIndex];
+    const total = DECISIONS.length;
+    const idx   = _state.decisionIndex;
+
+    const fill = _el('se-progress-fill');
+    if (fill) fill.style.width = `${((idx + 1) / total) * 100}%`;
+    const lbl = _el('se-progress-label');
+    if (lbl)  lbl.textContent = `${idx + 1} / ${total}`;
+
+    const sitEl = _el('se-situation-text');
+    if (sitEl) sitEl.textContent = dec.prompt;
+
+    const choicesEl = _el('se-choices');
+    if (choicesEl) {
+      choicesEl.innerHTML = dec.choices.map((c, ci) => `
+        <button class="se-choice-btn" data-choice="${ci}">
+          <div class="se-choice-btn__text-wrap">
+            <span class="se-choice-btn__label">${c.label}</span>
+            <span class="se-choice-btn__desc">${c.desc}</span>
+          </div>
+          <span class="se-choice-btn__arrow">\u203a</span>
+        </button>
+      `).join('');
+
+      choicesEl.querySelectorAll('.se-choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => _onChoiceSelected(parseInt(btn.dataset.choice, 10)));
+      });
+    }
+
+    const outcomeEl = _el('se-outcome');
+    if (outcomeEl) outcomeEl.hidden = true;
+  }
+
+  // ── Handle choice ──────────────────────────────────────────
+  function _onChoiceSelected(ci) {
+    const dec    = DECISIONS[_state.decisionIndex];
+    const choice = dec.choices[ci];
+    const score  = _roll(choice.range);
+
+    _state.decisionScores.push(score);
+
+    // Mark selected, dim others, disable all
+    document.querySelectorAll('.se-choice-btn').forEach((btn, bi) => {
+      btn.disabled = true;
+      if (bi === ci) btn.classList.add('is-selected');
+      else           btn.classList.add('is-dimmed');
+    });
+
+    // Show outcome card
+    const outcomeEl    = _el('se-outcome');
+    const outcomeScore = _el('se-outcome-score');
+    const outcomeText  = _el('se-outcome-text');
+    if (outcomeEl)    outcomeEl.hidden = false;
+    if (outcomeScore) outcomeScore.textContent = `+${score}`;
+    if (outcomeText)  outcomeText.textContent  = choice.outcome;
+
+    _state.decisionIndex++;
+    const isLast = _state.decisionIndex >= DECISIONS.length;
+    setTimeout(() => {
+      if (isLast) _finalize();
+      else        _transitionNext();
+    }, isLast ? 1500 : 1200);
+  }
+
+  // Fade out content, render new decision, fade back in
+  function _transitionNext() {
+    const content = _el('se-content');
+    if (!content) { _renderDecision(); return; }
+    content.classList.add('is-fading');
+    setTimeout(() => {
+      _renderDecision();
+      content.classList.remove('is-fading');
+    }, 260);
+  }
+
+  // ── Finalize ───────────────────────────────────────────────
+  function _finalize() {
+    const rawSum = _state.decisionScores.reduce((a, b) => a + b, 0);
+    // Max raw = 34 + 33 + 34 = 101 — cap at 100
+    const score  = Math.min(100, rawSum);
+
+    _state.totalScore = score;
+    _state.grade      = _letterGrade(score);
+    _state.feedback   = _coachFeedback(score);
+    _state.npcResults = _generateNpcs(score);
+
+    _renderResults();
+    showScreen('skating-results');
+  }
+
+  // ── Render: results screen ─────────────────────────────────
+  function _renderResults() {
+    const { totalScore: score, grade, feedback, npcResults } = _state;
+
+    // Score count-up animation
+    const scoreEl = _el('sr-score-num');
+    if (scoreEl) {
+      scoreEl.textContent = '0';
+      const dur = 1300;
+      const t0  = performance.now();
+      function tick(now) {
+        const elapsed = Math.min((now - t0) / dur, 1);
+        const ease    = 1 - Math.pow(1 - elapsed, 3); // ease-out cubic
+        scoreEl.textContent = Math.round(ease * score);
+        if (elapsed < 1) requestAnimationFrame(tick);
+        else scoreEl.textContent = score;
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Grade badge with colour class
+    const gradeEl = _el('sr-grade');
+    if (gradeEl) {
+      gradeEl.textContent = grade;
+      gradeEl.className   = 'sr-grade';
+      gradeEl.classList.add(`sr-grade--${grade[0].toLowerCase()}`);
+    }
+
+    // Coach feedback
+    const feedEl = _el('sr-feedback');
+    if (feedEl) feedEl.textContent = feedback;
+
+    // Leaderboard: player + 3 NPCs, sorted by score descending
+    const playerName = [Game.player.firstName, Game.player.lastName]
+      .filter(Boolean).join(' ') || 'You';
+
+    const allSkaters = [
+      { name: playerName, score, isPlayer: true },
+      ...npcResults,
+    ].sort((a, b) => b.score - a.score);
+
+    const boardEl = _el('sr-leaderboard');
+    if (boardEl) {
+      boardEl.innerHTML = allSkaters.map((s, i) => `
+        <div class="sr-board-row${s.isPlayer ? ' sr-board-row--player' : ''}">
+          <span class="sr-board-rank">${i + 1}</span>
+          <div class="sr-board-name-wrap">
+            <span class="sr-board-name">${s.name}</span>
+            ${s.isPlayer ? '<span class="sr-board-you-tag">YOU</span>' : ''}
+          </div>
+          <span class="sr-board-score">${s.score}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  // ── Public API ─────────────────────────────────────────────
+  function start() {
+    _resetState();
+    _renderDecision();
+    showScreen('skating-eval');
+  }
+
+  return { start };
+})();
+
 document.getElementById('btn-back-tryout-summary').addEventListener('click', () => {
   if (_tryoutSummaryContext === 'first-time') {
     showScreen(EventSystem.getOrigin()); // 'arena' — so they can re-read the event
@@ -1574,6 +1895,21 @@ document.getElementById('btn-ts-enter-hub').addEventListener('click', () => {
   Game.player.tryoutsComplete = true;
   saveCareerPreview();
   showScreen('hub');
+});
+
+// ── Coach Intro navigation ────────────────────────────────────────
+document.getElementById('btn-back-coach-intro').addEventListener('click', () => {
+  // Return to the event screen so the player can re-read the tryout brief
+  showScreen('event');
+});
+
+document.getElementById('btn-begin-skating').addEventListener('click', () => {
+  SkatingDrill.start();
+});
+
+// ── Skating Results navigation ────────────────────────────────────
+document.getElementById('btn-sr-continue').addEventListener('click', () => {
+  openTryoutSummary('first-time');
 });
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {

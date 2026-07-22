@@ -1452,6 +1452,126 @@
 
       </section>
 
+      <!-- COACH INTRO SCREEN — shown before skating evaluation drill -->
+      <section id="coach-intro-screen" class="screen screen--hidden">
+        <div class="ci-wrap">
+
+          <header class="ci-header">
+            <button id="btn-back-coach-intro" class="back-button" aria-label="Back">‹</button>
+            <span class="ci-eyebrow">FRESHMAN TRYOUTS</span>
+          </header>
+
+          <div class="ci-coach-card">
+            <div class="ci-coach-avatar">
+              <span class="ci-coach-avatar__initials">CR</span>
+            </div>
+            <div class="ci-coach-meta">
+              <span class="ci-coach-name">Coach Reynolds</span>
+              <span class="ci-coach-role">Head Evaluator · Eastdale Ice Arena</span>
+            </div>
+          </div>
+
+          <div class="ci-eval-block">
+            <span class="ci-eval-tag">EVALUATION 1 OF 3</span>
+            <div class="ci-eval-title-row">
+              <span class="ci-eval-icon">⛸️</span>
+              <h1 class="ci-eval-title">Skating</h1>
+            </div>
+          </div>
+
+          <div class="ci-speech">
+            <p class="ci-speech__text">"Today we're evaluating your skating ability. Speed, acceleration, and agility all matter. Give us your best effort."</p>
+          </div>
+
+          <div class="ci-traits">
+            <span class="ci-trait">⚡ Speed</span>
+            <span class="ci-trait">💨 Acceleration</span>
+            <span class="ci-trait">🔄 Agility</span>
+          </div>
+
+          <div class="ci-cta">
+            <button id="btn-begin-skating" class="ci-begin-btn">
+              <span class="ci-begin-btn__label">Begin Skating Evaluation</span>
+              <span class="ci-begin-btn__arrow">›</span>
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SKATING EVALUATION SCREEN — active 3-decision drill -->
+      <section id="skating-eval-screen" class="screen screen--hidden">
+        <div class="se-wrap">
+
+          <header class="se-header">
+            <div class="se-header__top">
+              <span class="se-header__context">⛸️ Skating Evaluation</span>
+              <span id="se-progress-label" class="se-header__progress">1 / 3</span>
+            </div>
+            <div class="se-progress-bar">
+              <div id="se-progress-fill" class="se-progress-bar__fill"></div>
+            </div>
+          </header>
+
+          <div id="se-content" class="se-content">
+
+            <div class="se-situation-card">
+              <p class="se-situation-card__label">SITUATION</p>
+              <p id="se-situation-text" class="se-situation-card__text"></p>
+            </div>
+
+            <div id="se-choices" class="se-choices"></div>
+
+            <div id="se-outcome" class="se-outcome" hidden>
+              <div class="se-outcome__inner">
+                <span id="se-outcome-score" class="se-outcome__score"></span>
+                <p id="se-outcome-text" class="se-outcome__text"></p>
+              </div>
+            </div>
+
+          </div><!-- /.se-content -->
+
+        </div>
+      </section>
+
+      <!-- SKATING RESULTS SCREEN — score, grade, coach feedback, leaderboard -->
+      <section id="skating-results-screen" class="screen screen--hidden">
+        <div class="sr-wrap">
+
+          <header class="sr-header">
+            <span class="sr-header__badge">⛸️ Skating Evaluation</span>
+            <span class="sr-header__complete">COMPLETE</span>
+          </header>
+
+          <div class="sr-score-block">
+            <div class="sr-score-display">
+              <span id="sr-score-num" class="sr-score-num">—</span>
+              <span class="sr-score-denom">/100</span>
+            </div>
+            <div id="sr-grade" class="sr-grade">—</div>
+          </div>
+
+          <div class="sr-feedback-card">
+            <p class="sr-feedback-coach">Coach Reynolds</p>
+            <p id="sr-feedback" class="sr-feedback-text"></p>
+          </div>
+
+          <div class="sr-board-section">
+            <h3 class="sr-board-title">Evaluation Leaderboard</h3>
+            <div id="sr-leaderboard" class="sr-leaderboard"></div>
+          </div>
+
+          <footer class="sr-footer">
+            <p class="sr-footer-note">More drills ahead.</p>
+            <button id="btn-sr-continue" class="sr-continue-btn">
+              <span>Continue</span>
+              <span class="sr-continue-btn__arrow">›</span>
+            </button>
+          </footer>
+
+        </div>
+      </section>
+
       <!-- TRYOUT SUMMARY SCREEN -->
       <section id="tryout-summary-screen" class="screen screen--hidden">
 
