@@ -34,7 +34,7 @@ const btnContinue = document.getElementById('btn-continue');
 const btnBackTitle = document.getElementById('btn-back-title');
 const btnBackCreation = document.getElementById('btn-back-creation');
 const btnBackSummary = document.getElementById('btn-back-summary');
-const btnSavePreview = document.getElementById('btn-save-preview');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
 const btnDeleteSave = document.getElementById('btn-delete-save');
 const btnContinueSetup = document.getElementById('btn-continue-setup');
 
@@ -146,6 +146,7 @@ function handlePlayerFormSubmit(event) {
   Game.player.hometown = hometown;
 
   updateSummary();
+  saveCareerPreview();
   showScreen('summary');
 }
 
@@ -173,15 +174,8 @@ function saveCareerPreview() {
     );
 
     updateContinueButton();
-    btnSavePreview.querySelector('.btn__label').textContent = 'Career Saved';
-
-    setTimeout(() => {
-      btnSavePreview.querySelector('.btn__label').textContent =
-        'Save Career Preview';
-    }, 1400);
   } catch (error) {
     console.error('[Project Ice] Save failed:', error);
-    alert('Project Ice could not save this career on your device.');
   }
 }
 
@@ -311,7 +305,7 @@ btnBackSummary.addEventListener('click', () => {
   showScreen('summary');
 });
 
-btnSavePreview.addEventListener('click', () => {
+btnContinueSummary.addEventListener('click', () => {
   saveCareerPreview();
   showScreen('identity');
 });
