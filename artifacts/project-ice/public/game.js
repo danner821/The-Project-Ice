@@ -1586,6 +1586,10 @@ document.getElementById('btn-ev-begin').addEventListener('click', () => {
 //   beginDrill() — resets state, renders the first decision, shows skating-eval.
 // ════════════════════════════════════════════════════════════════
 
+// Tracks whichever drill instance is currently open so the shared coach-intro
+// "Begin" button always starts the right drill regardless of sequence.
+let _activeDrill = null;
+
 // Tracks the active drill's completion handler so btn-sr-continue knows where to route.
 let _drillContinueCallback = null;
 
@@ -1820,8 +1824,11 @@ const DrillEngine = (function () {
       _drillContinueCallback = config.onComplete;
     }
 
-    // open(): populate coach-intro and navigate to it
+    // open(): register this drill as active, populate coach-intro, and navigate to it.
+    // Setting _activeDrill here ensures btn-begin-skating calls *this* drill's beginDrill,
+    // not whichever drill happened to be defined last.
     function open() {
+      _activeDrill = { beginDrill };
       _populateCoachIntro();
       showScreen('coach-intro');
     }
@@ -1954,7 +1961,8 @@ document.getElementById('btn-back-coach-intro').addEventListener('click', () => 
 });
 
 document.getElementById('btn-begin-skating').addEventListener('click', () => {
-  SkatingDrill.beginDrill();
+  // Delegate to whichever drill called open() — never hardcode a specific instance.
+  if (_activeDrill) _activeDrill.beginDrill();
 });
 
 // ── Skating Results navigation ────────────────────────────────────
