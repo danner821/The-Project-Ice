@@ -591,18 +591,17 @@
       <!-- HUB SCREEN -->
       <section id="hub-screen" class="screen screen--hidden">
 
-        <!-- Fixed player info bar -->
+        <!-- Fixed player identity bar -->
         <div class="hub-info-bar">
-          <div class="hub-info-bar__left">
-            <span class="hub-info-bar__name" id="hub-player-name">—</span>
-            <span class="hub-info-bar__sub">
-              <span id="hub-player-pos">C</span><span class="hub-info-bar__sep"> · </span><span class="hub-info-bar__team-inline">Freshman Tryouts</span>
-            </span>
-          </div>
-          <div class="hub-info-bar__ovr">
-            <span class="hub-info-bar__ovr-label">OVR</span>
-            <span class="hub-info-bar__ovr-value">60</span>
-          </div>
+          <p class="hub-info-bar__name" id="hub-player-name">—</p>
+          <p class="hub-info-bar__attrs">
+            <span id="hub-player-pos">C</span><span class="hub-info-bar__dot"> · </span><span>Age <span id="hub-player-age-bar">14</span></span><span class="hub-info-bar__dot"> · </span><span>OVR <span class="hub-info-bar__ovr-inline" id="hub-player-ovr">60</span></span>
+          </p>
+          <p class="hub-info-bar__rep">
+            <span class="hub-info-bar__rep-stars" id="hub-rep-stars">⭐⭐☆☆☆</span>
+            <span class="hub-info-bar__rep-tier" id="hub-rep-tier">Local Prospect</span>
+          </p>
+          <p class="hub-info-bar__team" id="hub-info-team">Freshman Tryouts</p>
         </div>
 
         <!-- Scrollable main content -->
@@ -767,25 +766,14 @@
               </div>
             </div>
 
-            <!-- Dashboard: League News -->
+            <!-- Dashboard: League News (populated by NewsSystem in game.js) -->
             <div class="hub-dash-card">
               <div class="hub-dash-card__header">
                 <span class="hub-dash-card__title">League News</span>
               </div>
               <div class="hub-dash-card__body">
-                <div class="hub-news">
-                  <div class="hub-news__item">
-                    <span class="hub-news__tag">Tryouts</span>
-                    <span class="hub-news__headline">Freshman tryouts kick off across all programs this weekend</span>
-                  </div>
-                  <div class="hub-news__item">
-                    <span class="hub-news__tag">Preview</span>
-                    <span class="hub-news__headline">Northview Hawks favored to repeat as conference champions</span>
-                  </div>
-                  <div class="hub-news__item">
-                    <span class="hub-news__tag">Roster</span>
-                    <span class="hub-news__headline">Eastdale Falcons looking to rebuild around young core</span>
-                  </div>
+                <div class="hub-news" id="hub-news-list">
+                  <!-- rendered by renderHubNews() -->
                 </div>
               </div>
             </div>

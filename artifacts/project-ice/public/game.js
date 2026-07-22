@@ -828,6 +828,44 @@ document.getElementById('btn-take-ice').addEventListener('click', async () => {
   await sleep(900);
 });
 
+// ── News System ──────────────────────────────────────────────
+// Headlines are stored newest-first. Future simulation systems
+// add real headlines by calling NewsSystem.publish({ tag, headline }).
+// The hub always displays the three newest items.
+
+const NewsSystem = (() => {
+  const _items = [
+    { date: '2022-09-04', tag: 'Tryouts',  headline: 'Freshman tryouts begin this week across all programs.' },
+    { date: '2022-09-02', tag: 'Schedule', headline: 'League releases official preseason schedule.' },
+    { date: '2022-09-01', tag: 'Scouting', headline: 'Scouts expected at upcoming showcase events this fall.' },
+    { date: '2022-08-30', tag: 'Roster',   headline: 'Coaches begin finalizing preseason rosters.' },
+    { date: '2022-08-28', tag: 'Rankings', headline: 'Preseason rankings set to be announced soon.' },
+  ];
+
+  function publish({ date, tag, headline }) {
+    _items.unshift({ date, tag, headline });
+    renderHubNews();
+  }
+
+  function getRecent(n = 3) {
+    return _items.slice(0, n);
+  }
+
+  return { publish, getRecent };
+})();
+
+function renderHubNews() {
+  const container = document.getElementById('hub-news-list');
+  if (!container) return;
+  const items = NewsSystem.getRecent(3);
+  container.innerHTML = items.map(item => `
+    <div class="hub-news__item">
+      <span class="hub-news__tag">${item.tag}</span>
+      <span class="hub-news__headline">${item.headline}</span>
+    </div>
+  `).join('');
+}
+
 // ── Career Hub ───────────────────────────────────────────────
 
 const HUB_DAYS = [
@@ -843,30 +881,45 @@ const HUB_DAYS = [
 let hubCalendarReady = false;
 
 function updateHubScreen() {
-  const p = Game.player;
+  const p    = Game.player;
+  const name = `${p.firstName} ${p.lastName}`.trim() || '—';
+  const age  = p.age || 14;
+  const pos  = p.position || '—';
 
+  // ── Identity bar ─────────────────────────────────────────
   const nameEl = document.getElementById('hub-player-name');
-  if (nameEl) nameEl.textContent = `${p.firstName} ${p.lastName}`.trim() || '—';
+  if (nameEl) nameEl.textContent = name;
 
   const posEl = document.getElementById('hub-player-pos');
-  if (posEl) posEl.textContent = p.position || '—';
+  if (posEl) posEl.textContent = pos;
 
+  const ageBarEl = document.getElementById('hub-player-age-bar');
+  if (ageBarEl) ageBarEl.textContent = age;
+
+  // OVR is hardcoded at 60 until attribute calculation is wired
+  // hub-player-ovr span already reads "60" from HTML; leave it
+
+  // ── Home tab – team leaders ───────────────────────────────
   const leadersNameEl = document.getElementById('hub-leaders-you-name');
-  if (leadersNameEl) leadersNameEl.textContent = `${p.firstName} ${p.lastName}`.trim() || 'You';
+  if (leadersNameEl) leadersNameEl.textContent = name;
 
   const leadersPosEl = document.getElementById('hub-leaders-you-pos');
-  if (leadersPosEl) leadersPosEl.textContent = p.position || '—';
+  if (leadersPosEl) leadersPosEl.textContent = pos;
 
-  // Player profile tab fields
+  // ── Home tab – news ───────────────────────────────────────
+  renderHubNews();
+
+  // ── Player profile tab fields ─────────────────────────────
   const ppNameEl = document.getElementById('pp-player-name');
-  if (ppNameEl) ppNameEl.textContent = `${p.firstName} ${p.lastName}`.trim() || '—';
+  if (ppNameEl) ppNameEl.textContent = name;
 
   const ppPosEl = document.getElementById('pp-player-pos');
-  if (ppPosEl) ppPosEl.textContent = p.position || '—';
+  if (ppPosEl) ppPosEl.textContent = pos;
 
   const ppAgeEl = document.getElementById('pp-player-age');
-  if (ppAgeEl) ppAgeEl.textContent = `${p.age || 14} years old`;
+  if (ppAgeEl) ppAgeEl.textContent = `${age} years old`;
 
+  // ── One-time setup ────────────────────────────────────────
   if (!hubCalendarReady) {
     setupHubCalendar();
     hubCalendarReady = true;

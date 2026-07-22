@@ -2117,82 +2117,67 @@ html, body {
     linear-gradient(180deg, #060f22 0%, #091a3d 40%, #060e1e 100%);
 }
 
-/* ── Player info bar ── */
+/* ── Player identity bar ── */
 .hub-info-bar {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: max(env(safe-area-inset-top, 16px), 16px) 20px 12px;
-  background: rgba(4, 8, 20, 0.82);
+  flex-direction: column;
+  gap: 3px;
+  padding: max(env(safe-area-inset-top, 14px), 14px) 20px 13px;
+  background: rgba(4, 8, 20, 0.88);
   border-bottom: 1px solid rgba(25, 48, 90, 0.45);
 }
 
-.hub-info-bar__left {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
 .hub-info-bar__name {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  color: rgba(230, 245, 255, 0.97);
+  color: rgba(232, 246, 255, 0.97);
   line-height: 1.15;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
 }
 
-.hub-info-bar__sub {
+.hub-info-bar__attrs {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: rgba(120, 165, 225, 0.7);
+  white-space: nowrap;
+}
+
+.hub-info-bar__dot {
+  opacity: 0.45;
+}
+
+.hub-info-bar__ovr-inline {
+  font-weight: 700;
+  color: rgba(150, 200, 255, 0.88);
+}
+
+.hub-info-bar__rep {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.hub-info-bar__rep-stars {
+  font-size: 13px;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.hub-info-bar__rep-tier {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(160, 205, 255, 0.7);
+  letter-spacing: 0.04em;
+}
+
+.hub-info-bar__team {
   font-size: 11px;
   font-weight: 500;
-  color: rgba(120, 165, 225, 0.65);
-  white-space: nowrap;
-}
-
-.hub-info-bar__sep {
-  opacity: 0.5;
-}
-
-.hub-info-bar__team-inline {
-  color: rgba(140, 185, 240, 0.7);
-}
-
-.hub-info-bar__ovr {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 2px solid rgba(75, 135, 255, 0.45);
-  background: radial-gradient(circle at 40% 35%,
-    rgba(22, 52, 130, 0.85) 0%,
-    rgba(8, 20, 60, 0.95) 100%
-  );
-  box-shadow: 0 0 14px rgba(50, 100, 230, 0.2),
-              inset 0 0 8px rgba(0,0,0,0.5);
-  margin-left: 12px;
-}
-
-.hub-info-bar__ovr-label {
-  font-size: 7px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(110, 160, 240, 0.65);
-  margin-bottom: 1px;
-}
-
-.hub-info-bar__ovr-value {
-  font-size: 20px;
-  font-weight: 800;
-  color: rgba(200, 228, 255, 0.97);
-  line-height: 1;
+  color: rgba(100, 148, 215, 0.55);
+  margin-top: 1px;
+  letter-spacing: 0.03em;
 }
 
 /* ── Content scroll area ── */
