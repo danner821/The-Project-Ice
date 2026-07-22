@@ -1661,18 +1661,20 @@ const DrillEngine = (function () {
 
     // Populate shared coach-intro screen elements with this drill's data
     function _populateCoachIntro() {
-      const tag      = _el('ci-eval-tag');
-      const icon     = _el('ci-eval-icon');
-      const title    = _el('ci-eval-title');
-      const speech   = _el('ci-speech-text');
-      const traitsEl = _el('ci-traits');
-      const btnLabel = _el('ci-begin-btn-label');
+      const tag        = _el('ci-eval-tag');
+      const icon       = _el('ci-eval-icon');
+      const title      = _el('ci-eval-title');
+      const speech     = _el('ci-speech-text');
+      const traitsEl   = _el('ci-traits');
+      const btnLabel   = _el('ci-begin-btn-label');
+      const evalHeader = _el('se-eval-header');   // skating-eval screen top bar
 
-      if (tag)      tag.textContent      = `EVALUATION ${config.evalNumber} OF ${config.evalTotal}`;
-      if (icon)     icon.textContent     = config.evalIcon;
-      if (title)    title.textContent    = config.evalName;
-      if (speech)   speech.textContent   = config.coachSpeech;
-      if (btnLabel) btnLabel.textContent = `Begin ${config.evalName} Evaluation`;
+      if (tag)        tag.textContent        = `EVALUATION ${config.evalNumber} OF ${config.evalTotal}`;
+      if (icon)       icon.textContent       = config.evalIcon;
+      if (title)      title.textContent      = config.evalName;
+      if (speech)     speech.textContent     = config.coachSpeech;
+      if (btnLabel)   btnLabel.textContent   = `Begin ${config.evalName} Evaluation`;
+      if (evalHeader) evalHeader.textContent = `${config.evalIcon} ${config.evalName} Evaluation`;
       if (traitsEl) {
         traitsEl.innerHTML = config.traits
           .map(t => `<span class="ci-trait">${t}</span>`)
