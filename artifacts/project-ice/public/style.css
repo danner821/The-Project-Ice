@@ -3723,6 +3723,223 @@ html, body {
   padding-bottom: 4px;
 }
 
+/* ── Team Profile Screen ─────────────────────────────────────────────────── */
+
+#team-profile-screen {
+  /* Override base .screen padding so color bar is flush at top */
+  padding: 0;
+  /* Override base overflow:hidden so content can scroll */
+  overflow-y: auto;
+  background: radial-gradient(ellipse at 50% 0%, #0d1f42 0%, #050d1e 70%);
+  /* Stack color-bar + wrap vertically */
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+/* Two-tone color strip at the very top of the screen */
+.tp-color-bar {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  flex-shrink: 0;
+}
+
+.tp-color-bar__half {
+  flex: 1;
+}
+
+/* Scrollable content area */
+.tp-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+  padding: max(env(safe-area-inset-top, 12px), 14px) 20px
+           max(env(safe-area-inset-bottom, 20px), 28px);
+  gap: 0;
+  box-sizing: border-box;
+}
+
+/* Header */
+.tp-header {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.tp-header__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tp-school-name {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+  margin: 0;
+  line-height: 1.1;
+}
+
+/* Hero: full team name + prestige stars */
+.tp-hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px 14px;
+  border-bottom: 1px solid rgba(40, 75, 150, 0.22);
+  margin-bottom: 16px;
+}
+
+.tp-hero__team-name {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: rgba(215, 235, 255, 0.95);
+  margin: 0;
+  line-height: 1.05;
+}
+
+.tp-hero__prestige {
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: rgba(220, 170, 50, 0.85);
+  margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Identity card */
+.tp-identity-card {
+  border-left: 3px solid rgba(100, 160, 255, 0.4); /* overridden by JS */
+  background: rgba(10, 22, 52, 0.45);
+  border-radius: 0 10px 10px 0;
+  padding: 11px 14px;
+  margin-bottom: 18px;
+}
+
+.tp-identity-card__text {
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 400;
+  color: rgba(180, 210, 255, 0.75);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Stat pills */
+.tp-stat-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tp-stat-pill {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(8, 18, 44, 0.6);
+  border: 1px solid rgba(40, 80, 160, 0.2);
+  border-radius: 10px;
+  padding: 10px 8px;
+}
+
+.tp-stat-pill__label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(80, 120, 185, 0.6);
+}
+
+.tp-stat-pill__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(200, 225, 255, 0.92);
+  letter-spacing: -0.01em;
+}
+
+/* Color chips */
+.tp-colors-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.tp-color-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tp-color-chip__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.tp-color-chip__label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(120, 165, 230, 0.55);
+  letter-spacing: 0.02em;
+}
+
+/* Placeholder sections */
+.tp-section {
+  margin-bottom: 6px;
+  border-top: 1px solid rgba(25, 50, 105, 0.35);
+  padding-top: 14px;
+  padding-bottom: 8px;
+}
+
+.tp-section__label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(80, 120, 185, 0.55);
+  margin: 0 0 8px;
+}
+
+.tp-section__body {
+  padding-left: 2px;
+}
+
+.tp-placeholder {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(100, 140, 200, 0.38);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Clickable standing rows (hub preview + full standings) */
+.sl-row--clickable,
+.hub-standings__row--clickable {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.sl-row--clickable:hover,
+.sl-row--clickable:active {
+  background: rgba(40, 80, 180, 0.12);
+}
+
+.hub-standings__row--clickable:hover,
+.hub-standings__row--clickable:active {
+  background: rgba(40, 80, 180, 0.12);
+}
+
 /* ═══════════════════════════════════════════════════════════
    DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE
    ═══════════════════════════════════════════════════════════ */

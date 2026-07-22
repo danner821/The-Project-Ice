@@ -40,6 +40,7 @@ const backgroundScreen     = document.getElementById('background-screen');
 const arenaScreen          = document.getElementById('arena-screen');
 const hubScreen            = document.getElementById('hub-screen');
 const standingsScreen      = document.getElementById('standings-screen');
+const teamProfileScreen    = document.getElementById('team-profile-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -147,6 +148,7 @@ function showScreen(screenName) {
   arenaScreen.classList.add('screen--hidden');
   hubScreen.classList.add('screen--hidden');
   standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -193,6 +195,10 @@ function showScreen(screenName) {
   if (screenName === 'standings') {
     standingsScreen.classList.remove('screen--hidden');
     renderStandingsScreen();
+  }
+  if (screenName === 'team-profile') {
+    teamProfileScreen.classList.remove('screen--hidden');
+    // Content already populated by openTeamProfile() before showScreen() is called
   }
 
   Game.screen = screenName;
@@ -897,6 +903,83 @@ function renderHubNews() {
 // whenever a new headline is added — without world.js touching the DOM.
 WorldEngine.news.onNewsChange(renderHubNews);
 
+// ── Team Profile ─────────────────────────────────────────────
+// One reusable screen shared by both standings entry points.
+// _teamProfileOrigin controls where the Back button returns to.
+
+let _teamProfileOrigin = 'hub';  // 'hub' | 'standings'
+
+/** Convert a numeric prestige (1-5) to a star string. */
+function prestigeStars(n) {
+  const filled = Math.max(0, Math.min(5, n));
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+
+/**
+ * Populate the team profile screen with data from WorldEngine.
+ * Must be called before showScreen('team-profile').
+ * @param {string} teamId
+ */
+function renderTeamProfile(teamId) {
+  const team = WorldEngine.state.teams.find(t => t.teamId === teamId);
+  if (!team) return;
+
+  const gd     = team.goalsFor - team.goalsAgainst;
+  const gdStr  = gd > 0 ? `+${gd}` : `${gd}`;
+  const record = `${team.wins}-${team.losses}-${team.overtimeLosses}`;
+
+  // Color bar halves
+  const barPrimary   = document.getElementById('tp-color-bar-primary');
+  const barSecondary = document.getElementById('tp-color-bar-secondary');
+  if (barPrimary)   barPrimary.style.background   = team.primaryColor;
+  if (barSecondary) barSecondary.style.background = team.secondaryColor;
+
+  // Header
+  const schoolEl = document.getElementById('tp-school-name');
+  if (schoolEl) schoolEl.textContent = team.schoolName;
+
+  // Hero
+  const teamNameEl = document.getElementById('tp-team-name');
+  if (teamNameEl) teamNameEl.textContent = team.teamName;
+
+  const prestigeEl = document.getElementById('tp-prestige');
+  if (prestigeEl) prestigeEl.textContent = prestigeStars(team.prestige);
+
+  // Identity card — left border tinted to primary color
+  const identityCard = document.getElementById('tp-identity-card');
+  if (identityCard) identityCard.style.borderLeftColor = team.primaryColor;
+
+  const identityEl = document.getElementById('tp-identity');
+  if (identityEl) identityEl.textContent = team.identity;
+
+  // Stat pills
+  const recordEl = document.getElementById('tp-record');
+  if (recordEl) recordEl.textContent = record;
+
+  const ptsEl = document.getElementById('tp-pts');
+  if (ptsEl) ptsEl.textContent = team.points;
+
+  const gdEl = document.getElementById('tp-gd');
+  if (gdEl) gdEl.textContent = gdStr;
+
+  // Color chips
+  const chipPrimary   = document.getElementById('tp-chip-primary');
+  const chipSecondary = document.getElementById('tp-chip-secondary');
+  if (chipPrimary)   chipPrimary.style.background   = team.primaryColor;
+  if (chipSecondary) chipSecondary.style.background = team.secondaryColor;
+}
+
+/**
+ * Open the team profile for the given teamId.
+ * @param {string} teamId  - WorldEngine teamId
+ * @param {'hub'|'standings'} origin - where Back should return to
+ */
+function openTeamProfile(teamId, origin) {
+  _teamProfileOrigin = origin;
+  renderTeamProfile(teamId);
+  showScreen('team-profile');
+}
+
 // ── Standings ────────────────────────────────────────────────
 // Shared sort used by both the hub preview card and the full standings screen.
 // Sort order: Points desc → Wins desc → Goal Differential desc.
@@ -911,6 +994,7 @@ function getSortedStandings() {
 }
 
 // Renders the top-4 preview inside the hub home tab standings card.
+// Each data row carries data-team-id so click delegation can open the team profile.
 function renderHubStandings() {
   const container = document.getElementById('hub-standings-preview');
   if (!container) return;
@@ -924,7 +1008,10 @@ function renderHubStandings() {
 
   teams.forEach((t, i) => {
     const row = document.createElement('div');
-    row.className = 'hub-standings__row';
+    row.className = 'hub-standings__row hub-standings__row--clickable';
+    row.dataset.teamId = t.teamId;
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
     row.innerHTML = `
       <span class="hub-standings__pos">${i + 1}</span>
       <span class="hub-standings__team">${t.schoolName} ${t.teamName}</span>
@@ -937,6 +1024,7 @@ function renderHubStandings() {
 }
 
 // Renders all eight teams on the full standings screen.
+// Each row carries data-team-id so click delegation can open the team profile.
 function renderStandingsScreen() {
   const container = document.getElementById('sl-rows');
   if (!container) return;
@@ -950,7 +1038,9 @@ function renderStandingsScreen() {
     const record = `${t.wins}-${t.losses}-${t.overtimeLosses}`;
 
     return `
-      <div class="sl-row" role="listitem">
+      <div class="sl-row sl-row--clickable"
+           role="button" tabindex="0"
+           data-team-id="${t.teamId}">
         <span class="sl-col sl-col--rank">${i + 1}</span>
         <span class="sl-col sl-col--school">
           <span class="sl-school-name">${t.schoolName}</span>
@@ -1066,6 +1156,26 @@ document.getElementById('btn-hub-standings-all').addEventListener('click', () =>
 
 document.getElementById('btn-back-standings').addEventListener('click', () => {
   showScreen('hub');
+});
+
+// ── Team Profile navigation ───────────────────────────────────
+// Event delegation — one listener per standings container.
+// Any click on a row with data-team-id opens the team profile.
+
+document.getElementById('hub-standings-preview').addEventListener('click', e => {
+  const row = e.target.closest('[data-team-id]');
+  if (!row) return;
+  openTeamProfile(row.dataset.teamId, 'hub');
+});
+
+document.getElementById('sl-rows').addEventListener('click', e => {
+  const row = e.target.closest('[data-team-id]');
+  if (!row) return;
+  openTeamProfile(row.dataset.teamId, 'standings');
+});
+
+document.getElementById('btn-back-team-profile').addEventListener('click', () => {
+  showScreen(_teamProfileOrigin === 'standings' ? 'standings' : 'hub');
 });
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {

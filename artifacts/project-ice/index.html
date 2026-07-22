@@ -1152,6 +1152,98 @@
 
       </section>
 
+      <!-- TEAM PROFILE SCREEN — single reusable screen, populated by renderTeamProfile() -->
+      <section id="team-profile-screen" class="screen screen--hidden">
+
+        <!-- Two-tone color bar at very top, colors set by JS -->
+        <div class="tp-color-bar" id="tp-color-bar" aria-hidden="true">
+          <div class="tp-color-bar__half" id="tp-color-bar-primary"></div>
+          <div class="tp-color-bar__half" id="tp-color-bar-secondary"></div>
+        </div>
+
+        <!-- Scrollable content wrapper -->
+        <div class="tp-wrap">
+
+          <header class="tp-header">
+            <button class="back-button" id="btn-back-team-profile" aria-label="Go back">‹</button>
+            <div class="tp-header__text">
+              <p class="eyebrow">Team Profile</p>
+              <h2 class="tp-school-name" id="tp-school-name">—</h2>
+            </div>
+          </header>
+
+          <!-- Hero: full team name + prestige -->
+          <div class="tp-hero">
+            <p class="tp-hero__team-name" id="tp-team-name">—</p>
+            <p class="tp-hero__prestige" id="tp-prestige">☆☆☆☆☆</p>
+          </div>
+
+          <!-- Identity card — left border tinted to primary color via JS -->
+          <div class="tp-identity-card" id="tp-identity-card">
+            <p class="tp-identity-card__text" id="tp-identity">—</p>
+          </div>
+
+          <!-- Stat pills: Record · PTS · GD -->
+          <div class="tp-stat-row">
+            <div class="tp-stat-pill">
+              <span class="tp-stat-pill__label">Record</span>
+              <span class="tp-stat-pill__value" id="tp-record">0-0-0</span>
+            </div>
+            <div class="tp-stat-pill">
+              <span class="tp-stat-pill__label">PTS</span>
+              <span class="tp-stat-pill__value" id="tp-pts">0</span>
+            </div>
+            <div class="tp-stat-pill">
+              <span class="tp-stat-pill__label">GD</span>
+              <span class="tp-stat-pill__value" id="tp-gd">0</span>
+            </div>
+          </div>
+
+          <!-- Team colors -->
+          <div class="tp-colors-row">
+            <div class="tp-color-chip">
+              <div class="tp-color-chip__dot" id="tp-chip-primary"></div>
+              <span class="tp-color-chip__label">Primary</span>
+            </div>
+            <div class="tp-color-chip">
+              <div class="tp-color-chip__dot" id="tp-chip-secondary"></div>
+              <span class="tp-color-chip__label">Secondary</span>
+            </div>
+          </div>
+
+          <!-- Placeholder sections -->
+          <div class="tp-section">
+            <p class="tp-section__label">Coach</p>
+            <div class="tp-section__body">
+              <p class="tp-placeholder">Coach information coming soon.</p>
+            </div>
+          </div>
+
+          <div class="tp-section">
+            <p class="tp-section__label">Arena</p>
+            <div class="tp-section__body">
+              <p class="tp-placeholder">Arena information coming soon.</p>
+            </div>
+          </div>
+
+          <div class="tp-section">
+            <p class="tp-section__label">Team Leaders</p>
+            <div class="tp-section__body">
+              <p class="tp-placeholder">No stats yet.</p>
+            </div>
+          </div>
+
+          <div class="tp-section">
+            <p class="tp-section__label">Roster</p>
+            <div class="tp-section__body">
+              <p class="tp-placeholder">Roster coming soon.</p>
+            </div>
+          </div>
+
+        </div><!-- /.tp-wrap -->
+
+      </section>
+
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">
