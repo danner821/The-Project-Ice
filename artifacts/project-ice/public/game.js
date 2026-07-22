@@ -27,14 +27,15 @@ const Game = {
 };
 
 // ── Screen references ───────────────────────────────────────
-const titleScreen      = document.getElementById('title-screen');
-const creationScreen   = document.getElementById('creation-screen');
-const summaryScreen    = document.getElementById('summary-screen');
-const identityScreen   = document.getElementById('identity-screen');
-const nhlTeamScreen    = document.getElementById('nhlteam-screen');
-const motivationScreen = document.getElementById('motivation-screen');
-const archetypeScreen  = document.getElementById('archetype-screen');
-const backgroundScreen = document.getElementById('background-screen');
+const titleScreen         = document.getElementById('title-screen');
+const creationScreen      = document.getElementById('creation-screen');
+const summaryScreen       = document.getElementById('summary-screen');
+const identityScreen      = document.getElementById('identity-screen');
+const careerOverviewScreen = document.getElementById('career-overview-screen');
+const nhlTeamScreen       = document.getElementById('nhlteam-screen');
+const motivationScreen    = document.getElementById('motivation-screen');
+const archetypeScreen     = document.getElementById('archetype-screen');
+const backgroundScreen    = document.getElementById('background-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -57,6 +58,8 @@ const btnContinueMotivation     = document.getElementById('btn-continue-motivati
 const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
 const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
 const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
 
 // ── Form references ─────────────────────────────────────────
 const playerForm = document.getElementById('player-form');
@@ -75,6 +78,13 @@ const identityBgStatus         = document.getElementById('identity-background-st
 const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
 const identityMotivationStatus = document.getElementById('identity-motivation-status');
 const identityNhlTeamStatus    = document.getElementById('identity-nhlteam-status');
+const overviewPlayerName       = document.getElementById('overview-player-name');
+const overviewPlayerPosition   = document.getElementById('overview-player-position');
+const overviewPlayerHometown   = document.getElementById('overview-player-hometown');
+const overviewBackground       = document.getElementById('overview-background');
+const overviewArchetype        = document.getElementById('overview-archetype');
+const overviewMotivation       = document.getElementById('overview-motivation');
+const overviewNhlTeam          = document.getElementById('overview-nhlteam');
 const statusBackground         = document.getElementById('status-background');
 const statusArchetype          = document.getElementById('status-archetype');
 const statusMotivation         = document.getElementById('status-motivation');
@@ -120,6 +130,7 @@ function showScreen(screenName) {
   creationScreen.classList.add('screen--hidden');
   summaryScreen.classList.add('screen--hidden');
   identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
   nhlTeamScreen.classList.add('screen--hidden');
   motivationScreen.classList.add('screen--hidden');
   archetypeScreen.classList.add('screen--hidden');
@@ -135,6 +146,10 @@ function showScreen(screenName) {
     }
     identityScreen.classList.remove('screen--hidden');
     updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
   }
   if (screenName === 'nhlteam') {
     nhlTeamScreen.classList.remove('screen--hidden');
@@ -212,6 +227,18 @@ function updateIdentityScreen() {
   btnContinueSetup.disabled = !allDone;
   btnContinueSetup.classList.toggle('btn--primary',    allDone);
   btnContinueSetup.classList.toggle('btn--secondary', !allDone);
+}
+
+// ── Career Overview ─────────────────────────────────────────
+function updateCareerOverview() {
+  const p = Game.player;
+  overviewPlayerName.textContent     = `${p.firstName} ${p.lastName}`;
+  overviewPlayerPosition.textContent = `${p.position} · Shoots ${p.handedness}`;
+  overviewPlayerHometown.textContent = p.hometown;
+  overviewBackground.textContent     = p.background  || '—';
+  overviewArchetype.textContent      = p.archetype   || '—';
+  overviewMotivation.textContent     = p.motivation  || '—';
+  overviewNhlTeam.textContent        = p.nhlTeam     || '—';
 }
 
 // ── Restore selection UI ────────────────────────────────────
@@ -621,6 +648,18 @@ btnContinueMotivation.addEventListener('click', () => {
 btnContinueSummary.addEventListener('click', () => {
   saveCareerPreview();
   showScreen('identity');
+});
+
+btnContinueSetup.addEventListener('click', () => {
+  showScreen('overview');
+});
+
+btnBackOverview.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnBeginCareer.addEventListener('click', () => {
+  // Career start — not yet implemented
 });
 
 btnDeleteSave.addEventListener('click', () => {
