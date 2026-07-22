@@ -23,6 +23,12 @@ const Game = {
     nhlTeam: '',
     age: 14,
     careerStart: 2022,
+    // ── Career progression ─────────────────────────────────────
+    // stage: 'creation' | 'hub'
+    //   'creation' → player is still in the intro sequence
+    //   'hub'      → tryouts complete; save loads directly to Career Hub
+    stage: 'creation',
+    tryoutsComplete: false,
   },
 };
 
@@ -43,6 +49,7 @@ const standingsScreen      = document.getElementById('standings-screen');
 const teamProfileScreen    = document.getElementById('team-profile-screen');
 const prospectsScreen      = document.getElementById('prospects-screen');
 const eventScreen          = document.getElementById('event-screen');
+const tryoutSummaryScreen  = document.getElementById('tryout-summary-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -169,6 +176,8 @@ const EventSystem = (() => {
       location:    'Eastdale Ice Arena',
       objective:   'Impress the coaching staff.',
       description: 'Your first real chance to prove you belong. The coaches are watching every shift — your skating, your decisions, your compete level. Play your game.',
+      // When the player presses Begin Event, this screen is shown instead of the toast.
+      completeScreen: 'tryout-summary',
     },
     'recovery': {
       title:       'Recovery',
@@ -218,7 +227,8 @@ const EventSystem = (() => {
   };
 
   // ── Internal state ─────────────────────────────────────────
-  let _origin = 'hub';   // screen to return to when Back is pressed
+  let _origin     = 'hub';   // screen to return to when Back is pressed
+  let _currentDef = null;    // definition of the event currently on screen
 
   // ── Helpers ────────────────────────────────────────────────
   function _set(id, text) {
@@ -227,6 +237,7 @@ const EventSystem = (() => {
   }
 
   function _populate(def) {
+    _currentDef = def;
     _set('ev-type-badge',  def.type.toUpperCase());
     _set('ev-icon',        def.icon);
     _set('ev-title',       def.title);
@@ -269,7 +280,10 @@ const EventSystem = (() => {
   /** Which screen Back should return to. */
   function getOrigin() { return _origin; }
 
-  return { openEvent, getOrigin, EVENT_CATALOG };
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
 })();
 
 // ── Screen navigation ───────────────────────────────────────
@@ -290,6 +304,7 @@ function showScreen(screenName) {
   teamProfileScreen.classList.add('screen--hidden');
   prospectsScreen.classList.add('screen--hidden');
   eventScreen.classList.add('screen--hidden');
+  tryoutSummaryScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -348,6 +363,9 @@ function showScreen(screenName) {
   if (screenName === 'event') {
     eventScreen.classList.remove('screen--hidden');
     // Content already populated by EventSystem.openEvent() before showScreen() is called
+  }
+  if (screenName === 'tryout-summary') {
+    tryoutSummaryScreen.classList.remove('screen--hidden');
   }
 
   Game.screen = screenName;
@@ -607,6 +625,14 @@ function loadCareerPreview() {
       ...parsedCareer.player,
     };
 
+    // ── Route based on career stage ───────────────────────────
+    // 'hub' stage → tryouts are done; skip the intro sequence.
+    if (Game.player.stage === 'hub') {
+      showScreen('hub');
+      return;
+    }
+
+    // Still in creation flow — restore form state and resume at summary.
     firstNameInput.value = Game.player.firstName || '';
     lastNameInput.value = Game.player.lastName || '';
     hometownInput.value = Game.player.hometown || '';
@@ -1018,13 +1044,11 @@ async function runArenaDialogue() {
   actionEl.setAttribute('aria-hidden', 'false');
 }
 
-document.getElementById('btn-take-ice').addEventListener('click', async () => {
-  const overlay = document.getElementById('cinematic-overlay');
-  overlay.classList.add('is-active');
-  await sleep(900);
-  showScreen('hub');
-  overlay.classList.remove('is-active');
-  await sleep(900);
+document.getElementById('btn-take-ice').addEventListener('click', () => {
+  // Launch the Freshman Tryouts event via the Event System.
+  // EventSystem.openEvent handles the transition — no cinematic needed here,
+  // the event screen is the player's gateway to the tryout.
+  EventSystem.openEvent('tryout-freshman', 'arena');
 });
 
 // ── News System ──────────────────────────────────────────────
@@ -1252,14 +1276,17 @@ function renderStandingsScreen() {
 
 // ── Career Hub ───────────────────────────────────────────────
 
+// Tryout is on Sep 4 (the cinematic date). The player arrives at the hub
+// after completing it, so it appears as the first calendar entry with
+// isCompleted: true. Today (TUE 9/6) is the player's first live hub day.
 const HUB_DAYS = [
-  { day: 'MON', date: '9/8',  fullDate: 'Monday, September 8',    icon: '🏒', event: 'Practice',         isToday: true,  location: 'Summit Ice Center',  objective: 'Work on skating edges and passing.',  eventId: 'practice'          },
-  { day: 'TUE', date: '9/9',  fullDate: 'Tuesday, September 9',   icon: '🥅', event: 'Freshman Tryouts', isToday: false, location: 'Eastdale Ice Arena', objective: 'Impress the coaching staff.',          eventId: 'tryout-freshman'   },
-  { day: 'WED', date: '9/10', fullDate: 'Wednesday, September 10',icon: '💪', event: 'Recovery',         isToday: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',         eventId: 'recovery'          },
-  { day: 'THU', date: '9/11', fullDate: 'Thursday, September 11', icon: '🏒', event: 'Practice',         isToday: false, location: 'Summit Ice Center',  objective: 'Full team scrimmage session.',         eventId: 'practice-scrimmage'},
-  { day: 'FRI', date: '9/12', fullDate: 'Friday, September 12',   icon: '📅', event: 'Off Day',          isToday: false, location: '—',                  objective: 'No scheduled activities. Rest up.',   eventId: 'off-day'           },
-  { day: 'SAT', date: '9/13', fullDate: 'Saturday, September 13', icon: '🥅', event: 'Exhibition Game',  isToday: false, location: 'Eastdale Ice Arena', objective: 'Get game-ready. Show your best.',     eventId: 'exhibition-game'   },
-  { day: 'SUN', date: '9/14', fullDate: 'Sunday, September 14',   icon: '😴', event: 'Recovery',         isToday: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',         eventId: 'recovery-sleep'    },
+  { day: 'SUN', date: '9/4',  fullDate: 'Sunday, September 4',    icon: '🎯', event: 'Freshman Tryouts', isToday: false, isCompleted: true,  location: 'Eastdale Ice Arena', objective: 'Impress the coaching staff.',         eventId: 'tryout-freshman',   summaryScreen: 'tryout-summary' },
+  { day: 'MON', date: '9/5',  fullDate: 'Monday, September 5',    icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and recover.',                  eventId: 'recovery'                                                },
+  { day: 'TUE', date: '9/6',  fullDate: 'Tuesday, September 6',   icon: '🏒', event: 'Practice',         isToday: true,  isCompleted: false, location: 'Summit Ice Center',  objective: 'Work on skating edges and passing.', eventId: 'practice'                                                },
+  { day: 'WED', date: '9/7',  fullDate: 'Wednesday, September 7', icon: '🏒', event: 'Practice',         isToday: false, isCompleted: false, location: 'Summit Ice Center',  objective: 'Full team scrimmage session.',       eventId: 'practice-scrimmage'                                      },
+  { day: 'THU', date: '9/8',  fullDate: 'Thursday, September 8',  icon: '📅', event: 'Off Day',          isToday: false, isCompleted: false, location: '—',                  objective: 'No scheduled activities. Rest up.', eventId: 'off-day'                                                 },
+  { day: 'FRI', date: '9/9',  fullDate: 'Friday, September 9',    icon: '🥅', event: 'Exhibition Game',  isToday: false, isCompleted: false, location: 'Eastdale Ice Arena', objective: 'Get game-ready. Show your best.',   eventId: 'exhibition-game'                                         },
+  { day: 'SAT', date: '9/10', fullDate: 'Saturday, September 10', icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',       eventId: 'recovery-sleep'                                          },
 ];
 
 let hubCalendarReady = false;
@@ -1328,14 +1355,16 @@ function setupHubCalendar() {
 
   // ── Build cards ───────────────────────────────────────────
   HUB_DAYS.forEach((d, i) => {
-    const isToday  = i === TODAY_INDEX;
-    const isFuture = i > TODAY_INDEX;
+    const isToday     = i === TODAY_INDEX;
+    const isFuture    = i > TODAY_INDEX;
+    const isCompleted = Boolean(d.isCompleted);
 
     const card = document.createElement('div');
     card.className = [
       'hub-cal-card',
-      isToday  ? 'hub-cal-card--today'  : '',
-      isFuture ? 'hub-cal-card--future' : '',
+      isCompleted ? 'hub-cal-card--completed' : '',
+      isToday     ? 'hub-cal-card--today'     : '',
+      isFuture    ? 'hub-cal-card--future'    : '',
     ].filter(Boolean).join(' ');
     card.dataset.dayIndex = i;
     card.setAttribute('role', 'button');
@@ -1344,8 +1373,12 @@ function setupHubCalendar() {
     card.innerHTML = `
       <span class="hub-cal-card__day">${d.day}</span>
       <span class="hub-cal-card__date">${d.date}</span>
-      <span class="hub-cal-card__icon">${d.icon}</span>
+      ${isCompleted
+        ? '<span class="hub-cal-card__check" aria-hidden="true">✓</span>'
+        : `<span class="hub-cal-card__icon">${d.icon}</span>`
+      }
       <span class="hub-cal-card__title">${d.event}</span>
+      ${isCompleted ? '<span class="hub-cal-card__status-done" aria-hidden="true">Done</span>' : ''}
       ${isToday ? '<span class="hub-cal-card__dot" aria-hidden="true"></span>' : ''}
     `;
 
@@ -1359,16 +1392,21 @@ function setupHubCalendar() {
     cards.forEach(c => c.classList.remove('hub-cal-card--selected'));
     cards[index].classList.add('hub-cal-card--selected');
 
-    const d        = HUB_DAYS[index];
-    const isFuture = index > TODAY_INDEX;
+    const d           = HUB_DAYS[index];
+    const isFuture    = index > TODAY_INDEX;
+    const isCompleted = Boolean(d.isCompleted);
 
-    // Update event panel content
-    if (epIcon)   epIcon.textContent   = d.icon;
-    if (epName)   epName.textContent   = d.event;
-    if (epLoc)    epLoc.textContent    = d.location;
-    if (epObj)    epObj.textContent    = d.objective;
-    if (epBtnLbl) epBtnLbl.textContent = isFuture ? 'Simulate to Selected Day' : 'Enter Event';
-    if (epToast)  epToast.hidden = true; // reset toast on new selection
+    if (epIcon) epIcon.textContent = isCompleted ? '✅' : d.icon;
+    if (epName) epName.textContent = d.event;
+    if (epLoc)  epLoc.textContent  = d.location;
+    if (epObj)  epObj.textContent  = isCompleted ? 'This event has been completed.' : d.objective;
+
+    if (epBtnLbl) {
+      if (isCompleted)   epBtnLbl.textContent = 'View Summary';
+      else if (isFuture) epBtnLbl.textContent = 'Simulate to Selected Day';
+      else               epBtnLbl.textContent = 'Enter Event';
+    }
+    if (epToast) epToast.hidden = true;
   }
 
   cards.forEach((card, i) => {
@@ -1377,21 +1415,30 @@ function setupHubCalendar() {
 
   // ── Event panel button ────────────────────────────────────
   if (epBtn) {
-    epBtn.addEventListener('click', async () => {
+    epBtn.addEventListener('click', () => {
       const selectedIndex = [...cards].findIndex(c => c.classList.contains('hub-cal-card--selected'));
-      const isFuture = selectedIndex > TODAY_INDEX;
+      const d           = HUB_DAYS[selectedIndex];
+      const isFuture    = selectedIndex > TODAY_INDEX;
+      const isCompleted = Boolean(d.isCompleted);
 
-      if (isFuture) {
+      if (isCompleted) {
+        // Open this event's result summary screen
+        if (d.summaryScreen === 'tryout-summary') openTryoutSummary('history');
+      } else if (isFuture) {
         // Simulation not yet built
         if (epToast) epToast.hidden = false;
       } else {
-        // Open the event screen for today's event via the Event System
-        EventSystem.openEvent(HUB_DAYS[selectedIndex].eventId, 'hub');
+        // Enter the event via the Event System
+        EventSystem.openEvent(d.eventId, 'hub');
       }
     });
   }
 
-  // Start on today
+  // Scroll completed card into view, then settle on today
+  const completedCard = strip.querySelector('.hub-cal-card--completed');
+  if (completedCard) {
+    completedCard.scrollIntoView({ behavior: 'instant', inline: 'start', block: 'nearest' });
+  }
   selectDay(TODAY_INDEX);
 }
 
@@ -1477,10 +1524,56 @@ document.getElementById('btn-back-event').addEventListener('click', () => {
   showScreen(EventSystem.getOrigin());
 });
 
-// Begin Event — gameplay not yet built; show toast
+// ── Tryout Summary helpers ────────────────────────────────────
+// context 'first-time' = player just finished tryouts for the first time.
+// context 'history'    = player reviewing from the hub calendar.
+
+let _tryoutSummaryContext = 'history';
+
+function openTryoutSummary(context) {
+  _tryoutSummaryContext = context;
+  // Show the "Enter Career Hub" CTA only on first completion
+  const ctaEl = document.getElementById('ts-cta-hub');
+  if (ctaEl) ctaEl.hidden = context !== 'first-time';
+  showScreen('tryout-summary');
+}
+
+// Maps EVENT_CATALOG completeScreen keys → their handler functions.
+// Add new entries here as more event types receive completion screens.
+const COMPLETE_SCREENS = {
+  'tryout-summary': () => openTryoutSummary('first-time'),
+};
+
+// Begin Event — if the event defines a completeScreen, navigate there.
+// Otherwise show the "gameplay coming soon" toast.
 document.getElementById('btn-ev-begin').addEventListener('click', () => {
-  const toast = document.getElementById('ev-begin-toast');
-  if (toast) toast.hidden = false;
+  const def = EventSystem.getCurrentDef();
+  if (def && def.completeScreen && COMPLETE_SCREENS[def.completeScreen]) {
+    COMPLETE_SCREENS[def.completeScreen]();
+  } else {
+    const toast = document.getElementById('ev-begin-toast');
+    if (toast) toast.hidden = false;
+  }
+});
+
+// ── Tryout Summary navigation ─────────────────────────────────
+
+// Back: first-time → return to event screen (arena); history → return to hub
+document.getElementById('btn-back-tryout-summary').addEventListener('click', () => {
+  if (_tryoutSummaryContext === 'first-time') {
+    showScreen(EventSystem.getOrigin()); // 'arena' — so they can re-read the event
+  } else {
+    showScreen('hub');
+  }
+});
+
+// Enter Career Hub — only visible on first completion.
+// Marks stage='hub' so future save loads skip the intro sequence.
+document.getElementById('btn-ts-enter-hub').addEventListener('click', () => {
+  Game.player.stage          = 'hub';
+  Game.player.tryoutsComplete = true;
+  saveCareerPreview();
+  showScreen('hub');
 });
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {

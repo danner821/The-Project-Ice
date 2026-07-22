@@ -1452,6 +1452,60 @@
 
       </section>
 
+      <!-- TRYOUT SUMMARY SCREEN -->
+      <section id="tryout-summary-screen" class="screen screen--hidden">
+
+        <div class="ts-wrap">
+
+          <!-- Header: back + eyebrow + completed badge -->
+          <header class="ts-header">
+            <button class="back-button" id="btn-back-tryout-summary" aria-label="Back">‹</button>
+            <div class="ts-header__text">
+              <p class="eyebrow">Event Results</p>
+              <h2>Tryout Results</h2>
+            </div>
+            <span class="ts-status-badge">COMPLETED</span>
+          </header>
+
+          <!-- Hero: icon + event name + location -->
+          <div class="ts-hero">
+            <span class="ts-hero__icon">🎯</span>
+            <div class="ts-hero__info">
+              <h3 class="ts-hero__title">Freshman Tryouts</h3>
+              <p class="ts-hero__subtitle">Eastdale Ice Arena</p>
+            </div>
+          </div>
+
+          <div class="ts-divider" aria-hidden="true"></div>
+
+          <!-- Placeholder results -->
+          <div class="ts-results-card">
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Drill Results</span>
+              <span class="ts-result-row__value ts-result-row__value--pending">Coming Soon</span>
+            </div>
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Coach Evaluation</span>
+              <span class="ts-result-row__value ts-result-row__value--pending">Coming Soon</span>
+            </div>
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Team Placement</span>
+              <span class="ts-result-row__value ts-result-row__value--pending">Coming Soon</span>
+            </div>
+          </div>
+
+          <!-- CTA: only visible when first completing tryouts (stage !== 'hub') -->
+          <div class="ts-cta" id="ts-cta-hub" hidden>
+            <button class="btn btn--primary ts-cta-btn" id="btn-ts-enter-hub">
+              <span class="btn__label">Enter Career Hub</span>
+              <span class="btn__arrow">›</span>
+            </button>
+          </div>
+
+        </div><!-- /.ts-wrap -->
+
+      </section>
+
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">

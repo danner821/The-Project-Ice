@@ -4183,6 +4183,200 @@ html, body {
   padding: 2px 0 4px;
 }
 
+/* ── Hub calendar: completed event card ─────────────────────────────────── */
+
+.hub-cal-card--completed {
+  opacity: 0.62;
+  background: rgba(6, 22, 12, 0.68);
+  border-color: rgba(38, 138, 68, 0.28);
+  cursor: pointer;
+}
+
+.hub-cal-card--completed:active {
+  background: rgba(10, 38, 18, 0.82);
+}
+
+/* Replaces the emoji icon on completed cards */
+.hub-cal-card__check {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  margin: 8px 0 6px;
+  color: rgba(72, 210, 120, 0.82);
+}
+
+/* "Done" micro-label at card bottom */
+.hub-cal-card__status-done {
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(65, 195, 108, 0.6);
+  margin-top: auto;
+  padding-bottom: 2px;
+}
+
+/* Completed card text colours */
+.hub-cal-card--completed .hub-cal-card__day,
+.hub-cal-card--completed .hub-cal-card__date {
+  color: rgba(90, 165, 120, 0.65);
+}
+
+.hub-cal-card--completed .hub-cal-card__title {
+  color: rgba(130, 200, 155, 0.7);
+}
+
+/* Completed + selected */
+.hub-cal-card--completed.hub-cal-card--selected {
+  opacity: 1;
+  background: rgba(8, 40, 20, 0.75);
+  border-color: rgba(58, 180, 98, 0.65);
+  box-shadow: 0 0 18px rgba(40, 175, 90, 0.18);
+}
+
+/* ── Tryout Summary Screen ────────────────────────────────────────────────── */
+
+#tryout-summary-screen {
+  padding: 0;
+  overflow-y: auto;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.ts-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: max(env(safe-area-inset-top, 12px), 14px) 22px
+           max(env(safe-area-inset-bottom, 20px), 36px);
+  box-sizing: border-box;
+}
+
+/* Header */
+.ts-header {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 22px;
+}
+
+.ts-header__text h2 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #fff;
+  margin: 0;
+  line-height: 1.1;
+}
+
+/* Completed status badge (green) */
+.ts-status-badge {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  color: rgba(78, 218, 135, 0.9);
+  background: rgba(8, 66, 34, 0.48);
+  border: 1px solid rgba(48, 172, 90, 0.32);
+}
+
+/* Hero: icon + event name + location */
+.ts-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+}
+
+.ts-hero__icon {
+  font-size: 52px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ts-hero__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ts-hero__title {
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: rgba(222, 242, 255, 0.97);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.ts-hero__subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(128, 175, 240, 0.68);
+  margin: 0;
+}
+
+/* Divider */
+.ts-divider {
+  height: 1px;
+  background: rgba(28, 58, 118, 0.35);
+  margin-bottom: 20px;
+}
+
+/* Results card */
+.ts-results-card {
+  background: rgba(8, 18, 42, 0.55);
+  border: 1px solid rgba(40, 80, 160, 0.18);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+
+.ts-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(18, 38, 80, 0.35);
+}
+
+.ts-result-row:last-child {
+  border-bottom: none;
+}
+
+.ts-result-row__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(162, 202, 252, 0.72);
+}
+
+.ts-result-row__value {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(200, 228, 255, 0.9);
+}
+
+.ts-result-row__value--pending {
+  color: rgba(90, 130, 192, 0.42);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Enter Career Hub CTA */
+.ts-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ts-cta-btn {
+  width: 100%;
+}
+
 /* ── Team Profile Screen ─────────────────────────────────────────────────── */
 
 #team-profile-screen {
