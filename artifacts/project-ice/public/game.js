@@ -69,6 +69,39 @@ const statusMotivation       = document.getElementById('status-motivation');
 const statusNhlTeam          = document.getElementById('status-nhlteam');
 const identityCompleteCount  = document.getElementById('identity-complete-count');
 
+// ── Archetype position rules ────────────────────────────────
+const POSITION_GROUP = {
+  'Center':     'forward',
+  'Left Wing':  'forward',
+  'Right Wing': 'forward',
+  'Defenseman': 'defense',
+  'Goalie':     'goalie',
+};
+
+const VALID_ARCHETYPES = {
+  forward: ['Sniper', 'Playmaker', 'Power Forward', 'Two-Way Forward'],
+  defense: ['Offensive Defenseman', 'Defensive Defenseman'],
+  goalie:  ['Butterfly Goalie', 'Athletic Goalie', 'Hybrid Goalie'],
+};
+
+function getPositionGroup(position) {
+  return POSITION_GROUP[position] || '';
+}
+
+function isArchetypeValidForPosition(archetype, position) {
+  const group = getPositionGroup(position);
+  if (!group) return false;
+  return (VALID_ARCHETYPES[group] || []).includes(archetype);
+}
+
+function filterArchetypeCards() {
+  const group = getPositionGroup(Game.player.position);
+  document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+    const show = card.dataset.positionGroup === group;
+    card.style.display = show ? '' : 'none';
+  });
+}
+
 // ── Screen navigation ───────────────────────────────────────
 function showScreen(screenName) {
   titleScreen.classList.add('screen--hidden');
@@ -82,11 +115,16 @@ function showScreen(screenName) {
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
   if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
   if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
     identityScreen.classList.remove('screen--hidden');
     updateIdentityScreen();
   }
   if (screenName === 'archetype') {
     archetypeScreen.classList.remove('screen--hidden');
+    filterArchetypeCards();
     restoreArchetypeSelection();
   }
   if (screenName === 'background') {
