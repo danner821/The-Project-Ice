@@ -3518,3 +3518,58 @@ html, body {
   font-size: 17px;
   letter-spacing: 0.04em;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE
+   ═══════════════════════════════════════════════════════════ */
+.dev-shortcut-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0 28px 4px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(255, 200, 60, 0.25);
+}
+
+.dev-shortcut-area__label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 200, 60, 0.55);
+}
+
+.btn--dev {
+  width: 100%;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 200, 60, 0.45);
+  background: rgba(255, 200, 60, 0.06);
+  color: rgba(255, 200, 60, 0.85);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.btn--dev:not(:disabled):active {
+  background: rgba(255, 200, 60, 0.14);
+}
+
+.btn--dev:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dev-shortcut-area__hint {
+  font-size: 11px;
+  color: rgba(255, 200, 60, 0.45);
+  display: none;
+}
+
+.dev-shortcut-area__hint.is-visible {
+  display: block;
+}
+/* ═══════════════════════════════════════════════════════════ */

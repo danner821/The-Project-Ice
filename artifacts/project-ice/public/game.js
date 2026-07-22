@@ -43,6 +43,10 @@ const hubScreen            = document.getElementById('hub-screen');
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
 const btnContinue = document.getElementById('btn-continue');
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+const btnDevHub       = document.getElementById('btn-dev-hub');
+const devShortcutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
 const btnBackTitle = document.getElementById('btn-back-title');
 const btnBackCreation = document.getElementById('btn-back-creation');
 const btnBackSummary = document.getElementById('btn-back-summary');
@@ -418,6 +422,7 @@ function saveCareerPreview() {
     );
 
     updateContinueButton();
+    updateDevShortcut(); // DEV SHORTCUT — remove with dev shortcut
   } catch (error) {
     console.error('[Project Ice] Save failed:', error);
   }
@@ -462,6 +467,7 @@ function deleteCareerPreview() {
   localStorage.removeItem(SAVE_KEY);
   resetPlayer();
   updateContinueButton();
+  updateDevShortcut(); // DEV SHORTCUT — remove with dev shortcut
   showScreen('title');
 }
 
@@ -503,6 +509,16 @@ function updateContinueButton() {
   }
 }
 
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+// Enables the "Skip to Career Hub" button only when a saved career exists.
+// Does not alter save data, career stage, or tryout completion state.
+function updateDevShortcut() {
+  const hasSave = Boolean(localStorage.getItem(SAVE_KEY));
+  btnDevHub.disabled = !hasSave;
+  devShortcutHint.classList.toggle('is-visible', !hasSave);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function resetPlayer() {
   Game.player = {
     firstName: '',
@@ -540,6 +556,25 @@ btnNewCareer.addEventListener('click', () => {
 btnContinue.addEventListener('click', () => {
   loadCareerPreview();
 });
+
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+// Loads the saved career and jumps straight to Career Hub without running
+// any cinematic sequences or altering career stage / tryout state.
+btnDevHub.addEventListener('click', () => {
+  const savedCareer = localStorage.getItem(SAVE_KEY);
+  if (!savedCareer) return;
+
+  try {
+    const parsed = JSON.parse(savedCareer);
+    if (!parsed.player) return;
+
+    Game.player = { ...Game.player, ...parsed.player };
+    showScreen('hub');
+  } catch (err) {
+    console.error('[DEV] Skip to Hub failed:', err);
+  }
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 btnBackTitle.addEventListener('click', () => {
   showScreen('title');
@@ -1036,6 +1071,7 @@ document.querySelectorAll('.choice-card').forEach((button) => {
 // ── App initialization ──────────────────────────────────────
 function init() {
   updateContinueButton();
+  updateDevShortcut(); // DEV SHORTCUT — remove with dev shortcut
   showScreen('title');
 }
 
