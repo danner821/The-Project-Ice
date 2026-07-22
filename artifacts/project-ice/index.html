@@ -395,6 +395,7 @@
             <div class="identity-card__body">
               <h3 class="identity-card__title">Hockey Background</h3>
               <p class="identity-card__subtitle" id="identity-background-status">Not Selected</p>
+              <span class="identity-card__status identity-card__status--empty" id="status-background">⚪ NOT SELECTED</span>
             </div>
             <span class="identity-card__arrow" aria-hidden="true">›</span>
           </button>
@@ -406,8 +407,8 @@
             <div class="identity-card__body">
               <h3 class="identity-card__title">Player Archetype</h3>
               <p class="identity-card__subtitle">Choose your natural style of play.</p>
+              <span class="identity-card__status identity-card__status--empty" id="status-archetype">⚪ NOT SELECTED</span>
             </div>
-            <span class="identity-card__badge">Coming Soon</span>
           </button>
 
           <button class="identity-card" type="button" disabled>
@@ -417,8 +418,8 @@
             <div class="identity-card__body">
               <h3 class="identity-card__title">Motivation</h3>
               <p class="identity-card__subtitle">What drives your hockey career?</p>
+              <span class="identity-card__status identity-card__status--empty" id="status-motivation">⚪ NOT SELECTED</span>
             </div>
-            <span class="identity-card__badge">Coming Soon</span>
           </button>
 
           <button class="identity-card" type="button" disabled>
@@ -428,15 +429,20 @@
             <div class="identity-card__body">
               <h3 class="identity-card__title">Favorite NHL Team</h3>
               <p class="identity-card__subtitle">Pick the team you grew up cheering for.</p>
+              <span class="identity-card__status identity-card__status--empty" id="status-nhlteam">⚪ NOT SELECTED</span>
             </div>
-            <span class="identity-card__badge">Coming Soon</span>
           </button>
 
           <div class="identity-footer">
             <button class="btn btn--secondary" id="btn-continue-setup" disabled>
               <span class="btn__label">Continue Career Setup</span>
             </button>
-            <p class="identity-hint">Complete all four sections to continue.</p>
+            <div class="identity-progress">
+              <p class="identity-progress__label">Identity Progress</p>
+              <p class="identity-progress__count">
+                <span id="identity-complete-count">0</span> / 4 Complete
+              </p>
+            </div>
           </div>
 
         </div>

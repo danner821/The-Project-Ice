@@ -917,33 +917,61 @@ html, body {
   line-height: 1.4;
 }
 
-.identity-card__badge {
-  flex-shrink: 0;
+.identity-card__status {
+  display: inline-block;
+  margin-top: 6px;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 800;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: rgba(120, 160, 220, 0.4);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(100, 150, 210, 0.14);
   border-radius: 6px;
-  padding: 4px 9px;
+  padding: 3px 8px;
+}
+
+.identity-card__status--empty {
+  color: rgba(140, 170, 220, 0.45);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(100, 140, 200, 0.12);
+}
+
+.identity-card__status--complete {
+  color: rgba(100, 220, 120, 0.92);
+  background: rgba(50, 180, 80, 0.1);
+  border: 1px solid rgba(80, 200, 100, 0.22);
 }
 
 .identity-footer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   margin-top: 6px;
 }
 
-.identity-hint {
-  font-size: 12px;
-  font-weight: 500;
+.identity-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.identity-progress__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: rgba(130, 165, 215, 0.38);
-  letter-spacing: 0.03em;
-  text-align: center;
+}
+
+.identity-progress__count {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(170, 205, 255, 0.55);
+}
+
+.identity-progress__count #identity-complete-count {
+  color: rgba(100, 220, 120, 0.9);
+  font-weight: 800;
 }
 
 @media (max-width: 370px) {

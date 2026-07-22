@@ -56,7 +56,12 @@ const summaryDetails = document.getElementById('summary-details');
 const summaryHometown = document.getElementById('summary-hometown');
 
 // ── Identity references ─────────────────────────────────────
-const identityBgStatus = document.getElementById('identity-background-status');
+const identityBgStatus      = document.getElementById('identity-background-status');
+const statusBackground      = document.getElementById('status-background');
+const statusArchetype       = document.getElementById('status-archetype');
+const statusMotivation      = document.getElementById('status-motivation');
+const statusNhlTeam         = document.getElementById('status-nhlteam');
+const identityCompleteCount = document.getElementById('identity-complete-count');
 
 // ── Screen navigation ───────────────────────────────────────
 function showScreen(screenName) {
@@ -71,7 +76,7 @@ function showScreen(screenName) {
   if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
   if (screenName === 'identity') {
     identityScreen.classList.remove('screen--hidden');
-    updateIdentityBackground();
+    updateIdentityScreen();
   }
   if (screenName === 'background') {
     backgroundScreen.classList.remove('screen--hidden');
@@ -82,11 +87,36 @@ function showScreen(screenName) {
   window.scrollTo(0, 0);
 }
 
-// ── Identity card display ───────────────────────────────────
+// ── Identity screen update ──────────────────────────────────
+function setIdentityStatus(el, complete) {
+  el.textContent = complete ? '🟢 COMPLETE' : '⚪ NOT SELECTED';
+  el.classList.toggle('identity-card__status--complete', complete);
+  el.classList.toggle('identity-card__status--empty',   !complete);
+}
+
 function updateIdentityBackground() {
   const selected = Game.player.background;
   identityBgStatus.textContent = selected || 'Not Selected';
   identityBgStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+}
+
+function updateIdentityScreen() {
+  updateIdentityBackground();
+
+  const bgDone = Boolean(Game.player.background);
+
+  setIdentityStatus(statusBackground, bgDone);
+  setIdentityStatus(statusArchetype,  false);
+  setIdentityStatus(statusMotivation, false);
+  setIdentityStatus(statusNhlTeam,    false);
+
+  const count = [bgDone].filter(Boolean).length;
+  identityCompleteCount.textContent = count;
+
+  const allDone = count === 4;
+  btnContinueSetup.disabled = !allDone;
+  btnContinueSetup.classList.toggle('btn--primary',    allDone);
+  btnContinueSetup.classList.toggle('btn--secondary', !allDone);
 }
 
 // ── Restore background selection UI ────────────────────────
