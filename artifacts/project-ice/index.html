@@ -629,76 +629,25 @@
           <!-- Home tab panel -->
           <div id="hub-tab-home" class="hub-tab-panel hub-tab-panel--active">
 
-            <!-- Week label -->
-            <div class="hub-week-header">
-              <span class="hub-week-header__label">Week of September 4, 2022</span>
-            </div>
-
-            <!-- Horizontal calendar -->
-            <div class="hub-week-scroll" id="hub-week-scroll">
-
-              <div class="hub-day-card hub-day-card--today hub-day-card--selected" data-day-index="0">
-                <span class="hub-day-card__day">SUN</span>
-                <span class="hub-day-card__date">Sep 4</span>
-                <span class="hub-day-card__icon">🎯</span>
-                <span class="hub-day-card__event">Freshman Tryouts</span>
-                <span class="hub-day-card__today-dot"></span>
+            <!-- Weekly calendar -->
+            <div class="hub-cal">
+              <div class="hub-cal__header">
+                <span class="hub-cal__week-label">Week of September 8, 2022</span>
               </div>
 
-              <div class="hub-day-card" data-day-index="1">
-                <span class="hub-day-card__day">MON</span>
-                <span class="hub-day-card__date">Sep 5</span>
-                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
-                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
-              </div>
+              <!-- Day rows injected by setupHubCalendar() -->
+              <div class="hub-cal__rows" id="hub-cal-rows"></div>
 
-              <div class="hub-day-card" data-day-index="2">
-                <span class="hub-day-card__day">TUE</span>
-                <span class="hub-day-card__date">Sep 6</span>
-                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
-                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              <!-- Simulate bar — visible only when a future day is selected -->
+              <div class="hub-cal__sim-bar" id="hub-cal-sim-bar" hidden>
+                <button class="btn btn--primary hub-cal__sim-btn" id="btn-hub-simulate">
+                  <span class="btn__label" id="hub-simulate-label">Simulate to Selected Day</span>
+                  <span class="btn__arrow">›</span>
+                </button>
+                <p class="hub-cal__sim-toast" id="hub-cal-sim-toast" hidden>
+                  Simulation system coming soon.
+                </p>
               </div>
-
-              <div class="hub-day-card" data-day-index="3">
-                <span class="hub-day-card__day">WED</span>
-                <span class="hub-day-card__date">Sep 7</span>
-                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
-                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
-              </div>
-
-              <div class="hub-day-card" data-day-index="4">
-                <span class="hub-day-card__day">THU</span>
-                <span class="hub-day-card__date">Sep 8</span>
-                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
-                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
-              </div>
-
-              <div class="hub-day-card" data-day-index="5">
-                <span class="hub-day-card__day">FRI</span>
-                <span class="hub-day-card__date">Sep 9</span>
-                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
-                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
-              </div>
-
-              <div class="hub-day-card" data-day-index="6">
-                <span class="hub-day-card__day">SAT</span>
-                <span class="hub-day-card__date">Sep 10</span>
-                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
-                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
-              </div>
-
-            </div><!-- /.hub-week-scroll -->
-
-            <!-- Selected day detail + action -->
-            <div class="hub-day-detail">
-              <div class="hub-day-detail__info">
-                <span class="hub-day-detail__date" id="hub-detail-date">Sunday, September 4</span>
-                <span class="hub-day-detail__event" id="hub-detail-event">🎯 Freshman Tryouts</span>
-              </div>
-              <button class="btn btn--primary hub-day-detail__btn" id="btn-hub-continue">
-                <span class="btn__label" id="hub-detail-btn-label">Enter Event</span>
-                <span class="btn__arrow">›</span>
-              </button>
             </div>
 
             <!-- Dashboard: Standings (preview — top 4, populated by renderHubStandings()) -->

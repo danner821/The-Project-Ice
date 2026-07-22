@@ -1057,13 +1057,13 @@ function renderStandingsScreen() {
 // ── Career Hub ───────────────────────────────────────────────
 
 const HUB_DAYS = [
-  { fullDate: 'Sunday, September 4',    eventLabel: '🎯 Freshman Tryouts', hasEvent: true  },
-  { fullDate: 'Monday, September 5',    eventLabel: 'Off Day',             hasEvent: false },
-  { fullDate: 'Tuesday, September 6',   eventLabel: 'Off Day',             hasEvent: false },
-  { fullDate: 'Wednesday, September 7', eventLabel: 'Off Day',             hasEvent: false },
-  { fullDate: 'Thursday, September 8',  eventLabel: 'Off Day',             hasEvent: false },
-  { fullDate: 'Friday, September 9',    eventLabel: 'Off Day',             hasEvent: false },
-  { fullDate: 'Saturday, September 10', eventLabel: 'Off Day',             hasEvent: false },
+  { day: 'MON', date: '9/8',  fullDate: 'Monday, September 8',    icon: '🏒', event: 'Practice',         isToday: true  },
+  { day: 'TUE', date: '9/9',  fullDate: 'Tuesday, September 9',   icon: '🥅', event: 'Freshman Tryouts', isToday: false },
+  { day: 'WED', date: '9/10', fullDate: 'Wednesday, September 10',icon: '💪', event: 'Recovery',         isToday: false },
+  { day: 'THU', date: '9/11', fullDate: 'Thursday, September 11', icon: '🏒', event: 'Practice',         isToday: false },
+  { day: 'FRI', date: '9/12', fullDate: 'Friday, September 12',   icon: '📅', event: 'Off Day',          isToday: false },
+  { day: 'SAT', date: '9/13', fullDate: 'Saturday, September 13', icon: '🥅', event: 'Exhibition Game',  isToday: false },
+  { day: 'SUN', date: '9/14', fullDate: 'Sunday, September 14',   icon: '😴', event: 'Recovery',         isToday: false },
 ];
 
 let hubCalendarReady = false;
@@ -1118,36 +1118,74 @@ function updateHubScreen() {
 }
 
 function setupHubCalendar() {
-  const cards        = document.querySelectorAll('.hub-day-card');
-  const detailDate   = document.getElementById('hub-detail-date');
-  const detailEvent  = document.getElementById('hub-detail-event');
-  const detailBtn    = document.getElementById('hub-detail-btn-label');
+  const container = document.getElementById('hub-cal-rows');
+  const simBar    = document.getElementById('hub-cal-sim-bar');
+  const simToast  = document.getElementById('hub-cal-sim-toast');
+  const simBtn    = document.getElementById('btn-hub-simulate');
+  if (!container) return;
 
-  function selectDay(index) {
-    cards.forEach(c => c.classList.remove('hub-day-card--selected'));
-    cards[index].classList.add('hub-day-card--selected');
-    const d = HUB_DAYS[index];
-    if (detailDate)  detailDate.textContent  = d.fullDate;
-    if (detailEvent) detailEvent.textContent = d.eventLabel;
-    if (detailBtn)   detailBtn.textContent   = d.hasEvent ? 'Enter Event' : 'Simulate To This Day';
-  }
+  const TODAY_INDEX = HUB_DAYS.findIndex(d => d.isToday);
 
-  cards.forEach((card, i) => {
-    card.addEventListener('click', () => selectDay(i));
+  // ── Build rows ────────────────────────────────────────────
+  HUB_DAYS.forEach((d, i) => {
+    const isToday  = i === TODAY_INDEX;
+    const isFuture = i > TODAY_INDEX;
+
+    const row = document.createElement('div');
+    row.className = [
+      'hub-cal-row',
+      isToday  ? 'hub-cal-row--today'  : '',
+      isFuture ? 'hub-cal-row--future' : '',
+    ].filter(Boolean).join(' ');
+    row.dataset.dayIndex = i;
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+
+    row.innerHTML = `
+      <div class="hub-cal-row__left">
+        <span class="hub-cal-row__day">${d.day}</span>
+        <span class="hub-cal-row__date">${d.date}</span>
+      </div>
+      <div class="hub-cal-row__divider" aria-hidden="true"></div>
+      <div class="hub-cal-row__event">
+        <span class="hub-cal-row__icon">${d.icon}</span>
+        <span class="hub-cal-row__title">${d.event}</span>
+      </div>
+      ${isToday ? '<span class="hub-cal-row__today-pill">Today</span>' : ''}
+    `;
+
+    container.appendChild(row);
   });
 
-  selectDay(0);
-}
+  // ── Selection logic ───────────────────────────────────────
+  const rows = container.querySelectorAll('.hub-cal-row');
 
-document.getElementById('btn-hub-continue').addEventListener('click', async () => {
-  const overlay = document.getElementById('cinematic-overlay');
-  const text    = document.getElementById('cinematic-text');
-  overlay.classList.add('is-active');
-  await sleep(1000);
-  text.innerHTML = '<span class="cin-title">Tryout Drill 1</span>';
-  text.style.opacity = '1';
-  // End state — drills not yet implemented
-});
+  function selectDay(index) {
+    rows.forEach(r => r.classList.remove('hub-cal-row--selected'));
+    rows[index].classList.add('hub-cal-row--selected');
+
+    const isFuture = index > TODAY_INDEX;
+    if (simBar) {
+      simBar.hidden = !isFuture;
+      // Reset toast whenever selection changes
+      if (simToast) simToast.hidden = true;
+    }
+  }
+
+  rows.forEach((row, i) => {
+    row.addEventListener('click', () => selectDay(i));
+  });
+
+  // ── Simulate button ───────────────────────────────────────
+  if (simBtn) {
+    simBtn.addEventListener('click', () => {
+      if (simToast) simToast.hidden = false;
+    });
+  }
+
+  // Start on today
+  selectDay(TODAY_INDEX);
+}
 
 // ── Standings screen navigation ──────────────────────────────
 document.getElementById('btn-hub-standings-all').addEventListener('click', () => {
