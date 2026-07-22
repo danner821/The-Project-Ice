@@ -2648,6 +2648,404 @@ html, body {
 }
 
 /* ============================================================
+   PLAYER PROFILE TAB
+   ============================================================ */
+
+/* ── Profile header card ── */
+.pp-header {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(18, 52, 138, 0.45) 0%, transparent 70%),
+    rgba(6, 13, 30, 0.82);
+  border: 1px solid rgba(38, 68, 128, 0.48);
+  border-radius: 16px;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pp-header__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.pp-header__pos-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(100, 160, 255, 0.85);
+  background: rgba(15, 38, 100, 0.65);
+  border: 1px solid rgba(55, 105, 220, 0.35);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+
+.pp-header__ovr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid rgba(75, 140, 255, 0.5);
+  background: radial-gradient(circle at 38% 32%,
+    rgba(24, 58, 148, 0.9) 0%,
+    rgba(8, 20, 65, 0.98) 100%
+  );
+  box-shadow:
+    0 0 18px rgba(50, 110, 255, 0.25),
+    inset 0 0 10px rgba(0, 0, 0, 0.55);
+}
+
+.pp-header__ovr-label {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(105, 158, 242, 0.65);
+  margin-bottom: 1px;
+}
+
+.pp-header__ovr-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: rgba(205, 232, 255, 0.97);
+  line-height: 1;
+}
+
+.pp-header__name {
+  font-size: 26px;
+  font-weight: 700;
+  color: rgba(232, 246, 255, 0.97);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.pp-header__meta {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(125, 168, 228, 0.65);
+}
+
+.pp-header__team {
+  color: rgba(145, 188, 248, 0.72);
+}
+
+.pp-header__divider {
+  height: 1px;
+  background: rgba(38, 65, 120, 0.38);
+  margin: 10px 0 8px;
+}
+
+.pp-header__rep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp-header__rep-stars {
+  font-size: 16px;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.pp-header__rep-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(165, 205, 255, 0.75);
+}
+
+/* ── Section labels ── */
+.pp-section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(85, 128, 198, 0.52);
+  padding: 0 2px;
+}
+
+/* ── Attribute categories list ── */
+.pp-attr-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(28, 52, 96, 0.42);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(6, 12, 28, 0.72);
+}
+
+.pp-attr-cat {
+  border-bottom: 1px solid rgba(22, 42, 80, 0.42);
+}
+
+.pp-attr-cat:last-child {
+  border-bottom: none;
+}
+
+.pp-attr-cat__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+
+.pp-attr-cat__header:active {
+  background: rgba(30, 58, 120, 0.18);
+}
+
+.pp-attr-cat__icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pp-attr-cat__name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(215, 235, 255, 0.9);
+}
+
+.pp-attr-cat__ovr {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(145, 195, 255, 0.85);
+  min-width: 28px;
+  text-align: right;
+}
+
+.pp-attr-cat__ovr--low {
+  color: rgba(210, 140, 100, 0.8);
+}
+
+.pp-attr-cat__chevron {
+  font-size: 18px;
+  font-weight: 300;
+  color: rgba(80, 120, 185, 0.5);
+  margin-left: 2px;
+  display: inline-block;
+  transition: transform 0.25s ease;
+  line-height: 1;
+}
+
+.pp-attr-cat--open .pp-attr-cat__chevron {
+  transform: rotate(90deg);
+}
+
+/* ── Accordion body ── */
+.pp-attr-cat__body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  background: rgba(4, 9, 22, 0.55);
+  border-top: 1px solid transparent;
+}
+
+.pp-attr-cat--open .pp-attr-cat__body {
+  max-height: 600px;
+  border-top-color: rgba(20, 38, 72, 0.4);
+}
+
+/* ── Stat row ── */
+.pp-stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid rgba(16, 30, 62, 0.35);
+}
+
+.pp-stat:last-child {
+  border-bottom: none;
+}
+
+.pp-stat__name {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(170, 200, 242, 0.72);
+  width: 145px;
+  flex-shrink: 0;
+}
+
+.pp-stat__bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(20, 38, 78, 0.6);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pp-stat__bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.pp-stat__bar-fill--high {
+  background: linear-gradient(90deg, rgba(55, 130, 255, 0.7) 0%, rgba(100, 175, 255, 0.9) 100%);
+  box-shadow: 0 0 6px rgba(80, 150, 255, 0.4);
+}
+
+.pp-stat__bar-fill--mid {
+  background: linear-gradient(90deg, rgba(60, 105, 195, 0.55) 0%, rgba(90, 148, 230, 0.72) 100%);
+}
+
+.pp-stat__bar-fill--low {
+  background: linear-gradient(90deg, rgba(150, 80, 55, 0.5) 0%, rgba(195, 110, 75, 0.65) 100%);
+}
+
+.pp-stat__val {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(190, 218, 255, 0.82);
+  min-width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Development card ── */
+.pp-dev-card {
+  display: flex;
+  gap: 0;
+  background: rgba(6, 12, 28, 0.72);
+  border: 1px solid rgba(28, 52, 96, 0.42);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.pp-dev-col {
+  flex: 1;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pp-dev-divider {
+  width: 1px;
+  background: rgba(28, 52, 96, 0.42);
+  flex-shrink: 0;
+}
+
+.pp-dev-col__header {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.pp-dev-col__header--strengths {
+  color: rgba(80, 185, 130, 0.8);
+}
+
+.pp-dev-col__header--improve {
+  color: rgba(210, 130, 80, 0.8);
+}
+
+.pp-dev-col__icon {
+  font-size: 12px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.pp-dev-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pp-dev-list__item {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(190, 218, 252, 0.78);
+  line-height: 1.4;
+  padding-left: 8px;
+  position: relative;
+}
+
+.pp-dev-list__item::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: rgba(100, 148, 220, 0.45);
+}
+
+/* ── Scouting report card ── */
+.pp-scout-card {
+  background: rgba(6, 12, 28, 0.72);
+  border: 1px solid rgba(28, 52, 96, 0.42);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pp-scout-card__byline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pp-scout-card__scout {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(95, 148, 228, 0.65);
+}
+
+.pp-scout-card__date {
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(90, 130, 185, 0.5);
+}
+
+.pp-scout-card__text {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(200, 225, 252, 0.85);
+  line-height: 1.65;
+  font-style: italic;
+}
+
+.pp-scout-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pp-scout-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(110, 162, 240, 0.78);
+  background: rgba(15, 35, 90, 0.58);
+  border: 1px solid rgba(50, 95, 188, 0.3);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+/* ============================================================
    ARENA SCREEN
    ============================================================ */
 

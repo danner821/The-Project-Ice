@@ -794,7 +794,319 @@
 
           <!-- Other tab panels — not yet functional -->
           <div id="hub-tab-schedule" class="hub-tab-panel" aria-hidden="true"></div>
-          <div id="hub-tab-player"   class="hub-tab-panel" aria-hidden="true"></div>
+
+          <!-- PLAYER PROFILE TAB -->
+          <div id="hub-tab-player" class="hub-tab-panel" aria-hidden="true">
+
+            <!-- Profile header card -->
+            <div class="pp-header">
+              <div class="pp-header__top">
+                <span class="pp-header__pos-badge" id="pp-player-pos">C</span>
+                <div class="pp-header__ovr">
+                  <span class="pp-header__ovr-label">OVR</span>
+                  <span class="pp-header__ovr-value">60</span>
+                </div>
+              </div>
+              <p class="pp-header__name" id="pp-player-name">—</p>
+              <p class="pp-header__meta"><span id="pp-player-age">14 years old</span> · <span class="pp-header__team" id="pp-player-team">Freshman Tryouts</span></p>
+              <div class="pp-header__divider"></div>
+              <div class="pp-header__rep">
+                <span class="pp-header__rep-stars">⭐⭐☆☆☆</span>
+                <span class="pp-header__rep-label">Regional Prospect</span>
+              </div>
+            </div>
+
+            <!-- Section: Attributes -->
+            <div class="pp-section-label">Attributes</div>
+
+            <div class="pp-attr-list">
+
+              <!-- Shooting -->
+              <div class="pp-attr-cat">
+                <button class="pp-attr-cat__header" type="button">
+                  <span class="pp-attr-cat__icon">🏒</span>
+                  <span class="pp-attr-cat__name">Shooting</span>
+                  <span class="pp-attr-cat__ovr">63</span>
+                  <span class="pp-attr-cat__chevron">›</span>
+                </button>
+                <div class="pp-attr-cat__body">
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Wrist Shot Power</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:62%"></div></div>
+                    <span class="pp-stat__val">62</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Wrist Shot Accuracy</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:68%"></div></div>
+                    <span class="pp-stat__val">68</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Slap Shot Power</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:54%"></div></div>
+                    <span class="pp-stat__val">54</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Snap Shot</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:65%"></div></div>
+                    <span class="pp-stat__val">65</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Backhand</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:57%"></div></div>
+                    <span class="pp-stat__val">57</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Shot Release</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:71%"></div></div>
+                    <span class="pp-stat__val">71</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Playmaking -->
+              <div class="pp-attr-cat">
+                <button class="pp-attr-cat__header" type="button">
+                  <span class="pp-attr-cat__icon">🎯</span>
+                  <span class="pp-attr-cat__name">Playmaking</span>
+                  <span class="pp-attr-cat__ovr">72</span>
+                  <span class="pp-attr-cat__chevron">›</span>
+                </button>
+                <div class="pp-attr-cat__body">
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Passing</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:74%"></div></div>
+                    <span class="pp-stat__val">74</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Vision</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:78%"></div></div>
+                    <span class="pp-stat__val">78</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Puck Control</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:72%"></div></div>
+                    <span class="pp-stat__val">72</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Deking</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:66%"></div></div>
+                    <span class="pp-stat__val">66</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Offensive Awareness</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:70%"></div></div>
+                    <span class="pp-stat__val">70</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Skating -->
+              <div class="pp-attr-cat">
+                <button class="pp-attr-cat__header" type="button">
+                  <span class="pp-attr-cat__icon">⛸️</span>
+                  <span class="pp-attr-cat__name">Skating</span>
+                  <span class="pp-attr-cat__ovr">67</span>
+                  <span class="pp-attr-cat__chevron">›</span>
+                </button>
+                <div class="pp-attr-cat__body">
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Speed</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:68%"></div></div>
+                    <span class="pp-stat__val">68</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Acceleration</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:72%"></div></div>
+                    <span class="pp-stat__val">72</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Agility</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:70%"></div></div>
+                    <span class="pp-stat__val">70</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Balance</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:63%"></div></div>
+                    <span class="pp-stat__val">63</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Endurance</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:60%"></div></div>
+                    <span class="pp-stat__val">60</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Edge Work</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:65%"></div></div>
+                    <span class="pp-stat__val">65</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Defense -->
+              <div class="pp-attr-cat">
+                <button class="pp-attr-cat__header" type="button">
+                  <span class="pp-attr-cat__icon">🛡️</span>
+                  <span class="pp-attr-cat__name">Defense</span>
+                  <span class="pp-attr-cat__ovr pp-attr-cat__ovr--low">46</span>
+                  <span class="pp-attr-cat__chevron">›</span>
+                </button>
+                <div class="pp-attr-cat__body">
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Defensive Awareness</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:42%"></div></div>
+                    <span class="pp-stat__val">42</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Shot Blocking</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:44%"></div></div>
+                    <span class="pp-stat__val">44</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Stick Checking</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:51%"></div></div>
+                    <span class="pp-stat__val">51</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Poke Checking</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:47%"></div></div>
+                    <span class="pp-stat__val">47</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Positioning</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:45%"></div></div>
+                    <span class="pp-stat__val">45</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Physical -->
+              <div class="pp-attr-cat">
+                <button class="pp-attr-cat__header" type="button">
+                  <span class="pp-attr-cat__icon">💪</span>
+                  <span class="pp-attr-cat__name">Physical</span>
+                  <span class="pp-attr-cat__ovr pp-attr-cat__ovr--low">51</span>
+                  <span class="pp-attr-cat__chevron">›</span>
+                </button>
+                <div class="pp-attr-cat__body">
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Body Checking</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:48%"></div></div>
+                    <span class="pp-stat__val">48</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Strength</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:44%"></div></div>
+                    <span class="pp-stat__val">44</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Durability</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:63%"></div></div>
+                    <span class="pp-stat__val">63</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Body Weight</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:53%"></div></div>
+                    <span class="pp-stat__val">53</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Faceoffs</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:57%"></div></div>
+                    <span class="pp-stat__val">57</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hockey IQ -->
+              <div class="pp-attr-cat">
+                <button class="pp-attr-cat__header" type="button">
+                  <span class="pp-attr-cat__icon">🧠</span>
+                  <span class="pp-attr-cat__name">Hockey IQ</span>
+                  <span class="pp-attr-cat__ovr">62</span>
+                  <span class="pp-attr-cat__chevron">›</span>
+                </button>
+                <div class="pp-attr-cat__body">
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Offensive IQ</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--high" style="width:73%"></div></div>
+                    <span class="pp-stat__val">73</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Defensive IQ</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--low" style="width:44%"></div></div>
+                    <span class="pp-stat__val">44</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Composure</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:64%"></div></div>
+                    <span class="pp-stat__val">64</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Leadership</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:60%"></div></div>
+                    <span class="pp-stat__val">60</span>
+                  </div>
+                  <div class="pp-stat">
+                    <span class="pp-stat__name">Determination</span>
+                    <div class="pp-stat__bar"><div class="pp-stat__bar-fill pp-stat__bar-fill--mid" style="width:68%"></div></div>
+                    <span class="pp-stat__val">68</span>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /.pp-attr-list -->
+
+            <!-- Section: Development -->
+            <div class="pp-section-label">Development</div>
+
+            <div class="pp-dev-card">
+              <div class="pp-dev-col">
+                <div class="pp-dev-col__header pp-dev-col__header--strengths">
+                  <span class="pp-dev-col__icon">↑</span>
+                  Strengths
+                </div>
+                <ul class="pp-dev-list">
+                  <li class="pp-dev-list__item">Excellent Vision</li>
+                  <li class="pp-dev-list__item">Quick Release</li>
+                  <li class="pp-dev-list__item">Hockey Sense</li>
+                </ul>
+              </div>
+              <div class="pp-dev-divider"></div>
+              <div class="pp-dev-col">
+                <div class="pp-dev-col__header pp-dev-col__header--improve">
+                  <span class="pp-dev-col__icon">↓</span>
+                  Areas To Improve
+                </div>
+                <ul class="pp-dev-list">
+                  <li class="pp-dev-list__item">Strength</li>
+                  <li class="pp-dev-list__item">Defensive Awareness</li>
+                  <li class="pp-dev-list__item">Shot Blocking</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Section: Scouting Report -->
+            <div class="pp-section-label">Scouting Report</div>
+
+            <div class="pp-scout-card">
+              <div class="pp-scout-card__byline">
+                <span class="pp-scout-card__scout">Regional Scout</span>
+                <span class="pp-scout-card__date">September 2022</span>
+              </div>
+              <p class="pp-scout-card__text">
+                A skilled young forward with good offensive instincts. Scouts believe continued physical development will determine his ceiling.
+              </p>
+              <div class="pp-scout-card__tags">
+                <span class="pp-scout-tag">Offensive Upside</span>
+                <span class="pp-scout-tag">Needs Physicality</span>
+                <span class="pp-scout-tag">High-IQ Player</span>
+              </div>
+            </div>
+
+            <!-- Bottom spacer -->
+            <div style="height: 8px"></div>
+
+          </div><!-- /#hub-tab-player -->
+
           <div id="hub-tab-team"     class="hub-tab-panel" aria-hidden="true"></div>
           <div id="hub-tab-league"   class="hub-tab-panel" aria-hidden="true"></div>
 

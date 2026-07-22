@@ -857,6 +857,16 @@ function updateHubScreen() {
   const leadersPosEl = document.getElementById('hub-leaders-you-pos');
   if (leadersPosEl) leadersPosEl.textContent = p.position || '—';
 
+  // Player profile tab fields
+  const ppNameEl = document.getElementById('pp-player-name');
+  if (ppNameEl) ppNameEl.textContent = `${p.firstName} ${p.lastName}`.trim() || '—';
+
+  const ppPosEl = document.getElementById('pp-player-pos');
+  if (ppPosEl) ppPosEl.textContent = p.position || '—';
+
+  const ppAgeEl = document.getElementById('pp-player-age');
+  if (ppAgeEl) ppAgeEl.textContent = `${p.age || 14} years old`;
+
   if (!hubCalendarReady) {
     setupHubCalendar();
     hubCalendarReady = true;
@@ -898,11 +908,26 @@ document.getElementById('btn-hub-continue').addEventListener('click', async () =
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const id = tab.dataset.hubTab;
-    if (id !== 'home') return; // other tabs not yet functional
+    if (id !== 'home' && id !== 'player') return; // schedule / team / league not yet functional
     document.querySelectorAll('.hub-nav__tab').forEach(t => t.classList.remove('hub-nav__tab--active'));
     tab.classList.add('hub-nav__tab--active');
-    document.querySelectorAll('.hub-tab-panel').forEach(p => p.classList.remove('hub-tab-panel--active'));
-    document.getElementById('hub-tab-home').classList.add('hub-tab-panel--active');
+    document.querySelectorAll('.hub-tab-panel').forEach(p => {
+      p.classList.remove('hub-tab-panel--active');
+      p.setAttribute('aria-hidden', 'true');
+    });
+    const panel = document.getElementById(`hub-tab-${id}`);
+    if (panel) {
+      panel.classList.add('hub-tab-panel--active');
+      panel.removeAttribute('aria-hidden');
+    }
+  });
+});
+
+// ── Player profile accordion ─────────────────────────────────
+document.querySelectorAll('.pp-attr-cat__header').forEach(header => {
+  header.addEventListener('click', () => {
+    const cat = header.closest('.pp-attr-cat');
+    cat.classList.toggle('pp-attr-cat--open');
   });
 });
 
