@@ -37,6 +37,7 @@ const nhlTeamScreen        = document.getElementById('nhlteam-screen');
 const motivationScreen     = document.getElementById('motivation-screen');
 const archetypeScreen      = document.getElementById('archetype-screen');
 const backgroundScreen     = document.getElementById('background-screen');
+const arenaScreen          = document.getElementById('arena-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -137,6 +138,7 @@ function showScreen(screenName) {
   motivationScreen.classList.add('screen--hidden');
   archetypeScreen.classList.add('screen--hidden');
   backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -172,6 +174,9 @@ function showScreen(screenName) {
   if (screenName === 'background') {
     backgroundScreen.classList.remove('screen--hidden');
     restoreBackgroundSelection();
+  }
+  if (screenName === 'arena') {
+    arenaScreen.classList.remove('screen--hidden');
   }
 
   Game.screen = screenName;
@@ -730,18 +735,93 @@ async function runSleepSequence() {
   overlay.classList.add('is-active');
   await sleep(1100);
 
-  // Show date
-  text.innerHTML = 'September 4, 2022';
+  // Card 1 — Date
+  text.innerHTML = '<span class="cin-date">September 4, 2022</span>';
   text.style.opacity = '1';
-  await sleep(2200);
+  await sleep(2000);
   text.style.opacity = '0';
-  await sleep(580);
+  await sleep(560);
   text.innerHTML = '';
 
-  // Show title card — hold here, no further navigation yet
-  text.innerHTML = 'Freshman Tryouts';
+  // Card 2 — Event + Venue
+  text.innerHTML = '<span class="cin-title">Freshman Tryouts</span><span class="cin-venue">Ice Den Arena</span>';
   text.style.opacity = '1';
+  await sleep(2000);
+  text.style.opacity = '0';
+  await sleep(560);
+  text.innerHTML = '';
+
+  // Reveal arena screen, fade overlay out
+  showScreen('arena');
+  overlay.classList.remove('is-active');
+  await sleep(1100);
+
+  // Begin dialogue sequence
+  runArenaDialogue();
 }
+
+async function runArenaDialogue() {
+  await sleep(3000); // brief moment to take in the scene
+
+  const dialogueEl = document.getElementById('arena-dialogue');
+  const approachEl = document.getElementById('dlg-approach');
+  const bubbleEl   = document.getElementById('dlg-bubble');
+  const speakerEl  = document.getElementById('dlg-speaker');
+  const textEl     = document.getElementById('dlg-text');
+  const actionEl   = document.getElementById('arena-action');
+
+  // Slide panel up with approach description
+  dialogueEl.classList.add('is-visible');
+  dialogueEl.setAttribute('aria-hidden', 'false');
+  await sleep(1800);
+
+  // Swap approach text for dialogue bubble
+  approachEl.style.transition = 'opacity 0.3s ease';
+  approachEl.style.opacity = '0';
+  await sleep(320);
+  approachEl.style.display = 'none';
+  bubbleEl.style.display = 'flex';
+
+  async function showLine(speaker, cssClass, line) {
+    speakerEl.textContent = speaker;
+    speakerEl.className = 'arena-dialogue__speaker ' + cssClass;
+    textEl.style.opacity = '0';
+    textEl.textContent = line;
+    await sleep(60);
+    textEl.style.opacity = '1';
+  }
+
+  // Line 1 — Coach Reynolds
+  await showLine('Coach Reynolds', 'arena-dialogue__speaker--coach',
+    `"You must be ${Game.player.lastName || 'you'}."`);
+  await sleep(2600);
+
+  // Line 2 — Player
+  await showLine(Game.player.firstName || 'You', 'arena-dialogue__speaker--player',
+    '"Yes, sir."');
+  await sleep(2000);
+
+  // Line 3 — Coach Reynolds
+  await showLine('Coach Reynolds', 'arena-dialogue__speaker--coach',
+    '"Good. Grab a jersey and get on the ice. We\'ll see what you\'ve got."');
+  await sleep(3000);
+
+  // Dismiss dialogue, show CTA
+  dialogueEl.classList.remove('is-visible');
+  await sleep(450);
+  actionEl.classList.add('is-visible');
+  actionEl.setAttribute('aria-hidden', 'false');
+}
+
+document.getElementById('btn-take-ice').addEventListener('click', async () => {
+  const overlay = document.getElementById('cinematic-overlay');
+  const text    = document.getElementById('cinematic-text');
+  overlay.classList.add('is-active');
+  await sleep(1000);
+  text.innerHTML = '<span class="cin-title">Tryout Drill 1</span>';
+  text.style.opacity = '1';
+  // End state — drills not yet implemented
+});
 
 // ── Cinematic intro sequence ────────────────────────────────
 function sleep(ms) {

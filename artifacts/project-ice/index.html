@@ -488,6 +488,106 @@
         </div>
       </section>
 
+      <!-- ARENA SCREEN -->
+      <section id="arena-screen" class="screen screen--hidden">
+        <div class="arena" aria-label="Ice Den Arena">
+
+          <!-- Ceiling -->
+          <div class="arena__ceiling">
+            <div class="arena__rafter arena__rafter--1"></div>
+            <div class="arena__rafter arena__rafter--2"></div>
+            <div class="arena__rafter arena__rafter--3"></div>
+          </div>
+
+          <!-- Overhead scoreboard -->
+          <div class="arena__scoreboard">
+            <div class="arena__scoreboard-top">Ice Den Arena</div>
+            <div class="arena__scoreboard-main">
+              <span class="arena__scoreboard-team">HOME</span>
+              <span class="arena__scoreboard-score">0 &mdash; 0</span>
+              <span class="arena__scoreboard-team">AWAY</span>
+            </div>
+            <div class="arena__scoreboard-label">Freshman Tryouts</div>
+          </div>
+
+          <!-- Stands -->
+          <div class="arena__stands">
+            <div class="arena__stands-row arena__stands-row--1"></div>
+            <div class="arena__stands-row arena__stands-row--2"></div>
+            <div class="arena__stands-row arena__stands-row--3"></div>
+          </div>
+
+          <!-- Far boards (back of rink) -->
+          <div class="arena__far-boards">
+            <div class="arena__far-boards-cap"></div>
+            <div class="arena__bench-far"></div>
+          </div>
+
+          <!-- Ice surface (perspective trapezoid) -->
+          <div class="arena__ice">
+            <div class="arena__line arena__line--blue arena__line--blue-far"></div>
+            <div class="arena__line arena__line--red"></div>
+            <div class="arena__line arena__line--blue arena__line--blue-near"></div>
+            <div class="arena__circle"></div>
+            <div class="arena__dot"></div>
+          </div>
+
+          <!-- Arena light glow on ice -->
+          <div class="arena__ice-glow"></div>
+
+          <!-- Background skaters (warmup, non-interactive) -->
+          <div class="arena__skater arena__skater--1"><div class="arena__sk-head"></div><div class="arena__sk-body"></div></div>
+          <div class="arena__skater arena__skater--2"><div class="arena__sk-head"></div><div class="arena__sk-body"></div></div>
+          <div class="arena__skater arena__skater--3"><div class="arena__sk-head"></div><div class="arena__sk-body"></div></div>
+          <div class="arena__skater arena__skater--4"><div class="arena__sk-head"></div><div class="arena__sk-body"></div></div>
+          <div class="arena__skater arena__skater--5"><div class="arena__sk-head"></div><div class="arena__sk-body"></div></div>
+
+          <!-- Coaches near boards -->
+          <div class="arena__coaches">
+            <div class="arena__coach arena__coach--1">
+              <div class="arena__co-head"></div>
+              <div class="arena__co-body"></div>
+            </div>
+            <div class="arena__coach arena__coach--2">
+              <div class="arena__co-head"></div>
+              <div class="arena__co-body"></div>
+            </div>
+          </div>
+
+          <!-- Near boards -->
+          <div class="arena__near-boards">
+            <div class="arena__near-boards-cap"></div>
+            <!-- Locker room entrance -->
+            <div class="arena__locker-door">
+              <div class="arena__locker-door-inner">
+                <span class="arena__locker-sign">LOCKER ROOM</span>
+              </div>
+            </div>
+            <!-- Player bench opening -->
+            <div class="arena__bench-near"></div>
+          </div>
+
+        </div><!-- /.arena -->
+
+        <!-- Coach dialogue panel -->
+        <div id="arena-dialogue" class="arena-dialogue" aria-hidden="true">
+          <p class="arena-dialogue__approach" id="dlg-approach">Coach Reynolds is walking toward you.</p>
+          <div class="arena-dialogue__bubble" id="dlg-bubble">
+            <div class="arena-dialogue__speaker" id="dlg-speaker"></div>
+            <p class="arena-dialogue__text" id="dlg-text"></p>
+          </div>
+        </div>
+
+        <!-- Take The Ice CTA -->
+        <div id="arena-action" class="arena-action" aria-hidden="true">
+          <button class="btn btn--primary arena-action__btn" id="btn-take-ice">
+            <span class="btn__label">Take The Ice</span>
+            <span class="btn__arrow">›</span>
+          </button>
+        </div>
+
+      </section>
+
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">
