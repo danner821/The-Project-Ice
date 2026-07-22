@@ -1057,13 +1057,13 @@ function renderStandingsScreen() {
 // ── Career Hub ───────────────────────────────────────────────
 
 const HUB_DAYS = [
-  { day: 'MON', date: '9/8',  fullDate: 'Monday, September 8',    icon: '🏒', event: 'Practice',         isToday: true  },
-  { day: 'TUE', date: '9/9',  fullDate: 'Tuesday, September 9',   icon: '🥅', event: 'Freshman Tryouts', isToday: false },
-  { day: 'WED', date: '9/10', fullDate: 'Wednesday, September 10',icon: '💪', event: 'Recovery',         isToday: false },
-  { day: 'THU', date: '9/11', fullDate: 'Thursday, September 11', icon: '🏒', event: 'Practice',         isToday: false },
-  { day: 'FRI', date: '9/12', fullDate: 'Friday, September 12',   icon: '📅', event: 'Off Day',          isToday: false },
-  { day: 'SAT', date: '9/13', fullDate: 'Saturday, September 13', icon: '🥅', event: 'Exhibition Game',  isToday: false },
-  { day: 'SUN', date: '9/14', fullDate: 'Sunday, September 14',   icon: '😴', event: 'Recovery',         isToday: false },
+  { day: 'MON', date: '9/8',  fullDate: 'Monday, September 8',    icon: '🏒', event: 'Practice',         isToday: true,  location: 'Summit Ice Center',   objective: 'Work on skating edges and passing.' },
+  { day: 'TUE', date: '9/9',  fullDate: 'Tuesday, September 9',   icon: '🥅', event: 'Freshman Tryouts', isToday: false, location: 'Eastdale Ice Arena',  objective: 'Impress the coaching staff.' },
+  { day: 'WED', date: '9/10', fullDate: 'Wednesday, September 10',icon: '💪', event: 'Recovery',         isToday: false, location: 'Training Facility',   objective: 'Rest and light conditioning.' },
+  { day: 'THU', date: '9/11', fullDate: 'Thursday, September 11', icon: '🏒', event: 'Practice',         isToday: false, location: 'Summit Ice Center',   objective: 'Full team scrimmage session.' },
+  { day: 'FRI', date: '9/12', fullDate: 'Friday, September 12',   icon: '📅', event: 'Off Day',          isToday: false, location: '—',                   objective: 'No scheduled activities. Rest up.' },
+  { day: 'SAT', date: '9/13', fullDate: 'Saturday, September 13', icon: '🥅', event: 'Exhibition Game',  isToday: false, location: 'Eastdale Ice Arena',  objective: 'Get game-ready. Show your best.' },
+  { day: 'SUN', date: '9/14', fullDate: 'Sunday, September 14',   icon: '😴', event: 'Recovery',         isToday: false, location: 'Training Facility',   objective: 'Rest and light conditioning.' },
 ];
 
 let hubCalendarReady = false;
@@ -1118,68 +1118,88 @@ function updateHubScreen() {
 }
 
 function setupHubCalendar() {
-  const container = document.getElementById('hub-cal-rows');
-  const simBar    = document.getElementById('hub-cal-sim-bar');
-  const simToast  = document.getElementById('hub-cal-sim-toast');
-  const simBtn    = document.getElementById('btn-hub-simulate');
-  if (!container) return;
+  const strip     = document.getElementById('hub-cal-strip');
+  const epIcon    = document.getElementById('hub-ep-icon');
+  const epName    = document.getElementById('hub-ep-name');
+  const epLoc     = document.getElementById('hub-ep-location');
+  const epObj     = document.getElementById('hub-ep-objective');
+  const epBtnLbl  = document.getElementById('hub-ep-btn-label');
+  const epToast   = document.getElementById('hub-ep-toast');
+  const epBtn     = document.getElementById('btn-hub-event');
+  if (!strip) return;
 
   const TODAY_INDEX = HUB_DAYS.findIndex(d => d.isToday);
 
-  // ── Build rows ────────────────────────────────────────────
+  // ── Build cards ───────────────────────────────────────────
   HUB_DAYS.forEach((d, i) => {
     const isToday  = i === TODAY_INDEX;
     const isFuture = i > TODAY_INDEX;
 
-    const row = document.createElement('div');
-    row.className = [
-      'hub-cal-row',
-      isToday  ? 'hub-cal-row--today'  : '',
-      isFuture ? 'hub-cal-row--future' : '',
+    const card = document.createElement('div');
+    card.className = [
+      'hub-cal-card',
+      isToday  ? 'hub-cal-card--today'  : '',
+      isFuture ? 'hub-cal-card--future' : '',
     ].filter(Boolean).join(' ');
-    row.dataset.dayIndex = i;
-    row.setAttribute('role', 'button');
-    row.setAttribute('tabindex', '0');
+    card.dataset.dayIndex = i;
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
 
-    row.innerHTML = `
-      <div class="hub-cal-row__left">
-        <span class="hub-cal-row__day">${d.day}</span>
-        <span class="hub-cal-row__date">${d.date}</span>
-      </div>
-      <div class="hub-cal-row__divider" aria-hidden="true"></div>
-      <div class="hub-cal-row__event">
-        <span class="hub-cal-row__icon">${d.icon}</span>
-        <span class="hub-cal-row__title">${d.event}</span>
-      </div>
-      ${isToday ? '<span class="hub-cal-row__today-pill">Today</span>' : ''}
+    card.innerHTML = `
+      <span class="hub-cal-card__day">${d.day}</span>
+      <span class="hub-cal-card__date">${d.date}</span>
+      <span class="hub-cal-card__icon">${d.icon}</span>
+      <span class="hub-cal-card__title">${d.event}</span>
+      ${isToday ? '<span class="hub-cal-card__dot" aria-hidden="true"></span>' : ''}
     `;
 
-    container.appendChild(row);
+    strip.appendChild(card);
   });
 
-  // ── Selection logic ───────────────────────────────────────
-  const rows = container.querySelectorAll('.hub-cal-row');
+  // ── Selection & event panel update ───────────────────────
+  const cards = strip.querySelectorAll('.hub-cal-card');
 
   function selectDay(index) {
-    rows.forEach(r => r.classList.remove('hub-cal-row--selected'));
-    rows[index].classList.add('hub-cal-row--selected');
+    cards.forEach(c => c.classList.remove('hub-cal-card--selected'));
+    cards[index].classList.add('hub-cal-card--selected');
 
+    const d        = HUB_DAYS[index];
     const isFuture = index > TODAY_INDEX;
-    if (simBar) {
-      simBar.hidden = !isFuture;
-      // Reset toast whenever selection changes
-      if (simToast) simToast.hidden = true;
-    }
+
+    // Update event panel content
+    if (epIcon)   epIcon.textContent   = d.icon;
+    if (epName)   epName.textContent   = d.event;
+    if (epLoc)    epLoc.textContent    = d.location;
+    if (epObj)    epObj.textContent    = d.objective;
+    if (epBtnLbl) epBtnLbl.textContent = isFuture ? 'Simulate to Selected Day' : 'Enter Event';
+    if (epToast)  epToast.hidden = true; // reset toast on new selection
   }
 
-  rows.forEach((row, i) => {
-    row.addEventListener('click', () => selectDay(i));
+  cards.forEach((card, i) => {
+    card.addEventListener('click', () => selectDay(i));
   });
 
-  // ── Simulate button ───────────────────────────────────────
-  if (simBtn) {
-    simBtn.addEventListener('click', () => {
-      if (simToast) simToast.hidden = false;
+  // ── Event panel button ────────────────────────────────────
+  if (epBtn) {
+    epBtn.addEventListener('click', async () => {
+      const selectedIndex = [...cards].findIndex(c => c.classList.contains('hub-cal-card--selected'));
+      const isFuture = selectedIndex > TODAY_INDEX;
+
+      if (isFuture) {
+        // Simulation not yet built
+        if (epToast) epToast.hidden = false;
+      } else {
+        // Today — trigger cinematic entry
+        const overlay = document.getElementById('cinematic-overlay');
+        const text    = document.getElementById('cinematic-text');
+        if (overlay) overlay.classList.add('is-active');
+        await sleep(1000);
+        if (text) {
+          text.innerHTML = '<span class="cin-title">Tryout Drill 1</span>';
+          text.style.opacity = '1';
+        }
+        // End state — drills not yet implemented
+      }
     });
   }
 

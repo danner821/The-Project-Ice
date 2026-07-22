@@ -631,23 +631,39 @@
 
             <!-- Weekly calendar -->
             <div class="hub-cal">
+
               <div class="hub-cal__header">
                 <span class="hub-cal__week-label">Week of September 8, 2022</span>
               </div>
 
-              <!-- Day rows injected by setupHubCalendar() -->
-              <div class="hub-cal__rows" id="hub-cal-rows"></div>
+              <!-- Horizontal card strip — cards injected by setupHubCalendar() -->
+              <div class="hub-cal__strip" id="hub-cal-strip"></div>
 
-              <!-- Simulate bar — visible only when a future day is selected -->
-              <div class="hub-cal__sim-bar" id="hub-cal-sim-bar" hidden>
-                <button class="btn btn--primary hub-cal__sim-btn" id="btn-hub-simulate">
-                  <span class="btn__label" id="hub-simulate-label">Simulate to Selected Day</span>
+              <!-- Event detail panel — content updated on card selection -->
+              <div class="hub-event-panel" id="hub-event-panel">
+                <div class="hub-event-panel__hero">
+                  <span class="hub-event-panel__icon" id="hub-ep-icon">🏒</span>
+                  <span class="hub-event-panel__name" id="hub-ep-name">Practice</span>
+                </div>
+                <div class="hub-event-panel__meta">
+                  <div class="hub-event-panel__location">
+                    <span class="hub-event-panel__meta-icon" aria-hidden="true">📍</span>
+                    <span class="hub-event-panel__meta-text" id="hub-ep-location">Summit Ice Center</span>
+                  </div>
+                  <div class="hub-event-panel__objective">
+                    <span class="hub-event-panel__objective-label">Objective</span>
+                    <span class="hub-event-panel__objective-text" id="hub-ep-objective">Work on skating edges and passing.</span>
+                  </div>
+                </div>
+                <button class="btn btn--primary hub-event-panel__btn" id="btn-hub-event">
+                  <span class="btn__label" id="hub-ep-btn-label">Enter Event</span>
                   <span class="btn__arrow">›</span>
                 </button>
-                <p class="hub-cal__sim-toast" id="hub-cal-sim-toast" hidden>
+                <p class="hub-event-panel__toast" id="hub-ep-toast" hidden>
                   Simulation system coming soon.
                 </p>
               </div>
+
             </div>
 
             <!-- Dashboard: Standings (preview — top 4, populated by renderHubStandings()) -->
