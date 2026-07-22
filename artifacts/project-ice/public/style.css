@@ -352,3 +352,447 @@ html, body {
 .logo-area   { animation: fade-up 0.7s ease both 0.1s; }
 .menu-buttons{ animation: fade-up 0.7s ease both 0.35s; }
 .footer      { animation: fade-up 0.7s ease both 0.5s; }
+/* ============================================================
+   PROJECT ICE — Build 0.0.2 additions
+   Player creation and career summary
+   ============================================================ */
+
+.screen--hidden {
+  display: none;
+}
+
+#creation-screen,
+#summary-screen,
+#identity-screen {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, #123476 0%, transparent 65%),
+    linear-gradient(180deg, #07142f 0%, #050d1f 55%, #020814 100%);
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-y: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.screen-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 22px;
+}
+
+.screen-header h2 {
+  margin-top: 3px;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  color: rgba(135, 185, 255, 0.75);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.back-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(135, 180, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.step-badge {
+  padding: 7px 10px;
+  border: 1px solid rgba(100, 160, 255, 0.2);
+  border-radius: 999px;
+  color: rgba(180, 210, 255, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.creation-content,
+.summary-content {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: 36px;
+}
+
+.story-card {
+  padding: 18px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(100, 165, 255, 0.22);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(35, 84, 170, 0.23),
+      rgba(255, 255, 255, 0.035)
+    );
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+}
+
+.story-card__label,
+.player-card__label {
+  margin-bottom: 7px;
+  color: #7db4ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.story-card h3 {
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.story-card p:last-child {
+  color: rgba(210, 225, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.player-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field span,
+.choice-group legend {
+  color: rgba(210, 225, 255, 0.72);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid rgba(110, 160, 230, 0.22);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 16px;
+  user-select: text;
+}
+
+.form-field input::placeholder {
+  color: rgba(155, 180, 220, 0.35);
+}
+
+.form-field input:focus {
+  border-color: rgba(100, 170, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(55, 125, 255, 0.12);
+}
+
+.choice-group {
+  border: 0;
+}
+
+.choice-group legend {
+  margin-bottom: 10px;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.choice-grid--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.choice-card {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid rgba(110, 160, 230, 0.18);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(220, 232, 255, 0.78);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.choice-card:active {
+  transform: scale(0.97);
+}
+
+.choice-card--selected {
+  border-color: rgba(90, 165, 255, 0.95);
+  background: linear-gradient(
+    135deg,
+    rgba(32, 94, 205, 0.8),
+    rgba(13, 48, 125, 0.85)
+  );
+  color: #ffffff;
+  box-shadow: 0 0 20px rgba(35, 105, 230, 0.25);
+}
+
+.choice-card__icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(150, 195, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.form-error {
+  min-height: 18px;
+  color: #ff9f9f;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.continue-creation {
+  margin-top: 2px;
+}
+
+.player-card {
+  position: relative;
+  padding: 26px 22px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(105, 170, 255, 0.28);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(85, 155, 255, 0.25),
+      transparent 40%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(20, 62, 135, 0.88),
+      rgba(8, 24, 57, 0.96)
+    );
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32);
+}
+
+.player-card__number {
+  position: absolute;
+  top: 3px;
+  right: 15px;
+  color: rgba(255, 255, 255, 0.055);
+  font-size: 94px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.player-card h3 {
+  position: relative;
+  margin-bottom: 5px;
+  padding-right: 60px;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+#summary-details {
+  position: relative;
+  color: rgba(190, 215, 255, 0.7);
+  font-size: 14px;
+}
+
+.player-card__divider {
+  height: 1px;
+  margin: 22px 0 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(150, 195, 255, 0.35),
+    transparent
+  );
+}
+
+.summary-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 10px 0;
+}
+
+.summary-stat span {
+  color: rgba(185, 205, 240, 0.58);
+  font-size: 13px;
+}
+
+.summary-stat strong {
+  max-width: 62%;
+  font-size: 13px;
+  text-align: right;
+}
+
+.text-button {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  color: rgba(170, 195, 235, 0.48);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* ── Hockey Identity screen ── */
+.identity-content {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 36px;
+}
+
+.identity-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 20px 18px;
+  border: 1px solid rgba(100, 155, 230, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(28, 70, 150, 0.22),
+    rgba(255, 255, 255, 0.03)
+  );
+  color: rgba(210, 228, 255, 0.55);
+  font-family: inherit;
+  text-align: left;
+  cursor: not-allowed;
+  transition: none;
+  overflow: hidden;
+}
+
+/* subtle left-edge accent stripe */
+.identity-card::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(
+    180deg,
+    rgba(80, 150, 255, 0.55),
+    rgba(40, 90, 200, 0.25)
+  );
+}
+
+.identity-card__left {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(100, 160, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.identity-card__icon {
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.identity-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.identity-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(210, 228, 255, 0.6);
+  margin-bottom: 3px;
+  line-height: 1.2;
+}
+
+.identity-card__subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(155, 185, 230, 0.4);
+  line-height: 1.4;
+}
+
+.identity-card__badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(120, 160, 220, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(100, 150, 210, 0.14);
+  border-radius: 6px;
+  padding: 4px 9px;
+}
+
+.identity-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.identity-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(130, 165, 215, 0.38);
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+@media (max-width: 370px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
