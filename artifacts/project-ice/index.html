@@ -436,6 +436,48 @@
             <p class="br__notification-text">"Big day tomorrow. Love you."</p>
           </div>
 
+          <!-- Interaction toast -->
+          <div class="br__toast" id="br-toast"></div>
+
+        </div>
+
+        <!-- Messages overlay -->
+        <div id="messages-overlay" class="messages-overlay" aria-hidden="true">
+          <div class="messages-header">
+            <button class="messages-back" id="btn-close-messages" aria-label="Back to bedroom">‹</button>
+            <div class="messages-contact">
+              <div class="messages-avatar">❤️</div>
+              <p class="messages-contact__name">Mom ❤️</p>
+            </div>
+            <div class="messages-header__spacer"></div>
+          </div>
+          <div class="messages-body">
+            <p class="messages-timestamp">Saturday 7:17 PM</p>
+            <div class="msg-wrap msg-wrap--received">
+              <div class="msg-bubble msg-bubble--received">Big day tomorrow. Love you.</div>
+            </div>
+            <div class="msg-wrap msg-wrap--sent">
+              <div class="msg-bubble msg-bubble--sent">Thanks Mom. I'm nervous.</div>
+            </div>
+            <div class="msg-wrap msg-wrap--received">
+              <div class="msg-bubble msg-bubble--received">You'll do great. Just work hard and have fun.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sleep modal -->
+        <div id="sleep-modal" class="sleep-modal" aria-hidden="true">
+          <div class="sleep-modal__card">
+            <p class="sleep-modal__prompt">Go to sleep?</p>
+            <div class="sleep-modal__actions">
+              <button class="btn btn--secondary" id="btn-sleep-no">
+                <span class="btn__label">Not Yet</span>
+              </button>
+              <button class="btn btn--primary" id="btn-sleep-yes">
+                <span class="btn__label">Yes</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Bedroom HUD -->

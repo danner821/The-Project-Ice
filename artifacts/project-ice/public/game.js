@@ -667,6 +667,82 @@ btnBeginCareer.addEventListener('click', () => {
   runIntroSequence();
 });
 
+// ── Bedroom interactions ────────────────────────────────────
+let brToastTimer = null;
+
+function showBedroomToast(message) {
+  const toast = document.getElementById('br-toast');
+  toast.textContent = message;
+  toast.classList.add('br__toast--visible');
+  clearTimeout(brToastTimer);
+  brToastTimer = setTimeout(() => {
+    toast.classList.remove('br__toast--visible');
+  }, 3800);
+}
+
+document.querySelector('.br__bag').addEventListener('click', () => {
+  showBedroomToast('Everything is packed for tomorrow\'s tryouts.');
+});
+
+document.querySelector('.br__stick-wrap').addEventListener('click', () => {
+  showBedroomToast('You\'ve practiced with this stick almost every day this summer.');
+});
+
+document.querySelector('.br__phone').addEventListener('click', () => {
+  const overlay = document.getElementById('messages-overlay');
+  overlay.classList.add('is-open');
+  overlay.setAttribute('aria-hidden', 'false');
+});
+
+document.getElementById('btn-close-messages').addEventListener('click', () => {
+  const overlay = document.getElementById('messages-overlay');
+  overlay.classList.remove('is-open');
+  overlay.setAttribute('aria-hidden', 'true');
+});
+
+function openSleepModal() {
+  const modal = document.getElementById('sleep-modal');
+  modal.classList.add('is-open');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+document.querySelector('.br__mattress').addEventListener('click', openSleepModal);
+document.querySelector('.br__headboard').addEventListener('click', openSleepModal);
+
+document.getElementById('btn-sleep-no').addEventListener('click', () => {
+  const modal = document.getElementById('sleep-modal');
+  modal.classList.remove('is-open');
+  modal.setAttribute('aria-hidden', 'true');
+});
+
+document.getElementById('btn-sleep-yes').addEventListener('click', async () => {
+  const modal = document.getElementById('sleep-modal');
+  modal.classList.remove('is-open');
+  await sleep(250);
+  await runSleepSequence();
+});
+
+async function runSleepSequence() {
+  const overlay = document.getElementById('cinematic-overlay');
+  const text    = document.getElementById('cinematic-text');
+
+  // Fade to black
+  overlay.classList.add('is-active');
+  await sleep(1100);
+
+  // Show date
+  text.innerHTML = 'September 4, 2022';
+  text.style.opacity = '1';
+  await sleep(2200);
+  text.style.opacity = '0';
+  await sleep(580);
+  text.innerHTML = '';
+
+  // Show title card — hold here, no further navigation yet
+  text.innerHTML = 'Freshman Tryouts';
+  text.style.opacity = '1';
+}
+
 // ── Cinematic intro sequence ────────────────────────────────
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
