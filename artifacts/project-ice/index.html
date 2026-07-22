@@ -701,49 +701,22 @@
               </button>
             </div>
 
-            <!-- Dashboard: Standings -->
-            <div class="hub-dash-card">
+            <!-- Dashboard: Standings (preview — top 4, populated by renderHubStandings()) -->
+            <div class="hub-dash-card" id="hub-standings-card">
               <div class="hub-dash-card__header">
                 <span class="hub-dash-card__title">Standings</span>
-                <span class="hub-dash-card__action">View All ›</span>
+                <button class="hub-dash-card__action hub-dash-card__action--btn" id="btn-hub-standings-all" aria-label="View full standings">View All ›</button>
               </div>
               <div class="hub-dash-card__body">
-                <div class="hub-standings">
+                <div class="hub-standings" id="hub-standings-preview">
                   <div class="hub-standings__row hub-standings__row--header">
                     <span class="hub-standings__pos">#</span>
                     <span class="hub-standings__team">Team</span>
                     <span class="hub-standings__stat">W</span>
                     <span class="hub-standings__stat">L</span>
-                    <span class="hub-standings__stat">PTS</span>
+                    <span class="hub-standings__stat hub-standings__stat--pts">PTS</span>
                   </div>
-                  <div class="hub-standings__row">
-                    <span class="hub-standings__pos">1</span>
-                    <span class="hub-standings__team">Northview Hawks</span>
-                    <span class="hub-standings__stat">3</span>
-                    <span class="hub-standings__stat">0</span>
-                    <span class="hub-standings__stat hub-standings__stat--pts">6</span>
-                  </div>
-                  <div class="hub-standings__row">
-                    <span class="hub-standings__pos">2</span>
-                    <span class="hub-standings__team">Ridgemont Wolves</span>
-                    <span class="hub-standings__stat">2</span>
-                    <span class="hub-standings__stat">1</span>
-                    <span class="hub-standings__stat hub-standings__stat--pts">4</span>
-                  </div>
-                  <div class="hub-standings__row hub-standings__row--you">
-                    <span class="hub-standings__pos">3</span>
-                    <span class="hub-standings__team">Eastdale Falcons ★</span>
-                    <span class="hub-standings__stat">1</span>
-                    <span class="hub-standings__stat">2</span>
-                    <span class="hub-standings__stat hub-standings__stat--pts">2</span>
-                  </div>
-                  <div class="hub-standings__row">
-                    <span class="hub-standings__pos">4</span>
-                    <span class="hub-standings__team">Lakeside Tigers</span>
-                    <span class="hub-standings__stat">0</span>
-                    <span class="hub-standings__stat">3</span>
-                    <span class="hub-standings__stat hub-standings__stat--pts">0</span>
-                  </div>
+                  <!-- rows injected by renderHubStandings() -->
                 </div>
               </div>
             </div>
@@ -1136,6 +1109,46 @@
             <span class="hub-nav__label">League</span>
           </button>
         </nav>
+
+      </section>
+
+      <!-- STANDINGS SCREEN -->
+      <section id="standings-screen" class="screen screen--hidden">
+
+        <div class="sl-wrap">
+
+          <header class="sl-header">
+            <button class="back-button" id="btn-back-standings" aria-label="Back to Career Hub">‹</button>
+            <div class="sl-header__text">
+              <p class="eyebrow">League</p>
+              <h2>Standings</h2>
+            </div>
+            <div class="sl-header__season">
+              <span class="sl-season-badge">2022–23</span>
+            </div>
+          </header>
+
+          <p class="sl-context">Midwest Youth Hockey League · Preseason</p>
+
+          <div class="sl-table-wrap">
+
+            <!-- Column headers -->
+            <div class="sl-row sl-row--header" aria-hidden="true">
+              <span class="sl-col sl-col--rank">#</span>
+              <span class="sl-col sl-col--school">School</span>
+              <span class="sl-col sl-col--record">Record</span>
+              <span class="sl-col sl-col--pts">PTS</span>
+              <span class="sl-col sl-col--gd">GD</span>
+            </div>
+
+            <!-- Rows injected by renderStandingsScreen() -->
+            <div id="sl-rows" role="list" aria-label="League standings"></div>
+
+          </div>
+
+          <p class="sl-footnote">GD = Goal Differential &nbsp;·&nbsp; Record = W-L-OT</p>
+
+        </div>
 
       </section>
 

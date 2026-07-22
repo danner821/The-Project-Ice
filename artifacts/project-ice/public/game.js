@@ -39,6 +39,7 @@ const archetypeScreen      = document.getElementById('archetype-screen');
 const backgroundScreen     = document.getElementById('background-screen');
 const arenaScreen          = document.getElementById('arena-screen');
 const hubScreen            = document.getElementById('hub-screen');
+const standingsScreen      = document.getElementById('standings-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -145,6 +146,7 @@ function showScreen(screenName) {
   backgroundScreen.classList.add('screen--hidden');
   arenaScreen.classList.add('screen--hidden');
   hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -187,6 +189,10 @@ function showScreen(screenName) {
   if (screenName === 'hub') {
     hubScreen.classList.remove('screen--hidden');
     updateHubScreen();
+  }
+  if (screenName === 'standings') {
+    standingsScreen.classList.remove('screen--hidden');
+    renderStandingsScreen();
   }
 
   Game.screen = screenName;
@@ -891,6 +897,73 @@ function renderHubNews() {
 // whenever a new headline is added — without world.js touching the DOM.
 WorldEngine.news.onNewsChange(renderHubNews);
 
+// ── Standings ────────────────────────────────────────────────
+// Shared sort used by both the hub preview card and the full standings screen.
+// Sort order: Points desc → Wins desc → Goal Differential desc.
+function getSortedStandings() {
+  return [...WorldEngine.state.teams].sort((a, b) => {
+    if (b.points !== a.points)           return b.points - a.points;
+    if (b.wins   !== a.wins)             return b.wins   - a.wins;
+    const gdA = a.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
+    return gdB - gdA;
+  });
+}
+
+// Renders the top-4 preview inside the hub home tab standings card.
+function renderHubStandings() {
+  const container = document.getElementById('hub-standings-preview');
+  if (!container) return;
+
+  const teams = getSortedStandings().slice(0, 4);
+
+  // Keep the existing header row, replace everything after it
+  const header = container.querySelector('.hub-standings__row--header');
+  container.innerHTML = '';
+  if (header) container.appendChild(header);
+
+  teams.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'hub-standings__row';
+    row.innerHTML = `
+      <span class="hub-standings__pos">${i + 1}</span>
+      <span class="hub-standings__team">${t.schoolName} ${t.teamName}</span>
+      <span class="hub-standings__stat">${t.wins}</span>
+      <span class="hub-standings__stat">${t.losses}</span>
+      <span class="hub-standings__stat hub-standings__stat--pts">${t.points}</span>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// Renders all eight teams on the full standings screen.
+function renderStandingsScreen() {
+  const container = document.getElementById('sl-rows');
+  if (!container) return;
+
+  const teams = getSortedStandings();
+
+  container.innerHTML = teams.map((t, i) => {
+    const gd    = t.goalsFor - t.goalsAgainst;
+    const gdStr = gd > 0 ? `+${gd}` : `${gd}`;
+    const gdMod = gd > 0 ? ' sl-col--gd-pos' : gd < 0 ? ' sl-col--gd-neg' : '';
+    const record = `${t.wins}-${t.losses}-${t.overtimeLosses}`;
+
+    return `
+      <div class="sl-row" role="listitem">
+        <span class="sl-col sl-col--rank">${i + 1}</span>
+        <span class="sl-col sl-col--school">
+          <span class="sl-school-name">${t.schoolName}</span>
+          <span class="sl-team-name">${t.teamName}</span>
+        </span>
+        <span class="sl-col sl-col--record">${record}</span>
+        <span class="sl-col sl-col--pts">${t.points}</span>
+        <span class="sl-col sl-col--gd${gdMod}">${gdStr}</span>
+      </div>
+    `;
+  }).join('');
+}
+
 // ── Career Hub ───────────────────────────────────────────────
 
 const HUB_DAYS = [
@@ -930,6 +1003,9 @@ function updateHubScreen() {
 
   const leadersPosEl = document.getElementById('hub-leaders-you-pos');
   if (leadersPosEl) leadersPosEl.textContent = pos;
+
+  // ── Home tab – standings preview ─────────────────────────
+  renderHubStandings();
 
   // ── Home tab – news ───────────────────────────────────────
   renderHubNews();
@@ -981,6 +1057,15 @@ document.getElementById('btn-hub-continue').addEventListener('click', async () =
   text.innerHTML = '<span class="cin-title">Tryout Drill 1</span>';
   text.style.opacity = '1';
   // End state — drills not yet implemented
+});
+
+// ── Standings screen navigation ──────────────────────────────
+document.getElementById('btn-hub-standings-all').addEventListener('click', () => {
+  showScreen('standings');
+});
+
+document.getElementById('btn-back-standings').addEventListener('click', () => {
+  showScreen('hub');
 });
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {
