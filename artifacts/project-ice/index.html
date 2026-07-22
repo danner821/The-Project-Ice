@@ -729,6 +729,16 @@
               </div>
             </div>
 
+            <!-- Dashboard: Top 100 Prospects -->
+            <div class="hub-dash-card hub-dash-card--tappable" id="hub-prospects-card"
+                 role="button" tabindex="0" aria-label="Open Top 100 Prospect Rankings">
+              <div class="hub-dash-card__header">
+                <span class="hub-dash-card__title">⭐ Top 100 Prospects</span>
+                <span class="hub-dash-card__action">View ›</span>
+              </div>
+              <p class="hub-prospects-teaser">Season rankings · Updated weekly</p>
+            </div>
+
           </div><!-- /#hub-tab-home -->
 
           <!-- Other tab panels — not yet functional -->
@@ -1337,6 +1347,51 @@
           </div>
 
         </div><!-- /.tp-wrap -->
+
+      </section>
+
+      <!-- TOP 100 PROSPECTS SCREEN -->
+      <section id="prospects-screen" class="screen screen--hidden">
+
+        <div class="pr-wrap">
+
+          <header class="sl-header">
+            <button class="back-button" id="btn-back-prospects" aria-label="Back to Career Hub">‹</button>
+            <div class="sl-header__text">
+              <p class="eyebrow">Scouting</p>
+              <h2>Top 100</h2>
+            </div>
+            <div class="sl-header__season">
+              <span class="sl-season-badge">2022–23</span>
+            </div>
+          </header>
+
+          <p class="sl-context">Prospect Rankings · Draft Class 2027</p>
+
+          <div class="pr-table-wrap">
+
+            <!-- Column headers (sticky) -->
+            <div class="pr-row pr-row--header" aria-hidden="true">
+              <span class="pr-col pr-col--rank">#</span>
+              <span class="pr-col pr-col--name">Name</span>
+              <span class="pr-col pr-col--pos">Pos</span>
+              <span class="pr-col pr-col--team">Team</span>
+              <span class="pr-col pr-col--league">Lge</span>
+              <span class="pr-col pr-col--draft">Draft</span>
+              <span class="pr-col pr-col--trend">↕</span>
+            </div>
+
+            <!-- Rows injected by renderProspectsScreen() -->
+            <div id="pr-rows" role="list" aria-label="Top 100 Prospect Rankings"></div>
+
+          </div>
+
+        </div><!-- /.pr-wrap -->
+
+        <!-- Tap toast — floats at bottom, shown briefly on row tap -->
+        <div class="pr-toast" id="pr-toast" hidden>
+          Prospect profile coming soon.
+        </div>
 
       </section>
 

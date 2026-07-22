@@ -3812,6 +3812,223 @@ html, body {
   padding-bottom: 4px;
 }
 
+/* ── Hub: Tappable dash card (prospects entry point) ── */
+
+.hub-dash-card--tappable {
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.hub-dash-card--tappable:active {
+  background: rgba(18, 38, 95, 0.85);
+  border-color: rgba(70, 130, 240, 0.35);
+}
+
+.hub-prospects-teaser {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: rgba(120, 165, 230, 0.5);
+  margin: 0;
+  padding: 10px 16px 14px;
+  letter-spacing: 0.01em;
+}
+
+/* ── Top 100 Prospects Screen ────────────────────────────────────────────── */
+
+#prospects-screen {
+  padding: 0;
+  overflow-y: auto;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.pr-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: max(env(safe-area-inset-top, 12px), 14px) 20px 20px;
+  box-sizing: border-box;
+  flex: 0 0 auto; /* does not flex-grow; lets pr-table-wrap fill */
+}
+
+/* Table container — slight inset card */
+.pr-table-wrap {
+  background: rgba(8, 18, 42, 0.55);
+  border: 1px solid rgba(40, 80, 160, 0.18);
+  border-radius: 14px;
+  overflow: hidden;
+  /* Extra bottom space so last row isn't cut off by safe area */
+  margin-bottom: max(env(safe-area-inset-bottom, 16px), 24px);
+}
+
+/* Every row (header + data) share this grid */
+/* # | Name | Pos | Team | Lge | Draft | ↕         */
+/* 24px 1fr  28px  46px  28px  34px  22px           */
+.pr-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 28px 46px 28px 34px 22px;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(18, 38, 80, 0.35);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.pr-row:last-child {
+  border-bottom: none;
+}
+
+/* Header row */
+.pr-row--header {
+  padding: 9px 14px 8px;
+  background: rgba(10, 22, 52, 0.65);
+  border-bottom: 1px solid rgba(30, 60, 130, 0.28);
+  /* Sticky so it stays visible while scrolling */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.pr-row--header .pr-col {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(80, 120, 185, 0.55);
+}
+
+/* Data rows — tappable */
+.pr-row--data {
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.pr-row--data:active,
+.pr-row--data.is-tapped {
+  background: rgba(30, 65, 160, 0.18);
+}
+
+/* Columns — shared base */
+.pr-col {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Rank */
+.pr-col--rank {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(95, 138, 205, 0.55);
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Name */
+.pr-col--name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(210, 232, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pr-col--name.pr-name--placeholder {
+  color: rgba(100, 140, 200, 0.38);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Position badge */
+.pr-col--pos {
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pr-pos-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.pr-pos-badge--fwd {
+  color: rgba(120, 175, 255, 0.88);
+  background: rgba(18, 48, 130, 0.45);
+  border: 1px solid rgba(55, 110, 220, 0.2);
+}
+
+.pr-pos-badge--def {
+  color: rgba(220, 175, 75, 0.88);
+  background: rgba(90, 60, 10, 0.35);
+  border: 1px solid rgba(180, 130, 40, 0.2);
+}
+
+.pr-pos-badge--g {
+  color: rgba(90, 210, 130, 0.88);
+  background: rgba(10, 70, 35, 0.4);
+  border: 1px solid rgba(50, 160, 90, 0.2);
+}
+
+/* Team, League — muted placeholder text */
+.pr-col--team,
+.pr-col--league {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(100, 140, 195, 0.45);
+  justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+/* Draft year */
+.pr-col--draft {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(140, 182, 240, 0.65);
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Stock trend emoji */
+.pr-col--trend {
+  font-size: 13px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Tap toast — fixed at bottom ── */
+.pr-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 16px) + 72px); /* above hub nav area */
+  background: rgba(12, 28, 72, 0.92);
+  border: 1px solid rgba(60, 110, 230, 0.35);
+  border-radius: 20px;
+  padding: 9px 20px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(180, 215, 255, 0.9);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.pr-toast.is-fading {
+  opacity: 0;
+}
+
 /* ── Team Profile Screen ─────────────────────────────────────────────────── */
 
 #team-profile-screen {

@@ -41,6 +41,7 @@ const arenaScreen          = document.getElementById('arena-screen');
 const hubScreen            = document.getElementById('hub-screen');
 const standingsScreen      = document.getElementById('standings-screen');
 const teamProfileScreen    = document.getElementById('team-profile-screen');
+const prospectsScreen      = document.getElementById('prospects-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -149,6 +150,7 @@ function showScreen(screenName) {
   hubScreen.classList.add('screen--hidden');
   standingsScreen.classList.add('screen--hidden');
   teamProfileScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -199,6 +201,10 @@ function showScreen(screenName) {
   if (screenName === 'team-profile') {
     teamProfileScreen.classList.remove('screen--hidden');
     // Content already populated by openTeamProfile() before showScreen() is called
+  }
+  if (screenName === 'prospects') {
+    prospectsScreen.classList.remove('screen--hidden');
+    renderProspectsScreen();
   }
 
   Game.screen = screenName;
@@ -980,6 +986,53 @@ function openTeamProfile(teamId, origin) {
   showScreen('team-profile');
 }
 
+// ── Top 100 Prospects ─────────────────────────────────────────
+// Position groups and trend patterns cycle across 100 placeholder rows.
+// Swap the loop body for WorldEngine.state.prospectRankings when real data exists.
+
+const PR_POSITIONS = ['C','LW','RW','LD','RD','C','LW','RW','G','LD','RD','LW'];
+const PR_TRENDS    = ['➖','🔼','➖','🔽','➖','🔼','➖','➖','🔽','🔼','➖','🔼'];
+
+function posBadgeClass(pos) {
+  if (pos === 'G')                  return 'pr-pos-badge--g';
+  if (pos === 'LD' || pos === 'RD') return 'pr-pos-badge--def';
+  return 'pr-pos-badge--fwd';
+}
+
+let prospectsReady = false;
+
+function renderProspectsScreen() {
+  if (prospectsReady) return;
+  prospectsReady = true;
+
+  const container = document.getElementById('pr-rows');
+  if (!container) return;
+
+  const rows = [];
+  for (let rank = 1; rank <= 100; rank++) {
+    const pos       = PR_POSITIONS[(rank - 1) % PR_POSITIONS.length];
+    const trend     = PR_TRENDS[(rank - 1) % PR_TRENDS.length];
+    const draftYear = rank <= 55 ? 2027 : 2028;
+    const badgeCls  = posBadgeClass(pos);
+
+    rows.push(`
+      <div class="pr-row pr-row--data" role="listitem" data-rank="${rank}">
+        <span class="pr-col pr-col--rank">${rank}</span>
+        <span class="pr-col pr-col--name pr-name--placeholder">Prospect TBA</span>
+        <span class="pr-col pr-col--pos">
+          <span class="pr-pos-badge ${badgeCls}">${pos}</span>
+        </span>
+        <span class="pr-col pr-col--team">—</span>
+        <span class="pr-col pr-col--league">—</span>
+        <span class="pr-col pr-col--draft">${draftYear}</span>
+        <span class="pr-col pr-col--trend">${trend}</span>
+      </div>
+    `);
+  }
+  container.innerHTML = rows.join('');
+}
+
+
 // ── Standings ────────────────────────────────────────────────
 // Shared sort used by both the hub preview card and the full standings screen.
 // Sort order: Points desc → Wins desc → Goal Differential desc.
@@ -1244,6 +1297,43 @@ document.getElementById('tp-roster').addEventListener('click', e => {
   row.classList.add('is-tapped');
   setTimeout(() => row.classList.remove('is-tapped'), 220);
 });
+
+// ── Top 100 Prospects navigation ──────────────────────────────
+
+// Hub card → open prospects screen
+document.getElementById('hub-prospects-card').addEventListener('click', () => {
+  showScreen('prospects');
+});
+
+// Back button → return to hub
+document.getElementById('btn-back-prospects').addEventListener('click', () => {
+  showScreen('hub');
+});
+
+// Row tap → brief flash + show toast
+(function () {
+  let toastTimer = null;
+
+  document.getElementById('pr-rows').addEventListener('click', e => {
+    const row = e.target.closest('.pr-row--data');
+    if (!row) return;
+
+    // Brief row highlight
+    row.classList.add('is-tapped');
+    setTimeout(() => row.classList.remove('is-tapped'), 200);
+
+    // Show/re-show toast with fade-out
+    const toast = document.getElementById('pr-toast');
+    if (!toast) return;
+    if (toastTimer) clearTimeout(toastTimer);
+    toast.classList.remove('is-fading');
+    toast.hidden = false;
+    toastTimer = setTimeout(() => {
+      toast.classList.add('is-fading');
+      setTimeout(() => { toast.hidden = true; toast.classList.remove('is-fading'); }, 320);
+    }, 2200);
+  });
+})();
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {
   tab.addEventListener('click', () => {
