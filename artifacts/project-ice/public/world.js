@@ -20,6 +20,142 @@ const WorldEngine = (() => {
   // ── Storage key (separate from the player SAVE_KEY) ────────
   const WORLD_KEY = 'projectice_world';
 
+  // ── Seed teams ──────────────────────────────────────────────
+  // Eight fictional high-school programs for the 2022-23 season.
+  // Future systems populate each team's roster array and update
+  // the stats fields (wins, losses, etc.) after simulated games.
+  // Add new teams here; buildDefaults() deep-copies the array.
+  const SEED_TEAMS = [
+    {
+      teamId:          'team-summit-academy',
+      schoolName:      'Summit Academy',
+      teamName:        'Titans',
+      primaryColor:    '#1a1a2e',
+      secondaryColor:  '#c9a84c',
+      prestige:        5,
+      identity:        'Elite powerhouse with strong scout attention.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-iron-peak',
+      schoolName:      'Iron Peak',
+      teamName:        'Wolves',
+      primaryColor:    '#2b2d2f',
+      secondaryColor:  '#8b0000',
+      prestige:        3,
+      identity:        'Physical, defense-first team.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-north-ridge',
+      schoolName:      'North Ridge',
+      teamName:        'Falcons',
+      primaryColor:    '#003366',
+      secondaryColor:  '#c0c0c0',
+      prestige:        4,
+      identity:        'Fast, skilled, disciplined team.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-cedar-valley',
+      schoolName:      'Cedar Valley',
+      teamName:        'Storm',
+      primaryColor:    '#1b4332',
+      secondaryColor:  '#52b788',
+      prestige:        2,
+      identity:        'Underdog program known for player development.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-westbrook',
+      schoolName:      'Westbrook',
+      teamName:        'Knights',
+      primaryColor:    '#1c1c3a',
+      secondaryColor:  '#e8e8e8',
+      prestige:        3,
+      identity:        'Structured defensive team with strong goaltending.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-granite-falls',
+      schoolName:      'Granite Falls',
+      teamName:        'Bears',
+      primaryColor:    '#3b1f0a',
+      secondaryColor:  '#d4a96a',
+      prestige:        2,
+      identity:        'Physical, blue-collar team.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-lakeview',
+      schoolName:      'Lakeview',
+      teamName:        'Lynx',
+      primaryColor:    '#00416a',
+      secondaryColor:  '#e4003a',
+      prestige:        4,
+      identity:        'High-tempo offensive team.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-oakridge',
+      schoolName:      'Oakridge',
+      teamName:        'Ravens',
+      primaryColor:    '#0d0d0d',
+      secondaryColor:  '#6a0dad',
+      prestige:        5,
+      identity:        'Prestigious program known for producing top prospects.',
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+  ];
+
   // ── Seed news headlines ─────────────────────────────────────
   // Stored newest-first. Future simulation systems add real
   // headlines via WorldEngine.news.publish({ date, tag, headline }).
@@ -61,9 +197,11 @@ const WorldEngine = (() => {
       },
 
       // ── World collections ────────────────────────────────────
-      // All empty at this stage. Future generation systems
-      // populate these and call WorldEngine.save() to persist.
-      teams:            [],   // { id, name, city, division, … }
+      // teams: seeded with the eight programs for the 2022-23 season.
+      // All other collections remain empty until future systems
+      // populate them and call WorldEngine.save() to persist.
+      teams: SEED_TEAMS.map(t => ({ ...t, roster: [] })),
+
       players:          [],   // { id, name, position, teamId, … }
       schedule:         [],   // { id, homeTeamId, awayTeamId, date, … }
       standings:        [],   // { teamId, wins, losses, points, … }
