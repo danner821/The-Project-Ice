@@ -363,7 +363,8 @@ html, body {
 
 #creation-screen,
 #summary-screen,
-#identity-screen {
+#identity-screen,
+#background-screen {
   background:
     radial-gradient(ellipse 90% 55% at 50% 0%, #123476 0%, transparent 65%),
     linear-gradient(180deg, #07142f 0%, #050d1f 55%, #020814 100%);
@@ -670,6 +671,159 @@ html, body {
   color: rgba(170, 195, 235, 0.48);
   font-family: inherit;
   font-size: 13px;
+}
+
+/* ── Identity card — active (clickable) variant ── */
+.identity-card--active {
+  cursor: pointer;
+  color: rgba(210, 228, 255, 0.85);
+  border-color: rgba(100, 160, 255, 0.32);
+  background: linear-gradient(
+    145deg,
+    rgba(28, 70, 150, 0.35),
+    rgba(255, 255, 255, 0.045)
+  );
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.identity-card--active:active {
+  transform: scale(0.97);
+}
+
+.identity-card--active .identity-card__icon {
+  opacity: 0.9;
+}
+
+.identity-card__arrow {
+  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 300;
+  color: rgba(140, 185, 255, 0.6);
+  padding-left: 6px;
+}
+
+/* ── Hockey Background selection screen ── */
+.bgselect-content {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding-bottom: 36px;
+}
+
+.bg-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(100, 150, 230, 0.18);
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    rgba(22, 58, 130, 0.2),
+    rgba(255, 255, 255, 0.03)
+  );
+  color: #fff;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.15s ease, background 0.15s ease;
+  overflow: hidden;
+}
+
+.bg-card:active {
+  transform: scale(0.98);
+}
+
+.bg-card--selected {
+  border-color: rgba(80, 155, 255, 0.9);
+  background: linear-gradient(
+    145deg,
+    rgba(25, 75, 185, 0.65),
+    rgba(12, 38, 105, 0.75)
+  );
+  box-shadow: 0 0 0 1px rgba(80, 155, 255, 0.35), 0 6px 28px rgba(20, 60, 180, 0.3);
+}
+
+.bg-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bg-card__name {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.bg-card__check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(100, 160, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+  font-weight: 900;
+  color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bg-card--selected .bg-card__check {
+  background: #3a7fff;
+  border-color: #3a7fff;
+  color: #fff;
+}
+
+.bg-card__desc {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(195, 218, 255, 0.62);
+}
+
+.bg-card--selected .bg-card__desc {
+  color: rgba(210, 228, 255, 0.8);
+}
+
+.bg-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.bg-card__stat {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+
+.bg-card__stat--strength {
+  color: rgba(130, 220, 145, 0.9);
+  background: rgba(50, 180, 80, 0.12);
+  border: 1px solid rgba(80, 200, 110, 0.2);
+}
+
+.bg-card__stat--weakness {
+  color: rgba(255, 145, 120, 0.9);
+  background: rgba(220, 70, 50, 0.1);
+  border: 1px solid rgba(220, 90, 70, 0.2);
+}
+
+.bgselect-footer {
+  margin-top: 6px;
 }
 
 /* ── Hockey Identity screen ── */

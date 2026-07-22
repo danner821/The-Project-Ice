@@ -17,6 +17,7 @@ const Game = {
     hometown: '',
     position: '',
     handedness: '',
+    background: '',
     age: 14,
     careerStart: 2022,
   },
@@ -27,6 +28,7 @@ const titleScreen = document.getElementById('title-screen');
 const creationScreen = document.getElementById('creation-screen');
 const summaryScreen = document.getElementById('summary-screen');
 const identityScreen = document.getElementById('identity-screen');
+const backgroundScreen = document.getElementById('background-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -37,6 +39,9 @@ const btnBackSummary = document.getElementById('btn-back-summary');
 const btnContinueSummary = document.getElementById('btn-continue-summary');
 const btnDeleteSave = document.getElementById('btn-delete-save');
 const btnContinueSetup = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
 
 // ── Form references ─────────────────────────────────────────
 const playerForm = document.getElementById('player-form');
@@ -56,11 +61,13 @@ function showScreen(screenName) {
   creationScreen.classList.add('screen--hidden');
   summaryScreen.classList.add('screen--hidden');
   identityScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
 
-  if (screenName === 'title')    titleScreen.classList.remove('screen--hidden');
-  if (screenName === 'creation') creationScreen.classList.remove('screen--hidden');
-  if (screenName === 'summary')  summaryScreen.classList.remove('screen--hidden');
-  if (screenName === 'identity') identityScreen.classList.remove('screen--hidden');
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity')   identityScreen.classList.remove('screen--hidden');
+  if (screenName === 'background') backgroundScreen.classList.remove('screen--hidden');
 
   Game.screen = screenName;
   window.scrollTo(0, 0);
@@ -303,6 +310,37 @@ btnBackCreation.addEventListener('click', () => {
 
 btnBackSummary.addEventListener('click', () => {
   showScreen('summary');
+});
+
+// ── Hockey Background screen ────────────────────────────────
+function handleBackgroundCardClick(card) {
+  document.querySelectorAll('.bg-card').forEach((c) => {
+    c.classList.remove('bg-card--selected');
+  });
+
+  card.classList.add('bg-card--selected');
+  Game.player.background = card.dataset.background;
+
+  btnContinueBackground.disabled = false;
+  btnContinueBackground.classList.remove('btn--secondary');
+  btnContinueBackground.classList.add('btn--primary');
+}
+
+document.querySelectorAll('.bg-card').forEach((card) => {
+  card.addEventListener('click', () => handleBackgroundCardClick(card));
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBackIdentity.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
 });
 
 btnContinueSummary.addEventListener('click', () => {

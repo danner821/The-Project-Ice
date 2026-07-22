@@ -256,6 +256,116 @@
         </div>
       </section>
 
+      <!-- HOCKEY BACKGROUND SCREEN -->
+      <section id="background-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-identity"
+            type="button"
+            aria-label="Return to Hockey Identity"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">Hockey Identity</p>
+            <h2>Hockey Background</h2>
+          </div>
+
+          <div class="step-badge">3 of 4</div>
+        </header>
+
+        <div class="bgselect-content">
+
+          <button class="bg-card" type="button" data-background="Rink Rat">
+            <div class="bg-card__top">
+              <h3 class="bg-card__name">Rink Rat</h3>
+              <span class="bg-card__check" aria-hidden="true">✓</span>
+            </div>
+            <p class="bg-card__desc">You spent every free minute at the rink developing your hockey skills.</p>
+            <div class="bg-card__stats">
+              <span class="bg-card__stat bg-card__stat--strength">+ Stickhandling</span>
+              <span class="bg-card__stat bg-card__stat--strength">+ Hockey IQ</span>
+              <span class="bg-card__stat bg-card__stat--weakness">− Athleticism</span>
+            </div>
+          </button>
+
+          <button class="bg-card" type="button" data-background="Multi-Sport Athlete">
+            <div class="bg-card__top">
+              <h3 class="bg-card__name">Multi-Sport Athlete</h3>
+              <span class="bg-card__check" aria-hidden="true">✓</span>
+            </div>
+            <p class="bg-card__desc">You played multiple sports growing up and developed into a great overall athlete.</p>
+            <div class="bg-card__stats">
+              <span class="bg-card__stat bg-card__stat--strength">+ Speed</span>
+              <span class="bg-card__stat bg-card__stat--strength">+ Strength</span>
+              <span class="bg-card__stat bg-card__stat--weakness">− Hockey IQ</span>
+            </div>
+          </button>
+
+          <button class="bg-card" type="button" data-background="Hockey Family">
+            <div class="bg-card__top">
+              <h3 class="bg-card__name">Hockey Family</h3>
+              <span class="bg-card__check" aria-hidden="true">✓</span>
+            </div>
+            <p class="bg-card__desc">You grew up in a hockey household and learned the game from an early age.</p>
+            <div class="bg-card__stats">
+              <span class="bg-card__stat bg-card__stat--strength">+ Coach Trust</span>
+              <span class="bg-card__stat bg-card__stat--strength">+ Hockey IQ</span>
+              <span class="bg-card__stat bg-card__stat--weakness">− Higher Expectations</span>
+            </div>
+          </button>
+
+          <button class="bg-card" type="button" data-background="Small Town Star">
+            <div class="bg-card__top">
+              <h3 class="bg-card__name">Small Town Star</h3>
+              <span class="bg-card__check" aria-hidden="true">✓</span>
+            </div>
+            <p class="bg-card__desc">You dominated your local hockey scene but have never faced elite competition.</p>
+            <div class="bg-card__stats">
+              <span class="bg-card__stat bg-card__stat--strength">+ Confidence</span>
+              <span class="bg-card__stat bg-card__stat--strength">+ Scoring</span>
+              <span class="bg-card__stat bg-card__stat--weakness">− Competition Experience</span>
+            </div>
+          </button>
+
+          <button class="bg-card" type="button" data-background="Arizona Underdog">
+            <div class="bg-card__top">
+              <h3 class="bg-card__name">Arizona Underdog</h3>
+              <span class="bg-card__check" aria-hidden="true">✓</span>
+            </div>
+            <p class="bg-card__desc">Growing up where hockey isn't the biggest sport made every opportunity harder to earn.</p>
+            <div class="bg-card__stats">
+              <span class="bg-card__stat bg-card__stat--strength">+ Work Ethic</span>
+              <span class="bg-card__stat bg-card__stat--strength">+ Development Rate</span>
+              <span class="bg-card__stat bg-card__stat--weakness">− Scout Exposure</span>
+            </div>
+          </button>
+
+          <button class="bg-card" type="button" data-background="Late Bloomer">
+            <div class="bg-card__top">
+              <h3 class="bg-card__name">Late Bloomer</h3>
+              <span class="bg-card__check" aria-hidden="true">✓</span>
+            </div>
+            <p class="bg-card__desc">You're behind everyone else today, but your best hockey is still ahead of you.</p>
+            <div class="bg-card__stats">
+              <span class="bg-card__stat bg-card__stat--strength">+ Long-Term Growth</span>
+              <span class="bg-card__stat bg-card__stat--strength">+ Adaptability</span>
+              <span class="bg-card__stat bg-card__stat--weakness">− Lower Starting Overall</span>
+            </div>
+          </button>
+
+          <div class="bgselect-footer">
+            <button class="btn btn--secondary" id="btn-continue-background" disabled>
+              <span class="btn__label">Continue</span>
+              <span class="btn__arrow">›</span>
+            </button>
+          </div>
+
+        </div>
+      </section>
+
       <!-- HOCKEY IDENTITY SCREEN -->
       <section id="identity-screen" class="screen screen--hidden">
         <header class="screen-header">
@@ -278,7 +388,7 @@
 
         <div class="identity-content">
 
-          <button class="identity-card" type="button" disabled>
+          <button class="identity-card identity-card--active" type="button" id="btn-identity-background">
             <div class="identity-card__left">
               <span class="identity-card__icon" aria-hidden="true">🏘️</span>
             </div>
@@ -286,7 +396,7 @@
               <h3 class="identity-card__title">Hockey Background</h3>
               <p class="identity-card__subtitle">Choose how you grew up playing hockey.</p>
             </div>
-            <span class="identity-card__badge">Coming Soon</span>
+            <span class="identity-card__arrow" aria-hidden="true">›</span>
           </button>
 
           <button class="identity-card" type="button" disabled>
