@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Project Ice</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="title-screen" class="screen">
+
+      <!-- Rink lines decoration -->
+      <div class="rink-lines">
+        <div class="rink-line rink-line--red"></div>
+        <div class="rink-line rink-line--blue rink-line--left"></div>
+        <div class="rink-line rink-line--blue rink-line--right"></div>
+      </div>
+
+      <!-- Puck decoration -->
+      <div class="puck-glow"></div>
+
+      <!-- Logo area -->
+      <div class="logo-area">
+        <div class="logo-badge">
+          <svg class="logo-badge__svg" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <polygon points="40,4 76,22 76,58 40,76 4,58 4,22" fill="none" stroke="rgba(100,160,255,0.35)" stroke-width="1.5"/>
+            <polygon points="40,12 68,26 68,54 40,68 12,54 12,26" fill="rgba(10,22,50,0.7)" stroke="rgba(100,180,255,0.2)" stroke-width="1"/>
+            <text x="40" y="46" text-anchor="middle" dominant-baseline="middle" font-family="'Arial Black', Arial, sans-serif" font-weight="900" font-size="28" fill="white" letter-spacing="-1">🏒</text>
+          </svg>
+        </div>
+
+        <div class="title-lockup">
+          <h1 class="title">
+            <span class="title__word title__word--project">PROJECT</span>
+            <span class="title__word title__word--ice">ICE</span>
+          </h1>
+          <p class="subtitle">Live the hockey life.</p>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="menu-buttons">
+        <button class="btn btn--primary" id="btn-new-career">
+          <span class="btn__icon">🏒</span>
+          <span class="btn__label">New Career</span>
+          <span class="btn__arrow">›</span>
+        </button>
+        <button class="btn btn--secondary" id="btn-continue" disabled>
+          <span class="btn__icon">📁</span>
+          <span class="btn__label">Continue Career</span>
+          <span class="btn__tag">No Save Found</span>
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <span class="footer__version">Pre-Alpha Build 0.0.1</span>
+      </footer>
+
+    </div>
+
+    <script src="/game.js"></script>
+  </body>
+</html>

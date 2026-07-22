@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Project Ice"
+version = "1.0.0"
+id = "artifacts/project-ice"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23346
+
+[services.development]
+run = "pnpm --filter @workspace/project-ice run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/project-ice", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/project-ice/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23346"
+BASE_PATH = "/"
