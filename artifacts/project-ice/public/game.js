@@ -418,6 +418,9 @@ function saveCareerPreview() {
         version: '0.0.2',
         savedAt: new Date().toISOString(),
         player: Game.player,
+        // Reference to the world this career belongs to.
+        // 'default' is the only world ID at this stage.
+        worldRef: WorldEngine.state.id,
       })
     );
 
@@ -864,30 +867,12 @@ document.getElementById('btn-take-ice').addEventListener('click', async () => {
 });
 
 // ── News System ──────────────────────────────────────────────
-// Headlines are stored newest-first. Future simulation systems
-// add real headlines by calling NewsSystem.publish({ tag, headline }).
-// The hub always displays the three newest items.
-
-const NewsSystem = (() => {
-  const _items = [
-    { date: '2022-09-04', tag: 'Tryouts',  headline: 'Freshman tryouts begin this week across all programs.' },
-    { date: '2022-09-02', tag: 'Schedule', headline: 'League releases official preseason schedule.' },
-    { date: '2022-09-01', tag: 'Scouting', headline: 'Scouts expected at upcoming showcase events this fall.' },
-    { date: '2022-08-30', tag: 'Roster',   headline: 'Coaches begin finalizing preseason rosters.' },
-    { date: '2022-08-28', tag: 'Rankings', headline: 'Preseason rankings set to be announced soon.' },
-  ];
-
-  function publish({ date, tag, headline }) {
-    _items.unshift({ date, tag, headline });
-    renderHubNews();
-  }
-
-  function getRecent(n = 3) {
-    return _items.slice(0, n);
-  }
-
-  return { publish, getRecent };
-})();
+// NewsSystem is now a thin alias for WorldEngine.news.
+// All existing call sites (NewsSystem.publish, NewsSystem.getRecent)
+// work without modification. The news feed lives in the World Engine
+// and is persisted with world state, not the player save.
+// See public/world.js for the full implementation.
+const NewsSystem = WorldEngine.news;
 
 function renderHubNews() {
   const container = document.getElementById('hub-news-list');
@@ -900,6 +885,11 @@ function renderHubNews() {
     </div>
   `).join('');
 }
+
+// Register the hub re-render callback with the World Engine news system.
+// WorldEngine.news.publish() will call renderHubNews() automatically
+// whenever a new headline is added — without world.js touching the DOM.
+WorldEngine.news.onNewsChange(renderHubNews);
 
 // ── Career Hub ───────────────────────────────────────────────
 
