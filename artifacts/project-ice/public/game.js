@@ -19,17 +19,19 @@ const Game = {
     handedness: '',
     background: '',
     archetype: '',
+    motivation: '',
     age: 14,
     careerStart: 2022,
   },
 };
 
 // ── Screen references ───────────────────────────────────────
-const titleScreen    = document.getElementById('title-screen');
-const creationScreen = document.getElementById('creation-screen');
-const summaryScreen  = document.getElementById('summary-screen');
-const identityScreen = document.getElementById('identity-screen');
-const archetypeScreen = document.getElementById('archetype-screen');
+const titleScreen      = document.getElementById('title-screen');
+const creationScreen   = document.getElementById('creation-screen');
+const summaryScreen    = document.getElementById('summary-screen');
+const identityScreen   = document.getElementById('identity-screen');
+const motivationScreen = document.getElementById('motivation-screen');
+const archetypeScreen  = document.getElementById('archetype-screen');
 const backgroundScreen = document.getElementById('background-screen');
 
 // ── Button references ───────────────────────────────────────
@@ -44,9 +46,12 @@ const btnContinueSetup      = document.getElementById('btn-continue-setup');
 const btnIdentityBackground = document.getElementById('btn-identity-background');
 const btnBackIdentity       = document.getElementById('btn-back-identity');
 const btnContinueBackground = document.getElementById('btn-continue-background');
-const btnIdentityArchetype      = document.getElementById('btn-identity-archetype');
-const btnBackIdentityArchetype  = document.getElementById('btn-back-identity-archetype');
-const btnContinueArchetype      = document.getElementById('btn-continue-archetype');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
 
 // ── Form references ─────────────────────────────────────────
 const playerForm = document.getElementById('player-form');
@@ -61,13 +66,14 @@ const summaryDetails = document.getElementById('summary-details');
 const summaryHometown = document.getElementById('summary-hometown');
 
 // ── Identity references ─────────────────────────────────────
-const identityBgStatus       = document.getElementById('identity-background-status');
-const identityArchetypeStatus = document.getElementById('identity-archetype-status');
-const statusBackground       = document.getElementById('status-background');
-const statusArchetype        = document.getElementById('status-archetype');
-const statusMotivation       = document.getElementById('status-motivation');
-const statusNhlTeam          = document.getElementById('status-nhlteam');
-const identityCompleteCount  = document.getElementById('identity-complete-count');
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+const identityMotivationStatus = document.getElementById('identity-motivation-status');
+const statusBackground         = document.getElementById('status-background');
+const statusArchetype          = document.getElementById('status-archetype');
+const statusMotivation         = document.getElementById('status-motivation');
+const statusNhlTeam            = document.getElementById('status-nhlteam');
+const identityCompleteCount    = document.getElementById('identity-complete-count');
 
 // ── Archetype position rules ────────────────────────────────
 const POSITION_GROUP = {
@@ -108,6 +114,7 @@ function showScreen(screenName) {
   creationScreen.classList.add('screen--hidden');
   summaryScreen.classList.add('screen--hidden');
   identityScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
   archetypeScreen.classList.add('screen--hidden');
   backgroundScreen.classList.add('screen--hidden');
 
@@ -121,6 +128,10 @@ function showScreen(screenName) {
     }
     identityScreen.classList.remove('screen--hidden');
     updateIdentityScreen();
+  }
+  if (screenName === 'motivation') {
+    motivationScreen.classList.remove('screen--hidden');
+    restoreMotivationSelection();
   }
   if (screenName === 'archetype') {
     archetypeScreen.classList.remove('screen--hidden');
@@ -155,19 +166,27 @@ function updateIdentityArchetype() {
   identityArchetypeStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
 }
 
+function updateIdentityMotivation() {
+  const selected = Game.player.motivation;
+  identityMotivationStatus.textContent = selected || 'Not Selected';
+  identityMotivationStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+}
+
 function updateIdentityScreen() {
   updateIdentityBackground();
   updateIdentityArchetype();
+  updateIdentityMotivation();
 
   const bgDone   = Boolean(Game.player.background);
   const archDone = Boolean(Game.player.archetype);
+  const motivDone = Boolean(Game.player.motivation);
 
   setIdentityStatus(statusBackground, bgDone);
   setIdentityStatus(statusArchetype,  archDone);
-  setIdentityStatus(statusMotivation, false);
+  setIdentityStatus(statusMotivation, motivDone);
   setIdentityStatus(statusNhlTeam,    false);
 
-  const count = [bgDone, archDone].filter(Boolean).length;
+  const count = [bgDone, archDone, motivDone].filter(Boolean).length;
   identityCompleteCount.textContent = count;
 
   const allDone = count === 4;
@@ -188,6 +207,19 @@ function restoreBackgroundSelection() {
   btnContinueBackground.disabled = !has;
   btnContinueBackground.classList.toggle('btn--primary',   has);
   btnContinueBackground.classList.toggle('btn--secondary', !has);
+}
+
+function restoreMotivationSelection() {
+  const saved = Game.player.motivation;
+
+  document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+    card.classList.toggle('motivation-card--selected', saved && card.dataset.motivation === saved);
+  });
+
+  const has = Boolean(saved);
+  btnContinueMotivation.disabled = !has;
+  btnContinueMotivation.classList.toggle('btn--primary',   has);
+  btnContinueMotivation.classList.toggle('btn--secondary', !has);
 }
 
 function restoreArchetypeSelection() {
@@ -405,6 +437,7 @@ function resetPlayer() {
     handedness: '',
     background: '',
     archetype: '',
+    motivation: '',
     age: 14,
     careerStart: 2022,
   };
@@ -494,6 +527,33 @@ btnBackIdentityArchetype.addEventListener('click', () => {
 });
 
 btnContinueArchetype.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Motivation screen ───────────────────────────────────────
+document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#motivation-screen .motivation-card').forEach((c) =>
+      c.classList.remove('motivation-card--selected')
+    );
+    card.classList.add('motivation-card--selected');
+    Game.player.motivation = card.dataset.motivation;
+    btnContinueMotivation.disabled = false;
+    btnContinueMotivation.classList.remove('btn--secondary');
+    btnContinueMotivation.classList.add('btn--primary');
+  });
+});
+
+btnIdentityMotivation.addEventListener('click', () => {
+  showScreen('motivation');
+});
+
+btnBackIdentityMotivation.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueMotivation.addEventListener('click', () => {
   saveCareerPreview();
   showScreen('identity');
 });
