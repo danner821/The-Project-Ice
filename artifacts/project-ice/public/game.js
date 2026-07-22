@@ -1178,6 +1178,15 @@ document.getElementById('btn-back-team-profile').addEventListener('click', () =>
   showScreen(_teamProfileOrigin === 'standings' ? 'standings' : 'hub');
 });
 
+// Roster row tap highlight — one delegated listener on the roster container.
+// Adds .is-tapped for a brief flash; no navigation yet.
+document.getElementById('tp-roster').addEventListener('click', e => {
+  const row = e.target.closest('.tp-roster-row');
+  if (!row) return;
+  row.classList.add('is-tapped');
+  setTimeout(() => row.classList.remove('is-tapped'), 220);
+});
+
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const id = tab.dataset.hubTab;

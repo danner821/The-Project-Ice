@@ -3923,6 +3923,129 @@ html, body {
   line-height: 1.5;
 }
 
+/* ── Team Profile Roster ─────────────────────────────────────────────────── */
+
+/* No extra top border on the roster section — it has its own group dividers */
+.tp-section--roster {
+  border-top: none;
+  padding-top: 6px;
+}
+
+.tp-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Position group block: FORWARDS / DEFENSE / GOALTENDERS */
+.tp-roster-group {
+  margin-bottom: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(25, 50, 105, 0.3);
+}
+
+.tp-roster-group--last {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 4px;
+}
+
+.tp-roster-group__title {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(100, 150, 230, 0.55);
+  margin: 12px 0 8px;
+  padding-left: 2px;
+}
+
+/* Line / Pair / Starter unit */
+.tp-roster-unit {
+  margin-bottom: 10px;
+}
+
+.tp-roster-unit--last {
+  margin-bottom: 0;
+}
+
+.tp-roster-unit__label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(70, 105, 170, 0.45);
+  margin: 0 0 3px 2px;
+}
+
+/* Individual player row */
+.tp-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.tp-roster-row:active,
+.tp-roster-row.is-tapped {
+  background: rgba(40, 80, 180, 0.14);
+}
+
+/* Position abbreviation badge */
+.tp-roster-row__pos {
+  flex-shrink: 0;
+  width: 32px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-align: center;
+  border-radius: 5px;
+  padding: 3px 0;
+}
+
+/* Forward badge — blue */
+.tp-roster-row__pos--fwd {
+  color: rgba(120, 175, 255, 0.88);
+  background: rgba(18, 48, 130, 0.45);
+  border: 1px solid rgba(55, 110, 220, 0.22);
+}
+
+/* Defense badge — amber */
+.tp-roster-row__pos--def {
+  color: rgba(220, 175, 75, 0.88);
+  background: rgba(90, 60, 10, 0.35);
+  border: 1px solid rgba(180, 130, 40, 0.22);
+}
+
+/* Goalie badge — green */
+.tp-roster-row__pos--g {
+  color: rgba(90, 210, 130, 0.88);
+  background: rgba(10, 70, 35, 0.4);
+  border: 1px solid rgba(50, 160, 90, 0.22);
+}
+
+/* Player name */
+.tp-roster-row__name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(190, 220, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Placeholder text — muted italic */
+.tp-roster-row__name--empty {
+  font-style: italic;
+  color: rgba(100, 140, 200, 0.38);
+}
+
 /* Clickable standing rows (hub preview + full standings) */
 .sl-row--clickable,
 .hub-standings__row--clickable {
