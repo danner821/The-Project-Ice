@@ -364,6 +364,7 @@ html, body {
 #creation-screen,
 #summary-screen,
 #identity-screen,
+#archetype-screen,
 #background-screen {
   background:
     radial-gradient(ellipse 90% 55% at 50% 0%, #123476 0%, transparent 65%),

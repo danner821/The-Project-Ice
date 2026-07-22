@@ -18,16 +18,18 @@ const Game = {
     position: '',
     handedness: '',
     background: '',
+    archetype: '',
     age: 14,
     careerStart: 2022,
   },
 };
 
 // ── Screen references ───────────────────────────────────────
-const titleScreen = document.getElementById('title-screen');
+const titleScreen    = document.getElementById('title-screen');
 const creationScreen = document.getElementById('creation-screen');
-const summaryScreen = document.getElementById('summary-screen');
+const summaryScreen  = document.getElementById('summary-screen');
 const identityScreen = document.getElementById('identity-screen');
+const archetypeScreen = document.getElementById('archetype-screen');
 const backgroundScreen = document.getElementById('background-screen');
 
 // ── Button references ───────────────────────────────────────
@@ -38,10 +40,13 @@ const btnBackCreation = document.getElementById('btn-back-creation');
 const btnBackSummary = document.getElementById('btn-back-summary');
 const btnContinueSummary = document.getElementById('btn-continue-summary');
 const btnDeleteSave = document.getElementById('btn-delete-save');
-const btnContinueSetup = document.getElementById('btn-continue-setup');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
 const btnIdentityBackground = document.getElementById('btn-identity-background');
-const btnBackIdentity = document.getElementById('btn-back-identity');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
 const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype      = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype  = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype      = document.getElementById('btn-continue-archetype');
 
 // ── Form references ─────────────────────────────────────────
 const playerForm = document.getElementById('player-form');
@@ -56,12 +61,13 @@ const summaryDetails = document.getElementById('summary-details');
 const summaryHometown = document.getElementById('summary-hometown');
 
 // ── Identity references ─────────────────────────────────────
-const identityBgStatus      = document.getElementById('identity-background-status');
-const statusBackground      = document.getElementById('status-background');
-const statusArchetype       = document.getElementById('status-archetype');
-const statusMotivation      = document.getElementById('status-motivation');
-const statusNhlTeam         = document.getElementById('status-nhlteam');
-const identityCompleteCount = document.getElementById('identity-complete-count');
+const identityBgStatus       = document.getElementById('identity-background-status');
+const identityArchetypeStatus = document.getElementById('identity-archetype-status');
+const statusBackground       = document.getElementById('status-background');
+const statusArchetype        = document.getElementById('status-archetype');
+const statusMotivation       = document.getElementById('status-motivation');
+const statusNhlTeam          = document.getElementById('status-nhlteam');
+const identityCompleteCount  = document.getElementById('identity-complete-count');
 
 // ── Screen navigation ───────────────────────────────────────
 function showScreen(screenName) {
@@ -69,6 +75,7 @@ function showScreen(screenName) {
   creationScreen.classList.add('screen--hidden');
   summaryScreen.classList.add('screen--hidden');
   identityScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
   backgroundScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
@@ -77,6 +84,10 @@ function showScreen(screenName) {
   if (screenName === 'identity') {
     identityScreen.classList.remove('screen--hidden');
     updateIdentityScreen();
+  }
+  if (screenName === 'archetype') {
+    archetypeScreen.classList.remove('screen--hidden');
+    restoreArchetypeSelection();
   }
   if (screenName === 'background') {
     backgroundScreen.classList.remove('screen--hidden');
@@ -100,17 +111,25 @@ function updateIdentityBackground() {
   identityBgStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
 }
 
+function updateIdentityArchetype() {
+  const selected = Game.player.archetype;
+  identityArchetypeStatus.textContent = selected || 'Not Selected';
+  identityArchetypeStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+}
+
 function updateIdentityScreen() {
   updateIdentityBackground();
+  updateIdentityArchetype();
 
-  const bgDone = Boolean(Game.player.background);
+  const bgDone   = Boolean(Game.player.background);
+  const archDone = Boolean(Game.player.archetype);
 
   setIdentityStatus(statusBackground, bgDone);
-  setIdentityStatus(statusArchetype,  false);
+  setIdentityStatus(statusArchetype,  archDone);
   setIdentityStatus(statusMotivation, false);
   setIdentityStatus(statusNhlTeam,    false);
 
-  const count = [bgDone].filter(Boolean).length;
+  const count = [bgDone, archDone].filter(Boolean).length;
   identityCompleteCount.textContent = count;
 
   const allDone = count === 4;
@@ -119,19 +138,31 @@ function updateIdentityScreen() {
   btnContinueSetup.classList.toggle('btn--secondary', !allDone);
 }
 
-// ── Restore background selection UI ────────────────────────
+// ── Restore selection UI ────────────────────────────────────
 function restoreBackgroundSelection() {
   const saved = Game.player.background;
 
-  document.querySelectorAll('.bg-card').forEach((card) => {
-    const isMatch = saved && card.dataset.background === saved;
-    card.classList.toggle('bg-card--selected', isMatch);
+  document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+    card.classList.toggle('bg-card--selected', saved && card.dataset.background === saved);
   });
 
-  const hasSelection = Boolean(saved);
-  btnContinueBackground.disabled = !hasSelection;
-  btnContinueBackground.classList.toggle('btn--primary', hasSelection);
-  btnContinueBackground.classList.toggle('btn--secondary', !hasSelection);
+  const has = Boolean(saved);
+  btnContinueBackground.disabled = !has;
+  btnContinueBackground.classList.toggle('btn--primary',   has);
+  btnContinueBackground.classList.toggle('btn--secondary', !has);
+}
+
+function restoreArchetypeSelection() {
+  const saved = Game.player.archetype;
+
+  document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+    card.classList.toggle('bg-card--selected', saved && card.dataset.archetype === saved);
+  });
+
+  const has = Boolean(saved);
+  btnContinueArchetype.disabled = !has;
+  btnContinueArchetype.classList.toggle('btn--primary',   has);
+  btnContinueArchetype.classList.toggle('btn--secondary', !has);
 }
 
 // ── Ripple effect ───────────────────────────────────────────
@@ -335,6 +366,7 @@ function resetPlayer() {
     position: '',
     handedness: '',
     background: '',
+    archetype: '',
     age: 14,
     careerStart: 2022,
   };
@@ -375,21 +407,17 @@ btnBackSummary.addEventListener('click', () => {
 });
 
 // ── Hockey Background screen ────────────────────────────────
-function handleBackgroundCardClick(card) {
-  document.querySelectorAll('.bg-card').forEach((c) => {
-    c.classList.remove('bg-card--selected');
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
   });
-
-  card.classList.add('bg-card--selected');
-  Game.player.background = card.dataset.background;
-
-  btnContinueBackground.disabled = false;
-  btnContinueBackground.classList.remove('btn--secondary');
-  btnContinueBackground.classList.add('btn--primary');
-}
-
-document.querySelectorAll('.bg-card').forEach((card) => {
-  card.addEventListener('click', () => handleBackgroundCardClick(card));
 });
 
 btnIdentityBackground.addEventListener('click', () => {
@@ -401,6 +429,33 @@ btnBackIdentity.addEventListener('click', () => {
 });
 
 btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Archetype screen ────────────────────────────────────────
+document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.archetype = card.dataset.archetype;
+    btnContinueArchetype.disabled = false;
+    btnContinueArchetype.classList.remove('btn--secondary');
+    btnContinueArchetype.classList.add('btn--primary');
+  });
+});
+
+btnIdentityArchetype.addEventListener('click', () => {
+  showScreen('archetype');
+});
+
+btnBackIdentityArchetype.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueArchetype.addEventListener('click', () => {
   saveCareerPreview();
   showScreen('identity');
 });
