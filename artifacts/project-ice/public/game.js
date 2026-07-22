@@ -1557,8 +1557,8 @@ function openTryoutSummary(context) {
 // Maps EVENT_CATALOG completeScreen keys → their handler functions.
 // Add new entries here as more event types receive completion screens.
 const COMPLETE_SCREENS = {
-  // 'tryout-freshman-intro' → show Coach Reynolds intro before the first drill
-  'tryout-freshman-intro': () => showScreen('coach-intro'),
+  // 'tryout-freshman-intro' → open the Skating drill (Drill 1); DrillEngine populates coach-intro
+  'tryout-freshman-intro': () => SkatingDrill.open(),
   // 'tryout-summary' → open the tryout summary (used by results "Continue")
   'tryout-summary':        () => openTryoutSummary('first-time'),
 };
@@ -1579,111 +1579,24 @@ document.getElementById('btn-ev-begin').addEventListener('click', () => {
 
 // Back: first-time → return to event screen (arena); history → return to hub
 // ════════════════════════════════════════════════════════════════
-// SKATING DRILL
-// Manages the 3-decision skating evaluation drill.
-// Call SkatingDrill.start() to begin from the coach intro screen.
+// DRILL ENGINE
+// Generic factory for tryout evaluation drills.
+// DrillEngine(config) returns { open, beginDrill }:
+//   open()       — populates the shared coach-intro screen and shows it.
+//   beginDrill() — resets state, renders the first decision, shows skating-eval.
 // ════════════════════════════════════════════════════════════════
 
-const SkatingDrill = (() => {
+// Tracks the active drill's completion handler so btn-sr-continue knows where to route.
+let _drillContinueCallback = null;
 
-  // ── Decisions ─────────────────────────────────────────────
-  // Each entry: a situation prompt + 2-3 choices.
-  // range: [min, max] points this choice contributes (out of ~33 per decision).
-  // outcome: the brief coaching reaction displayed after the player picks.
-  const DECISIONS = [
-    {
-      prompt: 'Coach blows the whistle. Skaters line up at the blue line. The first sprint is about to begin. How do you approach it?',
-      choices: [
-        {
-          label:   'Explode off the line',
-          desc:    'Max acceleration from the first stride.',
-          range:   [26, 34],
-          outcome: 'You rocket off the line. Clean first stride, full extension. The coaches clock your burst.',
-        },
-        {
-          label:   'Build your speed gradually',
-          desc:    'Controlled start — find your stride early.',
-          range:   [22, 28],
-          outcome: 'Smooth build. Your stride lengthens through mid-ice. Consistent and efficient.',
-        },
-        {
-          label:   'Watch the pack first',
-          desc:    'Read how the other skaters set up.',
-          range:   [13, 21],
-          outcome: 'A half-beat of hesitation. You find your stride late. Coach Reynolds makes a note.',
-        },
-      ],
-    },
-    {
-      prompt: 'You hit the first hard corner at full speed. A tight turn — every edge counts here.',
-      choices: [
-        {
-          label:   'Drive the inside edge hard',
-          desc:    'Aggressive carve — carry all your speed through the turn.',
-          range:   [25, 33],
-          outcome: 'Sharp carve through the arc. You hold your speed. Heads turn on the bench.',
-        },
-        {
-          label:   'Balanced edge, clean cut',
-          desc:    'Technique over aggression — efficient and controlled.',
-          range:   [22, 28],
-          outcome: 'Textbook turn. Clean edges, controlled speed. The coaches see solid fundamentals.',
-        },
-        {
-          label:   'Wide arc to carry momentum',
-          desc:    'Give yourself room to stay fast through the corner.',
-          range:   [17, 25],
-          outcome: 'You carry decent speed but the arc is loose. Not as tight as the coaches want.',
-        },
-      ],
-    },
-    {
-      prompt: 'Final straight. Twenty feet to the finish cone. The coaching staff is watching your compete level.',
-      choices: [
-        {
-          label:   'Dig deep — leave nothing behind',
-          desc:    'Max effort all the way through the line.',
-          range:   [26, 34],
-          outcome: "Full gas to the line. Legs burning. You don't ease up an inch. Compete noted.",
-        },
-        {
-          label:   'Hold your stride',
-          desc:    'Efficient and controlled — finish strong.',
-          range:   [22, 28],
-          outcome: 'Steady to the line. Efficient, repeatable. You look like you have more in the tank.',
-        },
-        {
-          label:   'Ease into the finish',
-          desc:    'Save energy for the next drill.',
-          range:   [11, 19],
-          outcome: 'You coast the last few strides. Coach Reynolds stops writing.',
-        },
-      ],
-    },
-  ];
+const DrillEngine = (function () {
 
+  // ── Shared helpers (one copy for all drill instances) ──────
   const NPC_POOL = [
     'Ethan Brooks',  'Mason Carter', 'Luke Jensen',  'Jake Murray',
     'Cody Park',     'Tyler Voss',   'Brandon Lee',  'Connor Walsh',
     'Dylan Shaw',    'Nate Rourke',  'Austin Reid',  'Hunter Cole',
   ];
-
-  // ── Internal state ─────────────────────────────────────────
-  let _state = {};
-
-  function _resetState() {
-    _state = {
-      decisionIndex:  0,
-      decisionScores: [],
-      totalScore:     0,
-      grade:          '',
-      feedback:       '',
-      npcResults:     [],
-    };
-  }
-
-  // ── Helpers ────────────────────────────────────────────────
-  function _el(id) { return document.getElementById(id); }
 
   function _roll([min, max]) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -1692,7 +1605,7 @@ const SkatingDrill = (() => {
   function _letterGrade(s) {
     if (s >= 97) return 'A+';
     if (s >= 93) return 'A';
-    if (s >= 90) return 'A\u2212'; // A−
+    if (s >= 90) return 'A\u2212';
     if (s >= 87) return 'B+';
     if (s >= 83) return 'B';
     if (s >= 80) return 'B\u2212';
@@ -1705,14 +1618,6 @@ const SkatingDrill = (() => {
     return 'F';
   }
 
-  function _coachFeedback(score) {
-    if (score >= 90) return 'Outstanding skating. Your acceleration and edge work stood out from the group. Coach Reynolds circled your name.';
-    if (score >= 80) return 'Good evaluation. Above-average speed with solid technique through the corners. You belong on this ice.';
-    if (score >= 70) return 'Decent showing. A few breakdowns in the turns, but your compete level came through.';
-    if (score >= 60) return 'Average result. Work on your edge transitions — the raw speed is there, but technique needs to catch up.';
-    return 'Tough eval today. Skating is the foundation of everything at this level. Keep putting in the reps.';
-  }
-
   function _generateNpcs(playerScore) {
     const names = [...NPC_POOL].sort(() => Math.random() - 0.5).slice(0, 3);
     return names.map(name => {
@@ -1722,163 +1627,308 @@ const SkatingDrill = (() => {
     });
   }
 
-  // ── Render: active decision ────────────────────────────────
-  function _renderDecision() {
-    const dec   = DECISIONS[_state.decisionIndex];
-    const total = DECISIONS.length;
-    const idx   = _state.decisionIndex;
+  // ── Per-instance factory ───────────────────────────────────
+  // config shape:
+  //   evalNumber    {number}    e.g. 1
+  //   evalTotal     {number}    e.g. 3
+  //   evalName      {string}    e.g. 'Skating'
+  //   evalIcon      {string}    e.g. '⛸️'
+  //   coachSpeech   {string}    quoted text shown on intro screen
+  //   traits        {string[]}  pills shown below the speech
+  //   decisions     {Array}     3 decision objects (prompt + choices)
+  //   coachFeedback {Function}  (score:number) => string
+  //   onComplete    {Function}  called when the player presses Continue on results
+  function create(config) {
 
-    const fill = _el('se-progress-fill');
-    if (fill) fill.style.width = `${((idx + 1) / total) * 100}%`;
-    const lbl = _el('se-progress-label');
-    if (lbl)  lbl.textContent = `${idx + 1} / ${total}`;
+    let _state = {};
 
-    const sitEl = _el('se-situation-text');
-    if (sitEl) sitEl.textContent = dec.prompt;
-
-    const choicesEl = _el('se-choices');
-    if (choicesEl) {
-      choicesEl.innerHTML = dec.choices.map((c, ci) => `
-        <button class="se-choice-btn" data-choice="${ci}">
-          <div class="se-choice-btn__text-wrap">
-            <span class="se-choice-btn__label">${c.label}</span>
-            <span class="se-choice-btn__desc">${c.desc}</span>
-          </div>
-          <span class="se-choice-btn__arrow">\u203a</span>
-        </button>
-      `).join('');
-
-      choicesEl.querySelectorAll('.se-choice-btn').forEach(btn => {
-        btn.addEventListener('click', () => _onChoiceSelected(parseInt(btn.dataset.choice, 10)));
-      });
+    function _resetState() {
+      _state = {
+        decisionIndex:  0,
+        decisionScores: [],
+        totalScore:     0,
+        grade:          '',
+        feedback:       '',
+        npcResults:     [],
+      };
     }
 
-    const outcomeEl = _el('se-outcome');
-    if (outcomeEl) outcomeEl.hidden = true;
-  }
+    function _el(id) { return document.getElementById(id); }
 
-  // ── Handle choice ──────────────────────────────────────────
-  function _onChoiceSelected(ci) {
-    const dec    = DECISIONS[_state.decisionIndex];
-    const choice = dec.choices[ci];
-    const score  = _roll(choice.range);
+    // Populate shared coach-intro screen elements with this drill's data
+    function _populateCoachIntro() {
+      const tag      = _el('ci-eval-tag');
+      const icon     = _el('ci-eval-icon');
+      const title    = _el('ci-eval-title');
+      const speech   = _el('ci-speech-text');
+      const traitsEl = _el('ci-traits');
+      const btnLabel = _el('ci-begin-btn-label');
 
-    _state.decisionScores.push(score);
-
-    // Mark selected, dim others, disable all
-    document.querySelectorAll('.se-choice-btn').forEach((btn, bi) => {
-      btn.disabled = true;
-      if (bi === ci) btn.classList.add('is-selected');
-      else           btn.classList.add('is-dimmed');
-    });
-
-    // Show outcome card
-    const outcomeEl    = _el('se-outcome');
-    const outcomeScore = _el('se-outcome-score');
-    const outcomeText  = _el('se-outcome-text');
-    if (outcomeEl)    outcomeEl.hidden = false;
-    if (outcomeScore) outcomeScore.textContent = `+${score}`;
-    if (outcomeText)  outcomeText.textContent  = choice.outcome;
-
-    _state.decisionIndex++;
-    const isLast = _state.decisionIndex >= DECISIONS.length;
-    setTimeout(() => {
-      if (isLast) _finalize();
-      else        _transitionNext();
-    }, isLast ? 1500 : 1200);
-  }
-
-  // Fade out content, render new decision, fade back in
-  function _transitionNext() {
-    const content = _el('se-content');
-    if (!content) { _renderDecision(); return; }
-    content.classList.add('is-fading');
-    setTimeout(() => {
-      _renderDecision();
-      content.classList.remove('is-fading');
-    }, 260);
-  }
-
-  // ── Finalize ───────────────────────────────────────────────
-  function _finalize() {
-    const rawSum = _state.decisionScores.reduce((a, b) => a + b, 0);
-    // Max raw = 34 + 33 + 34 = 101 — cap at 100
-    const score  = Math.min(100, rawSum);
-
-    _state.totalScore = score;
-    _state.grade      = _letterGrade(score);
-    _state.feedback   = _coachFeedback(score);
-    _state.npcResults = _generateNpcs(score);
-
-    _renderResults();
-    showScreen('skating-results');
-  }
-
-  // ── Render: results screen ─────────────────────────────────
-  function _renderResults() {
-    const { totalScore: score, grade, feedback, npcResults } = _state;
-
-    // Score count-up animation
-    const scoreEl = _el('sr-score-num');
-    if (scoreEl) {
-      scoreEl.textContent = '0';
-      const dur = 1300;
-      const t0  = performance.now();
-      function tick(now) {
-        const elapsed = Math.min((now - t0) / dur, 1);
-        const ease    = 1 - Math.pow(1 - elapsed, 3); // ease-out cubic
-        scoreEl.textContent = Math.round(ease * score);
-        if (elapsed < 1) requestAnimationFrame(tick);
-        else scoreEl.textContent = score;
+      if (tag)      tag.textContent      = `EVALUATION ${config.evalNumber} OF ${config.evalTotal}`;
+      if (icon)     icon.textContent     = config.evalIcon;
+      if (title)    title.textContent    = config.evalName;
+      if (speech)   speech.textContent   = config.coachSpeech;
+      if (btnLabel) btnLabel.textContent = `Begin ${config.evalName} Evaluation`;
+      if (traitsEl) {
+        traitsEl.innerHTML = config.traits
+          .map(t => `<span class="ci-trait">${t}</span>`)
+          .join('');
       }
-      requestAnimationFrame(tick);
     }
 
-    // Grade badge with colour class
-    const gradeEl = _el('sr-grade');
-    if (gradeEl) {
-      gradeEl.textContent = grade;
-      gradeEl.className   = 'sr-grade';
-      gradeEl.classList.add(`sr-grade--${grade[0].toLowerCase()}`);
+    function _renderDecision() {
+      const dec   = config.decisions[_state.decisionIndex];
+      const total = config.decisions.length;
+      const idx   = _state.decisionIndex;
+
+      const fill = _el('se-progress-fill');
+      if (fill) fill.style.width = `${((idx + 1) / total) * 100}%`;
+      const lbl = _el('se-progress-label');
+      if (lbl)  lbl.textContent = `${idx + 1} / ${total}`;
+
+      const sitEl = _el('se-situation-text');
+      if (sitEl) sitEl.textContent = dec.prompt;
+
+      const choicesEl = _el('se-choices');
+      if (choicesEl) {
+        choicesEl.innerHTML = dec.choices.map((c, ci) => `
+          <button class="se-choice-btn" data-choice="${ci}">
+            <div class="se-choice-btn__text-wrap">
+              <span class="se-choice-btn__label">${c.label}</span>
+              <span class="se-choice-btn__desc">${c.desc}</span>
+            </div>
+            <span class="se-choice-btn__arrow">\u203a</span>
+          </button>
+        `).join('');
+
+        choicesEl.querySelectorAll('.se-choice-btn').forEach(btn => {
+          btn.addEventListener('click', () => _onChoiceSelected(parseInt(btn.dataset.choice, 10)));
+        });
+      }
+
+      const outcomeEl = _el('se-outcome');
+      if (outcomeEl) outcomeEl.hidden = true;
     }
 
-    // Coach feedback
-    const feedEl = _el('sr-feedback');
-    if (feedEl) feedEl.textContent = feedback;
+    function _onChoiceSelected(ci) {
+      const dec    = config.decisions[_state.decisionIndex];
+      const choice = dec.choices[ci];
+      const score  = _roll(choice.range);
 
-    // Leaderboard: player + 3 NPCs, sorted by score descending
-    const playerName = [Game.player.firstName, Game.player.lastName]
-      .filter(Boolean).join(' ') || 'You';
+      _state.decisionScores.push(score);
 
-    const allSkaters = [
-      { name: playerName, score, isPlayer: true },
-      ...npcResults,
-    ].sort((a, b) => b.score - a.score);
+      document.querySelectorAll('.se-choice-btn').forEach((btn, bi) => {
+        btn.disabled = true;
+        if (bi === ci) btn.classList.add('is-selected');
+        else           btn.classList.add('is-dimmed');
+      });
 
-    const boardEl = _el('sr-leaderboard');
-    if (boardEl) {
-      boardEl.innerHTML = allSkaters.map((s, i) => `
-        <div class="sr-board-row${s.isPlayer ? ' sr-board-row--player' : ''}">
-          <span class="sr-board-rank">${i + 1}</span>
-          <div class="sr-board-name-wrap">
-            <span class="sr-board-name">${s.name}</span>
-            ${s.isPlayer ? '<span class="sr-board-you-tag">YOU</span>' : ''}
+      const outcomeEl    = _el('se-outcome');
+      const outcomeScore = _el('se-outcome-score');
+      const outcomeText  = _el('se-outcome-text');
+      if (outcomeEl)    outcomeEl.hidden = false;
+      if (outcomeScore) outcomeScore.textContent = `+${score}`;
+      if (outcomeText)  outcomeText.textContent  = choice.outcome;
+
+      _state.decisionIndex++;
+      const isLast = _state.decisionIndex >= config.decisions.length;
+      setTimeout(() => {
+        if (isLast) _finalize();
+        else        _transitionNext();
+      }, isLast ? 1500 : 1200);
+    }
+
+    function _transitionNext() {
+      const content = _el('se-content');
+      if (!content) { _renderDecision(); return; }
+      content.classList.add('is-fading');
+      setTimeout(() => {
+        _renderDecision();
+        content.classList.remove('is-fading');
+      }, 260);
+    }
+
+    function _finalize() {
+      const rawSum = _state.decisionScores.reduce((a, b) => a + b, 0);
+      const score  = Math.min(100, rawSum);
+
+      _state.totalScore = score;
+      _state.grade      = _letterGrade(score);
+      _state.feedback   = config.coachFeedback(score);
+      _state.npcResults = _generateNpcs(score);
+
+      _renderResults();
+      showScreen('skating-results');
+    }
+
+    function _renderResults() {
+      const { totalScore: score, grade, feedback, npcResults } = _state;
+
+      // Update header badge with this drill's icon and name
+      const badgeEl = _el('sr-header-badge');
+      if (badgeEl) badgeEl.textContent = `${config.evalIcon} ${config.evalName} Evaluation`;
+
+      // Score count-up animation
+      const scoreEl = _el('sr-score-num');
+      if (scoreEl) {
+        scoreEl.textContent = '0';
+        const dur = 1300;
+        const t0  = performance.now();
+        function tick(now) {
+          const elapsed = Math.min((now - t0) / dur, 1);
+          const ease    = 1 - Math.pow(1 - elapsed, 3); // ease-out cubic
+          scoreEl.textContent = Math.round(ease * score);
+          if (elapsed < 1) requestAnimationFrame(tick);
+          else scoreEl.textContent = score;
+        }
+        requestAnimationFrame(tick);
+      }
+
+      const gradeEl = _el('sr-grade');
+      if (gradeEl) {
+        gradeEl.textContent = grade;
+        gradeEl.className   = 'sr-grade';
+        gradeEl.classList.add(`sr-grade--${grade[0].toLowerCase()}`);
+      }
+
+      const feedEl = _el('sr-feedback');
+      if (feedEl) feedEl.textContent = feedback;
+
+      const playerName = [Game.player.firstName, Game.player.lastName]
+        .filter(Boolean).join(' ') || 'You';
+
+      const allSkaters = [
+        { name: playerName, score, isPlayer: true },
+        ...npcResults,
+      ].sort((a, b) => b.score - a.score);
+
+      const boardEl = _el('sr-leaderboard');
+      if (boardEl) {
+        boardEl.innerHTML = allSkaters.map((s, i) => `
+          <div class="sr-board-row${s.isPlayer ? ' sr-board-row--player' : ''}">
+            <span class="sr-board-rank">${i + 1}</span>
+            <div class="sr-board-name-wrap">
+              <span class="sr-board-name">${s.name}</span>
+              ${s.isPlayer ? '<span class="sr-board-you-tag">YOU</span>' : ''}
+            </div>
+            <span class="sr-board-score">${s.score}</span>
           </div>
-          <span class="sr-board-score">${s.score}</span>
-        </div>
-      `).join('');
+        `).join('');
+      }
+
+      // Register this drill's completion route for btn-sr-continue
+      _drillContinueCallback = config.onComplete;
     }
+
+    // open(): populate coach-intro and navigate to it
+    function open() {
+      _populateCoachIntro();
+      showScreen('coach-intro');
+    }
+
+    // beginDrill(): called from the "Begin … Evaluation" button on coach-intro
+    function beginDrill() {
+      _resetState();
+      _renderDecision();
+      showScreen('skating-eval');
+    }
+
+    return { open, beginDrill };
   }
 
-  // ── Public API ─────────────────────────────────────────────
-  function start() {
-    _resetState();
-    _renderDecision();
-    showScreen('skating-eval');
-  }
-
-  return { start };
+  return create;
 })();
+
+// ── Skating Evaluation (Drill 1 of 3) ────────────────────────────
+
+const SkatingDrill = DrillEngine({
+  evalNumber:  1,
+  evalTotal:   3,
+  evalName:    'Skating',
+  evalIcon:    '⛸️',
+  coachSpeech: '"Today we\'re evaluating your skating ability. Speed, acceleration, and agility all matter. Give us your best effort."',
+  traits: ['⚡ Speed', '💨 Acceleration', '🔄 Agility'],
+  decisions: [
+    {
+      prompt: 'Coach blows the whistle. Skaters line up at the blue line. The first sprint is about to begin. How do you approach it?',
+      choices: [
+        { label: 'Explode off the line',       desc: 'Max acceleration from the first stride.',    range: [26, 34], outcome: 'You rocket off the line. Clean first stride, full extension. The coaches clock your burst.' },
+        { label: 'Build your speed gradually', desc: 'Controlled start — find your stride early.', range: [22, 28], outcome: 'Smooth build. Your stride lengthens through mid-ice. Consistent and efficient.' },
+        { label: 'Watch the pack first',       desc: 'Read how the other skaters set up.',         range: [13, 21], outcome: 'A half-beat of hesitation. You find your stride late. Coach Reynolds makes a note.' },
+      ],
+    },
+    {
+      prompt: 'You hit the first hard corner at full speed. A tight turn — every edge counts here.',
+      choices: [
+        { label: 'Drive the inside edge hard', desc: 'Aggressive carve — carry all your speed through the turn.', range: [25, 33], outcome: 'Sharp carve through the arc. You hold your speed. Heads turn on the bench.' },
+        { label: 'Balanced edge, clean cut',   desc: 'Technique over aggression — efficient and controlled.',     range: [22, 28], outcome: 'Textbook turn. Clean edges, controlled speed. The coaches see solid fundamentals.' },
+        { label: 'Wide arc to carry momentum', desc: 'Give yourself room to stay fast through the corner.',       range: [17, 25], outcome: 'You carry decent speed but the arc is loose. Not as tight as the coaches want.' },
+      ],
+    },
+    {
+      prompt: 'Final straight. Twenty feet to the finish cone. The coaching staff is watching your compete level.',
+      choices: [
+        { label: 'Dig deep — leave nothing behind', desc: 'Max effort all the way through the line.',  range: [26, 34], outcome: "Full gas to the line. Legs burning. You don't ease up an inch. Compete noted." },
+        { label: 'Hold your stride',                desc: 'Efficient and controlled — finish strong.', range: [22, 28], outcome: 'Steady to the line. Efficient, repeatable. You look like you have more in the tank.' },
+        { label: 'Ease into the finish',            desc: 'Save energy for the next drill.',           range: [11, 19], outcome: 'You coast the last few strides. Coach Reynolds stops writing.' },
+      ],
+    },
+  ],
+  coachFeedback(score) {
+    if (score >= 90) return 'Outstanding skating. Your acceleration and edge work stood out from the group. Coach Reynolds circled your name.';
+    if (score >= 80) return 'Good evaluation. Above-average speed with solid technique through the corners. You belong on this ice.';
+    if (score >= 70) return 'Decent showing. A few breakdowns in the turns, but your compete level came through.';
+    if (score >= 60) return 'Average result. Work on your edge transitions — the raw speed is there, but technique needs to catch up.';
+    return 'Tough eval today. Skating is the foundation of everything at this level. Keep putting in the reps.';
+  },
+  onComplete: () => PuckControlDrill.open(),
+});
+
+// ── Puck Control Evaluation (Drill 2 of 3) ───────────────────────
+
+const PuckControlDrill = DrillEngine({
+  evalNumber:  2,
+  evalTotal:   3,
+  evalName:    'Puck Control',
+  evalIcon:    '🏒',
+  coachSpeech: '"This evaluation is about your hands. We want to see your stickhandling under pressure, your passing accuracy, and how well you protect the puck in tight space."',
+  traits: ['🏒 Stickhandling', '🎯 Passing', '💪 Puck Protection'],
+  decisions: [
+    {
+      prompt: 'Coach sets up a tight stickhandling course through four cones at mid-ice. How do you attack it?',
+      choices: [
+        { label: 'Attack the course, full speed',     desc: 'Stickhandle through the cones as fast as possible.', range: [25, 34], outcome: 'Hands are fast and tight. You navigate the cones clean. Scouts watching make a note.' },
+        { label: 'Controlled speed, precise hands',   desc: 'Take your time — clean hands over speed.',            range: [22, 28], outcome: 'Efficient. Your hands work in rhythm. No mistakes. Coach nods.' },
+        { label: 'Stay on the outside of the cones', desc: 'Play it safe, stay wide.',                             range: [13, 21], outcome: 'You avoid the challenge. The course is wide open. Coach writes something down.' },
+      ],
+    },
+    {
+      prompt: 'A coach stands at the far blue line. You have three seconds to make a decision — pass or carry.',
+      choices: [
+        { label: 'Lead pass — thread the needle',    desc: 'Fire a crisp pass to the exact spot.',  range: [24, 33], outcome: 'Perfect lead pass. Tape to tape. The coach catches it without breaking stride.' },
+        { label: 'Safe chip pass — flat and direct', desc: 'Straightforward pass, easy to handle.', range: [21, 27], outcome: 'Solid, clean pass. Safe and accurate. Gets the job done.' },
+        { label: 'Carry it yourself',                desc: 'Decide to keep the puck and skate.',    range: [15, 23], outcome: 'You keep it, but a pass was clearly open. Coach marks your decision-making.' },
+      ],
+    },
+    {
+      prompt: 'A defensive player applies pressure from behind. You\'re battling for puck control along the boards.',
+      choices: [
+        { label: 'Shield the puck with your body',    desc: 'Use your frame to protect possession.',      range: [25, 33], outcome: 'Strong puck protection. You win the battle, keep possession, and make a clean exit.' },
+        { label: 'Quick spin move to create space',   desc: 'Beat the pressure with footwork and hands.', range: [23, 32], outcome: 'Nice spin. You create space and exit cleanly. Coaches react with interest.' },
+        { label: 'Try to skate through the pressure', desc: 'Test your speed against the defender.',      range: [14, 24], outcome: 'You fight but lose the battle. Possession gone. Tough spot.' },
+      ],
+    },
+  ],
+  coachFeedback(score) {
+    if (score >= 90) return "Elite hands. Your stickhandling and puck protection under pressure were the best we've seen today. You belong in this league.";
+    if (score >= 80) return 'Good puck control. Accurate passing, solid hands through traffic. You showed you can handle the puck at this level.';
+    if (score >= 70) return 'Decent showing with the puck. Some good moments, but the tight-space stickhandling needs more work.';
+    if (score >= 60) return 'Average result. Puck control separates players at this level — keep working your hands every day.';
+    return 'Struggled to control the puck today. Touch and feel come with repetition — get your stickhandling reps in.';
+  },
+  onComplete: () => openTryoutSummary('first-time'),
+});
+
 
 document.getElementById('btn-back-tryout-summary').addEventListener('click', () => {
   if (_tryoutSummaryContext === 'first-time') {
@@ -1904,12 +1954,13 @@ document.getElementById('btn-back-coach-intro').addEventListener('click', () => 
 });
 
 document.getElementById('btn-begin-skating').addEventListener('click', () => {
-  SkatingDrill.start();
+  SkatingDrill.beginDrill();
 });
 
 // ── Skating Results navigation ────────────────────────────────────
 document.getElementById('btn-sr-continue').addEventListener('click', () => {
-  openTryoutSummary('first-time');
+  // Routes to the next drill or the tryout summary, depending on which drill just finished.
+  if (_drillContinueCallback) _drillContinueCallback();
 });
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {
