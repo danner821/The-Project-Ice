@@ -588,6 +588,103 @@
 
       </section>
 
+      <!-- HUB SCREEN -->
+      <section id="hub-screen" class="screen screen--hidden">
+
+        <!-- Scrollable content -->
+        <div class="hub-content">
+
+          <!-- Screen label -->
+          <div class="hub-title-bar">
+            <span class="hub-title-bar__label">Career Hub</span>
+          </div>
+
+          <!-- Player card -->
+          <div class="hub-player-card">
+            <div class="hub-player-card__info">
+              <p class="hub-player-card__team-label">Current Team</p>
+              <p class="hub-player-card__name" id="hub-player-name">—</p>
+              <p class="hub-player-card__team">Freshman Tryouts</p>
+            </div>
+            <div class="hub-ovr-circle">
+              <span class="hub-ovr-circle__label">OVR</span>
+              <span class="hub-ovr-circle__value">60</span>
+            </div>
+          </div>
+
+          <!-- Current objective -->
+          <div class="hub-objective-card">
+            <p class="hub-objective-card__label">Current Objective</p>
+            <p class="hub-objective-card__text">Impress the coaching staff.</p>
+          </div>
+
+          <!-- Home tab panel -->
+          <div id="hub-tab-home" class="hub-tab-panel hub-tab-panel--active">
+
+            <!-- Weekly calendar -->
+            <div class="hub-calendar">
+              <div class="hub-calendar__header">
+                <span class="hub-calendar__week">Week of September 4, 2022</span>
+              </div>
+              <div class="hub-cal-day hub-cal-day--today">
+                <span class="hub-cal-day__name">SUN</span>
+                <div class="hub-cal-day__event">
+                  <span class="hub-cal-day__event-name">Freshman Tryouts</span>
+                  <span class="hub-cal-day__today-badge">TODAY</span>
+                </div>
+              </div>
+              <div class="hub-cal-day"><span class="hub-cal-day__name">MON</span><span class="hub-cal-day__empty">—</span></div>
+              <div class="hub-cal-day"><span class="hub-cal-day__name">TUE</span><span class="hub-cal-day__empty">—</span></div>
+              <div class="hub-cal-day"><span class="hub-cal-day__name">WED</span><span class="hub-cal-day__empty">—</span></div>
+              <div class="hub-cal-day"><span class="hub-cal-day__name">THU</span><span class="hub-cal-day__empty">—</span></div>
+              <div class="hub-cal-day"><span class="hub-cal-day__name">FRI</span><span class="hub-cal-day__empty">—</span></div>
+              <div class="hub-cal-day"><span class="hub-cal-day__name">SAT</span><span class="hub-cal-day__empty">—</span></div>
+            </div>
+
+            <!-- Continue CTA -->
+            <div class="hub-actions">
+              <button class="btn btn--primary hub-actions__btn" id="btn-hub-continue">
+                <span class="btn__label">Continue</span>
+                <span class="btn__arrow">›</span>
+              </button>
+            </div>
+
+          </div><!-- /#hub-tab-home -->
+
+          <!-- Other tab panels — not yet functional -->
+          <div id="hub-tab-schedule" class="hub-tab-panel" aria-hidden="true"></div>
+          <div id="hub-tab-player"   class="hub-tab-panel" aria-hidden="true"></div>
+          <div id="hub-tab-team"     class="hub-tab-panel" aria-hidden="true"></div>
+          <div id="hub-tab-league"   class="hub-tab-panel" aria-hidden="true"></div>
+
+        </div><!-- /.hub-content -->
+
+        <!-- Permanent bottom nav -->
+        <nav class="hub-nav" aria-label="Career Hub navigation">
+          <button class="hub-nav__tab hub-nav__tab--active" data-hub-tab="home">
+            <span class="hub-nav__icon">⌂</span>
+            <span class="hub-nav__label">Home</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="schedule">
+            <span class="hub-nav__icon">📅</span>
+            <span class="hub-nav__label">Schedule</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="player">
+            <span class="hub-nav__icon">👤</span>
+            <span class="hub-nav__label">Player</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="team">
+            <span class="hub-nav__icon">🏒</span>
+            <span class="hub-nav__label">Team</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="league">
+            <span class="hub-nav__icon">🏆</span>
+            <span class="hub-nav__label">League</span>
+          </button>
+        </nav>
+
+      </section>
+
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">

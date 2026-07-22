@@ -2100,6 +2100,287 @@ html, body {
 }
 
 /* ============================================================
+   CAREER HUB
+   ============================================================ */
+
+#hub-screen {
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 10%, #0b2660 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 90%, #071840 0%, transparent 60%),
+    linear-gradient(180deg, #060f22 0%, #091a3d 40%, #060e1e 100%);
+}
+
+/* ── Content scroll area ── */
+.hub-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: max(env(safe-area-inset-top, 20px), 28px) 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+/* ── Screen title ── */
+.hub-title-bar {
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.hub-title-bar__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: rgba(110, 155, 220, 0.5);
+}
+
+/* ── Player card ── */
+.hub-player-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  background: rgba(8, 16, 34, 0.72);
+  border: 1px solid rgba(30, 55, 100, 0.45);
+  border-radius: 14px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.3);
+}
+
+.hub-player-card__team-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(110, 155, 215, 0.5);
+  margin-bottom: 3px;
+}
+
+.hub-player-card__name {
+  font-size: 22px;
+  font-weight: 700;
+  color: rgba(235, 248, 255, 0.96);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.hub-player-card__team {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(150, 195, 250, 0.75);
+}
+
+.hub-ovr-circle {
+  flex-shrink: 0;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2px solid rgba(75, 135, 255, 0.5);
+  background: radial-gradient(circle at 40% 35%,
+    rgba(25, 58, 140, 0.85) 0%,
+    rgba(10, 25, 68, 0.95) 100%
+  );
+  box-shadow: 0 0 16px rgba(50, 100, 230, 0.22),
+              inset 0 0 10px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hub-ovr-circle__label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(110, 160, 240, 0.7);
+  margin-bottom: 1px;
+}
+
+.hub-ovr-circle__value {
+  font-size: 24px;
+  font-weight: 800;
+  color: rgba(200, 228, 255, 0.97);
+  line-height: 1;
+}
+
+/* ── Objective card ── */
+.hub-objective-card {
+  padding: 12px 16px;
+  background: rgba(6, 12, 28, 0.7);
+  border: 1px solid rgba(30, 55, 100, 0.38);
+  border-left: 3px solid rgba(80, 145, 255, 0.65);
+  border-radius: 10px;
+}
+
+.hub-objective-card__label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(95, 150, 255, 0.6);
+  margin-bottom: 5px;
+}
+
+.hub-objective-card__text {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(215, 232, 255, 0.88);
+  line-height: 1.55;
+}
+
+/* ── Tab panels ── */
+.hub-tab-panel {
+  display: none;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.hub-tab-panel--active {
+  display: flex;
+}
+
+/* ── Weekly calendar ── */
+.hub-calendar {
+  background: rgba(7, 13, 30, 0.68);
+  border: 1px solid rgba(28, 52, 96, 0.42);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.hub-calendar__header {
+  padding: 11px 16px 9px;
+  border-bottom: 1px solid rgba(28, 52, 96, 0.4);
+}
+
+.hub-calendar__week {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(110, 158, 225, 0.65);
+}
+
+.hub-cal-day {
+  display: flex;
+  align-items: center;
+  padding: 11px 16px;
+  gap: 14px;
+  border-bottom: 1px solid rgba(20, 38, 75, 0.38);
+}
+
+.hub-cal-day:last-child {
+  border-bottom: none;
+}
+
+.hub-cal-day--today {
+  background: rgba(25, 55, 120, 0.18);
+  border-left: 3px solid rgba(80, 145, 255, 0.6);
+  padding-left: 13px;
+}
+
+.hub-cal-day__name {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(120, 165, 225, 0.6);
+  width: 30px;
+  flex-shrink: 0;
+}
+
+.hub-cal-day--today .hub-cal-day__name {
+  color: rgba(155, 200, 255, 0.92);
+}
+
+.hub-cal-day__event {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+}
+
+.hub-cal-day__event-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(220, 238, 255, 0.92);
+}
+
+.hub-cal-day__today-badge {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(75, 135, 255, 0.72);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.hub-cal-day__empty {
+  font-size: 15px;
+  color: rgba(65, 92, 140, 0.45);
+  flex: 1;
+}
+
+/* ── Continue button ── */
+.hub-actions {
+  padding-bottom: 4px;
+}
+
+.hub-actions__btn {
+  width: 100%;
+}
+
+/* ── Bottom navigation bar ── */
+.hub-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+  background: rgba(4, 8, 20, 0.98);
+  border-top: 1px solid rgba(28, 52, 96, 0.5);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+}
+
+.hub-nav__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: rgba(85, 118, 175, 0.55);
+  cursor: pointer;
+  padding: 10px 2px;
+  transition: color 0.2s ease, opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hub-nav__tab--active {
+  color: rgba(110, 170, 255, 0.95);
+}
+
+.hub-nav__tab:not(.hub-nav__tab--active) {
+  opacity: 0.45;
+}
+
+.hub-nav__icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.hub-nav__label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
    ARENA SCREEN
    ============================================================ */
 

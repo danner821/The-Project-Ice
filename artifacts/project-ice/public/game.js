@@ -38,6 +38,7 @@ const motivationScreen     = document.getElementById('motivation-screen');
 const archetypeScreen      = document.getElementById('archetype-screen');
 const backgroundScreen     = document.getElementById('background-screen');
 const arenaScreen          = document.getElementById('arena-screen');
+const hubScreen            = document.getElementById('hub-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -139,6 +140,7 @@ function showScreen(screenName) {
   archetypeScreen.classList.add('screen--hidden');
   backgroundScreen.classList.add('screen--hidden');
   arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -177,6 +179,10 @@ function showScreen(screenName) {
   }
   if (screenName === 'arena') {
     arenaScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'hub') {
+    hubScreen.classList.remove('screen--hidden');
+    updateHubScreen();
   }
 
   Game.screen = screenName;
@@ -815,12 +821,39 @@ async function runArenaDialogue() {
 
 document.getElementById('btn-take-ice').addEventListener('click', async () => {
   const overlay = document.getElementById('cinematic-overlay');
+  overlay.classList.add('is-active');
+  await sleep(900);
+  showScreen('hub');
+  overlay.classList.remove('is-active');
+  await sleep(900);
+});
+
+// ── Career Hub ───────────────────────────────────────────────
+function updateHubScreen() {
+  const p  = Game.player;
+  const el = document.getElementById('hub-player-name');
+  if (el) el.textContent = `${p.firstName} ${p.lastName}`.trim() || '—';
+}
+
+document.getElementById('btn-hub-continue').addEventListener('click', async () => {
+  const overlay = document.getElementById('cinematic-overlay');
   const text    = document.getElementById('cinematic-text');
   overlay.classList.add('is-active');
   await sleep(1000);
   text.innerHTML = '<span class="cin-title">Tryout Drill 1</span>';
   text.style.opacity = '1';
   // End state — drills not yet implemented
+});
+
+document.querySelectorAll('.hub-nav__tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const id = tab.dataset.hubTab;
+    if (id !== 'home') return; // other tabs not yet functional
+    document.querySelectorAll('.hub-nav__tab').forEach(t => t.classList.remove('hub-nav__tab--active'));
+    tab.classList.add('hub-nav__tab--active');
+    document.querySelectorAll('.hub-tab-panel').forEach(p => p.classList.remove('hub-tab-panel--active'));
+    document.getElementById('hub-tab-home').classList.add('hub-tab-panel--active');
+  });
 });
 
 // ── Cinematic intro sequence ────────────────────────────────
