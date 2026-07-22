@@ -55,6 +55,9 @@ const summaryName = document.getElementById('summary-name');
 const summaryDetails = document.getElementById('summary-details');
 const summaryHometown = document.getElementById('summary-hometown');
 
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus = document.getElementById('identity-background-status');
+
 // ── Screen navigation ───────────────────────────────────────
 function showScreen(screenName) {
   titleScreen.classList.add('screen--hidden');
@@ -66,11 +69,39 @@ function showScreen(screenName) {
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
   if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
-  if (screenName === 'identity')   identityScreen.classList.remove('screen--hidden');
-  if (screenName === 'background') backgroundScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityBackground();
+  }
+  if (screenName === 'background') {
+    backgroundScreen.classList.remove('screen--hidden');
+    restoreBackgroundSelection();
+  }
 
   Game.screen = screenName;
   window.scrollTo(0, 0);
+}
+
+// ── Identity card display ───────────────────────────────────
+function updateIdentityBackground() {
+  const selected = Game.player.background;
+  identityBgStatus.textContent = selected || 'Not Selected';
+  identityBgStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+}
+
+// ── Restore background selection UI ────────────────────────
+function restoreBackgroundSelection() {
+  const saved = Game.player.background;
+
+  document.querySelectorAll('.bg-card').forEach((card) => {
+    const isMatch = saved && card.dataset.background === saved;
+    card.classList.toggle('bg-card--selected', isMatch);
+  });
+
+  const hasSelection = Boolean(saved);
+  btnContinueBackground.disabled = !hasSelection;
+  btnContinueBackground.classList.toggle('btn--primary', hasSelection);
+  btnContinueBackground.classList.toggle('btn--secondary', !hasSelection);
 }
 
 // ── Ripple effect ───────────────────────────────────────────
@@ -273,6 +304,7 @@ function resetPlayer() {
     hometown: '',
     position: '',
     handedness: '',
+    background: '',
     age: 14,
     careerStart: 2022,
   };

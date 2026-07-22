@@ -694,6 +694,11 @@ html, body {
   opacity: 0.9;
 }
 
+.identity-card__subtitle--selected {
+  color: rgba(130, 200, 255, 0.9);
+  font-weight: 600;
+}
+
 .identity-card__arrow {
   flex-shrink: 0;
   font-size: 22px;
