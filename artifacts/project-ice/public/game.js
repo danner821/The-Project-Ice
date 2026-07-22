@@ -42,6 +42,7 @@ const hubScreen            = document.getElementById('hub-screen');
 const standingsScreen      = document.getElementById('standings-screen');
 const teamProfileScreen    = document.getElementById('team-profile-screen');
 const prospectsScreen      = document.getElementById('prospects-screen');
+const eventScreen          = document.getElementById('event-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -134,6 +135,143 @@ function filterArchetypeCards() {
   });
 }
 
+// ── Event System ─────────────────────────────────────────────
+// One reusable event screen for every event type in the game.
+//
+// To add a new event:  add an entry to EVENT_CATALOG.
+// To open an event:    EventSystem.openEvent('event-id', originScreen)
+//
+// EVENT_CATALOG fields:
+//   title       — display name shown on the event screen
+//   type        — category key → maps to CSS .ev-type--* class on #event-screen
+//                 built-in types: practice | tryout | game | recovery | rest |
+//                                 meeting | interview | ceremony
+//   icon        — emoji shown in the hero block
+//   location    — venue / facility name shown under the title
+//   objective   — one-sentence player goal (shown in Objective section)
+//   description — 1-3 sentence flavour text (shown in Description section)
+
+const EventSystem = (() => {
+  // ── Catalog ────────────────────────────────────────────────
+  const EVENT_CATALOG = {
+    'practice': {
+      title:       'Practice',
+      type:        'practice',
+      icon:        '🏒',
+      location:    'Summit Ice Center',
+      objective:   'Work on skating edges and passing.',
+      description: 'A full team practice session. The coaching staff will run you through drills and line rushes. Every rep is a chance to move up the depth chart.',
+    },
+    'tryout-freshman': {
+      title:       'Freshman Tryouts',
+      type:        'tryout',
+      icon:        '🥅',
+      location:    'Eastdale Ice Arena',
+      objective:   'Impress the coaching staff.',
+      description: 'Your first real chance to prove you belong. The coaches are watching every shift — your skating, your decisions, your compete level. Play your game.',
+    },
+    'recovery': {
+      title:       'Recovery',
+      type:        'recovery',
+      icon:        '💪',
+      location:    'Training Facility',
+      objective:   'Rest and stay sharp.',
+      description: 'Light conditioning and body work. Recovery days are how players stay healthy across a long season. Take it seriously.',
+    },
+    'practice-scrimmage': {
+      title:       'Practice',
+      type:        'practice',
+      icon:        '🏒',
+      location:    'Summit Ice Center',
+      objective:   'Full team scrimmage session.',
+      description: "Today's practice wraps up with a full-ice scrimmage. Play as if it's a real game — the coaches are tracking every line combination.",
+    },
+    'off-day': {
+      title:       'Off Day',
+      type:        'rest',
+      icon:        '📅',
+      location:    '—',
+      objective:   'Rest and recover.',
+      description: 'No scheduled team activities today. Use the time wisely — your body and mind both need the break.',
+    },
+    'exhibition-game': {
+      title:       'Exhibition Game',
+      type:        'game',
+      icon:        '🥅',
+      location:    'Eastdale Ice Arena',
+      objective:   'Get game-ready. Show your best.',
+      description: "The first live game action of the preseason. Results don't go on the record, but your performance absolutely does. The coaching staff is still setting lines.",
+    },
+    'recovery-sleep': {
+      title:       'Recovery',
+      type:        'recovery',
+      icon:        '😴',
+      location:    'Training Facility',
+      objective:   'Rest and light conditioning.',
+      description: 'End-of-week recovery session. Prioritise sleep and nutrition. The grind starts again next week.',
+    },
+    // ── Future event stubs (ready to flesh out) ──────────────
+    // 'coach-meeting':   { title: 'Coach Meeting',    type: 'meeting',   icon: '📋', ... },
+    // 'scout-interview': { title: 'Scout Interview',  type: 'interview', icon: '🔍', ... },
+    // 'team-meeting':    { title: 'Team Meeting',     type: 'meeting',   icon: '📢', ... },
+    // 'award-ceremony':  { title: 'Award Ceremony',   type: 'ceremony',  icon: '🏆', ... },
+  };
+
+  // ── Internal state ─────────────────────────────────────────
+  let _origin = 'hub';   // screen to return to when Back is pressed
+
+  // ── Helpers ────────────────────────────────────────────────
+  function _set(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function _populate(def) {
+    _set('ev-type-badge',  def.type.toUpperCase());
+    _set('ev-icon',        def.icon);
+    _set('ev-title',       def.title);
+    _set('ev-location',    def.location);
+    _set('ev-objective',   def.objective);
+    _set('ev-description', def.description);
+
+    // Swap the type colour class on the screen element
+    const screen = document.getElementById('event-screen');
+    if (screen) {
+      screen.className = screen.className
+        .replace(/\bev-type--\S+/g, '')
+        .trim();
+      screen.classList.add(`ev-type--${def.type}`);
+    }
+
+    // Reset the "coming soon" toast
+    const toast = document.getElementById('ev-begin-toast');
+    if (toast) toast.hidden = true;
+  }
+
+  // ── Public API ─────────────────────────────────────────────
+
+  /**
+   * Open the event screen for a given catalog entry.
+   * @param {string} eventId   — key in EVENT_CATALOG
+   * @param {string} [origin]  — screen name to return to on Back (default 'hub')
+   */
+  function openEvent(eventId, origin = 'hub') {
+    const def = EVENT_CATALOG[eventId];
+    if (!def) {
+      console.warn(`EventSystem.openEvent: unknown event "${eventId}"`);
+      return;
+    }
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  return { openEvent, getOrigin, EVENT_CATALOG };
+})();
+
 // ── Screen navigation ───────────────────────────────────────
 function showScreen(screenName) {
   titleScreen.classList.add('screen--hidden');
@@ -151,6 +289,7 @@ function showScreen(screenName) {
   standingsScreen.classList.add('screen--hidden');
   teamProfileScreen.classList.add('screen--hidden');
   prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
@@ -205,6 +344,10 @@ function showScreen(screenName) {
   if (screenName === 'prospects') {
     prospectsScreen.classList.remove('screen--hidden');
     renderProspectsScreen();
+  }
+  if (screenName === 'event') {
+    eventScreen.classList.remove('screen--hidden');
+    // Content already populated by EventSystem.openEvent() before showScreen() is called
   }
 
   Game.screen = screenName;
@@ -1110,13 +1253,13 @@ function renderStandingsScreen() {
 // ── Career Hub ───────────────────────────────────────────────
 
 const HUB_DAYS = [
-  { day: 'MON', date: '9/8',  fullDate: 'Monday, September 8',    icon: '🏒', event: 'Practice',         isToday: true,  location: 'Summit Ice Center',   objective: 'Work on skating edges and passing.' },
-  { day: 'TUE', date: '9/9',  fullDate: 'Tuesday, September 9',   icon: '🥅', event: 'Freshman Tryouts', isToday: false, location: 'Eastdale Ice Arena',  objective: 'Impress the coaching staff.' },
-  { day: 'WED', date: '9/10', fullDate: 'Wednesday, September 10',icon: '💪', event: 'Recovery',         isToday: false, location: 'Training Facility',   objective: 'Rest and light conditioning.' },
-  { day: 'THU', date: '9/11', fullDate: 'Thursday, September 11', icon: '🏒', event: 'Practice',         isToday: false, location: 'Summit Ice Center',   objective: 'Full team scrimmage session.' },
-  { day: 'FRI', date: '9/12', fullDate: 'Friday, September 12',   icon: '📅', event: 'Off Day',          isToday: false, location: '—',                   objective: 'No scheduled activities. Rest up.' },
-  { day: 'SAT', date: '9/13', fullDate: 'Saturday, September 13', icon: '🥅', event: 'Exhibition Game',  isToday: false, location: 'Eastdale Ice Arena',  objective: 'Get game-ready. Show your best.' },
-  { day: 'SUN', date: '9/14', fullDate: 'Sunday, September 14',   icon: '😴', event: 'Recovery',         isToday: false, location: 'Training Facility',   objective: 'Rest and light conditioning.' },
+  { day: 'MON', date: '9/8',  fullDate: 'Monday, September 8',    icon: '🏒', event: 'Practice',         isToday: true,  location: 'Summit Ice Center',  objective: 'Work on skating edges and passing.',  eventId: 'practice'          },
+  { day: 'TUE', date: '9/9',  fullDate: 'Tuesday, September 9',   icon: '🥅', event: 'Freshman Tryouts', isToday: false, location: 'Eastdale Ice Arena', objective: 'Impress the coaching staff.',          eventId: 'tryout-freshman'   },
+  { day: 'WED', date: '9/10', fullDate: 'Wednesday, September 10',icon: '💪', event: 'Recovery',         isToday: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',         eventId: 'recovery'          },
+  { day: 'THU', date: '9/11', fullDate: 'Thursday, September 11', icon: '🏒', event: 'Practice',         isToday: false, location: 'Summit Ice Center',  objective: 'Full team scrimmage session.',         eventId: 'practice-scrimmage'},
+  { day: 'FRI', date: '9/12', fullDate: 'Friday, September 12',   icon: '📅', event: 'Off Day',          isToday: false, location: '—',                  objective: 'No scheduled activities. Rest up.',   eventId: 'off-day'           },
+  { day: 'SAT', date: '9/13', fullDate: 'Saturday, September 13', icon: '🥅', event: 'Exhibition Game',  isToday: false, location: 'Eastdale Ice Arena', objective: 'Get game-ready. Show your best.',     eventId: 'exhibition-game'   },
+  { day: 'SUN', date: '9/14', fullDate: 'Sunday, September 14',   icon: '😴', event: 'Recovery',         isToday: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',         eventId: 'recovery-sleep'    },
 ];
 
 let hubCalendarReady = false;
@@ -1242,16 +1385,8 @@ function setupHubCalendar() {
         // Simulation not yet built
         if (epToast) epToast.hidden = false;
       } else {
-        // Today — trigger cinematic entry
-        const overlay = document.getElementById('cinematic-overlay');
-        const text    = document.getElementById('cinematic-text');
-        if (overlay) overlay.classList.add('is-active');
-        await sleep(1000);
-        if (text) {
-          text.innerHTML = '<span class="cin-title">Tryout Drill 1</span>';
-          text.style.opacity = '1';
-        }
-        // End state — drills not yet implemented
+        // Open the event screen for today's event via the Event System
+        EventSystem.openEvent(HUB_DAYS[selectedIndex].eventId, 'hub');
       }
     });
   }
@@ -1334,6 +1469,19 @@ document.getElementById('btn-back-prospects').addEventListener('click', () => {
     }, 2200);
   });
 })();
+
+// ── Event screen navigation ───────────────────────────────────
+
+// Back — returns to whichever screen opened this event
+document.getElementById('btn-back-event').addEventListener('click', () => {
+  showScreen(EventSystem.getOrigin());
+});
+
+// Begin Event — gameplay not yet built; show toast
+document.getElementById('btn-ev-begin').addEventListener('click', () => {
+  const toast = document.getElementById('ev-begin-toast');
+  if (toast) toast.hidden = false;
+});
 
 document.querySelectorAll('.hub-nav__tab').forEach(tab => {
   tab.addEventListener('click', () => {

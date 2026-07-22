@@ -1395,6 +1395,63 @@
 
       </section>
 
+      <!-- EVENT SCREEN — one reusable screen for every event in the game -->
+      <section id="event-screen" class="screen screen--hidden">
+
+        <div class="ev-wrap">
+
+          <!-- Header: back + eyebrow + type badge -->
+          <header class="ev-header">
+            <button class="back-button" id="btn-back-event" aria-label="Back">‹</button>
+            <div class="ev-header__text">
+              <p class="eyebrow">Upcoming Event</p>
+            </div>
+            <span class="ev-type-badge" id="ev-type-badge">EVENT</span>
+          </header>
+
+          <!-- Hero: large icon + event title -->
+          <div class="ev-hero">
+            <span class="ev-hero__icon" id="ev-icon">🏒</span>
+            <h2 class="ev-hero__title" id="ev-title">Practice</h2>
+          </div>
+
+          <!-- Location row -->
+          <div class="ev-meta-row">
+            <span class="ev-meta-row__icon" aria-hidden="true">📍</span>
+            <span class="ev-meta-row__text" id="ev-location">Summit Ice Center</span>
+          </div>
+
+          <div class="ev-divider" aria-hidden="true"></div>
+
+          <!-- Objective -->
+          <div class="ev-section">
+            <p class="ev-section__label">Objective</p>
+            <p class="ev-section__body" id="ev-objective">Work on skating edges and passing.</p>
+          </div>
+
+          <!-- Description -->
+          <div class="ev-section">
+            <p class="ev-section__label">Description</p>
+            <p class="ev-section__body ev-section__body--desc" id="ev-description">
+              A full team practice session.
+            </p>
+          </div>
+
+          <!-- CTA -->
+          <div class="ev-begin-area">
+            <button class="btn btn--primary ev-begin-btn" id="btn-ev-begin">
+              <span class="btn__label">Begin Event</span>
+              <span class="btn__arrow">›</span>
+            </button>
+            <p class="ev-begin-toast" id="ev-begin-toast" hidden>
+              Event gameplay coming soon.
+            </p>
+          </div>
+
+        </div><!-- /.ev-wrap -->
+
+      </section>
+
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">

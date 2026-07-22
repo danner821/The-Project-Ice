@@ -4029,6 +4029,160 @@ html, body {
   opacity: 0;
 }
 
+/* ── Event Screen ────────────────────────────────────────────────────────── */
+
+#event-screen {
+  padding: 0;
+  overflow-y: auto;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.ev-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: max(env(safe-area-inset-top, 12px), 14px) 22px
+           max(env(safe-area-inset-bottom, 20px), 36px);
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+.ev-header {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 22px;
+}
+
+/* Event type badge — base style; colour overridden by ev-type--* on #event-screen */
+.ev-type-badge {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  /* default: practice / blue */
+  color: rgba(110, 172, 255, 0.85);
+  background: rgba(18, 50, 132, 0.4);
+  border: 1px solid rgba(75, 138, 240, 0.32);
+}
+
+/* Type colour variants — applied as a class on #event-screen by EventSystem */
+.ev-type--practice   .ev-type-badge { color: rgba(110,172,255,0.85); background: rgba(18,50,132,0.4);  border-color: rgba(75,138,240,0.32); }
+.ev-type--tryout     .ev-type-badge { color: rgba(225,180,70,0.9);   background: rgba(88,58,8,0.45);  border-color: rgba(195,145,40,0.35); }
+.ev-type--game       .ev-type-badge { color: rgba(242,115,80,0.92);  background: rgba(98,26,16,0.45); border-color: rgba(215,82,58,0.35);  }
+.ev-type--recovery   .ev-type-badge { color: rgba(78,218,135,0.9);   background: rgba(8,66,34,0.45);  border-color: rgba(48,172,90,0.30);  }
+.ev-type--rest       .ev-type-badge { color: rgba(138,162,208,0.68); background: rgba(18,28,55,0.38); border-color: rgba(78,102,162,0.25); }
+.ev-type--meeting    .ev-type-badge { color: rgba(182,132,255,0.88); background: rgba(54,18,90,0.42); border-color: rgba(148,92,232,0.30); }
+.ev-type--interview  .ev-type-badge { color: rgba(255,195,60,0.9);   background: rgba(80,54,8,0.42);  border-color: rgba(210,158,28,0.35); }
+.ev-type--ceremony   .ev-type-badge { color: rgba(255,220,60,0.92);  background: rgba(78,56,4,0.42);  border-color: rgba(220,182,30,0.35); }
+
+/* ── Hero ── */
+.ev-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 14px;
+}
+
+.ev-hero__icon {
+  font-size: 52px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ev-hero__title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: rgba(222, 242, 255, 0.97);
+  margin: 0;
+  line-height: 1.1;
+}
+
+/* ── Location meta row ── */
+.ev-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 18px;
+}
+
+.ev-meta-row__icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.ev-meta-row__text {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(128, 175, 240, 0.72);
+}
+
+/* ── Divider ── */
+.ev-divider {
+  height: 1px;
+  background: rgba(28, 58, 118, 0.35);
+  margin-bottom: 20px;
+}
+
+/* ── Sections: Objective + Description ── */
+.ev-section {
+  margin-bottom: 20px;
+}
+
+.ev-section__label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(78, 118, 185, 0.55);
+  margin: 0 0 6px;
+}
+
+.ev-section__body {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(200, 226, 255, 0.88);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.ev-section__body--desc {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: rgba(162, 198, 248, 0.72);
+  line-height: 1.65;
+}
+
+/* ── Begin Event CTA ── */
+.ev-begin-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.ev-begin-btn {
+  width: 100%;
+}
+
+.ev-begin-toast {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  font-style: italic;
+  color: rgba(118, 168, 238, 0.65);
+  margin: 0;
+  padding: 2px 0 4px;
+}
+
 /* ── Team Profile Screen ─────────────────────────────────────────────────── */
 
 #team-profile-screen {
