@@ -591,62 +591,203 @@
       <!-- HUB SCREEN -->
       <section id="hub-screen" class="screen screen--hidden">
 
-        <!-- Scrollable content -->
+        <!-- Fixed player info bar -->
+        <div class="hub-info-bar">
+          <div class="hub-info-bar__left">
+            <span class="hub-info-bar__name" id="hub-player-name">—</span>
+            <span class="hub-info-bar__sub">
+              <span id="hub-player-pos">C</span><span class="hub-info-bar__sep"> · </span><span class="hub-info-bar__team-inline">Freshman Tryouts</span>
+            </span>
+          </div>
+          <div class="hub-info-bar__ovr">
+            <span class="hub-info-bar__ovr-label">OVR</span>
+            <span class="hub-info-bar__ovr-value">60</span>
+          </div>
+        </div>
+
+        <!-- Scrollable main content -->
         <div class="hub-content">
 
-          <!-- Screen label -->
-          <div class="hub-title-bar">
-            <span class="hub-title-bar__label">Career Hub</span>
-          </div>
-
-          <!-- Player card -->
-          <div class="hub-player-card">
-            <div class="hub-player-card__info">
-              <p class="hub-player-card__team-label">Current Team</p>
-              <p class="hub-player-card__name" id="hub-player-name">—</p>
-              <p class="hub-player-card__team">Freshman Tryouts</p>
-            </div>
-            <div class="hub-ovr-circle">
-              <span class="hub-ovr-circle__label">OVR</span>
-              <span class="hub-ovr-circle__value">60</span>
-            </div>
-          </div>
-
-          <!-- Current objective -->
-          <div class="hub-objective-card">
-            <p class="hub-objective-card__label">Current Objective</p>
-            <p class="hub-objective-card__text">Impress the coaching staff.</p>
+          <!-- Objective bar -->
+          <div class="hub-objective-bar">
+            <span class="hub-objective-bar__label">Current Objective</span>
+            <span class="hub-objective-bar__text">Impress the coaching staff during freshman tryouts.</span>
           </div>
 
           <!-- Home tab panel -->
           <div id="hub-tab-home" class="hub-tab-panel hub-tab-panel--active">
 
-            <!-- Weekly calendar -->
-            <div class="hub-calendar">
-              <div class="hub-calendar__header">
-                <span class="hub-calendar__week">Week of September 4, 2022</span>
-              </div>
-              <div class="hub-cal-day hub-cal-day--today">
-                <span class="hub-cal-day__name">SUN</span>
-                <div class="hub-cal-day__event">
-                  <span class="hub-cal-day__event-name">Freshman Tryouts</span>
-                  <span class="hub-cal-day__today-badge">TODAY</span>
-                </div>
-              </div>
-              <div class="hub-cal-day"><span class="hub-cal-day__name">MON</span><span class="hub-cal-day__empty">—</span></div>
-              <div class="hub-cal-day"><span class="hub-cal-day__name">TUE</span><span class="hub-cal-day__empty">—</span></div>
-              <div class="hub-cal-day"><span class="hub-cal-day__name">WED</span><span class="hub-cal-day__empty">—</span></div>
-              <div class="hub-cal-day"><span class="hub-cal-day__name">THU</span><span class="hub-cal-day__empty">—</span></div>
-              <div class="hub-cal-day"><span class="hub-cal-day__name">FRI</span><span class="hub-cal-day__empty">—</span></div>
-              <div class="hub-cal-day"><span class="hub-cal-day__name">SAT</span><span class="hub-cal-day__empty">—</span></div>
+            <!-- Week label -->
+            <div class="hub-week-header">
+              <span class="hub-week-header__label">Week of September 4, 2022</span>
             </div>
 
-            <!-- Continue CTA -->
-            <div class="hub-actions">
-              <button class="btn btn--primary hub-actions__btn" id="btn-hub-continue">
-                <span class="btn__label">Continue</span>
+            <!-- Horizontal calendar -->
+            <div class="hub-week-scroll" id="hub-week-scroll">
+
+              <div class="hub-day-card hub-day-card--today hub-day-card--selected" data-day-index="0">
+                <span class="hub-day-card__day">SUN</span>
+                <span class="hub-day-card__date">Sep 4</span>
+                <span class="hub-day-card__icon">🎯</span>
+                <span class="hub-day-card__event">Freshman Tryouts</span>
+                <span class="hub-day-card__today-dot"></span>
+              </div>
+
+              <div class="hub-day-card" data-day-index="1">
+                <span class="hub-day-card__day">MON</span>
+                <span class="hub-day-card__date">Sep 5</span>
+                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
+                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              </div>
+
+              <div class="hub-day-card" data-day-index="2">
+                <span class="hub-day-card__day">TUE</span>
+                <span class="hub-day-card__date">Sep 6</span>
+                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
+                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              </div>
+
+              <div class="hub-day-card" data-day-index="3">
+                <span class="hub-day-card__day">WED</span>
+                <span class="hub-day-card__date">Sep 7</span>
+                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
+                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              </div>
+
+              <div class="hub-day-card" data-day-index="4">
+                <span class="hub-day-card__day">THU</span>
+                <span class="hub-day-card__date">Sep 8</span>
+                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
+                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              </div>
+
+              <div class="hub-day-card" data-day-index="5">
+                <span class="hub-day-card__day">FRI</span>
+                <span class="hub-day-card__date">Sep 9</span>
+                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
+                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              </div>
+
+              <div class="hub-day-card" data-day-index="6">
+                <span class="hub-day-card__day">SAT</span>
+                <span class="hub-day-card__date">Sep 10</span>
+                <span class="hub-day-card__icon hub-day-card__icon--off">—</span>
+                <span class="hub-day-card__event hub-day-card__event--off">Off Day</span>
+              </div>
+
+            </div><!-- /.hub-week-scroll -->
+
+            <!-- Selected day detail + action -->
+            <div class="hub-day-detail">
+              <div class="hub-day-detail__info">
+                <span class="hub-day-detail__date" id="hub-detail-date">Sunday, September 4</span>
+                <span class="hub-day-detail__event" id="hub-detail-event">🎯 Freshman Tryouts</span>
+              </div>
+              <button class="btn btn--primary hub-day-detail__btn" id="btn-hub-continue">
+                <span class="btn__label" id="hub-detail-btn-label">Enter Event</span>
                 <span class="btn__arrow">›</span>
               </button>
+            </div>
+
+            <!-- Dashboard: Standings -->
+            <div class="hub-dash-card">
+              <div class="hub-dash-card__header">
+                <span class="hub-dash-card__title">Standings</span>
+                <span class="hub-dash-card__action">View All ›</span>
+              </div>
+              <div class="hub-dash-card__body">
+                <div class="hub-standings">
+                  <div class="hub-standings__row hub-standings__row--header">
+                    <span class="hub-standings__pos">#</span>
+                    <span class="hub-standings__team">Team</span>
+                    <span class="hub-standings__stat">W</span>
+                    <span class="hub-standings__stat">L</span>
+                    <span class="hub-standings__stat">PTS</span>
+                  </div>
+                  <div class="hub-standings__row">
+                    <span class="hub-standings__pos">1</span>
+                    <span class="hub-standings__team">Northview Hawks</span>
+                    <span class="hub-standings__stat">3</span>
+                    <span class="hub-standings__stat">0</span>
+                    <span class="hub-standings__stat hub-standings__stat--pts">6</span>
+                  </div>
+                  <div class="hub-standings__row">
+                    <span class="hub-standings__pos">2</span>
+                    <span class="hub-standings__team">Ridgemont Wolves</span>
+                    <span class="hub-standings__stat">2</span>
+                    <span class="hub-standings__stat">1</span>
+                    <span class="hub-standings__stat hub-standings__stat--pts">4</span>
+                  </div>
+                  <div class="hub-standings__row hub-standings__row--you">
+                    <span class="hub-standings__pos">3</span>
+                    <span class="hub-standings__team">Eastdale Falcons ★</span>
+                    <span class="hub-standings__stat">1</span>
+                    <span class="hub-standings__stat">2</span>
+                    <span class="hub-standings__stat hub-standings__stat--pts">2</span>
+                  </div>
+                  <div class="hub-standings__row">
+                    <span class="hub-standings__pos">4</span>
+                    <span class="hub-standings__team">Lakeside Tigers</span>
+                    <span class="hub-standings__stat">0</span>
+                    <span class="hub-standings__stat">3</span>
+                    <span class="hub-standings__stat hub-standings__stat--pts">0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dashboard: Team Leaders -->
+            <div class="hub-dash-card">
+              <div class="hub-dash-card__header">
+                <span class="hub-dash-card__title">Team Leaders</span>
+                <span class="hub-dash-card__action">View All ›</span>
+              </div>
+              <div class="hub-dash-card__body">
+                <div class="hub-leaders">
+                  <div class="hub-leaders__section-label">Points</div>
+                  <div class="hub-leaders__row">
+                    <span class="hub-leaders__rank">1</span>
+                    <span class="hub-leaders__name">J. Mitchell</span>
+                    <span class="hub-leaders__pos-badge">C</span>
+                    <span class="hub-leaders__stat">5 pts</span>
+                  </div>
+                  <div class="hub-leaders__row">
+                    <span class="hub-leaders__rank">2</span>
+                    <span class="hub-leaders__name">A. Kowalski</span>
+                    <span class="hub-leaders__pos-badge">RW</span>
+                    <span class="hub-leaders__stat">4 pts</span>
+                  </div>
+                  <div class="hub-leaders__row hub-leaders__row--you">
+                    <span class="hub-leaders__rank">3</span>
+                    <span class="hub-leaders__name" id="hub-leaders-you-name">You</span>
+                    <span class="hub-leaders__pos-badge" id="hub-leaders-you-pos">—</span>
+                    <span class="hub-leaders__stat">2 pts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dashboard: League News -->
+            <div class="hub-dash-card">
+              <div class="hub-dash-card__header">
+                <span class="hub-dash-card__title">League News</span>
+              </div>
+              <div class="hub-dash-card__body">
+                <div class="hub-news">
+                  <div class="hub-news__item">
+                    <span class="hub-news__tag">Tryouts</span>
+                    <span class="hub-news__headline">Freshman tryouts kick off across all programs this weekend</span>
+                  </div>
+                  <div class="hub-news__item">
+                    <span class="hub-news__tag">Preview</span>
+                    <span class="hub-news__headline">Northview Hawks favored to repeat as conference champions</span>
+                  </div>
+                  <div class="hub-news__item">
+                    <span class="hub-news__tag">Roster</span>
+                    <span class="hub-news__headline">Eastdale Falcons looking to rebuild around young core</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
           </div><!-- /#hub-tab-home -->

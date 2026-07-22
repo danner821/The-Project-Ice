@@ -829,10 +829,60 @@ document.getElementById('btn-take-ice').addEventListener('click', async () => {
 });
 
 // ── Career Hub ───────────────────────────────────────────────
+
+const HUB_DAYS = [
+  { fullDate: 'Sunday, September 4',    eventLabel: '🎯 Freshman Tryouts', hasEvent: true  },
+  { fullDate: 'Monday, September 5',    eventLabel: 'Off Day',             hasEvent: false },
+  { fullDate: 'Tuesday, September 6',   eventLabel: 'Off Day',             hasEvent: false },
+  { fullDate: 'Wednesday, September 7', eventLabel: 'Off Day',             hasEvent: false },
+  { fullDate: 'Thursday, September 8',  eventLabel: 'Off Day',             hasEvent: false },
+  { fullDate: 'Friday, September 9',    eventLabel: 'Off Day',             hasEvent: false },
+  { fullDate: 'Saturday, September 10', eventLabel: 'Off Day',             hasEvent: false },
+];
+
+let hubCalendarReady = false;
+
 function updateHubScreen() {
-  const p  = Game.player;
-  const el = document.getElementById('hub-player-name');
-  if (el) el.textContent = `${p.firstName} ${p.lastName}`.trim() || '—';
+  const p = Game.player;
+
+  const nameEl = document.getElementById('hub-player-name');
+  if (nameEl) nameEl.textContent = `${p.firstName} ${p.lastName}`.trim() || '—';
+
+  const posEl = document.getElementById('hub-player-pos');
+  if (posEl) posEl.textContent = p.position || '—';
+
+  const leadersNameEl = document.getElementById('hub-leaders-you-name');
+  if (leadersNameEl) leadersNameEl.textContent = `${p.firstName} ${p.lastName}`.trim() || 'You';
+
+  const leadersPosEl = document.getElementById('hub-leaders-you-pos');
+  if (leadersPosEl) leadersPosEl.textContent = p.position || '—';
+
+  if (!hubCalendarReady) {
+    setupHubCalendar();
+    hubCalendarReady = true;
+  }
+}
+
+function setupHubCalendar() {
+  const cards        = document.querySelectorAll('.hub-day-card');
+  const detailDate   = document.getElementById('hub-detail-date');
+  const detailEvent  = document.getElementById('hub-detail-event');
+  const detailBtn    = document.getElementById('hub-detail-btn-label');
+
+  function selectDay(index) {
+    cards.forEach(c => c.classList.remove('hub-day-card--selected'));
+    cards[index].classList.add('hub-day-card--selected');
+    const d = HUB_DAYS[index];
+    if (detailDate)  detailDate.textContent  = d.fullDate;
+    if (detailEvent) detailEvent.textContent = d.eventLabel;
+    if (detailBtn)   detailBtn.textContent   = d.hasEvent ? 'Enter Event' : 'Simulate To This Day';
+  }
+
+  cards.forEach((card, i) => {
+    card.addEventListener('click', () => selectDay(i));
+  });
+
+  selectDay(0);
 }
 
 document.getElementById('btn-hub-continue').addEventListener('click', async () => {

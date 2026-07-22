@@ -2103,6 +2103,10 @@ html, body {
    CAREER HUB
    ============================================================ */
 
+/* ============================================================
+   CAREER HUB SCREEN
+   ============================================================ */
+
 #hub-screen {
   padding: 0;
   align-items: stretch;
@@ -2113,225 +2117,488 @@ html, body {
     linear-gradient(180deg, #060f22 0%, #091a3d 40%, #060e1e 100%);
 }
 
+/* ── Player info bar ── */
+.hub-info-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(env(safe-area-inset-top, 16px), 16px) 20px 12px;
+  background: rgba(4, 8, 20, 0.82);
+  border-bottom: 1px solid rgba(25, 48, 90, 0.45);
+}
+
+.hub-info-bar__left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hub-info-bar__name {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(230, 245, 255, 0.97);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-info-bar__sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(120, 165, 225, 0.65);
+  white-space: nowrap;
+}
+
+.hub-info-bar__sep {
+  opacity: 0.5;
+}
+
+.hub-info-bar__team-inline {
+  color: rgba(140, 185, 240, 0.7);
+}
+
+.hub-info-bar__ovr {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid rgba(75, 135, 255, 0.45);
+  background: radial-gradient(circle at 40% 35%,
+    rgba(22, 52, 130, 0.85) 0%,
+    rgba(8, 20, 60, 0.95) 100%
+  );
+  box-shadow: 0 0 14px rgba(50, 100, 230, 0.2),
+              inset 0 0 8px rgba(0,0,0,0.5);
+  margin-left: 12px;
+}
+
+.hub-info-bar__ovr-label {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(110, 160, 240, 0.65);
+  margin-bottom: 1px;
+}
+
+.hub-info-bar__ovr-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: rgba(200, 228, 255, 0.97);
+  line-height: 1;
+}
+
 /* ── Content scroll area ── */
 .hub-content {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: max(env(safe-area-inset-top, 20px), 28px) 20px 16px;
+  padding: 14px 20px max(env(safe-area-inset-bottom, 8px), 20px);
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 12px;
 }
 
-/* ── Screen title ── */
-.hub-title-bar {
-  text-align: center;
-  margin-bottom: 2px;
-}
-
-.hub-title-bar__label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: rgba(110, 155, 220, 0.5);
-}
-
-/* ── Player card ── */
-.hub-player-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
-  background: rgba(8, 16, 34, 0.72);
-  border: 1px solid rgba(30, 55, 100, 0.45);
-  border-radius: 14px;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.3);
-}
-
-.hub-player-card__team-label {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(110, 155, 215, 0.5);
-  margin-bottom: 3px;
-}
-
-.hub-player-card__name {
-  font-size: 22px;
-  font-weight: 700;
-  color: rgba(235, 248, 255, 0.96);
-  line-height: 1.2;
-  margin-bottom: 4px;
-}
-
-.hub-player-card__team {
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(150, 195, 250, 0.75);
-}
-
-.hub-ovr-circle {
-  flex-shrink: 0;
-  width: 62px;
-  height: 62px;
-  border-radius: 50%;
-  border: 2px solid rgba(75, 135, 255, 0.5);
-  background: radial-gradient(circle at 40% 35%,
-    rgba(25, 58, 140, 0.85) 0%,
-    rgba(10, 25, 68, 0.95) 100%
-  );
-  box-shadow: 0 0 16px rgba(50, 100, 230, 0.22),
-              inset 0 0 10px rgba(0,0,0,0.5);
+/* ── Objective bar ── */
+.hub-objective-bar {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.hub-ovr-circle__label {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(110, 160, 240, 0.7);
-  margin-bottom: 1px;
-}
-
-.hub-ovr-circle__value {
-  font-size: 24px;
-  font-weight: 800;
-  color: rgba(200, 228, 255, 0.97);
-  line-height: 1;
-}
-
-/* ── Objective card ── */
-.hub-objective-card {
-  padding: 12px 16px;
-  background: rgba(6, 12, 28, 0.7);
-  border: 1px solid rgba(30, 55, 100, 0.38);
-  border-left: 3px solid rgba(80, 145, 255, 0.65);
+  gap: 4px;
+  padding: 10px 14px;
+  background: rgba(6, 12, 28, 0.65);
+  border: 1px solid rgba(28, 52, 96, 0.35);
+  border-left: 3px solid rgba(80, 145, 255, 0.5);
   border-radius: 10px;
 }
 
-.hub-objective-card__label {
-  font-size: 9px;
+.hub-objective-bar__label {
+  font-size: 8.5px;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(95, 150, 255, 0.6);
-  margin-bottom: 5px;
+  color: rgba(95, 150, 255, 0.55);
 }
 
-.hub-objective-card__text {
-  font-size: 14px;
+.hub-objective-bar__text {
+  font-size: 13px;
   font-weight: 400;
-  color: rgba(215, 232, 255, 0.88);
-  line-height: 1.55;
+  color: rgba(210, 232, 255, 0.85);
+  line-height: 1.5;
 }
 
 /* ── Tab panels ── */
 .hub-tab-panel {
   display: none;
   flex-direction: column;
-  gap: 11px;
+  gap: 12px;
 }
 
 .hub-tab-panel--active {
   display: flex;
 }
 
-/* ── Weekly calendar ── */
-.hub-calendar {
-  background: rgba(7, 13, 30, 0.68);
-  border: 1px solid rgba(28, 52, 96, 0.42);
-  border-radius: 12px;
-  overflow: hidden;
+/* ── Week header label ── */
+.hub-week-header {
+  padding: 0 2px;
 }
 
-.hub-calendar__header {
-  padding: 11px 16px 9px;
-  border-bottom: 1px solid rgba(28, 52, 96, 0.4);
-}
-
-.hub-calendar__week {
-  font-size: 11px;
+.hub-week-header__label {
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  color: rgba(110, 158, 225, 0.65);
-}
-
-.hub-cal-day {
-  display: flex;
-  align-items: center;
-  padding: 11px 16px;
-  gap: 14px;
-  border-bottom: 1px solid rgba(20, 38, 75, 0.38);
-}
-
-.hub-cal-day:last-child {
-  border-bottom: none;
-}
-
-.hub-cal-day--today {
-  background: rgba(25, 55, 120, 0.18);
-  border-left: 3px solid rgba(80, 145, 255, 0.6);
-  padding-left: 13px;
-}
-
-.hub-cal-day__name {
-  font-size: 10.5px;
-  font-weight: 700;
   letter-spacing: 0.1em;
-  color: rgba(120, 165, 225, 0.6);
-  width: 30px;
+  text-transform: uppercase;
+  color: rgba(90, 135, 205, 0.5);
+}
+
+/* ── Horizontal week scroll ── */
+.hub-week-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 -20px;
+  padding: 4px 20px 6px;
+}
+
+.hub-week-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Day card ── */
+.hub-day-card {
+  flex-shrink: 0;
+  width: 84px;
+  min-height: 122px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 12px 8px 10px;
+  background: rgba(8, 16, 36, 0.72);
+  border: 1.5px solid rgba(28, 52, 96, 0.38);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  user-select: none;
+}
+
+.hub-day-card:active {
+  transform: scale(0.96);
+}
+
+.hub-day-card--today {
+  border-color: rgba(70, 130, 240, 0.38);
+}
+
+.hub-day-card--selected {
+  background: rgba(22, 50, 125, 0.48);
+  border-color: rgba(80, 148, 255, 0.78);
+  box-shadow: 0 0 22px rgba(55, 115, 255, 0.22);
+}
+
+.hub-day-card__day {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(95, 140, 210, 0.6);
+}
+
+.hub-day-card--today .hub-day-card__day,
+.hub-day-card--selected .hub-day-card__day {
+  color: rgba(140, 188, 255, 0.92);
+}
+
+.hub-day-card__date {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(160, 200, 248, 0.65);
+  margin-bottom: 4px;
+}
+
+.hub-day-card__icon {
+  font-size: 28px;
+  line-height: 1;
+  margin: 4px 0 6px;
+}
+
+.hub-day-card__icon--off {
+  font-size: 18px;
+  color: rgba(50, 78, 128, 0.4);
+  margin: 6px 0 8px;
+}
+
+.hub-day-card__event {
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+  color: rgba(200, 225, 255, 0.85);
+  line-height: 1.3;
+  margin-top: auto;
+  padding: 0 2px;
+}
+
+.hub-day-card__event--off {
+  color: rgba(65, 95, 148, 0.5);
+  font-weight: 500;
+}
+
+.hub-day-card__today-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(100, 165, 255, 0.85);
+  margin-top: 5px;
   flex-shrink: 0;
 }
 
-.hub-cal-day--today .hub-cal-day__name {
-  color: rgba(155, 200, 255, 0.92);
+/* ── Selected day detail + CTA ── */
+.hub-day-detail {
+  background: rgba(8, 16, 36, 0.72);
+  border: 1px solid rgba(30, 55, 100, 0.45);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.hub-cal-day__event {
+.hub-day-detail__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hub-day-detail__date {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(95, 142, 215, 0.6);
+}
+
+.hub-day-detail__event {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(225, 242, 255, 0.95);
+}
+
+.hub-day-detail__btn {
+  width: 100%;
+}
+
+/* ── Dashboard cards ── */
+.hub-dash-card {
+  background: rgba(7, 14, 32, 0.72);
+  border: 1px solid rgba(28, 52, 96, 0.42);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.hub-dash-card__header {
   display: flex;
   align-items: center;
-  gap: 9px;
-  flex: 1;
+  justify-content: space-between;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid rgba(22, 42, 82, 0.45);
 }
 
-.hub-cal-day__event-name {
+.hub-dash-card__title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(125, 172, 238, 0.72);
+}
+
+.hub-dash-card__action {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(75, 130, 218, 0.5);
+}
+
+/* ── Standings ── */
+.hub-standings__row {
+  display: flex;
+  align-items: center;
+  padding: 9px 16px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(18, 34, 68, 0.35);
+}
+
+.hub-standings__row:last-child {
+  border-bottom: none;
+}
+
+.hub-standings__row--header {
+  padding-top: 8px;
+  padding-bottom: 7px;
+}
+
+.hub-standings__row--header .hub-standings__pos,
+.hub-standings__row--header .hub-standings__team,
+.hub-standings__row--header .hub-standings__stat {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(80, 118, 178, 0.5);
+}
+
+.hub-standings__pos {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(95, 138, 205, 0.58);
+  text-align: center;
+}
+
+.hub-standings__team {
+  flex: 1;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(220, 238, 255, 0.92);
+  color: rgba(202, 226, 255, 0.84);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.hub-cal-day__today-badge {
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+.hub-standings__stat {
+  width: 22px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(148, 188, 242, 0.68);
+  text-align: center;
+}
+
+.hub-standings__stat--pts {
+  font-weight: 700;
+  color: rgba(200, 225, 255, 0.92);
+}
+
+.hub-standings__row--you {
+  background: rgba(18, 44, 110, 0.22);
+}
+
+.hub-standings__row--you .hub-standings__team {
+  color: rgba(145, 195, 255, 0.95);
+}
+
+/* ── Team Leaders ── */
+.hub-leaders {
+  padding: 10px 16px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hub-leaders__section-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(75, 135, 255, 0.72);
-  padding: 2px 7px;
-  border-radius: 4px;
+  color: rgba(80, 120, 180, 0.48);
+  margin-bottom: 3px;
 }
 
-.hub-cal-day__empty {
-  font-size: 15px;
-  color: rgba(65, 92, 140, 0.45);
+.hub-leaders__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(18, 34, 68, 0.28);
+}
+
+.hub-leaders__row:last-child {
+  border-bottom: none;
+}
+
+.hub-leaders__rank {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(85, 125, 190, 0.52);
+  text-align: center;
+}
+
+.hub-leaders__name {
   flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(202, 226, 255, 0.84);
 }
 
-/* ── Continue button ── */
-.hub-actions {
-  padding-bottom: 4px;
+.hub-leaders__pos-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(105, 155, 228, 0.72);
+  background: rgba(12, 30, 80, 0.6);
+  border: 1px solid rgba(45, 85, 168, 0.3);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
-.hub-actions__btn {
-  width: 100%;
+.hub-leaders__stat {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(175, 212, 255, 0.8);
+  min-width: 42px;
+  text-align: right;
+}
+
+.hub-leaders__row--you .hub-leaders__name {
+  color: rgba(145, 195, 255, 0.95);
+}
+
+/* ── League News ── */
+.hub-news {
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-news__item {
+  padding: 11px 16px;
+  border-bottom: 1px solid rgba(18, 34, 68, 0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hub-news__item:last-child {
+  border-bottom: none;
+}
+
+.hub-news__tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(80, 142, 235, 0.62);
+}
+
+.hub-news__headline {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(198, 224, 255, 0.82);
+  line-height: 1.45;
 }
 
 /* ── Bottom navigation bar ── */
