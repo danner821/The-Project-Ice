@@ -27,15 +27,16 @@ const Game = {
 };
 
 // ── Screen references ───────────────────────────────────────
-const titleScreen         = document.getElementById('title-screen');
-const creationScreen      = document.getElementById('creation-screen');
-const summaryScreen       = document.getElementById('summary-screen');
-const identityScreen      = document.getElementById('identity-screen');
+const titleScreen          = document.getElementById('title-screen');
+const creationScreen       = document.getElementById('creation-screen');
+const summaryScreen        = document.getElementById('summary-screen');
+const identityScreen       = document.getElementById('identity-screen');
 const careerOverviewScreen = document.getElementById('career-overview-screen');
-const nhlTeamScreen       = document.getElementById('nhlteam-screen');
-const motivationScreen    = document.getElementById('motivation-screen');
-const archetypeScreen     = document.getElementById('archetype-screen');
-const backgroundScreen    = document.getElementById('background-screen');
+const bedroomScreen        = document.getElementById('bedroom-screen');
+const nhlTeamScreen        = document.getElementById('nhlteam-screen');
+const motivationScreen     = document.getElementById('motivation-screen');
+const archetypeScreen      = document.getElementById('archetype-screen');
+const backgroundScreen     = document.getElementById('background-screen');
 
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
@@ -131,6 +132,7 @@ function showScreen(screenName) {
   summaryScreen.classList.add('screen--hidden');
   identityScreen.classList.add('screen--hidden');
   careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
   nhlTeamScreen.classList.add('screen--hidden');
   motivationScreen.classList.add('screen--hidden');
   archetypeScreen.classList.add('screen--hidden');
@@ -150,6 +152,9 @@ function showScreen(screenName) {
   if (screenName === 'overview') {
     careerOverviewScreen.classList.remove('screen--hidden');
     updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    bedroomScreen.classList.remove('screen--hidden');
   }
   if (screenName === 'nhlteam') {
     nhlTeamScreen.classList.remove('screen--hidden');
@@ -659,8 +664,45 @@ btnBackOverview.addEventListener('click', () => {
 });
 
 btnBeginCareer.addEventListener('click', () => {
-  // Career start — not yet implemented
+  runIntroSequence();
 });
+
+// ── Cinematic intro sequence ────────────────────────────────
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runIntroSequence() {
+  const overlay = document.getElementById('cinematic-overlay');
+  const text    = document.getElementById('cinematic-text');
+
+  // Step 1 — fade to black over 1 s
+  overlay.classList.add('is-active');
+  await sleep(1100);
+
+  async function showCard(html) {
+    text.innerHTML = html;
+    text.style.opacity = '1';
+    await sleep(2200);
+    text.style.opacity = '0';
+    await sleep(580);
+    text.innerHTML = '';
+  }
+
+  // Step 2 — date
+  await showCard('September 3, 2022');
+
+  // Step 3 — age / year
+  await showCard('Age 14<br>Freshman Year');
+
+  // Step 4 — story beat
+  await showCard('Tomorrow is freshman hockey tryouts.');
+
+  // Step 5 — reveal bedroom, fade overlay out
+  showScreen('bedroom');
+  overlay.classList.remove('is-active');
+  await sleep(1100);
+}
 
 btnDeleteSave.addEventListener('click', () => {
   deleteCareerPreview();

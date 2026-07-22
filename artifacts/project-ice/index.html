@@ -360,6 +360,92 @@
         </div>
       </section>
 
+      <!-- BEDROOM SCREEN -->
+      <section id="bedroom-screen" class="screen screen--hidden">
+        <div class="bedroom" aria-label="Player's bedroom">
+
+          <div class="br__wall"></div>
+          <div class="br__floor"></div>
+          <div class="br__baseboard"></div>
+
+          <!-- Window -->
+          <div class="br__window">
+            <div class="br__window-sky">
+              <div class="br__stars"></div>
+              <div class="br__moon"></div>
+            </div>
+            <div class="br__window-div-h"></div>
+            <div class="br__window-div-v"></div>
+            <div class="br__curtain br__curtain--l"></div>
+            <div class="br__curtain br__curtain--r"></div>
+            <div class="br__window-sill"></div>
+            <div class="br__moonlight"></div>
+          </div>
+
+          <!-- Desk -->
+          <div class="br__desk">
+            <div class="br__desk-face"></div>
+            <div class="br__laptop-screen">
+              <div class="br__laptop-screen-inner"></div>
+            </div>
+            <div class="br__laptop-base"></div>
+            <div class="br__laptop-glow"></div>
+          </div>
+
+          <!-- Hockey stick leaning against wall -->
+          <div class="br__stick-wrap">
+            <div class="br__stick-shaft"></div>
+            <div class="br__stick-blade"></div>
+          </div>
+
+          <!-- Headboard and bed -->
+          <div class="br__headboard"></div>
+          <div class="br__mattress">
+            <div class="br__pillow"></div>
+            <div class="br__blanket"></div>
+          </div>
+
+          <!-- Nightstand -->
+          <div class="br__nightstand">
+            <div class="br__nightstand-face"></div>
+          </div>
+
+          <!-- Phone (on nightstand) -->
+          <div class="br__phone">
+            <div class="br__phone-screen">
+              <div class="br__phone-time">7:18</div>
+            </div>
+          </div>
+          <div class="br__phone-glow"></div>
+
+          <!-- Hockey bag on floor -->
+          <div class="br__bag">
+            <div class="br__bag-body"></div>
+            <div class="br__bag-strap"></div>
+            <div class="br__bag-pocket"></div>
+          </div>
+
+          <!-- Notification -->
+          <div class="br__notification">
+            <div class="br__notification-row">
+              <span class="br__notification-icon">💬</span>
+              <span class="br__notification-app">Messages</span>
+              <span class="br__notification-time">7:17 PM</span>
+            </div>
+            <p class="br__notification-sender">Mom ❤️</p>
+            <p class="br__notification-text">"Big day tomorrow. Love you."</p>
+          </div>
+
+        </div>
+
+        <!-- Bedroom HUD -->
+        <div class="bedroom-hud">
+          <p class="bedroom-hud__day">Saturday</p>
+          <p class="bedroom-hud__date">September 3, 2022</p>
+          <p class="bedroom-hud__time">7:18 PM</p>
+        </div>
+      </section>
+
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">
@@ -928,5 +1014,10 @@
     </main>
 
     <script src="/game.js"></script>
+    <!-- CINEMATIC OVERLAY -->
+    <div id="cinematic-overlay" role="status" aria-live="polite">
+      <p id="cinematic-text"></p>
+    </div>
+
   </body>
 </html>

@@ -1010,6 +1010,547 @@ html, body {
   margin-top: 4px;
 }
 
+/* ── Cinematic overlay ── */
+#cinematic-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s ease;
+}
+
+#cinematic-overlay.is-active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+#cinematic-text {
+  font-size: 20px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  line-height: 1.7;
+  letter-spacing: 0.06em;
+  padding: 0 48px;
+  opacity: 0;
+  transition: opacity 0.55s ease;
+  max-width: 340px;
+}
+
+/* ── Bedroom screen ── */
+#bedroom-screen {
+  overflow: hidden;
+  padding: 0;
+}
+
+.bedroom {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Wall and floor */
+.br__wall {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 61%;
+  background: linear-gradient(180deg, #070e1d 0%, #0b1730 100%);
+}
+
+.br__floor {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 39%;
+  background: linear-gradient(180deg, #081120 0%, #060d18 100%);
+}
+
+.br__baseboard {
+  position: absolute;
+  left: 0; right: 0;
+  top: 60.5%;
+  height: 4px;
+  background: rgba(30, 55, 100, 0.5);
+}
+
+/* Window */
+.br__window {
+  position: absolute;
+  top: 7%;
+  left: 5%;
+  width: 39%;
+  height: 17%;
+  border-radius: 4px 4px 3px 3px;
+  border: 3px solid rgba(28, 48, 88, 0.95);
+  overflow: hidden;
+  background: #03070f;
+  box-shadow: 0 0 0 1px rgba(50, 80, 130, 0.3),
+              inset 0 0 20px rgba(8, 20, 60, 0.8);
+}
+
+.br__window-sky {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 70% 30%, #0a1635 0%, #03060f 70%);
+}
+
+.br__stars {
+  position: absolute;
+  inset: 0;
+}
+
+.br__stars::before {
+  content: '';
+  position: absolute;
+  width: 1.5px;
+  height: 1.5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  top: 12%;
+  left: 20%;
+  box-shadow:
+    25px 8px 0 0.5px rgba(255,255,255,0.6),
+    52px 22px 0 0px rgba(255,255,255,0.5),
+    80px 6px 0 0.5px rgba(255,255,255,0.75),
+    35px 45px 0 0px rgba(255,255,255,0.45),
+    100px 30px 0 0.5px rgba(255,255,255,0.6),
+    70px 55px 0 0px rgba(255,255,255,0.35),
+    12px 58px 0 0.5px rgba(255,255,255,0.4),
+    90px 15px 0 0px rgba(255,255,255,0.5);
+}
+
+.br__moon {
+  position: absolute;
+  top: 10%;
+  right: 12%;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(220, 235, 255, 0.9);
+  box-shadow: 0 0 8px rgba(180, 210, 255, 0.6),
+              0 0 20px rgba(120, 170, 255, 0.3);
+}
+
+.br__window-div-h {
+  position: absolute;
+  top: 50%;
+  left: 0; right: 0;
+  height: 2px;
+  background: rgba(28, 48, 88, 0.95);
+  transform: translateY(-50%);
+}
+
+.br__window-div-v {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: rgba(28, 48, 88, 0.95);
+  transform: translateX(-50%);
+}
+
+.br__curtain {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  width: 16%;
+  background: linear-gradient(180deg, #12203a 0%, #0e1a30 50%, #0b1528 100%);
+  z-index: 2;
+  box-shadow: inset -2px 0 4px rgba(0,0,0,0.4);
+}
+
+.br__curtain--l { left: -4px; border-radius: 0 0 2px 0; }
+.br__curtain--r { right: -4px; border-radius: 0 0 0 2px; }
+
+.br__window-sill {
+  position: absolute;
+  bottom: -6px; left: -5px; right: -5px;
+  height: 8px;
+  background: rgba(30, 52, 95, 0.9);
+  border-radius: 2px;
+  z-index: 3;
+}
+
+.br__moonlight {
+  position: absolute;
+  bottom: -80px;
+  left: 5%;
+  width: 39%;
+  height: 80px;
+  background: linear-gradient(180deg, rgba(80, 120, 200, 0.06) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Desk */
+.br__desk {
+  position: absolute;
+  top: 57%;
+  left: 4%;
+  width: 44%;
+  height: 2%;
+  background: linear-gradient(180deg, #1c2e50 0%, #172644 100%);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  z-index: 4;
+}
+
+.br__desk-face {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  height: 220%;
+  background: linear-gradient(180deg, #12203a 0%, #0e1a30 100%);
+  border-radius: 0 0 3px 3px;
+}
+
+.br__laptop-screen {
+  position: absolute;
+  bottom: 110%;
+  left: 6%;
+  width: 48%;
+  height: 550%;
+  background: linear-gradient(155deg, #0a1a40 0%, #0e2050 50%, #0a1838 100%);
+  border-radius: 4px 4px 0 0;
+  border: 2px solid rgba(30, 55, 100, 0.8);
+  z-index: 3;
+  overflow: hidden;
+}
+
+.br__laptop-screen-inner {
+  position: absolute;
+  inset: 8px;
+  background: linear-gradient(135deg,
+    rgba(20, 60, 160, 0.4) 0%,
+    rgba(10, 30, 80, 0.6) 40%,
+    rgba(15, 45, 130, 0.3) 100%);
+  border-radius: 2px;
+}
+
+.br__laptop-base {
+  position: absolute;
+  bottom: 98%;
+  left: 3%;
+  width: 54%;
+  height: 55%;
+  background: linear-gradient(180deg, #1c2e50 0%, #14233c 100%);
+  border-radius: 0 0 3px 3px;
+  z-index: 4;
+}
+
+.br__laptop-glow {
+  position: absolute;
+  bottom: 106%;
+  left: 2%;
+  width: 56%;
+  height: 600%;
+  background: radial-gradient(ellipse at 50% 80%,
+    rgba(30, 80, 200, 0.18) 0%,
+    rgba(10, 40, 120, 0.08) 50%,
+    transparent 80%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Hockey stick */
+.br__stick-wrap {
+  position: absolute;
+  left: 197px;
+  bottom: 0;
+  width: 7px;
+  height: 64%;
+  transform-origin: bottom center;
+  transform: rotate(-11deg);
+  z-index: 3;
+}
+
+.br__stick-shaft {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  bottom: 12px;
+  background: linear-gradient(180deg,
+    rgba(28, 48, 85, 0.9) 0%,
+    rgba(20, 38, 68, 0.95) 60%,
+    rgba(15, 28, 52, 1) 100%);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.br__stick-blade {
+  position: absolute;
+  bottom: 0;
+  left: -10px;
+  width: 28px;
+  height: 12px;
+  background: rgba(15, 28, 52, 0.95);
+  border-radius: 0 2px 3px 2px;
+  transform: skewX(-15deg);
+}
+
+/* Bed */
+.br__headboard {
+  position: absolute;
+  right: 0;
+  top: 44%;
+  width: 51%;
+  height: 18%;
+  background: linear-gradient(180deg, #10213c 0%, #0d1b33 80%, #0b1830 100%);
+  border-left: 2px solid rgba(30, 55, 100, 0.5);
+  border-top: 2px solid rgba(35, 62, 110, 0.6);
+  border-radius: 6px 0 0 0;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3),
+              -2px 0 12px rgba(0,0,0,0.25);
+  z-index: 2;
+}
+
+.br__headboard::before {
+  content: '';
+  position: absolute;
+  top: 12px; bottom: 12px; left: 12px; right: 12px;
+  border: 1px solid rgba(40, 70, 120, 0.3);
+  border-radius: 3px;
+}
+
+.br__mattress {
+  position: absolute;
+  right: 0;
+  top: 62%;
+  width: 51%;
+  height: 22%;
+  background: linear-gradient(180deg, #0f1d38 0%, #0c1830 100%);
+  border-left: 2px solid rgba(28, 50, 90, 0.5);
+  z-index: 3;
+}
+
+.br__pillow {
+  position: absolute;
+  top: 6%;
+  right: 5%;
+  width: 52%;
+  height: 30%;
+  background: linear-gradient(135deg, #c8d8f0 0%, #b0c4e4 50%, #a0b8da 100%);
+  border-radius: 6px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.2),
+              0 2px 8px rgba(0,0,0,0.3);
+  opacity: 0.6;
+}
+
+.br__blanket {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 35%;
+  background: linear-gradient(180deg, #13243e 0%, #0f1e35 100%);
+  border-top: 2px solid rgba(35, 65, 115, 0.5);
+}
+
+/* Nightstand */
+.br__nightstand {
+  position: absolute;
+  top: 62%;
+  left: 45.5%;
+  width: 13%;
+  height: 10%;
+  background: linear-gradient(180deg, #111f38 0%, #0d1a2e 100%);
+  border-radius: 3px 3px 1px 1px;
+  border: 1px solid rgba(28, 50, 88, 0.5);
+  z-index: 4;
+}
+
+.br__nightstand-face {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  height: 30%;
+  background: rgba(10, 18, 32, 0.8);
+  border-radius: 0 0 2px 2px;
+}
+
+/* Phone */
+.br__phone {
+  position: absolute;
+  top: 56.5%;
+  left: 46.5%;
+  width: 9%;
+  height: 8%;
+  background: #08111e;
+  border-radius: 4px;
+  border: 1.5px solid rgba(40, 70, 120, 0.6);
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+.br__phone-screen {
+  position: absolute;
+  inset: 2px;
+  background: linear-gradient(135deg,
+    rgba(20, 60, 160, 0.85) 0%,
+    rgba(10, 35, 100, 0.9) 100%);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.br__phone-time {
+  font-size: 6px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: 0.05em;
+}
+
+.br__phone-glow {
+  position: absolute;
+  top: 50%;
+  left: 46%;
+  width: 12%;
+  height: 16%;
+  background: radial-gradient(ellipse,
+    rgba(40, 100, 220, 0.25) 0%,
+    transparent 75%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Hockey bag */
+.br__bag {
+  position: absolute;
+  bottom: 22%;
+  left: 47%;
+  width: 34%;
+  height: 8%;
+  z-index: 3;
+}
+
+.br__bag-body {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #0e1e38 0%, #0a1628 100%);
+  border-radius: 12px;
+  border: 1.5px solid rgba(30, 55, 100, 0.45);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5),
+              inset 0 1px 4px rgba(255,255,255,0.03);
+}
+
+.br__bag-strap {
+  position: absolute;
+  top: -20%;
+  left: 20%;
+  right: 20%;
+  height: 22%;
+  border-radius: 20px 20px 0 0;
+  border: 2px solid rgba(28, 50, 88, 0.7);
+  border-bottom: none;
+  background: transparent;
+}
+
+.br__bag-pocket {
+  position: absolute;
+  top: 15%;
+  left: 6%;
+  width: 28%;
+  height: 70%;
+  border-radius: 6px;
+  border: 1px solid rgba(35, 62, 110, 0.4);
+  background: rgba(8, 14, 26, 0.4);
+}
+
+/* Notification bubble */
+.br__notification {
+  position: absolute;
+  top: 38%;
+  left: 47%;
+  width: 50%;
+  background: rgba(18, 28, 52, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(60, 100, 180, 0.3);
+  border-radius: 14px;
+  padding: 10px 12px 10px 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5),
+              0 0 0 1px rgba(80, 130, 230, 0.1);
+  z-index: 10;
+  animation: notif-float 3s ease-in-out infinite;
+}
+
+@keyframes notif-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+.br__notification-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.br__notification-icon {
+  font-size: 10px;
+}
+
+.br__notification-app {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(150, 185, 255, 0.6);
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.br__notification-time {
+  font-size: 9px;
+  color: rgba(130, 165, 230, 0.4);
+}
+
+.br__notification-sender {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(220, 235, 255, 0.9);
+  margin-bottom: 3px;
+}
+
+.br__notification-text {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(185, 210, 255, 0.65);
+  line-height: 1.4;
+}
+
+/* Bedroom HUD */
+.bedroom-hud {
+  position: absolute;
+  bottom: 0;
+  left: 0; right: 0;
+  padding: 18px 24px max(24px, env(safe-area-inset-bottom));
+  background: linear-gradient(0deg, rgba(4, 8, 18, 0.92) 0%, transparent 100%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.bedroom-hud__day {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(140, 175, 230, 0.45);
+  margin-bottom: 4px;
+}
+
+.bedroom-hud__date {
+  font-size: 17px;
+  font-weight: 700;
+  color: rgba(210, 228, 255, 0.85);
+  margin-bottom: 2px;
+}
+
+.bedroom-hud__time {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(150, 185, 240, 0.45);
+}
+
 /* ── NHL Team screen ── */
 .nhlteam-content {
   width: 100%;
