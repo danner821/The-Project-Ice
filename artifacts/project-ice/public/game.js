@@ -47,10 +47,25 @@ const arenaScreen          = document.getElementById('arena-screen');
 const hubScreen            = document.getElementById('hub-screen');
 const standingsScreen      = document.getElementById('standings-screen');
 const teamProfileScreen    = document.getElementById('team-profile-screen');
+const playerProfileScreen = document.getElementById('player-profile-screen');
+const fullStatsScreen =
+  document.getElementById('full-stats-screen');
 const prospectsScreen      = document.getElementById('prospects-screen');
-const eventScreen          = document.getElementById('event-screen');
-const tryoutSummaryScreen  = document.getElementById('tryout-summary-screen');
+const eventScreen =
+  document.getElementById('event-screen');
+
+const eventResultsScreen =
+  document.getElementById(
+    'event-results-screen'
+  );
+
+const tryoutSummaryScreen =
+  document.getElementById(
+    'tryout-summary-screen'
+  );
+const rosterRevealScreen = document.getElementById('roster-reveal-screen');
 const coachIntroScreen     = document.getElementById('coach-intro-screen');
+const coachResultsScreen = document.getElementById('coach-results-screen');
 const skatingEvalScreen    = document.getElementById('skating-eval-screen');
 const skatingResultsScreen = document.getElementById('skating-results-screen');
 
@@ -102,6 +117,10 @@ const identityNhlTeamStatus    = document.getElementById('identity-nhlteam-statu
 const overviewPlayerName       = document.getElementById('overview-player-name');
 const overviewPlayerPosition   = document.getElementById('overview-player-position');
 const overviewPlayerHometown   = document.getElementById('overview-player-hometown');
+const playerWeightInput =
+  document.getElementById('player-weight');
+const playerWeightValue =
+  document.getElementById('player-weight-value');
 const overviewBackground       = document.getElementById('overview-background');
 const overviewArchetype        = document.getElementById('overview-archetype');
 const overviewMotivation       = document.getElementById('overview-motivation');
@@ -214,6 +233,21 @@ const EventSystem = (() => {
       location:    'Eastdale Ice Arena',
       objective:   'Get game-ready. Show your best.',
       description: "The first live game action of the preseason. Results don't go on the record, but your performance absolutely does. The coaching staff is still setting lines.",
+      details: {
+        League: 'High School',
+        Opponent: 'Ravens',
+        Venue: 'Eastdale Ice Arena',
+        'Puck Drop': '7:00 PM',
+        Crowd: 'Expected sellout',
+        Scouts: '3 junior scouts attending',
+        Stakes: 'Chance to earn a top-line role'
+      },
+      isFeatured: true,
+
+      featuredReasons: [
+        'Three junior scouts are attending.',
+        'Coaches are evaluating line combinations.',
+      ]
     },
     'recovery-sleep': {
       title:       'Recovery',
@@ -249,6 +283,75 @@ const EventSystem = (() => {
     _set('ev-objective',   def.objective);
     _set('ev-description', def.description);
 
+    const detailsSection =
+      document.getElementById('ev-details-section');
+
+    const detailsContainer =
+      document.getElementById('ev-details');
+
+    detailsContainer.innerHTML = '';
+
+    if (def.details && Object.keys(def.details).length) {
+      detailsSection.hidden = false;
+
+      Object.entries(def.details).forEach(([label, value]) => {
+        const row = document.createElement('div');
+        row.className = 'ev-detail-row';
+
+        row.innerHTML = `
+          <span class="ev-detail-label">${label}</span>
+          <span class="ev-detail-value">${value}</span>
+        `;
+
+        detailsContainer.appendChild(row);
+      });
+    } else {
+      detailsSection.hidden = true;
+    }
+
+    const featuredSection =
+      document.getElementById('ev-featured-section');
+
+    const featuredContainer =
+      document.getElementById('ev-featured-reasons');
+
+    if (featuredContainer) {
+      featuredContainer.innerHTML = '';
+    }
+
+    const featuredReasons =
+      Array.isArray(def.featuredReasons)
+        ? def.featuredReasons
+        : [];
+
+
+      if (
+        featuredSection &&
+        featuredContainer &&
+        featuredReasons.length > 0
+      ) {
+      featuredSection.hidden = false;
+
+      featuredReasons.forEach(reason => {
+        const item = document.createElement('div');
+        item.className = 'ev-featured-reason';
+
+        item.innerHTML = `
+          <span class="ev-featured-reason__marker">
+            •
+          </span>
+
+          <span>
+            ${reason}
+          </span>
+        `;
+
+        featuredContainer.appendChild(item);
+      });
+    } else if (featuredSection) {
+      featuredSection.hidden = true;
+    }
+
     // Swap the type colour class on the screen element
     const screen = document.getElementById('event-screen');
     if (screen) {
@@ -270,12 +373,67 @@ const EventSystem = (() => {
    * @param {string} eventId   — key in EVENT_CATALOG
    * @param {string} [origin]  — screen name to return to on Back (default 'hub')
    */
-  function openEvent(eventId, origin = 'hub') {
-    const def = EVENT_CATALOG[eventId];
+  function openEvent(eventId, origin = 'hub', eventData = null) {
+    const catalogDef = EVENT_CATALOG[eventId];
+
+        const def = eventData
+        ? {
+            /*
+             * Preserve the canonical schedule identity and any
+             * event-specific data such as id, eventId, date and focus.
+             */
+            ...catalogDef,
+            ...eventData,
+
+            title:
+              eventData.label ||
+              catalogDef?.title ||
+              'Upcoming Event',
+          type:
+            eventData.type ||
+            catalogDef?.type ||
+            'event',
+          icon:
+            eventData.icon ||
+            catalogDef?.icon ||
+            '🏒',
+          location:
+            eventData.location ||
+            catalogDef?.location ||
+            '—',
+          objective:
+            eventData.objective ||
+            catalogDef?.objective ||
+            'Prepare for the event.',
+          description:
+            eventData.description ||
+            catalogDef?.description ||
+            'Review the event details before continuing.',
+          details:
+            eventData.details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
     if (!def) {
-      console.warn(`EventSystem.openEvent: unknown event "${eventId}"`);
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
       return;
     }
+
     _origin = origin;
     _populate(def);
     showScreen('event');
@@ -306,10 +464,23 @@ function showScreen(screenName) {
   hubScreen.classList.add('screen--hidden');
   standingsScreen.classList.add('screen--hidden');
   teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
   prospectsScreen.classList.add('screen--hidden');
-  eventScreen.classList.add('screen--hidden');
-  tryoutSummaryScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
   coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
   skatingEvalScreen.classList.add('screen--hidden');
   skatingResultsScreen.classList.add('screen--hidden');
 
@@ -363,6 +534,13 @@ function showScreen(screenName) {
     teamProfileScreen.classList.remove('screen--hidden');
     // Content already populated by openTeamProfile() before showScreen() is called
   }
+  if (screenName === 'player-profile') {
+    playerProfileScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'full-stats') {
+    fullStatsScreen.classList.remove('screen--hidden');
+    renderFullStatsScreen();
+  }
   if (screenName === 'prospects') {
     prospectsScreen.classList.remove('screen--hidden');
     renderProspectsScreen();
@@ -371,12 +549,26 @@ function showScreen(screenName) {
     eventScreen.classList.remove('screen--hidden');
     // Content already populated by EventSystem.openEvent() before showScreen() is called
   }
+  if (
+    screenName ===
+    'event-results'
+  ) {
+    eventResultsScreen.classList.remove(
+      'screen--hidden'
+    );
+  }
   if (screenName === 'tryout-summary') {
     tryoutSummaryScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'roster-reveal') {
+    rosterRevealScreen.classList.remove('screen--hidden');
   }
   if (screenName === 'coach-intro') {
     coachIntroScreen.classList.remove('screen--hidden');
   }
+  if (screenName === 'coach-results') {
+    coachResultsScreen.classList.remove('screen--hidden');
+  } 
   if (screenName === 'skating-eval') {
     skatingEvalScreen.classList.remove('screen--hidden');
   }
@@ -568,7 +760,22 @@ function handlePlayerFormSubmit(event) {
   const firstName = firstNameInput.value.trim();
   const lastName = lastNameInput.value.trim();
   const hometown = hometownInput.value.trim();
+  const height =
+    document.getElementById('player-height')?.value ||
+    `5'10"`;
 
+  const weight =
+    Number(
+      document.getElementById('player-weight')?.value
+    ) || 175;
+
+  const jerseyNumber =
+    Number(
+      document.getElementById('player-jersey-number')?.value
+    ) || 19;
+
+  const shoots =
+    Game.player.handedness === 'Right' ? 'R' : 'L';
   if (!firstName || !lastName || !hometown) {
     formError.textContent = 'Complete your name and hometown to continue.';
     return;
@@ -587,6 +794,10 @@ function handlePlayerFormSubmit(event) {
   Game.player.firstName = firstName;
   Game.player.lastName = lastName;
   Game.player.hometown = hometown;
+  Game.player.height = height;
+  Game.player.weight = weight;
+  Game.player.jerseyNumber = jerseyNumber;
+  Game.player.shoots = shoots;
 
   updateSummary();
   saveCareerPreview();
@@ -606,6 +817,7 @@ function updateSummary() {
 
 // ── Save system ─────────────────────────────────────────────
 function saveCareerPreview() {
+  if (isDevSession) return;
   try {
     localStorage.setItem(
       SAVE_KEY,
@@ -626,8 +838,209 @@ function saveCareerPreview() {
   }
 }
 
+function syncCareerPlayerWithWorld() {
+  const playerTeamId =
+    Game.player.teamId ||
+    Game.player.highSchoolTeamId ||
+    null;
+
+  if (!playerTeamId) {
+    return null;
+  }
+
+  const careerPlayerId =
+    Game.player.playerId ||
+    Game.player.id ||
+    'career-player';
+
+  const existingPlayer =
+    WorldEngine.getPlayerById(
+      careerPlayerId
+    );
+
+  /*
+   * The canonical player already exists.
+   * Synchronize Game.player from that record without
+   * regenerating attributes or changing lineup placement.
+   */
+  if (existingPlayer) {
+    Game.player = {
+      ...Game.player,
+      ...existingPlayer,
+
+      attributes: {
+        ...(existingPlayer.attributes || {}),
+      },
+
+      seasonStats: {
+        ...(existingPlayer.seasonStats || {}),
+      },
+
+      careerStats: {
+        ...(existingPlayer.careerStats || {}),
+      },
+
+      development: {
+        ...(existingPlayer.development || {}),
+      },
+
+      history: {
+        ...(existingPlayer.history || {}),
+
+        seasons: Array.isArray(
+          existingPlayer.history?.seasons
+        )
+          ? [...existingPlayer.history.seasons]
+          : [],
+
+        teams: Array.isArray(
+          existingPlayer.history?.teams
+        )
+          ? [...existingPlayer.history.teams]
+          : [],
+
+        transactions: Array.isArray(
+          existingPlayer.history?.transactions
+        )
+          ? [...existingPlayer.history.transactions]
+          : [],
+
+        lineupChanges: Array.isArray(
+          existingPlayer.history?.lineupChanges
+        )
+          ? [...existingPlayer.history.lineupChanges]
+          : [],
+
+        awards: Array.isArray(
+          existingPlayer.history?.awards
+        )
+          ? [...existingPlayer.history.awards]
+          : [],
+
+        championships: Array.isArray(
+          existingPlayer.history?.championships
+        )
+          ? [...existingPlayer.history.championships]
+          : [],
+
+        milestones: Array.isArray(
+          existingPlayer.history?.milestones
+        )
+          ? [...existingPlayer.history.milestones]
+          : [],
+
+        records: Array.isArray(
+          existingPlayer.history?.records
+        )
+          ? [...existingPlayer.history.records]
+          : [],
+      },
+    };
+
+    WorldEngine.refreshTeamRosterManagement(
+      existingPlayer.teamId
+    );
+
+    return existingPlayer;
+  }
+
+  /*
+   * Migration path for saves created before the career
+   * player became a canonical World Engine roster member.
+   */
+  const canonicalPlayer =
+    WorldEngine.upsertCareerPlayer({
+      ...Game.player,
+
+      id: careerPlayerId,
+      playerId: careerPlayerId,
+
+      teamId: playerTeamId,
+    });
+
+  if (!canonicalPlayer) {
+    return null;
+  }
+
+  Game.player = {
+    ...Game.player,
+    ...canonicalPlayer,
+
+    attributes: {
+      ...(canonicalPlayer.attributes || {}),
+    },
+
+    seasonStats: {
+      ...(canonicalPlayer.seasonStats || {}),
+    },
+
+    careerStats: {
+      ...(canonicalPlayer.careerStats || {}),
+    },
+
+    development: {
+      ...(canonicalPlayer.development || {}),
+    },
+
+    history: {
+      ...(canonicalPlayer.history || {}),
+
+      seasons: Array.isArray(
+        canonicalPlayer.history?.seasons
+      )
+        ? [...canonicalPlayer.history.seasons]
+        : [],
+
+      teams: Array.isArray(
+        canonicalPlayer.history?.teams
+      )
+        ? [...canonicalPlayer.history.teams]
+        : [],
+
+      transactions: Array.isArray(
+        canonicalPlayer.history?.transactions
+      )
+        ? [...canonicalPlayer.history.transactions]
+        : [],
+
+      lineupChanges: Array.isArray(
+        canonicalPlayer.history?.lineupChanges
+      )
+        ? [...canonicalPlayer.history.lineupChanges]
+        : [],
+
+      awards: Array.isArray(
+        canonicalPlayer.history?.awards
+      )
+        ? [...canonicalPlayer.history.awards]
+        : [],
+
+      championships: Array.isArray(
+        canonicalPlayer.history?.championships
+      )
+        ? [...canonicalPlayer.history.championships]
+        : [],
+
+      milestones: Array.isArray(
+        canonicalPlayer.history?.milestones
+      )
+        ? [...canonicalPlayer.history.milestones]
+        : [],
+
+      records: Array.isArray(
+        canonicalPlayer.history?.records
+      )
+        ? [...canonicalPlayer.history.records]
+        : [],
+    },
+  };
+
+  return canonicalPlayer;
+}
+
 function loadCareerPreview() {
   try {
+    
     const savedCareer = localStorage.getItem(SAVE_KEY);
 
     if (!savedCareer) return;
@@ -640,12 +1053,19 @@ function loadCareerPreview() {
       ...Game.player,
       ...parsedCareer.player,
     };
+    Game.player.currentDate =
+      WorldEngine.state.player?.currentDate ||
+      Game.player.currentDate ||
+      '2026-09-01';
+
+    syncCareerPlayerWithWorld();
 
     // ── Route based on career stage ───────────────────────────
     // 'hub' stage → tryouts are done; skip the intro sequence.
     if (Game.player.stage === 'hub') {
-      showScreen('hub');
-      return;
+        refreshCareerUI();
+        showScreen('hub');
+        return;
     }
 
     // Still in creation flow — restore form state and resume at summary.
@@ -774,7 +1194,47 @@ btnDevHub.addEventListener('click', () => {
     const parsed = JSON.parse(savedCareer);
     if (!parsed.player) return;
 
-    Game.player = { ...Game.player, ...parsed.player };
+    Game.player = {
+      ...Game.player,
+      ...parsed.player,
+    };
+
+    const devDate =
+      '2026-09-17';
+
+    WorldEngine.setCurrentDate(
+      devDate,
+      {
+        save: false,
+      }
+    );
+
+    Game.player.currentDate =
+      devDate;
+
+    const canonicalPlayer =
+      syncCareerPlayerWithWorld();
+
+    if (!canonicalPlayer) {
+      console.error(
+        '[DEV] Career player could not be synchronized with the World Engine.'
+      );
+
+      return;
+    }
+
+    WorldEngine.state.schedule =
+      WorldEngine.createHighSchoolCareerSchedule(
+        WorldEngine.state.teams
+      );
+
+    scheduleViewYear = 2026;
+    scheduleViewMonth = 8;
+
+    isDevSession = true;
+    window.PROJECT_ICE_DEV_SESSION = true;
+
+    refreshCareerUI();
     showScreen('hub');
   } catch (err) {
     console.error('[DEV] Skip to Hub failed:', err);
@@ -793,7 +1253,148 @@ btnBackCreation.addEventListener('click', () => {
 btnBackSummary.addEventListener('click', () => {
   showScreen('summary');
 });
+function openHubTab(tabId) {
+  const validTabs = [
+    'home',
+    'schedule',
+    'player',
+    'team',
+    'league'
+  ];
 
+  if (!validTabs.includes(tabId)) return;
+
+  showScreen('hub');
+
+  document
+    .querySelectorAll('.hub-nav__tab')
+    .forEach(tab => {
+      tab.classList.toggle(
+        'hub-nav__tab--active',
+        tab.dataset.hubTab === tabId
+      );
+    });
+
+  document
+    .querySelectorAll('.hub-tab-panel')
+    .forEach(panel => {
+      const isActive =
+        panel.id === `hub-tab-${tabId}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isActive
+      );
+
+      panel.setAttribute(
+        'aria-hidden',
+        String(!isActive)
+      );
+    });
+
+  const hubInfoBar =
+    document.getElementById('hub-info-bar');
+
+  if (hubInfoBar) {
+    hubInfoBar.style.display =
+      tabId === 'home' ? '' : 'none';
+  }
+
+  if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
 // ── Hockey Background screen ────────────────────────────────
 document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
   card.addEventListener('click', () => {
@@ -1097,23 +1698,783 @@ WorldEngine.news.onNewsChange(renderHubNews);
 // _teamProfileOrigin controls where the Back button returns to.
 
 let _teamProfileOrigin = 'hub';  // 'hub' | 'standings'
+let _playerProfileOrigin = 'team-profile';
+let _activePlayerProfile = null;
 
 /** Convert a numeric prestige (1-5) to a star string. */
 function prestigeStars(n) {
   const filled = Math.max(0, Math.min(5, n));
   return '★'.repeat(filled) + '☆'.repeat(5 - filled);
 }
+function buildTeamLineupMarkup(roster = []) {
+  const safeRoster =
+    Array.isArray(roster)
+      ? roster
+      : [];
 
+  const getPlayerBySlot = slot =>
+    safeRoster.find(
+      player =>
+        (player.rosterSlot || player.slot) === slot
+    );
+
+  const getLeadershipBadge = player => {
+    if (!player) return '';
+
+    if (player.captain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Captain"
+          title="Captain"
+        >
+          C
+        </span>
+      `;
+    }
+
+    if (player.alternateCaptain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Alternate captain"
+          title="Alternate Captain"
+        >
+          A
+        </span>
+      `;
+    }
+
+    return '';
+  };
+
+  const getPlayerCard = player => {
+    if (!player) {
+      return `
+        <div class="lineup-player lineup-player--empty">
+          Empty
+        </div>
+      `;
+    }
+
+    const fullName =
+      `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+      'Unknown Player';
+
+    const rawPosition =
+      String(player.position || '—')
+        .trim()
+        .toUpperCase();
+
+    const positionMap = {
+      CENTER: 'C',
+      FORWARD: 'C',
+      'LEFT WING': 'LW',
+      LEFTWING: 'LW',
+      'RIGHT WING': 'RW',
+      RIGHTWING: 'RW',
+      DEFENSE: 'D',
+      DEFENCEMAN: 'D',
+      DEFENSEMAN: 'D',
+      GOALIE: 'G',
+      GOALTENDER: 'G'
+    };
+
+    const position =
+      positionMap[rawPosition] ||
+      rawPosition;
+    const overall = Number(player.overall) || 0;
+    const playerId =
+      player.playerId ||
+      player.id ||
+      '';
+
+    return `
+      <button
+  class="team-roster__player lineup-player ${
+    player.isCareerPlayer
+      ? 'career-player-highlight'
+      : ''
+  }"
+  type="button"
+  data-player-id="${playerId}"
+>
+        <span class="lineup-player__position">
+          ${position}
+        </span>
+
+        <span class="lineup-player__name">
+          ${fullName}
+          ${getLeadershipBadge(player)}
+        </span>
+
+        <span class="lineup-player__overall">
+          ${overall} OVR
+        </span>
+      </button>
+    `;
+  };
+
+  return `
+    <section class="lineup-section">
+      <h3 class="lineup-section__title">
+        Forwards
+      </h3>
+
+      ${[1, 2, 3, 4].map(lineNumber => `
+        <div class="lineup-unit">
+          <div class="lineup-unit__label">
+            Line ${lineNumber}
+          </div>
+
+          <div class="lineup-unit__players lineup-unit__players--three">
+            ${getPlayerCard(
+              getPlayerBySlot(`fwd-${lineNumber}-lw`)
+            )}
+
+            ${getPlayerCard(
+              getPlayerBySlot(`fwd-${lineNumber}-c`)
+            )}
+
+            ${getPlayerCard(
+              getPlayerBySlot(`fwd-${lineNumber}-rw`)
+            )}
+          </div>
+        </div>
+      `).join('')}
+    </section>
+
+    <section class="lineup-section">
+      <h3 class="lineup-section__title">
+        Defense
+      </h3>
+
+      ${[1, 2, 3].map(pairNumber => `
+        <div class="lineup-unit">
+          <div class="lineup-unit__label">
+            Pair ${pairNumber}
+          </div>
+
+          <div class="lineup-unit__players lineup-unit__players--two">
+            ${getPlayerCard(
+              getPlayerBySlot(`def-${pairNumber}-ld`)
+            )}
+
+            ${getPlayerCard(
+              getPlayerBySlot(`def-${pairNumber}-rd`)
+            )}
+          </div>
+        </div>
+      `).join('')}
+    </section>
+
+    <section class="lineup-section">
+      <h3 class="lineup-section__title">
+        Goaltenders
+      </h3>
+
+      <div class="lineup-unit">
+        <div class="lineup-unit__players lineup-unit__players--two">
+          <div class="lineup-goalie">
+            <div class="lineup-unit__label">
+              Starter
+            </div>
+
+            ${getPlayerCard(
+              getPlayerBySlot('g-starter')
+            )}
+          </div>
+
+          <div class="lineup-goalie">
+            <div class="lineup-unit__label">
+              Backup
+            </div>
+
+            ${getPlayerCard(
+              getPlayerBySlot('g-backup')
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function buildTeamSpecialTeamsMarkup(
+  team = {},
+  roster = []
+) {
+  const safeRoster =
+    Array.isArray(roster)
+      ? roster
+      : [];
+
+  const getPlayerById = playerId => {
+    if (!playerId) return null;
+
+    return (
+      safeRoster.find(player => {
+        const rosterPlayerId =
+          player.playerId ||
+          player.id ||
+          null;
+
+        return (
+          String(rosterPlayerId) ===
+          String(playerId)
+        );
+      }) || null
+    );
+  };
+
+  const getLeadershipBadge = player => {
+    if (!player) return '';
+
+    if (player.captain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Captain"
+          title="Captain"
+        >
+          C
+        </span>
+      `;
+    }
+
+    if (player.alternateCaptain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Alternate captain"
+          title="Alternate Captain"
+        >
+          A
+        </span>
+      `;
+    }
+
+    return '';
+  };
+
+  const getPlayerCard = (
+    player,
+    roleLabel
+  ) => {
+    if (!player) {
+      return `
+        <div
+          class="lineup-player lineup-player--empty"
+        >
+          <span class="lineup-player__position">
+            ${roleLabel}
+          </span>
+
+          <span class="lineup-player__name">
+            Unassigned
+          </span>
+        </div>
+      `;
+    }
+
+    const fullName =
+      `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+      'Unknown Player';
+
+    const playerId =
+      player.playerId ||
+      player.id ||
+      '';
+
+    const overall =
+      Number(player.overall) || 0;
+
+    return `
+      <button
+        class="team-roster__player lineup-player ${
+          player.isCareerPlayer
+            ? 'career-player-highlight'
+            : ''
+        }"
+        type="button"
+        data-player-id="${playerId}"
+      >
+        <span class="lineup-player__position">
+          ${roleLabel}
+        </span>
+
+        <span class="lineup-player__name">
+          ${fullName}
+          ${getLeadershipBadge(player)}
+        </span>
+
+        <span class="lineup-player__overall">
+          ${overall} OVR
+        </span>
+      </button>
+    `;
+  };
+
+  const powerPlay =
+    Array.isArray(
+      team.specialTeams?.powerPlay
+    )
+      ? team.specialTeams.powerPlay
+      : [];
+
+  const penaltyKill =
+    Array.isArray(
+      team.specialTeams?.penaltyKill
+    )
+      ? team.specialTeams.penaltyKill
+      : [];
+
+  const buildPowerPlayUnit = (
+    unit,
+    unitNumber
+  ) => {
+    const slots =
+      unit?.slots || {};
+
+    return `
+      <div class="lineup-unit special-teams-unit">
+        <div class="lineup-unit__label">
+          PP${unitNumber}
+        </div>
+
+        <div class="special-teams-unit__players special-teams-unit__players--power-play">
+          ${getPlayerCard(
+            getPlayerById(slots.leftFlank),
+            'Left Flank'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.bumper),
+            'Bumper'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.rightFlank),
+            'Right Flank'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.netFront),
+            'Net Front'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.quarterback),
+            'Quarterback'
+          )}
+        </div>
+      </div>
+    `;
+  };
+
+  const buildPenaltyKillUnit = (
+    unit,
+    unitNumber
+  ) => {
+    const slots =
+      unit?.slots || {};
+
+    return `
+      <div class="lineup-unit special-teams-unit">
+        <div class="lineup-unit__label">
+          PK${unitNumber}
+        </div>
+
+        <div class="special-teams-unit__players special-teams-unit__players--penalty-kill">
+          ${getPlayerCard(
+            getPlayerById(slots.forward1),
+            'Forward'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.forward2),
+            'Forward'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.defense1),
+            'Defense'
+          )}
+
+          ${getPlayerCard(
+            getPlayerById(slots.defense2),
+            'Defense'
+          )}
+        </div>
+      </div>
+    `;
+  };
+
+  return `
+    <section class="lineup-section">
+      <h3 class="lineup-section__title">
+        Power Play
+      </h3>
+
+      ${buildPowerPlayUnit(
+        powerPlay[0],
+        1
+      )}
+
+      ${buildPowerPlayUnit(
+        powerPlay[1],
+        2
+      )}
+    </section>
+
+    <section class="lineup-section">
+      <h3 class="lineup-section__title">
+        Penalty Kill
+      </h3>
+
+      ${buildPenaltyKillUnit(
+        penaltyKill[0],
+        1
+      )}
+
+      ${buildPenaltyKillUnit(
+        penaltyKill[1],
+        2
+      )}
+    </section>
+  `;
+}
+
+function buildModernTeamProfileLayout() {
+  const source = document.getElementById('team-page-root');
+  const mount = document.getElementById(
+    'team-profile-modern-content'
+  );
+
+  if (!source || !mount) return null;
+
+  const clone = source.cloneNode(true);
+
+  clone.dataset.profileMode = 'true';
+
+  clone.id = 'team-profile-page-root';
+
+  clone
+    .querySelectorAll('[id]')
+    .forEach(element => {
+      element.id = `profile-${element.id}`;
+    });
+
+  const eyebrow = clone.querySelector(
+    '.team-profile-style-hero__eyebrow'
+  );
+
+  if (eyebrow) {
+    eyebrow.textContent = 'Team Profile';
+  }
+
+  mount.innerHTML = '';
+  mount.appendChild(clone);
+
+  return clone;
+}
 /**
  * Populate the team profile screen with data from WorldEngine.
  * Must be called before showScreen('team-profile').
  * @param {string} teamId
  */
 function renderTeamProfile(teamId) {
-  const team = WorldEngine.state.teams.find(t => t.teamId === teamId);
+    const team =
+      WorldEngine.state.teams.find(
+        t =>
+          String(t.teamId) ===
+          String(teamId)
+      );
+
   if (!team) return;
 
-  const gd     = team.goalsFor - team.goalsAgainst;
+  /*
+   * Render the requested team into the reusable Team page
+   * before cloning it for the Team Profile screen.
+   * This keeps coach, arena, record, standings, leaders,
+   * lineup and season data synchronized.
+   */
+  renderTeamTab(team.teamId);
+
+  const modernRoot =
+    buildModernTeamProfileLayout();
+
+    if (!modernRoot) return;
+
+    modernRoot.dataset.teamId = team.teamId;
+
+    const modernRosterListEl =
+      modernRoot.querySelector(
+        '#profile-team-roster-list'
+      );
+
+    const modernSpecialTeamsListEl =
+      modernRoot.querySelector(
+        '#profile-team-special-teams-list'
+      );
+
+  let selectedTeamRoster =
+    Array.isArray(team.roster)
+      ? team.roster.map(player => ({
+          ...player
+        }))
+      : [];
+
+  const playerTeamId =
+    Game.player.teamId ||
+    Game.player.highSchoolTeamId ||
+    null;
+
+    const isCareerPlayerTeam =
+      playerTeamId &&
+      String(playerTeamId) ===
+        String(team.teamId);
+
+    if (isCareerPlayerTeam) {
+    const careerPlayer = {
+      ...Game.player,
+
+      playerId:
+        Game.player.playerId ||
+        Game.player.id ||
+        'career-player',
+
+      teamId:
+        playerTeamId,
+
+      overall:
+        Game.player.overall ??
+        Game.player.ovr ??
+        60,
+
+      isCareerPlayer: true
+    };
+
+    const careerPosition =
+      String(
+        careerPlayer.position || 'C'
+      ).toUpperCase();
+
+    let careerSlot =
+      Game.player.rosterSlot ||
+      Game.player.slot ||
+      null;
+
+    if (!careerSlot) {
+      if (
+        careerPosition === 'LD' ||
+        careerPosition === 'RD' ||
+        careerPosition.includes('DEFENSE')
+      ) {
+        careerSlot =
+          careerPosition === 'RD'
+            ? 'def-3-rd'
+            : 'def-3-ld';
+      } else if (
+        careerPosition === 'G' ||
+        careerPosition.includes('GOAL')
+      ) {
+        careerSlot = 'g-backup';
+      } else if (
+        careerPosition === 'LW' ||
+        careerPosition.includes('LEFT WING')
+      ) {
+        careerSlot = 'fwd-3-lw';
+      } else if (
+        careerPosition === 'RW' ||
+        careerPosition.includes('RIGHT WING')
+      ) {
+        careerSlot = 'fwd-3-rw';
+      } else {
+        careerSlot = 'fwd-3-c';
+      }
+    }
+
+    const replacementIndex =
+      selectedTeamRoster.findIndex(
+        player =>
+          (player.rosterSlot || player.slot) ===
+          careerSlot
+      );
+
+    const careerPlayerWithSlot = {
+      ...careerPlayer,
+      rosterSlot: careerSlot,
+      slot: careerSlot
+    };
+
+    if (replacementIndex !== -1) {
+      selectedTeamRoster[
+        replacementIndex
+      ] = careerPlayerWithSlot;
+    } else {
+      selectedTeamRoster.push(
+        careerPlayerWithSlot
+      );
+    }
+  }
+
+    if (modernRosterListEl) {
+      modernRosterListEl.innerHTML =
+        buildTeamLineupMarkup(
+          selectedTeamRoster
+        );
+
+      modernRosterListEl
+        .querySelectorAll('.team-roster__player')
+        .forEach(button => {
+          button.addEventListener('click', () => {
+            const playerId =
+              button.dataset.playerId;
+
+            const selectedPlayer =
+              selectedTeamRoster.find(
+                player =>
+                  String(
+                    player.playerId ||
+                    player.id
+                  ) === String(playerId)
+              );
+
+            if (!selectedPlayer) return;
+
+            openPlayerProfile(
+              selectedPlayer,
+              'team-profile'
+            );
+          });
+        });
+    }
+
+    if (modernSpecialTeamsListEl) {
+      modernSpecialTeamsListEl.innerHTML =
+        buildTeamSpecialTeamsMarkup(
+          team,
+          selectedTeamRoster
+        );
+
+      modernSpecialTeamsListEl
+        .querySelectorAll(
+          '.team-roster__player'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              const playerId =
+                button.dataset.playerId;
+
+              const selectedPlayer =
+                selectedTeamRoster.find(
+                  player =>
+                    String(
+                      player.playerId ||
+                      player.id
+                    ) === String(playerId)
+                );
+
+              if (!selectedPlayer) return;
+
+              openPlayerProfile(
+                selectedPlayer,
+                'team-profile'
+              );
+            }
+          );
+        });
+    }
+
+   setupTeamLineupToggle(
+     modernRoot,
+     'profile-'
+   );
+  
+    const modernFullStatsButton =
+      modernRoot.querySelector(
+        '#profile-team-view-full-stats'
+      );
+
+    if (modernFullStatsButton) {
+      modernFullStatsButton.addEventListener(
+        'click',
+        () => {
+          Game.fullStatsOrigin = 'team-profile';
+          Game.fullStatsTeamId = team.teamId;
+          Game.fullStatsSelectedTeamId = team.teamId;
+
+          showScreen('full-stats');
+        }
+      );
+    }
+  
+    const modernPrimaryColorEl =
+      modernRoot.querySelector(
+        '.team-profile-style-hero__color-primary'
+      );
+
+    const modernSecondaryColorEl =
+      modernRoot.querySelector(
+        '.team-profile-style-hero__color-secondary'
+      );
+
+    if (modernPrimaryColorEl) {
+      modernPrimaryColorEl.style.background =
+        team.primaryColor || '#2f6fd6';
+    }
+
+    if (modernSecondaryColorEl) {
+      modernSecondaryColorEl.style.background =
+        team.secondaryColor || '#d6aa2f';
+    }
+
+    const modernTeamNameEl =
+      modernRoot.querySelector(
+        '#profile-team-page-name'
+      );
+
+    const modernPrestigeEl =
+      modernRoot.querySelector(
+        '#profile-team-page-prestige'
+      );
+
+    const modernLevelEl =
+      modernRoot.querySelector(
+        '#profile-team-page-level'
+      );
+
+    const modernIdentityEl =
+      modernRoot.querySelector(
+        '#profile-team-page-identity'
+      );
+
+    if (modernTeamNameEl) {
+      modernTeamNameEl.textContent =
+        `${team.schoolName} ${team.teamName}`;
+    }
+
+    if (modernPrestigeEl) {
+      modernPrestigeEl.textContent =
+        '★'.repeat(Number(team.prestige) || 0);
+    }
+
+    if (modernLevelEl) {
+      modernLevelEl.textContent =
+        'Junior Varsity';
+    }
+
+    if (modernIdentityEl) {
+      modernIdentityEl.textContent =
+        team.identity ||
+        'Program identity unavailable.';
+    }
+
+    const gd =
+      team.goalsFor - team.goalsAgainst;
   const gdStr  = gd > 0 ? `+${gd}` : `${gd}`;
   const record = `${team.wins}-${team.losses}-${team.overtimeLosses}`;
 
@@ -1130,7 +2491,15 @@ function renderTeamProfile(teamId) {
   // Hero
   const teamNameEl = document.getElementById('tp-team-name');
   if (teamNameEl) teamNameEl.textContent = team.teamName;
+  const teamLevelEl = document.getElementById('tp-team-level');
 
+  if (teamLevelEl) {
+    const isPlayerTeam = Game.player.teamId === team.teamId;
+
+    teamLevelEl.textContent = isPlayerTeam
+      ? Game.player.teamLevel || 'Junior Varsity'
+      : 'Junior Varsity';
+  }
   const prestigeEl = document.getElementById('tp-prestige');
   if (prestigeEl) prestigeEl.textContent = prestigeStars(team.prestige);
 
@@ -1140,7 +2509,30 @@ function renderTeamProfile(teamId) {
 
   const identityEl = document.getElementById('tp-identity');
   if (identityEl) identityEl.textContent = team.identity;
+  const coachNameEl = document.getElementById('tp-coach-name');
+  const coachStyleEl = document.getElementById('tp-coach-style');
 
+  if (coachNameEl) {
+    coachNameEl.textContent = team.coach?.name || 'Coach TBD';
+  }
+
+  if (coachStyleEl) {
+    coachStyleEl.textContent =
+      team.coach?.style || 'Coaching profile unavailable.';
+  }
+
+  const arenaNameEl = document.getElementById('tp-arena-name');
+  const arenaCapacityEl = document.getElementById('tp-arena-capacity');
+
+  if (arenaNameEl) {
+    arenaNameEl.textContent = team.arena?.name || 'Arena TBD';
+  }
+
+  if (arenaCapacityEl) {
+    arenaCapacityEl.textContent = team.arena?.capacity
+      ? `Capacity: ${team.arena.capacity.toLocaleString()}`
+      : 'Capacity unavailable';
+  }
   // Stat pills
   const recordEl = document.getElementById('tp-record');
   if (recordEl) recordEl.textContent = record;
@@ -1156,6 +2548,136 @@ function renderTeamProfile(teamId) {
   const chipSecondary = document.getElementById('tp-chip-secondary');
   if (chipPrimary)   chipPrimary.style.background   = team.primaryColor;
   if (chipSecondary) chipSecondary.style.background = team.secondaryColor;
+  // Populate the full generated roster.
+  document.querySelectorAll('#tp-roster .tp-roster-row').forEach(row => {
+    row.classList.remove('tp-roster-row--you');
+
+    const nameEl = row.querySelector('.tp-roster-row__name');
+    const slot = row.dataset.rosterSlot;
+
+    if (!nameEl || !slot) return;
+
+    const rosterPlayer = Array.isArray(team.roster)
+      ? team.roster.find(player => player.rosterSlot === slot)
+      : null;
+
+    if (rosterPlayer) {
+      const fullName = `${rosterPlayer.firstName} ${rosterPlayer.lastName}`;
+
+      let leadershipBadge = '';
+
+      if (rosterPlayer.captain) {
+        leadershipBadge = '<span class="tp-roster-leadership-badge">C</span>';
+      } else if (rosterPlayer.alternateCaptain) {
+        leadershipBadge = '<span class="tp-roster-leadership-badge">A</span>';
+      }
+
+      nameEl.classList.remove('tp-roster-row__name--empty');
+      nameEl.innerHTML = `
+        <span class="tp-roster-player-name-wrap">
+          <button
+            class="tp-player-link"
+            data-player-id="${rosterPlayer.id}"
+            type="button"
+          >
+            ${fullName}
+          </button>
+
+          ${leadershipBadge}
+        </span>
+
+        <span class="tp-roster-player-ovr">
+          ${rosterPlayer.overall} OVR
+        </span>
+      `;
+    } else {
+      nameEl.classList.add('tp-roster-row__name--empty');
+      nameEl.textContent = 'Player Coming Soon';
+    }
+  });
+
+  // Show the user's player only on their assigned school.
+  const isPlayerTeam =
+    Game.player.teamId &&
+    Game.player.teamId === team.teamId;
+
+  if (isPlayerTeam) {
+    const playerName = [
+      Game.player.firstName,
+      Game.player.lastName,
+    ].filter(Boolean).join(' ') || 'Your Player';
+
+    const rawPosition = String(Game.player.position || 'C').toUpperCase();
+    const rawLine = String(Game.player.startingLine || '3rd Line');
+
+    const lineMatch = rawLine.match(/\d+/);
+    const lineNumber = lineMatch
+      ? Math.max(1, Math.min(4, Number(lineMatch[0])))
+      : 3;
+
+    let rosterSlot;
+
+    if (rawPosition === 'C' || rawPosition.includes('CENTER')) {
+      rosterSlot = `fwd-${lineNumber}-c`;
+    } else if (
+      rawPosition === 'LW' ||
+      rawPosition.includes('LEFT WING')
+    ) {
+      rosterSlot = `fwd-${lineNumber}-lw`;
+    } else if (
+      rawPosition === 'RW' ||
+      rawPosition.includes('RIGHT WING')
+    ) {
+      rosterSlot = `fwd-${lineNumber}-rw`;
+    } else if (
+      rawPosition === 'D' ||
+      rawPosition === 'LD' ||
+      rawPosition === 'RD' ||
+      rawPosition.includes('DEFENSE')
+    ) {
+      const pairNumber = Math.max(1, Math.min(3, lineNumber));
+      const side = rawPosition === 'RD' ? 'rd' : 'ld';
+      rosterSlot = `def-${pairNumber}-${side}`;
+    } else if (
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL')
+    ) {
+      rosterSlot = lineNumber === 1 ? 'g-starter' : 'g-backup';
+    } else {
+      rosterSlot = `fwd-${lineNumber}-c`;
+    }
+
+    const playerRow = document.querySelector(
+      `#tp-roster [data-roster-slot="${rosterSlot}"]`
+    );
+
+    if (playerRow) {
+      const nameEl = playerRow.querySelector('.tp-roster-row__name');
+
+      playerRow.classList.add('tp-roster-row--you');
+
+      if (nameEl) {
+        nameEl.classList.remove('tp-roster-row__name--empty');
+        const playerOverall = Game.player.overall || 60;
+
+        nameEl.innerHTML = `
+          <span class="tp-roster-player-name-wrap">
+            <button
+              class="tp-player-link"
+              data-player-id="career-player"
+              type="button"
+            >
+              ${playerName}
+            </button>
+          </span>
+
+          <span class="tp-roster-player-ovr">
+            ${playerOverall} OVR
+          </span>
+        `;
+      }
+    }
+  }
 }
 
 /**
@@ -1169,6 +2691,15 @@ function openTeamProfile(teamId, origin) {
   showScreen('team-profile');
 }
 
+function openPlayerProfile(player, origin = 'team-profile') {
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = origin;
+
+  renderPlayerProfile();
+  showScreen('player-profile');
+}
 // ── Top 100 Prospects ─────────────────────────────────────────
 // Position groups and trend patterns cycle across 100 placeholder rows.
 // Swap the loop body for WorldEngine.state.prospectRankings when real data exists.
@@ -1185,34 +2716,355 @@ function posBadgeClass(pos) {
 let prospectsReady = false;
 
 function renderProspectsScreen() {
-  if (prospectsReady) return;
-  prospectsReady = true;
-
   const container = document.getElementById('pr-rows');
   if (!container) return;
 
-  const rows = [];
-  for (let rank = 1; rank <= 100; rank++) {
-    const pos       = PR_POSITIONS[(rank - 1) % PR_POSITIONS.length];
-    const trend     = PR_TRENDS[(rank - 1) % PR_TRENDS.length];
-    const draftYear = rank <= 55 ? 2027 : 2028;
-    const badgeCls  = posBadgeClass(pos);
+  const teams = WorldEngine.state.teams || [];
+  const playerTeamId = Game.player.teamId || '';
 
-    rows.push(`
-      <div class="pr-row pr-row--data" role="listitem" data-rank="${rank}">
-        <span class="pr-col pr-col--rank">${rank}</span>
-        <span class="pr-col pr-col--name pr-name--placeholder">Prospect TBA</span>
-        <span class="pr-col pr-col--pos">
-          <span class="pr-pos-badge ${badgeCls}">${pos}</span>
-        </span>
-        <span class="pr-col pr-col--team">—</span>
-        <span class="pr-col pr-col--league">—</span>
-        <span class="pr-col pr-col--draft">${draftYear}</span>
-        <span class="pr-col pr-col--trend">${trend}</span>
-      </div>
-    `);
+  // Determine which generated roster slot is occupied by the career player.
+  function getUserRosterSlot() {
+    const rawPosition = String(Game.player.position || 'C').toUpperCase();
+    const rawLine = String(Game.player.startingLine || '3rd Line');
+
+    const lineMatch = rawLine.match(/\d+/);
+    const lineNumber = lineMatch
+      ? Math.max(1, Math.min(4, Number(lineMatch[0])))
+      : 3;
+
+    if (rawPosition === 'C' || rawPosition.includes('CENTER')) {
+      return `fwd-${lineNumber}-c`;
+    }
+
+    if (rawPosition === 'LW' || rawPosition.includes('LEFT WING')) {
+      return `fwd-${lineNumber}-lw`;
+    }
+
+    if (rawPosition === 'RW' || rawPosition.includes('RIGHT WING')) {
+      return `fwd-${lineNumber}-rw`;
+    }
+
+    if (
+      rawPosition === 'D' ||
+      rawPosition === 'LD' ||
+      rawPosition === 'RD' ||
+      rawPosition.includes('DEFENSE')
+    ) {
+      const pairNumber = Math.max(1, Math.min(3, lineNumber));
+      const side = rawPosition === 'RD' ? 'rd' : 'ld';
+
+      return `def-${pairNumber}-${side}`;
+    }
+
+    if (rawPosition === 'G' || rawPosition.includes('GOAL')) {
+      return lineNumber === 1 ? 'g-starter' : 'g-backup';
+    }
+
+    return `fwd-${lineNumber}-c`;
   }
-  container.innerHTML = rows.join('');
+
+  const userRosterSlot = getUserRosterSlot();
+
+  // Add all fictional high-school roster players.
+  const generatedProspects = teams.flatMap(team => {
+    const roster = Array.isArray(team.roster) ? team.roster : [];
+
+    return roster
+      .filter(player => {
+        // Hide the fictional player occupying the user's roster slot.
+        const isReplacedByUser =
+          team.teamId === playerTeamId &&
+          player.rosterSlot === userRosterSlot;
+
+        return !isReplacedByUser;
+      })
+      .map(player => ({
+        ...player,
+
+        sourceType: 'fictional-hs',
+        isUser: false,
+        realPlayer: false,
+
+        schoolName: team.schoolName,
+        teamName: team.teamName,
+        teamAbbreviation: `${team.schoolName} ${team.teamName}`
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0])
+          .join('')
+          .toUpperCase(),
+
+        league: 'HS',
+      }));
+  });
+
+  // Add all real 2027-and-younger prospects.
+  const realProspects =
+    typeof REAL_PROSPECTS !== 'undefined' &&
+    Array.isArray(REAL_PROSPECTS)
+      ? REAL_PROSPECTS.map(player => ({
+          ...player,
+
+          sourceType: 'real',
+          isUser: false,
+          realPlayer: true,
+
+          // These allow the same renderer to handle every player type.
+          schoolName: '',
+          teamName: player.currentTeam || '',
+          teamAbbreviation:
+            player.teamAbbreviation ||
+            String(player.currentTeam || '—')
+              .split(/\s+/)
+              .filter(Boolean)
+              .map(word => word[0])
+              .join('')
+              .toUpperCase(),
+        }))
+      : [];
+
+  const prospectPool = [
+    ...generatedProspects,
+    ...realProspects,
+  ];
+
+  // Add the user's career player.
+  if (Game.player.tryoutsComplete && playerTeamId) {
+    const assignedTeam = teams.find(
+      team => team.teamId === playerTeamId
+    );
+
+    prospectPool.push({
+      id: 'career-player',
+
+      firstName: Game.player.firstName || '',
+      lastName: Game.player.lastName || '',
+
+      position: Game.player.position || 'C',
+
+      overall: Number(Game.player.overall) || 60,
+      potential: Number(Game.player.potential) || 78,
+
+      year: 'Freshman',
+      age: Number(Game.player.age) || 14,
+
+      reputationStars:
+        Number(Game.player.reputationStars) || 1,
+
+      reputationPoints:
+        Number(Game.player.reputationPoints) ||
+        (Number(Game.player.reputationStars) || 1) * 20,
+
+      developmentSeed: 0.5,
+
+      schoolName: assignedTeam?.schoolName || 'Unassigned',
+      teamName: assignedTeam?.teamName || '',
+
+      teamAbbreviation: assignedTeam
+        ? `${assignedTeam.schoolName} ${assignedTeam.teamName}`
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(word => word[0])
+            .join('')
+            .toUpperCase()
+        : '—',
+
+      league: 'HS',
+      draftYear: 2027,
+
+      sourceType: 'career',
+      realPlayer: false,
+      isUser: true,
+    });
+  }
+
+  function getReputationPoints(player) {
+    if (Number.isFinite(Number(player.reputationPoints))) {
+      return Number(player.reputationPoints);
+    }
+
+    // Migration fallback for older generated rosters.
+    let points = 10;
+    const overall = Number(player.overall) || 60;
+
+    if (overall >= 78) points += 30;
+    else if (overall >= 74) points += 20;
+    else if (overall >= 70) points += 10;
+
+    if (player.year === 'Senior') points += 10;
+    else if (player.year === 'Junior') points += 6;
+    else if (player.year === 'Sophomore') points += 3;
+
+    return Math.min(100, points);
+  }
+
+  function getReputationStars(player) {
+    if (Number.isFinite(Number(player.reputationStars))) {
+      return Math.max(
+        1,
+        Math.min(5, Number(player.reputationStars))
+      );
+    }
+
+    const points = getReputationPoints(player);
+
+    if (points >= 95) return 5;
+    if (points >= 85) return 4;
+    if (points >= 60) return 3;
+    if (points >= 30) return 2;
+
+    return 1;
+  }
+
+  function getDraftYear(player) {
+    if (Number.isFinite(Number(player.draftYear))) {
+      return Number(player.draftYear);
+    }
+
+    if (player.year === 'Senior') return 2024;
+    if (player.year === 'Junior') return 2025;
+    if (player.year === 'Sophomore') return 2026;
+
+    return 2027;
+  }
+
+  function getTrend(player) {
+    const seed = Number(player.developmentSeed) || 0.5;
+
+    if (seed >= 0.67) return '🔼';
+    if (seed <= 0.33) return '🔽';
+
+    return '➖';
+  }
+
+  function getProspectScore(player) {
+    const overall = Number(player.overall) || 60;
+    const potential = Number(player.potential) || overall;
+    const reputation = getReputationPoints(player);
+
+    // Current ability: 50%
+    // Potential ceiling: 30%
+    // Reputation/exposure: 20%
+    return (
+      overall * 0.5 +
+      potential * 0.3 +
+      reputation * 0.2
+    );
+  }
+
+  const rankedProspects = prospectPool
+    .map(player => ({
+      ...player,
+
+      prospectScore: getProspectScore(player),
+      reputationStars: getReputationStars(player),
+      reputationPoints: getReputationPoints(player),
+      draftYear: getDraftYear(player),
+    }))
+    
+    .sort((a, b) => {
+      if (b.prospectScore !== a.prospectScore) {
+        return b.prospectScore - a.prospectScore;
+      }
+
+      if (b.overall !== a.overall) {
+        return b.overall - a.overall;
+      }
+
+      if (b.potential !== a.potential) {
+        return b.potential - a.potential;
+      }
+
+      return a.lastName.localeCompare(b.lastName);
+    });
+
+  // Save the user's real rank, even when outside the visible Top 100.
+  const userIndex = rankedProspects.findIndex(
+    player => player.isUser
+  );
+
+  Game.player.prospectRank =
+    userIndex >= 0 ? userIndex + 1 : null;
+
+  const topProspects = rankedProspects.slice(0, 100);
+  
+  Game.visibleProspects = topProspects;
+
+  Game.currentProspectRankings =
+    rankedProspects.map((player, index) => ({
+      ...player,
+      currentRank: index + 1
+    }));
+
+  container.innerHTML = topProspects
+    .map((player, index) => {
+      const rank = index + 1;
+
+      const fullName =
+        `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+        'Unknown Prospect';
+
+      const badgeCls = posBadgeClass(player.position);
+
+      const stars =
+        '★'.repeat(player.reputationStars) +
+        '☆'.repeat(5 - player.reputationStars);
+
+      const teamDisplay =
+        player.teamAbbreviation || '—';
+
+      const leagueDisplay =
+        player.league || 'HS';
+
+      return `
+        <div
+          class="pr-row pr-row--data${player.isUser ? ' pr-row--user' : ''}"
+          role="listitem"
+          data-rank="${rank}"
+          data-player-id="${player.id}"
+          data-player-source="${player.sourceType || 'unknown'}"
+        >
+          <span class="pr-col pr-col--rank">
+            ${rank}
+          </span>
+
+          <span class="pr-col pr-col--name">
+            <span class="pr-player-name">
+              ${fullName}
+            </span>
+
+            <span class="pr-player-reputation">
+              ${stars}
+            </span>
+          </span>
+
+          <span class="pr-col pr-col--pos">
+            <span class="pr-pos-badge ${badgeCls}">
+              ${player.position}
+            </span>
+          </span>
+
+          <span class="pr-col pr-col--team">
+            ${teamDisplay}
+          </span>
+
+          <span class="pr-col pr-col--league">
+            ${leagueDisplay}
+          </span>
+
+          <span class="pr-col pr-col--draft">
+            ${player.draftYear}
+          </span>
+
+          <span class="pr-col pr-col--trend">
+            ${getTrend(player)}
+          </span>
+        </div>
+      `;
+    })
+    .join('');
+
+  prospectsReady = true;
 }
 
 
@@ -1236,58 +3088,1745 @@ function renderHubStandings() {
   if (!container) return;
 
   const teams = getSortedStandings().slice(0, 4);
+  const playerTeamId = Game.player.teamId || '';
 
-  // Keep the existing header row, replace everything after it
+  // Keep the existing header row, replace everything after it.
   const header = container.querySelector('.hub-standings__row--header');
   container.innerHTML = '';
   if (header) container.appendChild(header);
 
   teams.forEach((t, i) => {
+    const isPlayerTeam =
+      playerTeamId &&
+      t.teamId === playerTeamId;
+
     const row = document.createElement('div');
-    row.className = 'hub-standings__row hub-standings__row--clickable';
+
+    row.className = [
+      'hub-standings__row',
+      'hub-standings__row--clickable',
+      isPlayerTeam ? 'hub-standings__row--player-team' : '',
+    ].filter(Boolean).join(' ');
+
     row.dataset.teamId = t.teamId;
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
+
     row.innerHTML = `
       <span class="hub-standings__pos">${i + 1}</span>
-      <span class="hub-standings__team">${t.schoolName} ${t.teamName}</span>
+
+      <span class="hub-standings__team">
+        <span>${t.schoolName} ${t.teamName}</span>
+        
+      </span>
+
       <span class="hub-standings__stat">${t.wins}</span>
       <span class="hub-standings__stat">${t.losses}</span>
       <span class="hub-standings__stat hub-standings__stat--pts">${t.points}</span>
     `;
+
     container.appendChild(row);
   });
+}
+function renderLeagueLeadersPreview() {
+  const container =
+    document.getElementById(
+      'league-leaders-preview'
+    );
+
+  if (!container) return;
+
+  const teams =
+    Array.isArray(WorldEngine.state.teams)
+      ? WorldEngine.state.teams
+      : [];
+
+  const players =
+    getLivePlayersFromTeams(teams);
+
+  const skaters =
+    players.filter(player => {
+      const position =
+        String(player.position || '')
+          .trim()
+          .toUpperCase();
+
+      return (
+        position !== 'G' &&
+        !position.includes('GOAL')
+      );
+    });
+
+  const goalies =
+    players.filter(player => {
+      const position =
+        String(player.position || '')
+          .trim()
+          .toUpperCase();
+
+      return (
+        position === 'G' ||
+        position.includes('GOAL')
+      );
+    });
+
+  const getTopThree = (
+    playerList,
+    statKey,
+    secondaryKey = 'points'
+  ) => {
+    return [...playerList]
+      .filter(player =>
+        Number(player[statKey] || 0) > 0
+      )
+      .sort((a, b) => {
+        const primaryDifference =
+          Number(b[statKey] || 0) -
+          Number(a[statKey] || 0);
+
+        if (primaryDifference !== 0) {
+          return primaryDifference;
+        }
+
+        const secondaryDifference =
+          Number(b[secondaryKey] || 0) -
+          Number(a[secondaryKey] || 0);
+
+        if (secondaryDifference !== 0) {
+          return secondaryDifference;
+        }
+
+        const nameA =
+          `${a.firstName || ''} ${a.lastName || ''}`;
+
+        const nameB =
+          `${b.firstName || ''} ${b.lastName || ''}`;
+
+        return nameA.localeCompare(nameB);
+      })
+      .slice(0, 3);
+  };
+
+  const pointsLeaders =
+    getTopThree(
+      skaters,
+      'points',
+      'goals'
+    );
+
+  const goalsLeaders =
+    getTopThree(
+      skaters,
+      'goals',
+      'points'
+    );
+
+  const assistsLeaders =
+    getTopThree(
+      skaters,
+      'assists',
+      'points'
+    );
+
+  const savePercentageLeaders =
+    getTopThree(
+      goalies,
+      'savePercentage',
+      'wins'
+    );
+
+  const goalieWinsLeaders =
+    getTopThree(
+      goalies,
+      'wins',
+      'savePercentage'
+    );
+
+  const formatSavePercentage = value => {
+    const numericValue =
+      Number(value || 0);
+
+    if (numericValue <= 0) {
+      return '.000';
+    }
+
+    /*
+      Supports either:
+      0.925
+      or
+      92.5
+    */
+    const normalizedValue =
+      numericValue > 1
+        ? numericValue / 100
+        : numericValue;
+
+    return normalizedValue
+      .toFixed(3)
+      .replace(/^0/, '');
+  };
+
+  const buildLeaderRow = (
+    player,
+    index,
+    statKey,
+    formatter = value =>
+      String(Number(value || 0))
+  ) => {
+    const fullName =
+      `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+      'Unknown Player';
+
+    const playerId =
+      player.playerId ||
+      player.id ||
+      '';
+
+    return `
+      <button
+        class="league-leader-row ${
+          player.isCareerPlayer
+            ? 'career-player-highlight'
+            : ''
+        }"
+        type="button"
+        data-player-id="${playerId}"
+      >
+        <span class="league-leader-row__rank">
+          ${index + 1}
+        </span>
+
+        <span class="league-leader-row__identity">
+          <strong class="league-leader-row__name">
+            ${fullName}
+          </strong>
+
+          <span class="league-leader-row__team">
+            ${player.teamAbbreviation || ''}
+          </span>
+        </span>
+
+        <strong class="league-leader-row__value">
+          ${formatter(player[statKey])}
+        </strong>
+      </button>
+    `;
+  };
+
+  const buildLeaderGroup = (
+    label,
+    leaders,
+    statKey,
+    formatter
+  ) => {
+    const rows =
+      leaders.length > 0
+        ? leaders
+            .map((player, index) =>
+              buildLeaderRow(
+                player,
+                index,
+                statKey,
+                formatter
+              )
+            )
+            .join('')
+        : `
+          <div class="league-leader-group__empty">
+            No stats yet
+          </div>
+        `;
+
+    return `
+      <section class="league-leader-group">
+        <header class="league-leader-group__header">
+          <span class="league-leader-group__label">
+            ${label}
+          </span>
+        </header>
+
+        <div class="league-leader-group__rows">
+          ${rows}
+        </div>
+      </section>
+    `;
+  };
+
+  container.innerHTML = `
+    <div class="league-leaders-grid">
+      ${buildLeaderGroup(
+        'Points',
+        pointsLeaders,
+        'points'
+      )}
+
+      ${buildLeaderGroup(
+        'Goals',
+        goalsLeaders,
+        'goals'
+      )}
+
+      ${buildLeaderGroup(
+        'Assists',
+        assistsLeaders,
+        'assists'
+      )}
+
+      ${buildLeaderGroup(
+        'Goalie Wins',
+        goalieWinsLeaders,
+        'wins'
+      )}
+
+      ${buildLeaderGroup(
+        'Save Percentage',
+        savePercentageLeaders,
+        'savePercentage',
+        formatSavePercentage
+      )}
+
+    </div>
+  `;
+
+  container
+    .querySelectorAll(
+      '.league-leader-row[data-player-id]'
+    )
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () => {
+          const playerId =
+            button.dataset.playerId;
+
+          const selectedPlayer =
+            players.find(player =>
+              String(
+                player.playerId ||
+                player.id
+              ) === String(playerId)
+            );
+
+          if (!selectedPlayer) return;
+
+          openPlayerProfile(
+            selectedPlayer,
+            'league'
+          );
+        }
+      );
+    });
+}
+function renderLeagueAwardsPreview() {
+  const container =
+    document.getElementById('league-awards-preview');
+
+  if (!container) return;
+
+  /*
+   * Only players from the teams in the player's current league
+   * are eligible for these awards.
+   *
+   * During the HS stage, WorldEngine.state.teams contains only
+   * the eight Midwest Youth Hockey League teams.
+   */
+  const teams =
+    Array.isArray(WorldEngine.state.teams)
+      ? WorldEngine.state.teams
+      : [];
+
+  const players =
+    typeof getLivePlayersFromTeams === 'function'
+      ? getLivePlayersFromTeams(teams)
+      : [];
+
+  const normalizePosition = player =>
+    String(player?.position || '')
+      .trim()
+      .toUpperCase();
+
+  const isGoalie = player => {
+    const position = normalizePosition(player);
+
+    return (
+      position === 'G' ||
+      position === 'GOALIE' ||
+      position.includes('GOALTENDER')
+    );
+  };
+
+  const isDefenseman = player => {
+    const position = normalizePosition(player);
+
+    return (
+      position === 'D' ||
+      position === 'LD' ||
+      position === 'RD' ||
+      position.includes('DEFENSE')
+    );
+  };
+
+  const gamesPlayed = player =>
+    Number(player?.gamesPlayed) || 0;
+
+  /*
+   * Do not manufacture award contenders before games exist.
+   * As soon as live statistics are recorded, the races populate.
+   */
+  const hasLeagueGames =
+    players.some(player => gamesPlayed(player) > 0);
+
+  if (!hasLeagueGames) {
+    container.innerHTML = `
+      <div class="league-awards-empty">
+        No award races yet
+      </div>
+    `;
+
+    Game.currentLeagueAwardRaces = [];
+
+    return;
+  }
+
+  const getTeamLabel = player =>
+    player.teamAbbreviation ||
+    player.teamShortName ||
+    player.teamName ||
+    '—';
+
+  const getPlayerId = player =>
+    player.playerId ||
+    player.id ||
+    '';
+
+  const getFullName = player =>
+    `${player.firstName || ''} ${
+      player.lastName || ''
+    }`.trim() || 'Unknown Player';
+
+  const getTrendMarkup = player => {
+    const previousRank =
+      Number(player.awardPreviousRank);
+
+    const currentRank =
+      Number(player.awardCurrentRank);
+
+    if (
+      !Number.isFinite(previousRank) ||
+      !Number.isFinite(currentRank)
+    ) {
+      return `
+        <span
+          class="league-award-contender__trend
+                 league-award-contender__trend--new"
+        >
+          NEW
+        </span>
+      `;
+    }
+
+    const difference =
+      previousRank - currentRank;
+
+    if (difference > 0) {
+      return `
+        <span
+          class="league-award-contender__trend
+                 league-award-contender__trend--up"
+        >
+          ▲${difference}
+        </span>
+      `;
+    }
+
+    if (difference < 0) {
+      return `
+        <span
+          class="league-award-contender__trend
+                 league-award-contender__trend--down"
+        >
+          ▼${Math.abs(difference)}
+        </span>
+      `;
+    }
+
+    return `
+      <span
+        class="league-award-contender__trend
+               league-award-contender__trend--even"
+      >
+        —
+      </span>
+    `;
+  };
+
+  const calculateMvpScore = player => {
+    const points =
+      Number(player.points) || 0;
+
+    const goals =
+      Number(player.goals) || 0;
+
+    const plusMinus =
+      Number(player.plusMinus) || 0;
+
+    const reputation =
+      Number(
+        player.reputationStars ??
+        player.reputation
+      ) || 0;
+
+    return (
+      points * 5 +
+      goals * 2 +
+      plusMinus * 0.4 +
+      reputation * 1.5
+    );
+  };
+
+  const calculateGoalScore = player =>
+    (Number(player.goals) || 0) * 100 +
+    (Number(player.points) || 0);
+
+  const calculateAssistScore = player =>
+    (Number(player.assists) || 0) * 100 +
+    (Number(player.points) || 0);
+
+  const calculateDefenseScore = player => {
+    const points =
+      Number(player.points) || 0;
+
+    const plusMinus =
+      Number(player.plusMinus) || 0;
+
+    const defensiveRating =
+      Number(
+        player.defensiveRating ??
+        player.defense
+      ) || 0;
+
+    return (
+      points * 3 +
+      plusMinus * 1.5 +
+      defensiveRating * 0.15
+    );
+  };
+
+  const calculateGoalieScore = player => {
+    const wins =
+      Number(player.wins) || 0;
+
+    const savePercentage =
+      Number(player.savePercentage) || 0;
+
+    const shutouts =
+      Number(player.shutouts) || 0;
+
+    const gaa =
+      Number(player.goalsAgainstAverage);
+
+    const gaaBonus =
+      Number.isFinite(gaa)
+        ? Math.max(0, 5 - gaa)
+        : 0;
+
+    return (
+      wins * 8 +
+      savePercentage * 100 +
+      shutouts * 12 +
+      gaaBonus * 4
+    );
+  };
+
+  const rankPlayers = (
+    eligiblePlayers,
+    scoreFunction
+  ) =>
+    eligiblePlayers
+      .filter(player => gamesPlayed(player) > 0)
+      .map(player => ({
+        ...player,
+        awardScore: scoreFunction(player)
+      }))
+      .sort(
+        (a, b) =>
+          b.awardScore - a.awardScore
+      )
+      .slice(0, 3)
+      .map((player, index) => ({
+        ...player,
+        awardCurrentRank: index + 1
+      }));
+
+  const skaters =
+    players.filter(player => !isGoalie(player));
+
+  const defensemen =
+    players.filter(isDefenseman);
+
+  const goalies =
+    players.filter(isGoalie);
+
+  const awardRaces = [
+    {
+      awardId: 'mvp',
+      title: 'Most Valuable Player',
+      contenders: rankPlayers(
+        skaters,
+        calculateMvpScore
+      )
+    },
+    {
+      awardId: 'goal-scoring',
+      title: 'Goal Scoring Leader',
+      contenders: rankPlayers(
+        skaters,
+        calculateGoalScore
+      )
+    },
+    {
+      awardId: 'playmaker',
+      title: 'Playmaker Award',
+      contenders: rankPlayers(
+        skaters,
+        calculateAssistScore
+      )
+    },
+    {
+      awardId: 'defenseman',
+      title: 'Best Defenseman',
+      contenders: rankPlayers(
+        defensemen,
+        calculateDefenseScore
+      )
+    },
+    {
+      awardId: 'goalie',
+      title: 'Goaltender of the Year',
+      contenders: rankPlayers(
+        goalies,
+        calculateGoalieScore
+      )
+    }
+  ];
+
+  Game.currentLeagueAwardRaces =
+    awardRaces;
+
+  container.innerHTML = `
+    <div class="league-awards-list">
+      ${awardRaces
+        .map(award => {
+          const contenders =
+            award.contenders;
+
+          return `
+            <section
+              class="league-award-card"
+              data-award-id="${award.awardId}"
+            >
+              <header class="league-award-card__header">
+                <h4>${award.title}</h4>
+              </header>
+
+              <div class="league-award-card__contenders">
+                ${
+                  contenders.length > 0
+                    ? contenders
+                        .map(player => {
+                          const playerId =
+                            getPlayerId(player);
+
+                          return `
+                            <button
+                              class="league-award-contender ${
+                                player.isCareerPlayer ||
+                                player.isUser
+                                  ? 'career-player-highlight'
+                                  : ''
+                              }"
+                              type="button"
+                              data-player-id="${playerId}"
+                            >
+                              <span
+                                class="league-award-contender__rank"
+                              >
+                                ${player.awardCurrentRank}
+                              </span>
+
+                              <span
+                                class="league-award-contender__identity"
+                              >
+                                <strong>
+                                  ${getFullName(player)}
+                                </strong>
+
+                                <span>
+                                  ${getTeamLabel(player)}
+                                </span>
+                              </span>
+
+                              ${getTrendMarkup(player)}
+                            </button>
+                          `;
+                        })
+                        .join('')
+                    : `
+                      <div class="league-award-card__empty">
+                        No eligible players yet
+                      </div>
+                    `
+                }
+              </div>
+            </section>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+
+  container
+    .querySelectorAll(
+      '.league-award-contender[data-player-id]'
+    )
+    .forEach(button => {
+      button.addEventListener('click', () => {
+        const playerId =
+          button.dataset.playerId;
+
+        const selectedPlayer =
+          players.find(player =>
+            String(getPlayerId(player)) ===
+            String(playerId)
+          );
+
+        if (!selectedPlayer) return;
+
+        openPlayerProfile(
+          selectedPlayer,
+          'league'
+        );
+      });
+    });
+}
+function renderLeagueProspectsPreview() {
+  const container =
+    document.getElementById(
+      'league-prospects-preview'
+    );
+
+  if (!container) return;
+
+  const rankings =
+    Array.isArray(Game.currentProspectRankings)
+      ? Game.currentProspectRankings
+      : [];
+
+  const topTen =
+    rankings.slice(0, 10);
+
+  if (topTen.length === 0) {
+    container.innerHTML = `
+      <div class="league-prospects-preview__empty">
+        Rankings unavailable
+      </div>
+    `;
+
+    return;
+  }
+
+  const getTrendMarkup = player => {
+    const previousRank =
+      Number(player.previousRank);
+
+    const currentRank =
+      Number(player.currentRank);
+
+    if (
+      !Number.isFinite(previousRank) ||
+      !Number.isFinite(currentRank)
+    ) {
+      return `
+        <span
+          class="league-prospect-row__trend
+                 league-prospect-row__trend--new"
+        >
+          NEW
+        </span>
+      `;
+    }
+
+    const difference =
+      previousRank - currentRank;
+
+    if (difference > 0) {
+      return `
+        <span
+          class="league-prospect-row__trend
+                 league-prospect-row__trend--up"
+        >
+          ▲${difference}
+        </span>
+      `;
+    }
+
+    if (difference < 0) {
+      return `
+        <span
+          class="league-prospect-row__trend
+                 league-prospect-row__trend--down"
+        >
+          ▼${Math.abs(difference)}
+        </span>
+      `;
+    }
+
+    return `
+      <span
+        class="league-prospect-row__trend
+               league-prospect-row__trend--even"
+      >
+        —
+      </span>
+    `;
+  };
+
+  container.innerHTML = `
+    <div class="league-prospects-preview__list">
+      ${topTen
+        .map(player => {
+          const fullName =
+            `${player.firstName || ''} ${
+              player.lastName || ''
+            }`.trim() ||
+            'Unknown Prospect';
+
+          const playerId =
+            player.id ||
+            player.playerId ||
+            '';
+
+          const position =
+            player.position || '—';
+
+          const draftYear =
+            player.draftYear || '—';
+
+          const reputationStars =
+            Math.max(
+              0,
+              Math.min(
+                5,
+                Number(player.reputationStars) || 0
+              )
+            );
+
+          const stars =
+            '★'.repeat(reputationStars) +
+            '☆'.repeat(5 - reputationStars);
+
+          const teamDisplay =
+            player.teamAbbreviation ||
+            player.teamShortName ||
+            player.teamName ||
+            '—';
+
+          const leagueDisplay =
+            player.league ||
+            'HS';
+
+          const positionClass =
+            typeof posBadgeClass === 'function'
+              ? posBadgeClass(position)
+              : '';
+
+          return `
+            <button
+              class="league-prospect-row ${
+                player.isUser
+                  ? 'career-player-highlight'
+                  : ''
+              }"
+              type="button"
+              data-player-id="${playerId}"
+            >
+              <span class="league-prospect-row__rank">
+                ${player.currentRank}
+              </span>
+
+              <span class="league-prospect-row__content">
+                <span class="league-prospect-row__top-line">
+                  <span class="league-prospect-row__identity">
+                    <strong class="league-prospect-row__name">
+                      ${fullName}
+                    </strong>
+
+                    <span class="league-prospect-row__stars">
+                      ${stars}
+                    </span>
+                  </span>
+
+                  ${getTrendMarkup(player)}
+                </span>
+
+                <span class="league-prospect-row__details">
+                  <span
+                    class="league-prospect-row__position
+                           pr-pos-badge
+                           ${positionClass}"
+                  >
+                    ${position}
+                  </span>
+
+                  <span class="league-prospect-row__detail">
+                    ${teamDisplay}
+                  </span>
+
+                  <span class="league-prospect-row__detail">
+                    ${leagueDisplay}
+                  </span>
+
+                  <span class="league-prospect-row__detail">
+                    ${draftYear}
+                  </span>
+                </span>
+              </span>
+            </button>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+
+  container
+    .querySelectorAll(
+      '.league-prospect-row[data-player-id]'
+    )
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () => {
+          const playerId =
+            button.dataset.playerId;
+
+          const selectedProspect =
+            rankings.find(player =>
+              String(
+                player.id ||
+                player.playerId
+              ) === String(playerId)
+            );
+
+          if (!selectedProspect) return;
+
+          openPlayerProfile(
+            selectedProspect,
+            'league-prospects'
+          );
+        }
+      );
+    });
+}
+function renderLeagueStandingsPreview() {
+  console.log('League Preview');
+  console.log(getSortedStandings());
+  const tableBody = document.getElementById(
+    'league-standings-preview-rows'
+  );
+
+  if (!tableBody) return;
+
+  const allTeams = getSortedStandings();
+  const playerTeamId = Game.player.teamId || '';
+
+  const teams = allTeams;
+
+  tableBody.innerHTML = teams.map((team, index) => {
+    const leagueRank =
+      allTeams.findIndex(
+        leagueTeam =>
+          String(leagueTeam.teamId) ===
+          String(team.teamId)
+      ) + 1;
+    const isPlayerTeam =
+      playerTeamId &&
+      String(team.teamId) === String(playerTeamId);
+
+    const powerPlayGoals =
+      Number(team.powerPlayGoals) || 0;
+
+    const powerPlayOpportunities =
+      Number(team.powerPlayOpportunities) || 0;
+
+    const penaltyKillGoalsAgainst =
+      Number(team.penaltyKillGoalsAgainst) || 0;
+
+    const penaltyKillOpportunities =
+      Number(team.penaltyKillOpportunities) || 0;
+
+    const powerPlayPercentage =
+      powerPlayOpportunities > 0
+        ? (
+            powerPlayGoals /
+            powerPlayOpportunities *
+            100
+          ).toFixed(1)
+        : '0.0';
+
+    const penaltyKillPercentage =
+      penaltyKillOpportunities > 0
+        ? (
+            (
+              1 -
+              penaltyKillGoalsAgainst /
+              penaltyKillOpportunities
+            ) *
+            100
+          ).toFixed(1)
+        : '0.0';
+
+    return `
+      <tr
+        class="${
+          isPlayerTeam
+            ? 'career-team-highlight'
+            : ''
+        }"
+        data-team-id="${team.teamId}"
+        tabindex="0"
+        role="button">
+
+        <td>
+          <span class="league-standings-table__rank">
+            ${leagueRank}
+          </span>
+
+          <span class="league-standings-table__team">
+  <span class="league-standings-table__school">
+    ${team.schoolName}
+  </span>
+
+  <span class="league-standings-table__nickname">
+    ${team.teamName}
+  </span>
+</span>
+        </td>
+
+        <td>${Number(team.points) || 0}</td>
+        <td>${Number(team.wins) || 0}</td>
+        <td>${Number(team.losses) || 0}</td>
+        <td>${Number(team.overtimeLosses) || 0}</td>
+        <td>${Number(team.goalsFor) || 0}</td>
+        <td>${Number(team.goalsAgainst) || 0}</td>
+        <td>${powerPlayPercentage}</td>
+        <td>${penaltyKillPercentage}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 // Renders all eight teams on the full standings screen.
 // Each row carries data-team-id so click delegation can open the team profile.
-function renderStandingsScreen() {
-  const container = document.getElementById('sl-rows');
-  if (!container) return;
+function getTeamById(teamId) {
+  if (!teamId) return null;
 
-  const teams = getSortedStandings();
+  const teams =
+    Array.isArray(WorldEngine.state.teams)
+      ? WorldEngine.state.teams
+      : [];
 
-  container.innerHTML = teams.map((t, i) => {
-    const gd    = t.goalsFor - t.goalsAgainst;
-    const gdStr = gd > 0 ? `+${gd}` : `${gd}`;
-    const gdMod = gd > 0 ? ' sl-col--gd-pos' : gd < 0 ? ' sl-col--gd-neg' : '';
-    const record = `${t.wins}-${t.losses}-${t.overtimeLosses}`;
+  return (
+    teams.find(
+      team =>
+        String(team.teamId) === String(teamId)
+    ) || null
+  );
+}
+function getLivePlayersFromTeams(sourceTeams = []) {
+  const teams =
+    Array.isArray(sourceTeams)
+      ? sourceTeams
+      : [];
+
+  return teams.flatMap(team => {
+    const roster =
+      WorldEngine.getTeamRoster(
+        team.teamId
+      );
+
+    return roster.map(player => ({
+      ...player,
+
+      teamId:
+        team.teamId,
+
+      teamName:
+        `${team.schoolName} ${team.teamName}`,
+
+      teamAbbreviation:
+        team.abbreviation ||
+        team.shortName ||
+        team.teamName
+          .split(' ')
+          .map(word => word[0])
+          .join('')
+          .slice(0, 3)
+          .toUpperCase(),
+    }));
+  });
+}
+function renderFullStatsScreen() {
+  const teamFilter =
+    document.getElementById('full-stats-team-filter');
+
+  const tableHead =
+    document.getElementById('full-stats-table-head');
+
+  const tableBody =
+    document.getElementById('full-stats-table-body');
+
+  const contextEl =
+    document.getElementById('full-stats-context');
+
+  const titleEl =
+    document.getElementById('full-stats-title');
+
+  if (
+    !teamFilter ||
+    !tableHead ||
+    !tableBody ||
+    !contextEl
+  ) {
+    return;
+  }
+  if (!Game.fullStatsView) {
+    Game.fullStatsView = 'skaters';
+  }
+  if (!Game.fullStatsSort) {
+    Game.fullStatsSort = {
+      skaters: {
+        key: 'points',
+        direction: 'desc'
+      },
+      goalies: {
+        key: 'wins',
+        direction: 'desc'
+      }
+    };
+  }
+  const teams =
+    Array.isArray(WorldEngine.state.teams)
+      ? WorldEngine.state.teams
+      : [];
+
+  const selectedTeamId =
+    Game.fullStatsSelectedTeamId ||
+    (
+      Game.fullStatsOrigin === 'team'
+        ? Game.fullStatsTeamId
+        : 'league'
+    );
+
+  teamFilter.innerHTML = `
+    <option value="league">Entire League</option>
+
+    ${teams
+      .map(team => {
+        const teamName =
+          `${team.schoolName} ${team.teamName}`;
+
+        return `
+          <option value="${team.teamId}">
+            ${teamName}
+          </option>
+        `;
+      })
+      .join('')}
+  `;
+
+  const selectedTeam =
+    selectedTeamId === 'league'
+      ? null
+      : getTeamById(selectedTeamId);
+  const showingEntireLeague =
+    selectedTeamId === 'league';
+
+  teamFilter.value =
+    selectedTeam?.teamId || 'league';
+  Game.fullStatsSelectedTeamId =
+    teamFilter.value;
+
+  const contextText = selectedTeam
+    ? `${selectedTeam.schoolName} ${selectedTeam.teamName}`
+    : 'Entire League';
+
+  contextEl.textContent = contextText;
+
+  if (titleEl) {
+    titleEl.textContent = selectedTeam
+      ? `${selectedTeam.teamName} Stats`
+      : 'League Stats';
+  }
+
+  const sourceTeams = selectedTeam
+    ? [selectedTeam]
+    : teams;
+
+  const players =
+    getLivePlayersFromTeams(sourceTeams);
+  
+  const showingGoalies = Game.fullStatsView === 'goalies';
+  const activeSort =
+    showingGoalies
+      ? Game.fullStatsSort.goalies
+      : Game.fullStatsSort.skaters;
+
+  const statPlayers = players
+    .filter(player =>
+      showingGoalies
+        ? player.position === 'G'
+        : player.position !== 'G'
+    )
+    .sort((a, b) => {
+      const key = activeSort.key;
+      const direction =
+        activeSort.direction === 'asc' ? 1 : -1;
+
+      const getSortValue = player => {
+        if (key === 'name') {
+          return `${player.firstName || ''} ${
+            player.lastName || ''
+          }`
+            .trim()
+            .toLowerCase();
+        }
+
+        if (key === 'savePercentage') {
+          const saves = Number(player.saves) || 0;
+          const shotsAgainst =
+            Number(player.shotsAgainst) || 0;
+
+          return shotsAgainst > 0
+            ? saves / shotsAgainst
+            : 0;
+        }
+
+        if (key === 'gaa') {
+          const gp =
+            Number(player.gamesPlayed) || 0;
+
+          const goalsAgainst =
+            Number(player.goalsAgainst) || 0;
+
+          return gp > 0
+            ? goalsAgainst / gp
+            : 0;
+        }
+
+        return Number(player[key]) || 0;
+      };
+
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
+
+      if (
+        typeof aValue === 'string' &&
+        typeof bValue === 'string'
+      ) {
+        return (
+          aValue.localeCompare(bValue) *
+          direction
+        );
+      }
+
+      if (aValue !== bValue) {
+        return (aValue - bValue) * direction;
+      }
+
+      return (
+        (Number(b.overall) || 0) -
+        (Number(a.overall) || 0)
+      );
+    });
+
+  const activeSortKey = activeSort.key;
+  const activeSortDirection = activeSort.direction;
+
+  const sortIndicator = key => {
+    if (activeSortKey !== key) return '';
+
+    return activeSortDirection === 'asc'
+      ? ' ▲'
+      : ' ▼';
+  };
+
+  tableHead.innerHTML = showingGoalies
+    ? `
+      <tr>
+        <th>
+  <button
+    class="full-stats-sort-button"
+    type="button"
+    data-sort-key="name"
+  >
+    Goalie${sortIndicator('name')}
+  </button>
+</th>
+
+${showingEntireLeague ? '<th>TEAM</th>' : ''}
+
+<th>
+  <button
+    class="full-stats-sort-button"
+    type="button"
+    data-sort-key="gamesPlayed"
+  >
+    GP${sortIndicator('gamesPlayed')}
+  </button>
+</th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="wins"
+          >
+            W${sortIndicator('wins')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="losses"
+          >
+            L${sortIndicator('losses')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="overtimeLosses"
+          >
+            OT${sortIndicator('overtimeLosses')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="gaa"
+          >
+            GAA${sortIndicator('gaa')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="savePercentage"
+          >
+            SV%${sortIndicator('savePercentage')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="shutouts"
+          >
+            SO${sortIndicator('shutouts')}
+          </button>
+        </th>
+      </tr>
+    `
+    : `
+      <tr>
+        <th>
+  <button
+    class="full-stats-sort-button"
+    type="button"
+    data-sort-key="name"
+  >
+    Player${sortIndicator('name')}
+  </button>
+</th>
+
+${showingEntireLeague ? '<th>TEAM</th>' : ''}
+
+<th>POS</th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="gamesPlayed"
+          >
+            GP${sortIndicator('gamesPlayed')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="goals"
+          >
+            G${sortIndicator('goals')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="assists"
+          >
+            A${sortIndicator('assists')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="points"
+          >
+            PTS${sortIndicator('points')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="plusMinus"
+          >
+            +/-${sortIndicator('plusMinus')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="penaltyMinutes"
+          >
+            PIM${sortIndicator('penaltyMinutes')}
+          </button>
+        </th>
+
+        <th>
+          <button
+            class="full-stats-sort-button"
+            type="button"
+            data-sort-key="shotsOnGoal"
+          >
+            SOG${sortIndicator('shotsOnGoal')}
+          </button>
+        </th>
+      </tr>
+    `;
+
+  tableBody.innerHTML = statPlayers
+  .map(player => {
+    const fullName =
+      `${player.firstName || ''} ${
+        player.lastName || ''
+      }`.trim() || 'Unknown Player';
+
+    const playerId =
+      player.playerId ||
+      player.id ||
+      '';
+
+    if (showingGoalies) {
+      const gp =
+        Number(player.gamesPlayed) || 0;
+
+      const goalsAgainst =
+        Number(player.goalsAgainst) || 0;
+
+      const saves =
+        Number(player.saves) || 0;
+
+      const shotsAgainst =
+        Number(player.shotsAgainst) || 0;
+
+      const gaa =
+        gp > 0
+          ? (goalsAgainst / gp).toFixed(2)
+          : '0.00';
+
+      const savePercentage =
+        shotsAgainst > 0
+          ? (saves / shotsAgainst).toFixed(3)
+          : '.000';
+
+      return `
+        <tr class="${player.isCareerPlayer ? 'career-player-highlight' : ''}">
+          <td>
+            <button
+              class="full-stats-player-button"
+              type="button"
+              data-player-id="${playerId}"
+            >
+              ${fullName}
+            </button>
+          </td>
+
+          ${showingEntireLeague
+          ? `<td>${player.teamAbbreviation}</td>`
+          : ''}
+
+          <td>${gp}</td>
+          <td>${Number(player.wins) || 0}</td>
+          <td>${Number(player.losses) || 0}</td>
+          <td>${Number(player.overtimeLosses) || 0}</td>
+          <td>${gaa}</td>
+          <td>${savePercentage}</td>
+          <td>${Number(player.shutouts) || 0}</td>
+        </tr>
+      `;
+    }
 
     return `
-      <div class="sl-row sl-row--clickable"
-           role="button" tabindex="0"
-           data-team-id="${t.teamId}">
-        <span class="sl-col sl-col--rank">${i + 1}</span>
-        <span class="sl-col sl-col--school">
-          <span class="sl-school-name">${t.schoolName}</span>
-          <span class="sl-team-name">${t.teamName}</span>
-        </span>
-        <span class="sl-col sl-col--record">${record}</span>
-        <span class="sl-col sl-col--pts">${t.points}</span>
-        <span class="sl-col sl-col--gd${gdMod}">${gdStr}</span>
-      </div>
+      <tr class="${player.isCareerPlayer ? 'career-player-highlight' : ''}">
+        <td>
+          <button
+            class="full-stats-player-button"
+            type="button"
+            data-player-id="${playerId}"
+          >
+            ${fullName}
+          </button>
+        </td>
+
+        ${showingEntireLeague
+        ? `<td>${player.teamAbbreviation}</td>`
+        : ''}
+
+        <td>${player.position || '—'}</td>
+        <td>${Number(player.gamesPlayed) || 0}</td>
+        <td>${Number(player.goals) || 0}</td>
+        <td>${Number(player.assists) || 0}</td>
+        <td>${Number(player.points) || 0}</td>
+        <td>${
+  Number(
+    player.seasonStats?.plusMinus ??
+    player.plusMinus
+  ) || 0
+}</td>
+        <td>${
+  Number(
+    player.seasonStats?.penaltyMinutes ??
+    player.penaltyMinutes
+  ) || 0
+}</td>
+        <td>${
+  Number(
+    player.seasonStats?.shots ??
+    player.shots ??
+    player.shotsOnGoal
+  ) || 0
+}</td>
+      </tr>
     `;
-  }).join('');
+  })
+  .join('');
+  tableHead
+  .querySelectorAll('.full-stats-sort-button')
+  .forEach(button => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.sortKey;
+
+      if (!key) return;
+
+      const sortState = showingGoalies
+        ? Game.fullStatsSort.goalies
+        : Game.fullStatsSort.skaters;
+
+      if (sortState.key === key) {
+        sortState.direction =
+          sortState.direction === 'desc'
+            ? 'asc'
+            : 'desc';
+      } else {
+        sortState.key = key;
+
+        sortState.direction =
+          key === 'name'
+            ? 'asc'
+            : 'desc';
+      }
+
+      renderFullStatsScreen();
+    });
+  });
+  tableBody
+  .querySelectorAll('.full-stats-player-button')
+  .forEach(button => {
+    button.addEventListener('click', () => {
+      const playerId = button.dataset.playerId;
+
+      const selectedPlayer =
+        statPlayers.find(player =>
+          String(
+            player.playerId ||
+            player.id ||
+            ''
+          ) === String(playerId)
+        );
+
+      if (!selectedPlayer) return;
+
+      openPlayerProfile(
+        selectedPlayer,
+        'full-stats'
+      );
+    });
+  });
+}
+function renderStandingsScreen() {
+  const tableBody =
+    document.getElementById(
+      'sl-rows'
+    );
+
+  if (!tableBody) {
+    return;
+  }
+
+  const teams =
+    getSortedStandings();
+
+  const playerTeamId =
+    Game.player.teamId ||
+    Game.player.highSchoolTeamId ||
+    '';
+
+  tableBody.innerHTML =
+    teams
+      .map((team, index) => {
+        const isPlayerTeam =
+          playerTeamId &&
+          String(team.teamId) ===
+          String(playerTeamId);
+
+        const powerPlayGoals =
+          Number(
+            team.powerPlayGoals
+          ) || 0;
+
+        const powerPlayOpportunities =
+          Number(
+            team.powerPlayOpportunities
+          ) || 0;
+
+        const penaltyKillGoalsAgainst =
+          Number(
+            team.penaltyKillGoalsAgainst
+          ) || 0;
+
+        const penaltyKillOpportunities =
+          Number(
+            team.penaltyKillOpportunities
+          ) || 0;
+
+        const powerPlayPercentage =
+          powerPlayOpportunities > 0
+            ? (
+                (
+                  powerPlayGoals /
+                  powerPlayOpportunities
+                ) *
+                100
+              ).toFixed(1)
+            : '0.0';
+
+        const penaltyKillPercentage =
+          penaltyKillOpportunities > 0
+            ? (
+                (
+                  1 -
+                  (
+                    penaltyKillGoalsAgainst /
+                    penaltyKillOpportunities
+                  )
+                ) *
+                100
+              ).toFixed(1)
+            : '0.0';
+
+        return `
+          <tr
+            class="sl-table__row${
+              isPlayerTeam
+                ? ' sl-table__row--player-team'
+                : ''
+            }"
+            data-team-id="${team.teamId}"
+            tabindex="0"
+            role="button"
+            aria-label="Open ${team.schoolName} ${team.teamName} profile"
+          >
+            <td class="sl-table__team-cell">
+              <span class="sl-table__rank">
+                ${index + 1}
+              </span>
+
+              <span class="sl-table__team">
+                <strong class="sl-table__school">
+                  ${team.schoolName}
+                </strong>
+
+                <span class="sl-table__nickname">
+                  ${team.teamName}
+                </span>
+              </span>
+            </td>
+
+            <td class="sl-table__points">
+              ${Number(team.points) || 0}
+            </td>
+
+            <td>
+              ${Number(team.wins) || 0}
+            </td>
+
+            <td>
+              ${Number(team.losses) || 0}
+            </td>
+
+            <td>
+              ${Number(team.overtimeLosses) || 0}
+            </td>
+
+            <td>
+              ${Number(team.goalsFor) || 0}
+            </td>
+
+            <td>
+              ${Number(team.goalsAgainst) || 0}
+            </td>
+
+            <td>
+              ${powerPlayPercentage}
+            </td>
+
+            <td>
+              ${penaltyKillPercentage}
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
 }
 
 // ── Career Hub ───────────────────────────────────────────────
@@ -1296,22 +4835,1806 @@ function renderStandingsScreen() {
 // after completing it, so it appears as the first calendar entry with
 // isCompleted: true. Today (TUE 9/6) is the player's first live hub day.
 const HUB_DAYS = [
-  { day: 'SUN', date: '9/4',  fullDate: 'Sunday, September 4',    icon: '🎯', event: 'Freshman Tryouts', isToday: false, isCompleted: true,  location: 'Eastdale Ice Arena', objective: 'Impress the coaching staff.',         eventId: 'tryout-freshman',   summaryScreen: 'tryout-summary' },
-  { day: 'MON', date: '9/5',  fullDate: 'Monday, September 5',    icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and recover.',                  eventId: 'recovery'                                                },
-  { day: 'TUE', date: '9/6',  fullDate: 'Tuesday, September 6',   icon: '🏒', event: 'Practice',         isToday: true,  isCompleted: false, location: 'Summit Ice Center',  objective: 'Work on skating edges and passing.', eventId: 'practice'                                                },
-  { day: 'WED', date: '9/7',  fullDate: 'Wednesday, September 7', icon: '🏒', event: 'Practice',         isToday: false, isCompleted: false, location: 'Summit Ice Center',  objective: 'Full team scrimmage session.',       eventId: 'practice-scrimmage'                                      },
-  { day: 'THU', date: '9/8',  fullDate: 'Thursday, September 8',  icon: '📅', event: 'Off Day',          isToday: false, isCompleted: false, location: '—',                  objective: 'No scheduled activities. Rest up.', eventId: 'off-day'                                                 },
-  { day: 'FRI', date: '9/9',  fullDate: 'Friday, September 9',    icon: '🥅', event: 'Exhibition Game',  isToday: false, isCompleted: false, location: 'Eastdale Ice Arena', objective: 'Get game-ready. Show your best.',   eventId: 'exhibition-game'                                         },
-  { day: 'SAT', date: '9/10', fullDate: 'Saturday, September 10', icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',       eventId: 'recovery-sleep'                                          },
+  { dateKey: '2026-09-01',day: 'SUN', date: '9/4',  fullDate: 'Sunday, September 4',    icon: '🎯', event: 'Freshman Tryouts', isToday: false, isCompleted: true,  location: 'Eastdale Ice Arena', objective: 'Impress the coaching staff.',         eventId: 'tryout-freshman',   summaryScreen: 'tryout-summary' },
+  { dateKey: '2026-09-02',day: 'MON', date: '9/5',  fullDate: 'Monday, September 5',    icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and recover.',                  eventId: 'recovery'                                                },
+  { dateKey: '2026-09-03',day: 'TUE', date: '9/6',  fullDate: 'Tuesday, September 6',   icon: '🏒', event: 'Practice',         isToday: true,  isCompleted: false, location: 'Summit Ice Center',  objective: 'Work on skating edges and passing.', eventId: 'practice'                                                },
+  { dateKey: '2026-09-04',day: 'WED', date: '9/7',  fullDate: 'Wednesday, September 7', icon: '🏒', event: 'Practice',         isToday: false, isCompleted: false, location: 'Summit Ice Center',  objective: 'Full team scrimmage session.',       eventId: 'practice-scrimmage'                                      },
+  { dateKey: '2026-09-05',day: 'THU', date: '9/8',  fullDate: 'Thursday, September 8',  icon: '📅', event: 'Off Day',          isToday: false, isCompleted: false, location: '—',                  objective: 'No scheduled activities. Rest up.', eventId: 'off-day'                                                 },
+  { dateKey: '2026-09-06',day: 'FRI', date: '9/9',  fullDate: 'Friday, September 9',    icon: '🥅', event: 'Exhibition Game',  isToday: false, isCompleted: false, location: 'Eastdale Ice Arena', objective: 'Get game-ready. Show your best.',   eventId: 'exhibition-game'                                         },
+  { dateKey: '2026-09-07',day: 'SAT', date: '9/10', fullDate: 'Saturday, September 10', icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',       eventId: 'recovery-sleep'                                          },
 ];
 
 let hubCalendarReady = false;
+let scheduleViewYear = 2026;
+let scheduleViewMonth = 8;
+let scheduleEvents = [];
+let isDevSession = false;
+const PRACTICE_TYPES = [
+  {
+    eventId: 'practice-skills',
+    label: 'Skills Practice',
+    shortLabel: 'Skills',
+    icon: '🏒',
+    location: 'Summit Ice Center',
+    objective: 'Individual skill development.'
+  },
+  {
+    eventId: 'practice-skating',
+    label: 'Power Skating',
+    shortLabel: 'Skating',
+    icon: '⛸️',
+    location: 'Summit Ice Center',
+    objective: 'Improve speed and edgework.'
+  },
+  {
+    eventId: 'practice-shooting',
+    label: 'Shooting Practice',
+    shortLabel: 'Shooting',
+    icon: '🥅',
+    location: 'Summit Ice Center',
+    objective: 'Improve scoring ability.'
+  },
+  {
+    eventId: 'practice-systems',
+    label: 'Team Systems',
+    shortLabel: 'Systems',
+    icon: '🧠',
+    location: 'Video Room',
+    objective: 'Learn team structure.'
+  },
+  {
+    eventId: 'practice-scrimmage',
+    label: 'Full Scrimmage',
+    shortLabel: 'Scrimmage',
+    icon: '🏒',
+    location: 'Summit Ice Center',
+    objective: 'Game-speed scrimmage.'
+  }
+];
 
+const RECOVERY_TYPES = [
+  {
+    eventId: 'recovery',
+    label: 'Recovery',
+    shortLabel: 'Recovery',
+    icon: '😴',
+    location: 'Training Facility',
+    objective: 'Rest and recover.'
+  },
+  {
+    eventId: 'stretch',
+    label: 'Stretch & Mobility',
+    shortLabel: 'Stretch',
+    icon: '🧘',
+    location: 'Training Room',
+    objective: 'Improve flexibility.'
+  },
+  {
+    eventId: 'optional-skate',
+    label: 'Optional Skate',
+    shortLabel: 'Optional',
+    icon: '⛸️',
+    location: 'Practice Rink',
+    objective: 'Light on-ice work.'
+  },
+  {
+    eventId: 'treatment',
+    label: 'Treatment Day',
+    shortLabel: 'Treatment',
+    icon: '🩹',
+    location: 'Athletic Training',
+    objective: 'Recovery and maintenance.'
+  }
+];
+function pickStableEvent(items, dateKey, salt = '') {
+  const seedText = `${dateKey}-${salt}`;
+
+  let hash = 0;
+
+  for (let i = 0; i < seedText.length; i++) {
+    hash =
+      ((hash << 5) - hash) +
+      seedText.charCodeAt(i);
+
+    hash |= 0;
+  }
+
+  const index =
+    Math.abs(hash) % items.length;
+
+  return items[index];
+}
+  function buildSeasonCalendarEvents() {
+    const canonicalSchedule =
+      Array.isArray(
+        WorldEngine.state.schedule
+      )
+        ? WorldEngine.state.schedule
+        : [];
+
+    /*
+     * Practices and Recovery events now come directly from
+     * the canonical World Engine schedule. Their full IDs,
+     * focus, completion state, and other event data must be
+     * preserved so the Event screen can complete the exact
+     * underlying event.
+     */
+    const lifeEvents =
+      canonicalSchedule
+        .filter(event =>
+          event.type === 'practice' ||
+          event.type === 'recovery' ||
+          event.type === 'coach-meeting'
+        )
+        .map(event => ({
+          ...event,
+
+          eventId:
+            event.id,
+
+          isCompleted:
+            Boolean(event.completed),
+        }));
+
+    /*
+     * Only actual league games continue into the existing
+     * game-to-calendar presentation mapping below.
+     */
+    const leagueGames =
+      canonicalSchedule.filter(
+        event =>
+          event.type === 'game' ||
+          (
+            event.homeTeamId &&
+            event.awayTeamId
+          )
+      );
+
+  const playerTeamId =
+    Game.player.teamId ||
+    Game.player.highSchoolTeamId;
+
+  const teams =
+    WorldEngine.state.teams || [];
+  WorldEngine.syncSeedTeamMetadata();
+
+  const gameEvents = leagueGames
+    .filter(game =>
+      game.homeTeamId === playerTeamId ||
+      game.awayTeamId === playerTeamId
+    )
+    .map(game => {
+      const isHome =
+        game.homeTeamId === playerTeamId;
+
+      const opponentId = isHome
+        ? game.awayTeamId
+        : game.homeTeamId;
+
+      const opponent = teams.find(
+        team => team.teamId === opponentId
+      );
+
+      const opponentName =
+        opponent?.teamName || 'Opponent';
+
+      const opponentAbbreviation =
+        opponent?.abbreviation ||
+        opponentName
+          .split(/\s+/)
+          .map(word => word[0])
+          .join('')
+          .slice(0, 3)
+          .toUpperCase();
+
+      const homeTeam = teams.find(
+        team => team.teamId === game.homeTeamId
+      );
+
+      const venueName =
+        homeTeam?.arena?.name || 'Arena';
+
+      const gameDateLabel = new Date(
+        `${game.date}T12:00:00`
+      ).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      const featuredReasons =
+        Array.isArray(game.featuredReasons)
+          ? game.featuredReasons
+          : [];
+
+      const isFeatured =
+        Boolean(game.isFeatured) ||
+        Boolean(game.isGameOfWeek);
+
+      return {
+        date: game.date,
+        type: 'game',
+        location: isHome ? 'home' : 'away',
+        label: isHome
+          ? `Home Game vs ${opponentName}`
+          : `Away Game at ${opponentName}`,
+        shortLabel: isHome
+          ? `vs ${opponentAbbreviation}`
+          : `@ ${opponentAbbreviation}`,
+        icon: '🏒',
+        objective: 'Game Day',
+        description: isHome
+          ? `A regular-season home game against the ${opponentName}.`
+          : `A regular-season road game against the ${opponentName}.`,
+
+        details: {
+          League: 'High School',
+          Opponent: opponentName,
+          Venue: venueName,
+          Date: gameDateLabel,
+          location: venueName,
+          'Game Type': 'Regular Season',
+        },
+        eventId: game.id,
+        gameId: game.id,
+
+        calendarIcon:
+          game.calendarIcon || '',
+
+        isChampionship:
+          Boolean(game.isChampionship),
+
+        isTournament:
+          Boolean(game.isTournament),
+
+        isMilestone:
+          Boolean(game.isMilestone),
+
+        milestoneType:
+          game.milestoneType || '',
+
+        isSeasonOpener:
+          Boolean(game.isSeasonOpener),
+
+        isSeasonFinale:
+          Boolean(game.isSeasonFinale),
+
+        isGameOfWeek:
+          Boolean(game.isGameOfWeek),
+
+        isFeatured,
+
+        isRivalry:
+          Boolean(game.isRivalry),
+
+        scoutsAttending:
+          Number(game.scoutsAttending) || 0,
+
+        hasScouts:
+          Boolean(game.hasScouts) ||
+          Number(game.scoutsAttending) > 0,
+
+        featuredReasons,
+
+        isCompleted:
+          Boolean(game.played),
+      };
+    });
+  const gameDates = new Set(
+    gameEvents.map(event => event.date)
+  );
+
+  const filteredLifeEvents = lifeEvents.filter(
+    event => !gameDates.has(event.date)
+  );
+
+  
+
+  return [
+    ...filteredLifeEvents,
+    ...gameEvents,
+  ].sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+}
+function refreshScheduleEvents() {
+  scheduleEvents = buildSeasonCalendarEvents();
+}
+function getScheduleGameIcon(event = {}) {
+  const featuredReasons =
+    Array.isArray(event.featuredReasons)
+      ? event.featuredReasons
+      : [];
+
+  const detailsText =
+    event.details && typeof event.details === 'object'
+      ? Object.values(event.details).join(' ')
+      : '';
+
+  const eventText = [
+    event.label,
+    event.shortLabel,
+    event.objective,
+    event.description,
+    detailsText,
+    ...featuredReasons,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  // A manually assigned icon always wins.
+  if (event.calendarIcon) {
+    return event.calendarIcon;
+  }
+
+  // Highest priority: championships and tournaments.
+  if (
+    event.isChampionship ||
+    event.isTournament ||
+    eventText.includes('championship') ||
+    eventText.includes('tournament') ||
+    eventText.includes('league final')
+  ) {
+    return '🏆';
+  }
+
+  // Rivalry games.
+  if (
+    event.isRivalry ||
+    eventText.includes('rivalry') ||
+    eventText.includes('rival')
+  ) {
+    return '🔥';
+  }
+
+  // Featured games and Game of the Week.
+  if (
+    event.isGameOfWeek ||
+    event.isFeatured ||
+    eventText.includes('game of the week') ||
+    eventText.includes('featured game')
+  ) {
+    return '⭐';
+  }
+
+  // Games with scouts attending.
+  if (
+    event.scoutsAttending ||
+    event.hasScouts ||
+    eventText.includes('scout')
+  ) {
+    return '👀';
+  }
+
+  // Milestone games such as the season opener or finale.
+  if (
+    event.isMilestone ||
+    event.isSeasonOpener ||
+    event.isSeasonFinale ||
+    event.milestoneType === 'season-opener' ||
+    event.milestoneType === 'season-finale' ||
+    eventText.includes('opening night') ||
+    eventText.includes('season opener') ||
+    eventText.includes('regular-season finale') ||
+    eventText.includes('season finale')
+  ) {
+    return '🎯';
+  }
+
+  // Standard game.
+  return '🏒';
+}
+function renderScheduleCalendar(year, month) {
+  const grid =
+    document.getElementById('schedule-calendar-grid');
+
+  const title =
+    document.getElementById('schedule-month-title');
+  const selectedPanel = document.getElementById(
+    'schedule-selected-day-panel'
+  );
+
+  const selectedDate = document.getElementById(
+    'schedule-selected-day-date'
+  );
+
+  const selectedContent = document.getElementById(
+    'schedule-selected-day-content'
+  );
+
+  const selectedAction = document.getElementById(
+    'schedule-selected-day-action'
+  );
+  
+  const selectedDetails =
+    document.getElementById(
+      'schedule-selected-day-details'
+    );
+
+  if (!grid || !title) return;
+
+  const monthNames = [
+    'January', 'February', 'March', 'April',
+    'May', 'June', 'July', 'August',
+    'September', 'October', 'November', 'December',
+  ];
+
+  title.textContent = `${monthNames[month]} ${year}`;
+  grid.innerHTML = '';
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth =
+    new Date(year, month + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const blank = document.createElement('div');
+    blank.className = 'schedule-day schedule-day--blank';
+    grid.appendChild(blank);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cell = document.createElement('div');
+    cell.className = 'schedule-day';
+    
+    const dateKey =
+      `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    cell.dataset.date = dateKey;
+    const currentDate =
+      Game.player.currentDate || '2026-09-01';
+
+    if (dateKey === currentDate) {
+      cell.classList.add('schedule-day--today');
+    }
+    if (dateKey < currentDate) {
+      cell.classList.add('schedule-day--past');
+    }
+
+    const events = scheduleEvents.filter(
+      item => item.date === dateKey
+    );
+
+    cell.innerHTML = `
+      <span class="schedule-day-number">${day}</span>
+      
+
+      ${events
+  .map(
+    event => `
+    ${
+  event.type === 'game'
+    ? `
+      <span
+        class="schedule-day-game-icon"
+        aria-hidden="true"
+      >
+        ${getScheduleGameIcon(event)}
+      </span>
+    `
+    : `
+      <span
+        class="schedule-day-dot schedule-day-dot--${event.eventId || event.type}"
+        aria-hidden="true"
+      ></span>
+    `
+}
+      <span
+  class="schedule-day-event
+    schedule-day-event--${event.type}
+    ${event.location ? `schedule-day-event--${event.location}` : ''}
+    ${event.resultType ? `schedule-day-event--${event.resultType}` : ''}
+    ${event.isCompleted ? 'schedule-day-event--completed' : ''}"
+>
+  ${
+    event.isCompleted
+      ? `✓ ${event.shortLabel || event.label}`
+      : event.shortLabel || event.label
+  }
+</span>
+    `
+  )
+  .join('')}
+    `;
+    cell.addEventListener('click', () => {
+      document
+        .querySelectorAll('.schedule-day--selected')
+        .forEach(selectedCell => {
+          selectedCell.classList.remove('schedule-day--selected');
+        });
+
+      cell.classList.add('schedule-day--selected');
+      if (selectedPanel) {
+        selectedPanel.hidden = false;
+      }
+
+      if (selectedDate) {
+        selectedDate.textContent = new Date(
+          `${dateKey}T12:00:00`
+        ).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+      const selectedEvent =
+        events.length > 0 ? events[0] : null;
+      if (selectedDetails) {
+        selectedDetails.dataset.eventId =
+          selectedEvent?.eventId || '';
+
+        selectedDetails.hidden =
+          !selectedEvent?.eventId;
+      }
+
+      if (selectedContent) {
+        if (selectedEvent) {
+          selectedContent.innerHTML = `
+            <div class="schedule-selected-event">
+              <div class="schedule-selected-event__icon">
+                ${selectedEvent.icon || '📅'}
+              </div>
+
+              <div class="schedule-selected-event__info">
+                <h4>${selectedEvent.label}</h4>
+                <p>
+                  ${selectedEvent.location || 'No location listed'}
+                </p>
+                <p>
+                  ${selectedEvent.objective || 'No additional details.'}
+                </p>
+              </div>
+            </div>
+          `;
+        } else {
+          selectedContent.innerHTML = `
+            <div class="schedule-selected-event">
+              <div class="schedule-selected-event__icon">
+                📅
+              </div>
+
+              <div class="schedule-selected-event__info">
+                <h4>Open Day</h4>
+                <p>No scheduled event.</p>
+              </div>
+            </div>
+          `;
+        }
+      }
+    });
+
+    grid.appendChild(cell);
+  }
+}
+function simulateToDate(
+  targetDate
+) {
+  const currentDate =
+    WorldEngine.state.season
+      ?.currentDate ||
+    WorldEngine.state.player
+      ?.currentDate ||
+    Game.player.currentDate ||
+    '2026-09-01';
+
+  Game.player.currentDate =
+    currentDate;
+
+  if (
+    !targetDate ||
+    targetDate <= currentDate
+  ) {
+    return currentDate;
+  }
+
+  /*
+   * Time advancement now belongs to the Season Engine.
+   * The UI only requests a target date and reacts to
+   * the result.
+   */
+  const result =
+    WorldEngine.advanceToDate(
+      targetDate
+    );
+
+  const reachedDate =
+    result?.currentDate ||
+    currentDate;
+
+  Game.player.currentDate =
+    reachedDate;
+
+  setupHubCalendar();
+
+  refreshScheduleEvents();
+
+  renderScheduleCalendar(
+    scheduleViewYear,
+    scheduleViewMonth
+  );
+
+  renderScheduleKeyEvents();
+
+  /*
+   * If the Season Engine stopped for a player-controlled
+   * event, open that event instead of silently remaining
+   * on the calendar.
+   */
+  if (
+    result?.stopSimulation === true
+  ) {
+    const blockingWorldEvent =
+      result.blockingEventResult
+        ?.event ||
+      null;
+
+    const blockingEventId =
+      blockingWorldEvent
+        ?.eventId ||
+      blockingWorldEvent
+        ?.id ||
+      null;
+
+    const blockingScheduleEvent =
+      scheduleEvents.find(event =>
+        String(event.eventId) ===
+        String(blockingEventId)
+      ) || null;
+
+    if (blockingScheduleEvent) {
+      EventSystem.openEvent(
+        blockingScheduleEvent.eventId,
+        'schedule',
+        blockingScheduleEvent
+      );
+    }
+  }
+
+  return reachedDate;
+}
+document
+.getElementById('schedule-selected-day-action')
+?.addEventListener('click', () => {
+  const selectedCell = document.querySelector(
+    '.schedule-day--selected'
+  );
+
+  if (!selectedCell) return;
+
+  const selectedDateKey =
+    selectedCell.dataset.date;
+
+  if (!selectedDateKey) return;
+
+  const currentDate =
+    Game.player.currentDate || '2026-09-01';
+
+  if (selectedDateKey <= currentDate) return;
+
+  simulateToDate(selectedDateKey);
+});
+document
+.getElementById('schedule-selected-day-details')
+?.addEventListener('click', () => {
+  const detailsButton =
+    document.getElementById('schedule-selected-day-details');
+
+  const eventId =
+    detailsButton?.dataset.eventId;
+
+  const selectedEvent =
+    scheduleEvents.find(event => event.eventId === eventId);
+
+  if (!selectedEvent) return;
+
+  if (
+    selectedEvent.isCompleted &&
+    selectedEvent.summaryScreen === 'tryout-summary'
+  ) {
+    openTryoutSummary('history');
+    return;
+  }
+
+  EventSystem.openEvent(
+    selectedEvent.eventId,
+    'schedule',
+    selectedEvent
+  );
+});
+function renderScheduleKeyEvents() {
+  const list =
+    document.getElementById(
+      'schedule-upcoming-list'
+    );
+
+  if (!list) return;
+
+  const events =
+    Array.isArray(scheduleEvents)
+      ? scheduleEvents
+      : [];
+
+  /*
+   * Use the career's current date when available.
+   * The September 1 fallback matches the present HS calendar.
+   */
+  const currentDateKey =
+    Game.currentDateKey ||
+    Game.currentDate ||
+    Game.player?.currentDateKey ||
+    Game.player?.currentDate ||
+    '2026-09-01';
+
+  const ignoredTypes =
+    new Set([
+      'practice',
+      'recovery',
+      'off'
+    ]);
+
+  const getEventTypeLabel = event => {
+    const type =
+      String(event?.type || '')
+        .trim()
+        .toLowerCase();
+
+    if (type === 'game') {
+      return 'Game';
+    }
+
+    if (type === 'tryout') {
+      return 'Tryout';
+    }
+
+    if (
+      type === 'meeting' ||
+      String(event?.eventId || '').includes('meeting')
+    ) {
+      return 'Meeting';
+    }
+
+    if (
+      type === 'scouting' ||
+      String(event?.eventId || '').includes('scout')
+    ) {
+      return 'Scouting';
+    }
+
+    if (
+      type === 'ranking' ||
+      String(event?.eventId || '').includes('ranking')
+    ) {
+      return 'Rankings';
+    }
+
+    if (
+      type === 'playoff' ||
+      String(event?.eventId || '').includes('playoff')
+    ) {
+      return 'Playoffs';
+    }
+
+    return 'Event';
+  };
+
+  const formatUpcomingDate = dateKey => {
+    const date =
+      new Date(`${dateKey}T12:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return dateKey;
+    }
+
+    return date.toLocaleDateString(
+      'en-US',
+      {
+        month: 'short',
+        day: 'numeric'
+      }
+    );
+  };
+
+  const upcomingEvents =
+    events
+      .filter(event => {
+        if (!event?.date) return false;
+
+        const type =
+          String(event.type || '')
+            .trim()
+            .toLowerCase();
+
+        if (ignoredTypes.has(type)) {
+          return false;
+        }
+
+        if (event.isCompleted) {
+          return false;
+        }
+
+        return (
+          String(event.date) >=
+          String(currentDateKey)
+        );
+      })
+      .sort((a, b) =>
+        String(a.date).localeCompare(
+          String(b.date)
+        )
+      )
+      .slice(0, 3);
+
+  if (upcomingEvents.length === 0) {
+    list.innerHTML = `
+      <p class="schedule-upcoming-empty">
+        Nothing important scheduled yet.
+      </p>
+    `;
+
+    return;
+  }
+
+  list.innerHTML = upcomingEvents
+    .map(event => {
+      const label =
+        event.label ||
+        event.shortLabel ||
+        'Upcoming Event';
+
+      const typeLabel =
+        getEventTypeLabel(event);
+
+      const upcomingIcon =
+        String(event.type || '').toLowerCase() === 'game'
+          ? getScheduleGameIcon(event)
+          : event.icon || '';
+
+      return `
+        <div
+          class="schedule-upcoming-item"
+          data-event-id="${event.eventId || ''}"
+          data-event-date="${event.date}"
+        >
+          <div class="schedule-upcoming-item__date">
+            ${formatUpcomingDate(event.date)}
+          </div>
+
+          <div class="schedule-upcoming-item__content">
+  <span class="schedule-upcoming-item__type">
+    ${upcomingIcon
+      ? `<span aria-hidden="true">${upcomingIcon}</span> `
+      : ''
+    }${typeLabel}
+  </span>
+
+  <strong class="schedule-upcoming-item__title">
+    ${label}
+  </strong>
+</div>
+        </div>
+      `;
+    })
+    .join('');
+  list
+  .querySelectorAll('.schedule-upcoming-item')
+  .forEach(item => {
+    item.addEventListener('click', () => {
+      const eventDate =
+        item.dataset.eventDate;
+
+      if (!eventDate) return;
+
+      const targetDate =
+        new Date(`${eventDate}T12:00:00`);
+
+      if (Number.isNaN(targetDate.getTime())) {
+        return;
+      }
+
+      scheduleViewYear =
+        targetDate.getFullYear();
+
+      scheduleViewMonth =
+        targetDate.getMonth();
+
+      renderScheduleCalendar(
+        scheduleViewYear,
+        scheduleViewMonth
+      );
+
+      const targetCell =
+        document.querySelector(
+          `.schedule-day[data-date="${eventDate}"]`
+        );
+
+      if (!targetCell) return;
+
+      targetCell.click();
+
+      const selectedPanel =
+        document.getElementById(
+          'schedule-selected-day-panel'
+        );
+
+      if (selectedPanel) {
+        selectedPanel.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }
+    });
+  });
+}
+function renderPlayerProfile() {
+  const p = _activePlayerProfile;
+  if (!p) return;
+
+  const name = `${p.firstName} ${p.lastName}`.trim() || '—';
+  const age = p.age || 14;
+  const pos = p.position || '—';
+
+  const assignedTeam =
+    (WorldEngine.state.teams || [])
+      .find(team => team.teamId === p.teamId);
+
+  const fullTeamName = assignedTeam
+    ? `${assignedTeam.schoolName} ${assignedTeam.teamName}`
+    : 'Freshman Tryouts';
+  const nameEl = document.getElementById('player-profile-name');
+if (nameEl) {
+  nameEl.textContent = name;
+}
+  const posEl = document.getElementById('player-profile-pos');
+  if (posEl) {
+    const jersey = p.jerseyNumber || '--';
+    if (p.jerseyNumber) {
+      posEl.textContent = `${pos} #${p.jerseyNumber}`;
+    } else {
+      posEl.textContent = pos;
+    }
+  }
+
+  const ageEl = document.getElementById('player-profile-age');
+  if (ageEl) {
+    const playerYear = p.year || 'Freshman';
+
+    ageEl.textContent = `${age} years old · ${playerYear}`;
+  }
+
+  const teamEl = document.getElementById('player-profile-team');
+  if (teamEl) {
+    teamEl.textContent = fullTeamName;
+  }
+  const archetypeEl =
+    document.getElementById('player-profile-archetype');
+
+  if (archetypeEl) {
+    const rawArchetype = String(p.archetype || 'Balanced');
+
+    const archetypeLabels = {
+      Sniper: 'Sniper',
+      Playmaker: 'Playmaker',
+      PowerForward: 'Power Forward',
+      TwoWayForward: 'Two-Way Forward',
+      Grinder: 'Grinder',
+      Enforcer: 'Enforcer',
+      OffensiveDefenseman: 'Offensive Defenseman',
+      DefensiveDefenseman: 'Defensive Defenseman',
+      TwoWayDefenseman: 'Two-Way Defenseman',
+      PuckMovingDefenseman: 'Puck-Moving Defenseman',
+      ButterflyGoalie: 'Butterfly Goalie',
+      HybridGoalie: 'Hybrid Goalie',
+      StandUpGoalie: 'Stand-Up Goalie',
+      Balanced: 'Balanced',
+    };
+
+    archetypeEl.textContent =
+      archetypeLabels[rawArchetype] || rawArchetype;
+  }
+  const heightEl =
+    document.getElementById('player-profile-height');
+
+  if (heightEl) {
+    heightEl.textContent = p.height || `5'10"`;
+  }
+
+  const weightEl =
+    document.getElementById('player-profile-weight');
+
+  if (weightEl) {
+    const weight = Number(p.weight) || 175;
+    weightEl.textContent = `${weight} lbs`;
+  }
+
+  const shootsEl =
+    document.getElementById('player-profile-shoots');
+
+  if (shootsEl) {
+    shootsEl.textContent = `Shoots ${p.shoots || 'L'}`;
+  }
+
+  const ovrEl = document.getElementById('pp-player-ovr');
+  if (ovrEl) {
+    ovrEl.textContent = p.overall;
+  }
+  const reputationStars = Math.max(
+    1,
+    Math.min(5, Number(p.reputationStars) || 1)
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+
+      const positioningStats = [
+        ['Positioning', Number(attributes.positioning) || 50],
+        ['Angles', Number(attributes.angles) || 50],
+        ['Puck Tracking', Number(attributes.puckTracking) || 50],
+        ['Anticipation', Number(attributes.anticipation) || 50],
+      ];
+
+      const saveTechniqueStats = [
+        ['Glove High', Number(attributes.gloveHigh) || 50],
+        ['Glove Low', Number(attributes.gloveLow) || 50],
+        ['Blocker High', Number(attributes.blockerHigh) || 50],
+        ['Blocker Low', Number(attributes.blockerLow) || 50],
+        ['Five Hole', Number(attributes.fiveHole) || 50],
+        ['Stick Control', Number(attributes.stickControl) || 50],
+      ];
+
+      const controlStats = [
+        ['Rebound Control', Number(attributes.reboundControl) || 50],
+        ['Composure', Number(attributes.composure) || 50],
+        ['Consistency', Number(attributes.consistency) || 50],
+      ];
+
+      const puckPlayingStats = [
+        ['Puck Handling', Number(attributes.puckHandling) || 50],
+        ['Goalie Passing', Number(attributes.goaliePassing) || 50],
+      ];
+
+      attributesEl.innerHTML = [
+        buildAttributeCategory({
+          name: 'Athleticism',
+          icon: '⚡',
+          stats: athleticismStats,
+          open: true,
+        }),
+
+        buildAttributeCategory({
+          name: 'Positioning',
+          icon: '🥅',
+          stats: positioningStats,
+        }),
+
+        buildAttributeCategory({
+          name: 'Save Technique',
+          icon: '🧤',
+          stats: saveTechniqueStats,
+        }),
+
+        buildAttributeCategory({
+          name: 'Control & Mental',
+          icon: '🧠',
+          stats: controlStats,
+        }),
+
+        buildAttributeCategory({
+          name: 'Puck Playing',
+          icon: '🏒',
+          stats: puckPlayingStats,
+        }),
+      ].join('');
+
+      document
+        .querySelectorAll(
+          '#pp-attributes .pp-attr-cat__header'
+        )
+        .forEach(header => {
+          header.addEventListener('click', () => {
+            const selectedCategory =
+              header.closest('.pp-attr-cat');
+
+            if (!selectedCategory) return;
+
+            selectedCategory.classList.toggle(
+              'pp-attr-cat--open'
+            );
+          });
+        });
+
+      return;
+    }
+
+    const skatingStats = [
+      ['Speed', Number(attributes.speed) || 50],
+      ['Acceleration', Number(attributes.acceleration) || 50],
+      ['Agility', Number(attributes.agility) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+    const skatingOverall = Math.round(
+      skatingStats.reduce((total, stat) => total + stat[1], 0) /
+      skatingStats.length
+    );
+
+
+    const shootingStats = [
+      ['Wrist Shot Power', Number(attributes.wristShotPower) || 50],
+      ['Wrist Shot Accuracy', Number(attributes.wristShotAccuracy) || 50],
+      ['Slap Shot Power', Number(attributes.slapShotPower) || 50],
+      ['Slap Shot Accuracy', Number(attributes.slapShotAccuracy) || 50],
+    ];
+
+    const shootingOverall = Math.round(
+      shootingStats.reduce((total, stat) => total + stat[1], 0) /
+      shootingStats.length
+    );
+    const playmakingStats = [
+      ['Passing', Number(attributes.passing) || 50],
+      ['Puck Control', Number(attributes.puckControl) || 50],
+      ['Deking', Number(attributes.deking) || 50],
+      ['Hand-Eye', Number(attributes.handEye) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+    ];
+
+    const playmakingOverall = Math.round(
+      playmakingStats.reduce((total, stat) => total + stat[1], 0) /
+      playmakingStats.length
+    );
+    const defenseStats = [
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Stick Checking', Number(attributes.stickChecking) || 50],
+      ['Shot Blocking', Number(attributes.shotBlocking) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+    ];
+
+    const defenseOverall = Math.round(
+      defenseStats.reduce((total, stat) => total + stat[1], 0) /
+      defenseStats.length
+    );
+    const physicalStats = [
+      ['Body Checking', Number(attributes.bodyChecking) || 50],
+      ['Strength', Number(attributes.strength) || 50],
+      ['Durability', Number(attributes.durability) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+    const physicalOverall = Math.round(
+      physicalStats.reduce((total, stat) => total + stat[1], 0) /
+      physicalStats.length
+    );
+    const hockeyIQStats = [
+      ['Vision', Number(attributes.vision) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+      ['Leadership', Number(attributes.leadership) || 50],
+    ];
+
+    const hockeyIQOverall = Math.round(
+      hockeyIQStats.reduce((total, stat) => total + stat[1], 0) /
+      hockeyIQStats.length
+    );
+
+    attributesEl.innerHTML = `
+      <div class="pp-attr-cat pp-attr-cat--open">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">⛸️</span>
+          <span class="pp-attr-cat__name">Skating</span>
+          <span class="pp-attr-cat__ovr">${skatingOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${skatingStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="pp-attr-cat">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">🏒</span>
+          <span class="pp-attr-cat__name">Shooting</span>
+          <span class="pp-attr-cat__ovr">${shootingOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${shootingStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pp-attr-cat">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">🎯</span>
+          <span class="pp-attr-cat__name">Playmaking</span>
+          <span class="pp-attr-cat__ovr">${playmakingOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${playmakingStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pp-attr-cat">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">🛡️</span>
+          <span class="pp-attr-cat__name">Defense</span>
+          <span class="pp-attr-cat__ovr">${defenseOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${defenseStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pp-attr-cat">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">💪</span>
+          <span class="pp-attr-cat__name">Physical</span>
+          <span class="pp-attr-cat__ovr">${physicalOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${physicalStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="pp-attr-cat">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">🧠</span>
+          <span class="pp-attr-cat__name">Hockey IQ</span>
+          <span class="pp-attr-cat__ovr">${hockeyIQOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${hockeyIQStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+  document
+  .querySelectorAll('#pp-attributes .pp-attr-cat__header')
+  .forEach(header => {
+    header.addEventListener('click', () => {
+      const selectedCategory = header.closest('.pp-attr-cat');
+      if (!selectedCategory) return;
+
+      selectedCategory.classList.toggle('pp-attr-cat--open');
+    });
+  });
+  const attributeLabels = {
+    wristShotPower: 'Wrist Shot Power',
+    wristShotAccuracy: 'Wrist Shot Accuracy',
+    slapShotPower: 'Slap Shot Power',
+    slapShotAccuracy: 'Slap Shot Accuracy',
+
+    passing: 'Passing',
+    puckControl: 'Puck Control',
+    deking: 'Deking',
+    handEye: 'Hand-Eye',
+
+    speed: 'Speed',
+    acceleration: 'Acceleration',
+    agility: 'Agility',
+    balance: 'Balance',
+    endurance: 'Endurance',
+
+    offensiveAwareness: 'Offensive Awareness',
+    defensiveAwareness: 'Defensive Awareness',
+    poise: 'Poise',
+    discipline: 'Discipline',
+
+    stickChecking: 'Stick Checking',
+    shotBlocking: 'Shot Blocking',
+    bodyChecking: 'Body Checking',
+    strength: 'Strength',
+    durability: 'Durability',
+
+    faceoffs: 'Faceoffs',
+  };
+
+  const rankedAttributes = Object.entries(p.attributes || {})
+    .filter(([key, value]) => {
+      return (
+        Object.prototype.hasOwnProperty.call(attributeLabels, key) &&
+        Number.isFinite(Number(value))
+      );
+    })
+    .map(([key, value]) => ({
+      key,
+      label: attributeLabels[key],
+      value: Number(value),
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  const strengths = rankedAttributes.slice(0, 3);
+  const weaknesses = [...rankedAttributes]
+    .sort((a, b) => a.value - b.value)
+    .slice(0, 3);
+
+  const strengthsEl = document.getElementById('pp-strengths');
+
+  if (strengthsEl) {
+    strengthsEl.innerHTML = strengths
+      .map(attribute => `
+        <li class="pp-dev-list__item">
+          ${attribute.label}
+          <span>${attribute.value}</span>
+        </li>
+      `)
+      .join('');
+  }
+
+  const weaknessesEl =
+    document.getElementById(
+      'pp-weaknesses'
+    );
+
+  if (weaknessesEl) {
+    weaknessesEl.innerHTML = weaknesses
+      .map(attribute => `
+        <li class="pp-dev-list__item">
+          ${attribute.label}
+          <span>${attribute.value}</span>
+        </li>
+      `)
+      .join('');
+  }
+
+  /*
+   * Standalone Player Profile statistics are read-only.
+   * This reuses the Career Player statistics renderer but
+   * targets the separate snapshot-table containers.
+   */
+  if (
+    typeof globalThis
+      .renderProjectIcePlayerStatistics ===
+    'function'
+  ) {
+    globalThis
+      .renderProjectIcePlayerStatistics(
+        p,
+        {
+          headId:
+            'player-profile-statistics-head',
+
+          bodyId:
+            'player-profile-statistics-body',
+
+          footId:
+            'player-profile-statistics-foot',
+        }
+      );
+  }
+
+  /*
+   * Standalone Player Profile awards are read-only.
+   * Championships are included by the shared Awards renderer.
+   */
+  if (
+    typeof globalThis
+      .renderProjectIcePlayerAwards ===
+    'function'
+  ) {
+    globalThis
+      .renderProjectIcePlayerAwards(
+        p,
+        {
+          listId:
+            'player-profile-awards-list',
+        }
+      );
+  }
+
+  /*
+   * Standalone Player Profile records are read-only.
+   */
+  if (
+    typeof globalThis
+      .renderProjectIcePlayerRecords ===
+    'function'
+  ) {
+    globalThis
+      .renderProjectIcePlayerRecords(
+        p,
+        {
+          listId:
+            'player-profile-records-list',
+        }
+      );
+  }
+
+  const scoutTextEl =
+    document.getElementById(
+      'pp-scout-text'
+    );
+
+  if (scoutTextEl) {
+    scoutTextEl.textContent = getScoutReport(p);
+  }
+}
+function getScoutReport(player) {
+  const attributes = player.attributes || {};
+
+  const rating = key => Number(attributes[key]) || 50;
+
+  const categoryScores = [
+    {
+      key: 'skating',
+      score: (rating('speed') + rating('acceleration') + rating('agility')) / 3,
+    },
+    {
+      key: 'playmaking',
+      score:
+        (rating('passing') +
+          rating('puckControl') +
+          rating('offensiveAwareness')) /
+        3,
+    },
+    {
+      key: 'shooting',
+      score:
+        (rating('wristShotPower') +
+          rating('wristShotAccuracy') +
+          rating('slapShotPower')) /
+        3,
+    },
+    {
+      key: 'defense',
+      score:
+        (rating('defensiveAwareness') +
+          rating('stickChecking') +
+          rating('shotBlocking')) /
+        3,
+    },
+    {
+      key: 'physical',
+      score:
+        (rating('strength') +
+          rating('bodyChecking') +
+          rating('balance')) /
+        3,
+    },
+  ].sort((a, b) => b.score - a.score);
+
+  const bestCategory = categoryScores[0]?.key || 'skating';
+
+  const openingByCategory = {
+    skating:
+      'is a mobile player whose skating gives them the ability to create separation and play with pace.',
+    playmaking:
+      'is a creative puck carrier who sees developing plays and looks to generate chances for teammates.',
+    shooting:
+      'is an offense-first player whose shot makes them a threat whenever space opens in the attacking zone.',
+    defense:
+      'is a responsible player who reads developing plays well and shows dependable habits away from the puck.',
+    physical:
+      'plays a competitive, physical style and is willing to battle for possession in difficult areas.',
+  };
+
+  const weakestOptions = [
+    {
+      value: rating('strength'),
+      sentence:
+        'Continued physical development will be important as the competition becomes stronger.',
+    },
+    {
+      value: rating('defensiveAwareness'),
+      sentence:
+        'Improving consistency away from the puck would make their overall game more dependable.',
+    },
+    {
+      value: rating('wristShotAccuracy'),
+      sentence:
+        'More consistent finishing would help convert a greater share of offensive opportunities.',
+    },
+    {
+      value: rating('puckControl'),
+      sentence:
+        'Cleaner puck management under pressure would help them create offense more consistently.',
+    },
+    {
+      value: rating('endurance'),
+      sentence:
+        'Improved conditioning would allow them to maintain their impact deeper into games.',
+    },
+  ].sort((a, b) => a.value - b.value);
+
+  const overall = Number(player.overall) || 60;
+  const potential = Number(player.potential) || overall;
+  const age = Number(player.age) || 14;
+
+  let projection;
+
+  if (potential >= 94) {
+    projection =
+      'Their long-term ceiling is among the highest in the class if development remains on schedule.';
+  } else if (potential >= 90) {
+    projection =
+      'They project as an elite prospect with legitimate top-line or top-pair upside.';
+  } else if (potential >= 85) {
+    projection =
+      'They project as a strong long-term prospect with meaningful upside at the next level.';
+  } else if (potential >= 80) {
+    projection =
+      'They project as a dependable contributor with continued development.';
+  } else if (overall >= 70 && age <= 15) {
+    projection =
+      'Their current ability is advanced for their age, giving them room to rise quickly.';
+  } else {
+    projection =
+      'Their future role will depend on steady development over the next several seasons.';
+  }
+
+  const fullName =
+    `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+    'This prospect';
+
+  return [
+    `${fullName} ${openingByCategory[bestCategory]}`,
+    weakestOptions[0].sentence,
+    projection,
+  ].join(' ');
+}
 function updateHubScreen() {
-  const p    = Game.player;
+  /*
+   * Always synchronize from the canonical World Engine player
+   * before rendering the Career Player tab.
+   *
+   * This keeps the Player tab, Team tab, Full Stats, attributes,
+   * overall, development, and future upgrades on one data source.
+   */
+  syncCareerPlayerWithWorld();
+
+  const p =
+    Game.player;
   const name = `${p.firstName} ${p.lastName}`.trim() || '—';
   const age  = p.age || 14;
   const pos  = p.position || '—';
+
+  const assignedTeam =
+    (WorldEngine.state.teams || []).find(team => {
+      const matchesTeamId =
+        p.teamId && team.teamId === p.teamId;
+
+      const containsPlayer =
+        (team.roster || []).some(rosterPlayer =>
+          String(rosterPlayer.id) === String(p.id)
+        );
+
+      return matchesTeamId || containsPlayer;
+    });
+
+  const fullTeamName = assignedTeam
+    ? `${assignedTeam.schoolName} ${assignedTeam.teamName}`
+    : 'Freshman Tryouts';
 
   // ── Identity bar ─────────────────────────────────────────
   const nameEl = document.getElementById('hub-player-name');
@@ -1323,8 +6646,24 @@ function updateHubScreen() {
   const ageBarEl = document.getElementById('hub-player-age-bar');
   if (ageBarEl) ageBarEl.textContent = age;
 
-  // OVR is hardcoded at 60 until attribute calculation is wired
-  // hub-player-ovr span already reads "60" from HTML; leave it
+  const teamInfoEl = document.getElementById('hub-info-team');
+
+  if (teamInfoEl) {
+    teamInfoEl.textContent = p.tryoutsComplete
+      ? `${fullTeamName} · ${p.teamLevel || ''} · ${pos}`
+      : 'Freshman Tryouts';
+  }
+
+  const objectiveEl = document.getElementById('hub-current-objective');
+
+  if (objectiveEl) {
+    objectiveEl.textContent = p.tryoutsComplete
+      ? 'Earn Coach Reynolds’ trust and work your way up the lineup.'
+      : 'Impress the coaching staff during freshman tryouts.';
+  }
+
+  // OVR is hardcoded at 60 until attribute calculation is wired.
+  // hub-player-ovr already reads "60" from HTML.
 
   // ── Home tab – team leaders ───────────────────────────────
   const leadersNameEl = document.getElementById('hub-leaders-you-name');
@@ -1340,14 +6679,2893 @@ function updateHubScreen() {
   renderHubNews();
 
   // ── Player profile tab fields ─────────────────────────────
-  const ppNameEl = document.getElementById('pp-player-name');
-  if (ppNameEl) ppNameEl.textContent = name;
+  const ppNameEl =
+    document.getElementById(
+      'pp-player-name'
+    );
 
-  const ppPosEl = document.getElementById('pp-player-pos');
-  if (ppPosEl) ppPosEl.textContent = pos;
+  if (ppNameEl) {
+    ppNameEl.textContent = name;
+  }
 
-  const ppAgeEl = document.getElementById('pp-player-age');
-  if (ppAgeEl) ppAgeEl.textContent = `${age} years old`;
+  const ppPosEl =
+    document.getElementById(
+      'pp-player-pos'
+    );
+
+  if (ppPosEl) {
+    const jerseyNumber =
+      Number(p.jerseyNumber);
+
+    ppPosEl.textContent =
+      Number.isFinite(jerseyNumber) &&
+      jerseyNumber > 0
+        ? `${pos} #${jerseyNumber}`
+        : pos;
+  }
+
+  const ppArchetypeEl =
+    document.getElementById(
+      'pp-player-archetype'
+    );
+
+  if (ppArchetypeEl) {
+    ppArchetypeEl.textContent =
+      p.archetype ||
+      (
+        String(pos).toUpperCase() === 'G'
+          ? 'Hybrid Goalie'
+          : 'Balanced'
+      );
+  }
+
+  const ppAgeEl =
+    document.getElementById(
+      'pp-player-age'
+    );
+
+  if (ppAgeEl) {
+    ppAgeEl.textContent =
+      `Age ${age}`;
+  }
+
+  const ppCareerSubtitleEl =
+    document.getElementById(
+      'pp-player-career-subtitle'
+    );
+
+  if (ppCareerSubtitleEl) {
+    let careerSubtitle =
+      p.year ||
+      'Freshman';
+
+    if (
+      p.draftProjectionLabel
+    ) {
+      careerSubtitle =
+        p.draftProjectionLabel;
+    } else if (
+      p.careerStageLabel
+    ) {
+      careerSubtitle =
+        p.careerStageLabel;
+    } else if (
+      p.teamLevel
+    ) {
+      careerSubtitle =
+        p.teamLevel;
+    }
+
+    ppCareerSubtitleEl.textContent =
+      careerSubtitle;
+  }
+
+  const ppTeamEl =
+    document.getElementById(
+      'pp-player-team'
+    );
+
+  if (ppTeamEl) {
+    ppTeamEl.textContent =
+      fullTeamName;
+  }
+
+  /*
+   * Render the Career Player tab from the canonical player's
+   * real overall and attribute ratings.
+   *
+   * Queries are scoped to #hub-tab-player so the separate
+   * teammate Player Profile screen cannot receive these values.
+   */
+  const careerPlayerTab =
+    document.getElementById(
+      'hub-tab-player'
+    );
+
+  if (careerPlayerTab) {
+    const careerOverallEl =
+      careerPlayerTab.querySelector(
+        '.pp-header__ovr-value'
+      );
+
+    if (careerOverallEl) {
+      careerOverallEl.textContent =
+        Number(p.overall) || 0;
+    }
+
+    const attributes =
+      p.attributes || {};
+
+    const averageAttributeValues =
+      attributeKeys => {
+        if (
+          !Array.isArray(attributeKeys) ||
+          attributeKeys.length === 0
+        ) {
+          return 50;
+        }
+
+        return Math.round(
+          attributeKeys.reduce(
+            (total, attributeKey) =>
+              total +
+              (
+                Number(
+                  attributes[
+                    attributeKey
+                  ]
+                ) || 50
+              ),
+            0
+          ) /
+          attributeKeys.length
+        );
+      };
+
+    /*
+     * These category formulas intentionally match the
+     * existing standalone Player Profile calculations.
+     */
+    const categoryRatings = {
+      Shooting:
+        averageAttributeValues([
+          'wristShotPower',
+          'wristShotAccuracy',
+          'slapShotPower',
+          'slapShotAccuracy',
+        ]),
+
+      Playmaking:
+        averageAttributeValues([
+          'passing',
+          'puckControl',
+          'deking',
+          'handEye',
+          'offensiveAwareness',
+        ]),
+
+      Skating:
+        averageAttributeValues([
+          'speed',
+          'acceleration',
+          'agility',
+          'balance',
+          'endurance',
+        ]),
+
+      Defense:
+        averageAttributeValues([
+          'defensiveAwareness',
+          'stickChecking',
+          'shotBlocking',
+          'discipline',
+        ]),
+
+      Physical:
+        averageAttributeValues([
+          'bodyChecking',
+          'strength',
+          'durability',
+          'balance',
+          'endurance',
+        ]),
+
+      'Hockey IQ':
+        averageAttributeValues([
+          'vision',
+          'offensiveAwareness',
+          'defensiveAwareness',
+          'discipline',
+          'leadership',
+        ]),
+    };
+
+    careerPlayerTab
+      .querySelectorAll(
+        '.pp-attr-cat'
+      )
+      .forEach(categoryElement => {
+        const nameElement =
+          categoryElement.querySelector(
+            '.pp-attr-cat__name'
+          );
+
+        const overallElement =
+          categoryElement.querySelector(
+            '.pp-attr-cat__ovr'
+          );
+
+        const categoryName =
+          nameElement?.textContent
+            ?.trim();
+
+        if (
+          !categoryName ||
+          !overallElement ||
+          categoryRatings[
+            categoryName
+          ] === undefined
+        ) {
+          return;
+        }
+
+        overallElement.textContent =
+          categoryRatings[
+            categoryName
+          ];
+      });
+
+    renderCareerPlayerAttributes(p);
+    updatePlayerDevelopmentCards(p);
+
+    /*
+     * Expose the single existing statistics renderer so the
+     * standalone read-only Player Profile can reuse it.
+     */
+    globalThis.renderProjectIcePlayerStatistics =
+      renderCareerPlayerStatistics;
+
+    globalThis.renderProjectIcePlayerAwards =
+      updatePlayerAwardsSection;
+
+    globalThis.renderProjectIcePlayerRecords =
+      updatePlayerRecordsSection;
+
+    renderCareerPlayerStatistics(p);
+    updatePlayerScoutingSection(p);
+    updatePlayerAwardsSection(p);
+    updatePlayerRecordsSection(p);
+    updatePlayerCareerTimeline(p);
+    updatePlayerUpgradeNotification();
+    
+    
+  }
+
+  function getUpgradeableAttributeCategories(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return [];
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const skaterCategories = [
+      {
+        name: 'Shooting',
+        keys: [
+          'wristShotPower',
+          'wristShotAccuracy',
+          'slapShotPower',
+          'slapShotAccuracy',
+        ],
+      },
+
+      {
+        name: 'Playmaking',
+        keys: [
+          'passing',
+          'puckControl',
+          'deking',
+          'handEye',
+          'offensiveAwareness',
+        ],
+      },
+
+      {
+        name: 'Skating',
+        keys: [
+          'speed',
+          'acceleration',
+          'agility',
+          'balance',
+          'endurance',
+        ],
+      },
+
+      {
+        name: 'Defense',
+        keys: [
+          'defensiveAwareness',
+          'stickChecking',
+          'shotBlocking',
+          'discipline',
+        ],
+      },
+
+      {
+        name: 'Physical',
+        keys: [
+          'bodyChecking',
+          'strength',
+          'durability',
+          'balance',
+          'endurance',
+        ],
+      },
+
+      {
+        name: 'Hockey IQ',
+        keys: [
+          'offensiveAwareness',
+          'defensiveAwareness',
+          'poise',
+          'discipline',
+          'faceoffs',
+        ],
+      },
+    ];
+
+    const goalieCategories = [
+      {
+        name: 'Athleticism',
+        keys: [
+          'reflexes',
+          'agility',
+          'lateralMovement',
+          'recoverySpeed',
+        ],
+      },
+
+      {
+        name: 'Positioning',
+        keys: [
+          'positioning',
+          'angles',
+          'reboundControl',
+          'puckTracking',
+        ],
+      },
+
+      {
+        name: 'Save Technique',
+        keys: [
+          'gloveHigh',
+          'gloveLow',
+          'blockerHigh',
+          'blockerLow',
+          'fiveHole',
+          'stickControl',
+        ],
+      },
+
+      {
+        name: 'Mental',
+        keys: [
+          'anticipation',
+          'composure',
+          'consistency',
+        ],
+      },
+
+      {
+        name: 'Puck Playing',
+        keys: [
+          'puckHandling',
+          'goaliePassing',
+        ],
+      },
+    ];
+
+    const categories =
+      isGoalie
+        ? goalieCategories
+        : skaterCategories;
+
+    return categories
+      .filter(category =>
+        category.keys.some(
+          attributeKey => {
+            const eligibility =
+              WorldEngine
+                .canUpgradePlayerAttribute(
+                  player,
+                  attributeKey
+                );
+
+            return Boolean(
+              eligibility?.canUpgrade
+            );
+          }
+        )
+      )
+      .map(category => category.name);
+  }
+
+  function updatePlayerUpgradeNotification() {
+    const playerTabButton =
+      document.querySelector(
+        '.hub-nav__tab[data-hub-tab="player"]'
+      );
+
+    if (!playerTabButton) {
+      return;
+    }
+
+    const canonicalPlayer =
+      syncCareerPlayerWithWorld() ||
+      Game.player;
+
+    const hasUpgradeAvailable =
+      getUpgradeableAttributeCategories(
+        canonicalPlayer
+      ).length > 0;
+
+    playerTabButton.classList.toggle(
+      'hub-nav__tab--upgrade-available',
+      hasUpgradeAvailable
+    );
+  }
+
+  function updatePlayerDevelopmentCards(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const development =
+      player.development || {};
+
+    const potentialTrend =
+      String(
+        development.potentialTrend ??
+        player.potentialTrend ??
+        'stable'
+      )
+        .trim()
+        .toLowerCase();
+
+    const potentialTrendDisplay = {
+      rising: {
+        text: '▲ Rising',
+        className:
+          'pp-career-card__value--trend-rising',
+      },
+
+      falling: {
+        text: '▼ Falling',
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potential} projected potential`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+      (WorldEngine.state.teams || [])
+        .find(
+          team =>
+            team.teamId ===
+            player.teamId
+        );
+
+    const teamAbbreviation =
+      assignedTeam?.abbreviation ||
+      '—';
+
+    const currentYear =
+      Number(
+        WorldEngine.state
+          ?.season?.startYear ??
+        player.careerStart ??
+        2022
+      ) || 2022;
+
+    const seasonLabel =
+      `${String(currentYear).slice(-2)}-${String(
+        currentYear + 1
+      ).slice(-2)}`;
+
+    const rawLevel =
+      String(
+        player.teamLevel ||
+        player.year ||
+        'HS'
+      )
+        .trim()
+        .toUpperCase();
+
+    const levelLabels = {
+      'JUNIOR VARSITY': 'JV',
+      'VARSITY': 'V',
+      'FRESHMAN': 'FR',
+      'SOPHOMORE': 'SO',
+      'JUNIOR': 'JR',
+      'SENIOR': 'SR',
+      'HIGH SCHOOL': 'HS',
+    };
+
+    const level =
+      levelLabels[rawLevel] ||
+      rawLevel.slice(0, 3);
+
+    const seasonStats =
+      player.seasonStats || {};
+
+    const careerStats =
+      player.careerStats || {};
+
+    /*
+     * Completed seasons are permanent snapshots stored in
+     * player.history.seasons. They render above the live,
+     * highlighted current-season row.
+     */
+    const completedSeasons =
+      Array.isArray(
+        player.history?.seasons
+      )
+        ? player.history.seasons
+            .filter(
+              season =>
+                season &&
+                typeof season === 'object'
+            )
+            .map(season => {
+              const stats =
+                season.stats ||
+                season.seasonStats ||
+                {};
+
+              const startYear =
+                Number(
+                  season.startYear ??
+                  season.seasonStartYear ??
+                  season.year
+                );
+
+              const seasonLabel =
+                season.seasonLabel ||
+                (
+                  Number.isFinite(startYear)
+                    ? `${String(startYear).slice(-2)}-${String(
+                        startYear + 1
+                      ).slice(-2)}`
+                    : '—'
+                );
+
+              const team =
+                season.teamAbbreviation ||
+                season.abbreviation ||
+                season.team ||
+                '—';
+
+              const rawLevel =
+                String(
+                  season.level ||
+                  season.teamLevel ||
+                  season.yearLabel ||
+                  'HS'
+                )
+                  .trim()
+                  .toUpperCase();
+
+              const levelLabels = {
+                'JUNIOR VARSITY': 'JV',
+                'VARSITY': 'V',
+                'FRESHMAN': 'FR',
+                'SOPHOMORE': 'SO',
+                'JUNIOR': 'JR',
+                'SENIOR': 'SR',
+                'HIGH SCHOOL': 'HS',
+                'AHL': 'AHL',
+                'NHL': 'NHL',
+              };
+
+              const level =
+                levelLabels[rawLevel] ||
+                rawLevel.slice(0, 3);
+
+              return {
+                ...season,
+                stats,
+                seasonLabel,
+                team,
+                level,
+                sortYear:
+                  Number.isFinite(startYear)
+                    ? startYear
+                    : 0,
+              };
+            })
+            .sort(
+              (firstSeason, secondSeason) =>
+                firstSeason.sortYear -
+                secondSeason.sortYear
+            )
+        : [];
+
+    if (isGoalie) {
+      head.innerHTML = `
+        <tr>
+          <th>Season</th>
+          <th>Team</th>
+          <th>Lvl</th>
+          <th>GP</th>
+          <th>W</th>
+          <th>L</th>
+          <th>OTL</th>
+          <th>GA</th>
+          <th>GAA</th>
+          <th>SV%</th>
+          <th>SO</th>
+        </tr>
+      `;
+
+      const completedGoalieRows =
+        completedSeasons
+          .map(season => {
+            const stats =
+              season.stats || {};
+
+            return `
+              <tr>
+                <td>${season.seasonLabel}</td>
+                <td>${season.team}</td>
+                <td>${season.level}</td>
+                <td>${Number(stats.gamesPlayed) || 0}</td>
+                <td>${Number(stats.wins) || 0}</td>
+                <td>${Number(stats.losses) || 0}</td>
+                <td>${Number(stats.overtimeLosses) || 0}</td>
+                <td>${Number(stats.goalsAgainst) || 0}</td>
+                <td>${formatGoalieAverage(
+                  stats.goalsAgainstAverage
+                )}</td>
+                <td>${formatSavePercentage(
+                  stats.savePercentage
+                )}</td>
+                <td>${Number(stats.shutouts) || 0}</td>
+              </tr>
+            `;
+          })
+          .join('');
+
+      body.innerHTML = `
+        ${completedGoalieRows}
+
+        <tr class="pp-statistics-current">
+          <td>${seasonLabel}</td>
+          <td>${teamAbbreviation}</td>
+          <td>${level}</td>
+          <td>${Number(seasonStats.gamesPlayed) || 0}</td>
+          <td>${Number(seasonStats.wins) || 0}</td>
+          <td>${Number(seasonStats.losses) || 0}</td>
+          <td>${Number(seasonStats.overtimeLosses) || 0}</td>
+          <td>${Number(seasonStats.goalsAgainst) || 0}</td>
+          <td>${formatGoalieAverage(
+            seasonStats.goalsAgainstAverage
+          )}</td>
+          <td>${formatSavePercentage(
+            seasonStats.savePercentage
+          )}</td>
+          <td>${Number(seasonStats.shutouts) || 0}</td>
+        </tr>
+      `;
+
+      foot.innerHTML = `
+        <tr class="pp-statistics-career">
+          <td>Career</td>
+          <td>—</td>
+          <td>—</td>
+          <td>${Number(careerStats.gamesPlayed) || 0}</td>
+          <td>${Number(careerStats.wins) || 0}</td>
+          <td>${Number(careerStats.losses) || 0}</td>
+          <td>${Number(careerStats.overtimeLosses) || 0}</td>
+          <td>${Number(careerStats.goalsAgainst) || 0}</td>
+          <td>${formatGoalieAverage(
+            careerStats.goalsAgainstAverage
+          )}</td>
+          <td>${formatSavePercentage(
+            careerStats.savePercentage
+          )}</td>
+          <td>${Number(careerStats.shutouts) || 0}</td>
+        </tr>
+      `;
+
+      return;
+    }
+
+    head.innerHTML = `
+      <tr>
+        <th>Season</th>
+        <th>Team</th>
+        <th>Lvl</th>
+        <th>GP</th>
+        <th>G</th>
+        <th>A</th>
+        <th>PTS</th>
+        <th>+/-</th>
+        <th>PIM</th>
+        <th>SOG</th>
+      </tr>
+    `;
+
+    const completedSkaterRows =
+      completedSeasons
+        .map(season => {
+          const stats =
+            season.stats || {};
+
+          return `
+            <tr>
+              <td>${season.seasonLabel}</td>
+              <td>${season.team}</td>
+              <td>${season.level}</td>
+              <td>${Number(stats.gamesPlayed) || 0}</td>
+              <td>${Number(stats.goals) || 0}</td>
+              <td>${Number(stats.assists) || 0}</td>
+              <td>${Number(stats.points) || 0}</td>
+              <td>${formatPlusMinus(
+                stats.plusMinus
+              )}</td>
+              <td>${Number(stats.penaltyMinutes) || 0}</td>
+              <td>${Number(stats.shots) || 0}</td>
+            </tr>
+          `;
+        })
+        .join('');
+
+    body.innerHTML = `
+      ${completedSkaterRows}
+
+      <tr class="pp-statistics-current">
+        <td>${seasonLabel}</td>
+        <td>${teamAbbreviation}</td>
+        <td>${level}</td>
+        <td>${Number(seasonStats.gamesPlayed) || 0}</td>
+        <td>${Number(seasonStats.goals) || 0}</td>
+        <td>${Number(seasonStats.assists) || 0}</td>
+        <td>${Number(seasonStats.points) || 0}</td>
+        <td>${formatPlusMinus(
+          seasonStats.plusMinus
+        )}</td>
+        <td>${Number(seasonStats.penaltyMinutes) || 0}</td>
+        <td>${Number(seasonStats.shots) || 0}</td>
+      </tr>
+    `;
+
+    foot.innerHTML = `
+      <tr class="pp-statistics-career">
+        <td>Career</td>
+        <td>—</td>
+        <td>—</td>
+        <td>${Number(careerStats.gamesPlayed) || 0}</td>
+        <td>${Number(careerStats.goals) || 0}</td>
+        <td>${Number(careerStats.assists) || 0}</td>
+        <td>${Number(careerStats.points) || 0}</td>
+        <td>${formatPlusMinus(
+          careerStats.plusMinus
+        )}</td>
+        <td>${Number(careerStats.penaltyMinutes) || 0}</td>
+        <td>${Number(careerStats.shots) || 0}</td>
+      </tr>
+    `;
+  }
+
+  function formatPlusMinus(
+    value
+  ) {
+    const number =
+      Number(value) || 0;
+
+    return number > 0
+      ? `+${number}`
+      : String(number);
+  }
+
+  function formatGoalieAverage(
+    value
+  ) {
+    return (
+      Number(value) || 0
+    ).toFixed(2);
+  }
+
+  function formatSavePercentage(
+    value
+  ) {
+    const number =
+      Number(value) || 0;
+
+    if (number <= 0) {
+      return '.000';
+    }
+
+    return number
+      .toFixed(3)
+      .replace(/^0/, '');
+  }
+
+  function updatePlayerScoutingSection(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const scouting =
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const evaluationAccuracy =
+      scouting.evaluationAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const scoutingHistory =
+      Array.isArray(
+        scouting.scoutingHistory
+      )
+        ? scouting.scoutingHistory
+        : [];
+
+    const latestReport =
+      scoutingHistory.length > 0
+        ? scoutingHistory[
+            scoutingHistory.length - 1
+          ]
+        : null;
+
+    const reportText =
+      latestReport?.summary ||
+      latestReport?.reportText ||
+      latestReport?.text ||
+      latestReport?.evaluation ||
+      'Play in scout-attended games to begin building an external evaluation.';
+
+    const reportDate =
+      latestReport?.date ||
+      latestReport?.createdAt ||
+      latestReport?.seasonLabel ||
+      'No report yet';
+
+    const renderTraitList = (
+      elementId,
+      traits
+    ) => {
+      const container =
+        document.getElementById(
+          elementId
+        );
+
+      if (!container) {
+        return;
+      }
+
+      const safeTraits =
+        Array.isArray(traits)
+          ? traits.filter(Boolean)
+          : [];
+
+      if (safeTraits.length === 0) {
+        container.innerHTML = `
+          <span class="pp-scouting-empty">
+            Not evaluated
+          </span>
+        `;
+
+        return;
+      }
+
+      container.innerHTML =
+        safeTraits
+          .map(trait => `
+            <span class="pp-scouting-trait">
+              ${
+                typeof trait === 'string'
+                  ? trait
+                  : (
+                      trait.label ||
+                      trait.name ||
+                      'Evaluation'
+                    )
+              }
+            </span>
+          `)
+          .join('');
+    };
+
+    setText(
+      'pp-scouting-ranking',
+      rankingText
+    );
+
+    setText(
+      'pp-scouting-ranking-change',
+      rankingChangeText
+    );
+
+    setText(
+      'pp-scouting-interest',
+      scouting.interestLevel ||
+      'None'
+    );
+
+    setText(
+      'pp-scouting-watchers',
+      watchersText
+    );
+
+    setText(
+      'pp-scouting-games-observed',
+      Number(
+        scouting.gamesObserved
+      ) || 0
+    );
+
+    setText(
+      'pp-scouting-accuracy',
+      evaluationAccuracy
+    );
+
+    setText(
+      'pp-scouting-report-date',
+      reportDate
+    );
+
+    setText(
+      'pp-scouting-report-text',
+      reportText
+    );
+
+    renderTraitList(
+      'pp-scouting-strengths',
+      scouting.strengthsKnown
+    );
+
+    renderTraitList(
+      'pp-scouting-weaknesses',
+      scouting.weaknessesKnown
+    );
+  }
+
+  function updatePlayerAwardsSection(
+      player = {},
+      {
+        listId = 'pp-awards-list'
+      } = {}
+    ) {
+      const awardsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!awardsList) return;
+
+    const history =
+      player.history || {};
+
+    const awards = [
+      ...(history.awards || []),
+      ...(history.championships || [])
+    ];
+
+    awards.sort((a, b) => {
+      return (
+        (b.year || 0) -
+        (a.year || 0)
+      );
+    });
+
+    if (!awards.length) {
+
+      awardsList.innerHTML = `
+        <div class="pp-awards-empty">
+
+          <span class="pp-awards-empty__icon">
+            🏆
+          </span>
+
+          <div>
+
+            <strong class="pp-awards-empty__title">
+              No Awards Yet
+            </strong>
+
+            <p class="pp-awards-empty__text">
+              Individual awards and championships will appear here throughout your career.
+            </p>
+
+          </div>
+
+        </div>
+      `;
+
+      return;
+    }
+
+    awardsList.innerHTML =
+      awards.map(award => `
+
+        <div class="pp-award-card">
+
+          <div class="pp-award-card__icon">
+            ${award.icon || "🏆"}
+          </div>
+
+          <div class="pp-award-card__info">
+
+            <div class="pp-award-card__title">
+              ${award.name}
+            </div>
+
+            <div class="pp-award-card__meta">
+              ${award.season || ""}
+              •
+              ${award.level || ""}
+              •
+              ${award.team || ""}
+            </div>
+
+          </div>
+
+        </div>
+
+      `).join("");
+
+  }
+
+  function updatePlayerRecordsSection(
+      player = {},
+      {
+        listId = 'pp-records-list'
+      } = {}
+    ) {
+      const recordsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!recordsList) {
+      return;
+    }
+
+    const records =
+      Array.isArray(
+        player.history?.records
+      )
+        ? [...player.history.records]
+        : [];
+
+    records.sort(
+      (firstRecord, secondRecord) => {
+        const firstYear =
+          Number(
+            firstRecord.year ??
+            firstRecord.seasonStartYear
+          ) || 0;
+
+        const secondYear =
+          Number(
+            secondRecord.year ??
+            secondRecord.seasonStartYear
+          ) || 0;
+
+        return secondYear - firstYear;
+      }
+    );
+
+    if (records.length === 0) {
+      recordsList.innerHTML = `
+        <div class="pp-records-empty">
+          <span class="pp-records-empty__icon">
+            📖
+          </span>
+
+          <div>
+            <strong class="pp-records-empty__title">
+              No Records Yet
+            </strong>
+
+            <p class="pp-records-empty__text">
+              Team, league, and career records will appear here when you set them.
+            </p>
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    recordsList.innerHTML =
+      records
+        .map(record => {
+          const recordName =
+            record.name ||
+            record.title ||
+            record.recordName ||
+            'Career Record';
+
+          const recordValue =
+            record.value ??
+            record.recordValue ??
+            record.total ??
+            '';
+
+          const recordScope =
+            record.scope ||
+            record.type ||
+            record.level ||
+            'Career';
+
+          const recordSeason =
+            record.season ||
+            record.seasonLabel ||
+            (
+              record.year
+                ? String(record.year)
+                : ''
+            );
+
+          const metaParts = [
+            recordScope,
+            recordSeason,
+            record.team ||
+              record.teamName ||
+              '',
+          ].filter(Boolean);
+
+          return `
+            <article class="pp-record-card">
+              <div class="pp-record-card__icon">
+                ${record.icon || '📖'}
+              </div>
+
+              <div class="pp-record-card__content">
+                <strong class="pp-record-card__title">
+                  ${recordName}
+                </strong>
+
+                ${
+                  recordValue !== ''
+                    ? `
+                      <span class="pp-record-card__value">
+                        ${recordValue}
+                      </span>
+                    `
+                    : ''
+                }
+
+                ${
+                  metaParts.length > 0
+                    ? `
+                      <span class="pp-record-card__meta">
+                        ${metaParts.join(' • ')}
+                      </span>
+                    `
+                    : ''
+                }
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+  }
+
+  function updatePlayerCareerTimeline(
+    player = {}
+  ) {
+    const timeline =
+      document.getElementById(
+        'pp-career-timeline'
+      );
+
+    if (!timeline) {
+      return;
+    }
+
+    const history =
+      player.history &&
+      typeof player.history === 'object'
+        ? player.history
+        : {};
+
+    const timelineEntries = [];
+
+    const getEntryYear = entry => {
+      const directYear =
+        Number(
+          entry?.year ??
+          entry?.startYear ??
+          entry?.seasonStartYear ??
+          entry?.draftYear
+        );
+
+      if (Number.isFinite(directYear)) {
+        return directYear;
+      }
+
+      const seasonText =
+        String(
+          entry?.season ||
+          entry?.seasonLabel ||
+          ''
+        );
+
+      const seasonYearMatch =
+        seasonText.match(/\d{4}/);
+
+      if (seasonYearMatch) {
+        return Number(
+          seasonYearMatch[0]
+        );
+      }
+
+      const dateText =
+        entry?.date ||
+        entry?.createdAt ||
+        entry?.completedAt ||
+        null;
+
+      if (dateText) {
+        const parsedDate =
+          new Date(dateText);
+
+        if (
+          !Number.isNaN(
+            parsedDate.getTime()
+          )
+        ) {
+          return parsedDate.getFullYear();
+        }
+      }
+
+      return 0;
+    };
+
+    const getEntryTimestamp = entry => {
+      const dateText =
+        entry?.date ||
+        entry?.createdAt ||
+        entry?.completedAt ||
+        null;
+
+      if (dateText) {
+        const timestamp =
+          new Date(dateText).getTime();
+
+        if (
+          !Number.isNaN(timestamp)
+        ) {
+          return timestamp;
+        }
+      }
+
+      const year =
+        getEntryYear(entry);
+
+      return year > 0
+        ? new Date(
+            `${year}-01-01T00:00:00`
+          ).getTime()
+        : 0;
+    };
+
+    const addTimelineEntry = ({
+      source = {},
+      type = 'milestone',
+      icon = '🏒',
+      title = 'Career Milestone',
+      detail = '',
+    }) => {
+      if (
+        !source ||
+        typeof source !== 'object'
+      ) {
+        return;
+      }
+
+      const year =
+        getEntryYear(source);
+
+      const season =
+        source.season ||
+        source.seasonLabel ||
+        '';
+
+      const team =
+        source.team ||
+        source.teamName ||
+        source.schoolName ||
+        '';
+
+      const level =
+        source.level ||
+        source.teamLevel ||
+        source.league ||
+        '';
+
+      timelineEntries.push({
+        id:
+          source.id ||
+          `${type}-${year}-${title}-${timelineEntries.length}`,
+
+        type,
+
+        icon:
+          source.icon ||
+          icon,
+
+        title,
+
+        detail,
+
+        year,
+
+        season,
+
+        team,
+
+        level,
+
+        timestamp:
+          getEntryTimestamp(
+            source
+          ),
+      });
+    };
+
+    /*
+     * Completed seasons establish the long-term year-by-year
+     * structure of the career.
+     */
+    (
+      Array.isArray(history.seasons)
+        ? history.seasons
+        : []
+    ).forEach(season => {
+      const seasonLabel =
+        season.season ||
+        season.seasonLabel ||
+        (
+          season.startYear
+            ? `${season.startYear}-${String(
+                Number(season.startYear) + 1
+              ).slice(-2)}`
+            : ''
+        );
+
+      const teamName =
+        season.team ||
+        season.teamName ||
+        season.schoolName ||
+        '';
+
+      const level =
+        season.level ||
+        season.teamLevel ||
+        season.league ||
+        '';
+
+      const detailParts = [
+        teamName,
+        level,
+      ].filter(Boolean);
+
+      addTimelineEntry({
+        source: {
+          ...season,
+          season:
+            seasonLabel,
+        },
+
+        type:
+          'season',
+
+        icon:
+          '📅',
+
+        title:
+          season.title ||
+          season.name ||
+          'Season Completed',
+
+        detail:
+          detailParts.join(' • '),
+      });
+    });
+
+    /*
+     * Team history includes joining a program, promotion to a
+     * new level, trades, signings, and other team changes.
+     */
+    (
+      Array.isArray(history.teams)
+        ? history.teams
+        : []
+    ).forEach(teamEntry => {
+      const teamName =
+        teamEntry.team ||
+        teamEntry.teamName ||
+        teamEntry.schoolName ||
+        'New Team';
+
+      const action =
+        teamEntry.action ||
+        teamEntry.event ||
+        teamEntry.status ||
+        'Joined';
+
+      addTimelineEntry({
+        source:
+          teamEntry,
+
+        type:
+          'team',
+
+        icon:
+          '🛡️',
+
+        title:
+          teamEntry.title ||
+          `${action} ${teamName}`,
+
+        detail:
+          teamEntry.level ||
+          teamEntry.teamLevel ||
+          teamEntry.league ||
+          '',
+      });
+    });
+
+    (
+      Array.isArray(
+        history.transactions
+      )
+        ? history.transactions
+        : []
+    ).forEach(transaction => {
+      addTimelineEntry({
+        source:
+          transaction,
+
+        type:
+          'transaction',
+
+        icon:
+          '✍️',
+
+        title:
+          transaction.title ||
+          transaction.name ||
+          transaction.description ||
+          transaction.type ||
+          'Career Transaction',
+
+        detail:
+          transaction.team ||
+          transaction.teamName ||
+          transaction.detail ||
+          '',
+      });
+    });
+
+    (
+      Array.isArray(
+        history.lineupChanges
+      )
+        ? history.lineupChanges
+        : []
+    ).forEach(change => {
+      const role =
+        change.newRole ||
+        change.role ||
+        change.line ||
+        change.pair ||
+        change.goalieRole ||
+        '';
+
+      addTimelineEntry({
+        source:
+          change,
+
+        type:
+          'lineup',
+
+        icon:
+          '📋',
+
+        title:
+          change.title ||
+          change.description ||
+          'Lineup Role Changed',
+
+        detail:
+          role
+            ? `New role: ${role}`
+            : '',
+      });
+    });
+
+    (
+      Array.isArray(history.awards)
+        ? history.awards
+        : []
+    ).forEach(award => {
+      addTimelineEntry({
+        source:
+          award,
+
+        type:
+          'award',
+
+        icon:
+          '🏆',
+
+        title:
+          award.name ||
+          award.title ||
+          'Award Won',
+
+        detail:
+          [
+            award.level ||
+              award.league ||
+              '',
+
+            award.team ||
+              award.teamName ||
+              '',
+          ]
+            .filter(Boolean)
+            .join(' • '),
+      });
+    });
+
+    (
+      Array.isArray(
+        history.championships
+      )
+        ? history.championships
+        : []
+    ).forEach(championship => {
+      addTimelineEntry({
+        source:
+          championship,
+
+        type:
+          'championship',
+
+        icon:
+          '🥇',
+
+        title:
+          championship.name ||
+          championship.title ||
+          'Championship Won',
+
+        detail:
+          [
+            championship.level ||
+              championship.league ||
+              '',
+
+            championship.team ||
+              championship.teamName ||
+              '',
+          ]
+            .filter(Boolean)
+            .join(' • '),
+      });
+    });
+
+    (
+      Array.isArray(
+        history.milestones
+      )
+        ? history.milestones
+        : []
+    ).forEach(milestone => {
+      addTimelineEntry({
+        source:
+          milestone,
+
+        type:
+          'milestone',
+
+        icon:
+          '⭐',
+
+        title:
+          milestone.name ||
+          milestone.title ||
+          milestone.description ||
+          'Career Milestone',
+
+        detail:
+          milestone.detail ||
+          milestone.value ||
+          '',
+      });
+    });
+
+    (
+      Array.isArray(history.records)
+        ? history.records
+        : []
+    ).forEach(record => {
+      const recordValue =
+        record.value ??
+        record.recordValue ??
+        record.total ??
+        '';
+
+      addTimelineEntry({
+        source:
+          record,
+
+        type:
+          'record',
+
+        icon:
+          '📖',
+
+        title:
+          record.name ||
+          record.title ||
+          record.recordName ||
+          'Record Set',
+
+        detail:
+          recordValue !== ''
+            ? String(recordValue)
+            : (
+                record.scope ||
+                record.level ||
+                ''
+              ),
+      });
+    });
+
+    if (
+      history.draft &&
+      typeof history.draft === 'object'
+    ) {
+      const draft =
+        history.draft;
+
+      const pick =
+        draft.overallPick ??
+        draft.pick ??
+        draft.selection ??
+        null;
+
+      const round =
+        draft.round ??
+        null;
+
+      const draftDetailParts = [
+        draft.team ||
+          draft.teamName ||
+          '',
+
+        round
+          ? `Round ${round}`
+          : '',
+
+        pick
+          ? `${pick}th Overall`
+          : '',
+      ].filter(Boolean);
+
+      addTimelineEntry({
+        source:
+          draft,
+
+        type:
+          'draft',
+
+        icon:
+          '🎤',
+
+        title:
+          draft.title ||
+          'Selected in the NHL Draft',
+
+        detail:
+          draftDetailParts.join(' • '),
+      });
+    }
+
+    /*
+     * Remove accidental duplicate history records while
+     * preserving genuinely separate career events.
+     */
+    const uniqueEntries = [];
+
+    const seenEntries =
+      new Set();
+
+    timelineEntries.forEach(entry => {
+      const duplicateKey = [
+        entry.type,
+        entry.title,
+        entry.year,
+        entry.season,
+        entry.team,
+        entry.detail,
+      ].join('|');
+
+      if (
+        seenEntries.has(
+          duplicateKey
+        )
+      ) {
+        return;
+      }
+
+      seenEntries.add(
+        duplicateKey
+      );
+
+      uniqueEntries.push(
+        entry
+      );
+    });
+
+    uniqueEntries.sort(
+      (
+        firstEntry,
+        secondEntry
+      ) => {
+        if (
+          firstEntry.timestamp !==
+          secondEntry.timestamp
+        ) {
+          return (
+            secondEntry.timestamp -
+            firstEntry.timestamp
+          );
+        }
+
+        return (
+          secondEntry.year -
+          firstEntry.year
+        );
+      }
+    );
+
+    if (
+      uniqueEntries.length === 0
+    ) {
+      timeline.innerHTML = `
+        <div class="pp-timeline-empty">
+          <span class="pp-timeline-empty__icon">
+            🏒
+          </span>
+
+          <div>
+            <strong class="pp-timeline-empty__title">
+              Your Story Starts Here
+            </strong>
+
+            <p class="pp-timeline-empty__text">
+              Teams, promotions, milestones, awards, championships, and major career moments will appear here.
+            </p>
+          </div>
+        </div>
+      `;
+
+      return;
+    }
+
+    timeline.innerHTML =
+      uniqueEntries
+        .map(entry => {
+          const dateLabel =
+            entry.season ||
+            (
+              entry.year > 0
+                ? String(entry.year)
+                : 'Career'
+            );
+
+          const metaParts = [
+            entry.team,
+            entry.level,
+            entry.detail,
+          ].filter(Boolean);
+
+          return `
+            <article
+              class="pp-timeline-entry"
+              data-timeline-type="${entry.type}"
+            >
+              <div class="pp-timeline-entry__rail">
+                <span class="pp-timeline-entry__dot">
+                  ${entry.icon}
+                </span>
+
+                <span class="pp-timeline-entry__line"></span>
+              </div>
+
+              <div class="pp-timeline-entry__content">
+                <span class="pp-timeline-entry__date">
+                  ${dateLabel}
+                </span>
+
+                <strong class="pp-timeline-entry__title">
+                  ${entry.title}
+                </strong>
+
+                ${
+                  metaParts.length > 0
+                    ? `
+                      <span class="pp-timeline-entry__meta">
+                        ${metaParts.join(' • ')}
+                      </span>
+                    `
+                    : ''
+                }
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+  }
+
+  function renderCareerPlayerAttributes(
+    player = {}
+  ) {
+    const container =
+      document.getElementById(
+        'career-player-attributes'
+      );
+
+    if (
+      !container ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const attributes =
+      player.attributes || {};
+
+    const rawPosition =
+      String(
+        player.position || ''
+      ).toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const skaterCategories = [
+      {
+        name: 'Shooting',
+        icon: '🏒',
+        attributes: [
+          {
+            key: 'wristShotPower',
+            label: 'Wrist Shot Power',
+          },
+          {
+            key: 'wristShotAccuracy',
+            label: 'Wrist Shot Accuracy',
+          },
+          {
+            key: 'slapShotPower',
+            label: 'Slap Shot Power',
+          },
+          {
+            key: 'slapShotAccuracy',
+            label: 'Slap Shot Accuracy',
+          },
+        ],
+      },
+
+      {
+        name: 'Playmaking',
+        icon: '🎯',
+        attributes: [
+          {
+            key: 'passing',
+            label: 'Passing',
+          },
+          {
+            key: 'puckControl',
+            label: 'Puck Control',
+          },
+          {
+            key: 'deking',
+            label: 'Deking',
+          },
+          {
+            key: 'handEye',
+            label: 'Hand-Eye',
+          },
+          {
+            key: 'offensiveAwareness',
+            label: 'Offensive Awareness',
+          },
+        ],
+      },
+
+      {
+        name: 'Skating',
+        icon: '⛸️',
+        attributes: [
+          {
+            key: 'speed',
+            label: 'Speed',
+          },
+          {
+            key: 'acceleration',
+            label: 'Acceleration',
+          },
+          {
+            key: 'agility',
+            label: 'Agility',
+          },
+          {
+            key: 'balance',
+            label: 'Balance',
+          },
+          {
+            key: 'endurance',
+            label: 'Endurance',
+          },
+        ],
+      },
+
+      {
+        name: 'Defense',
+        icon: '🛡️',
+        attributes: [
+          {
+            key: 'defensiveAwareness',
+            label: 'Defensive Awareness',
+          },
+          {
+            key: 'stickChecking',
+            label: 'Stick Checking',
+          },
+          {
+            key: 'shotBlocking',
+            label: 'Shot Blocking',
+          },
+          {
+            key: 'discipline',
+            label: 'Discipline',
+          },
+        ],
+      },
+
+      {
+        name: 'Physical',
+        icon: '💪',
+        attributes: [
+          {
+            key: 'bodyChecking',
+            label: 'Body Checking',
+          },
+          {
+            key: 'strength',
+            label: 'Strength',
+          },
+          {
+            key: 'durability',
+            label: 'Durability',
+          },
+          {
+            key: 'balance',
+            label: 'Balance',
+          },
+          {
+            key: 'endurance',
+            label: 'Endurance',
+          },
+        ],
+      },
+
+      {
+        name: 'Hockey IQ',
+        icon: '🧠',
+        attributes: [
+          {
+            key: 'offensiveAwareness',
+            label: 'Offensive Awareness',
+          },
+          {
+            key: 'defensiveAwareness',
+            label: 'Defensive Awareness',
+          },
+          {
+            key: 'poise',
+            label: 'Poise',
+          },
+          {
+            key: 'discipline',
+            label: 'Discipline',
+          },
+          {
+            key: 'faceoffs',
+            label: 'Faceoffs',
+          },
+        ],
+      },
+    ];
+
+    const goalieCategories = [
+      {
+        name: 'Athleticism',
+        icon: '⚡',
+        attributes: [
+          {
+            key: 'reflexes',
+            label: 'Reflexes',
+          },
+          {
+            key: 'agility',
+            label: 'Agility',
+          },
+          {
+            key: 'lateralMovement',
+            label: 'Lateral Movement',
+          },
+          {
+            key: 'recoverySpeed',
+            label: 'Recovery Speed',
+          },
+        ],
+      },
+
+      {
+        name: 'Positioning',
+        icon: '🥅',
+        attributes: [
+          {
+            key: 'positioning',
+            label: 'Positioning',
+          },
+          {
+            key: 'angles',
+            label: 'Angles',
+          },
+          {
+            key: 'reboundControl',
+            label: 'Rebound Control',
+          },
+          {
+            key: 'puckTracking',
+            label: 'Puck Tracking',
+          },
+        ],
+      },
+
+      {
+        name: 'Save Technique',
+        icon: '🧤',
+        attributes: [
+          {
+            key: 'gloveHigh',
+            label: 'Glove High',
+          },
+          {
+            key: 'gloveLow',
+            label: 'Glove Low',
+          },
+          {
+            key: 'blockerHigh',
+            label: 'Blocker High',
+          },
+          {
+            key: 'blockerLow',
+            label: 'Blocker Low',
+          },
+          {
+            key: 'fiveHole',
+            label: 'Five Hole',
+          },
+          {
+            key: 'stickControl',
+            label: 'Stick Control',
+          },
+        ],
+      },
+
+      {
+        name: 'Mental',
+        icon: '🧠',
+        attributes: [
+          {
+            key: 'anticipation',
+            label: 'Anticipation',
+          },
+          {
+            key: 'composure',
+            label: 'Composure',
+          },
+          {
+            key: 'consistency',
+            label: 'Consistency',
+          },
+        ],
+      },
+
+      {
+        name: 'Puck Playing',
+        icon: '🏒',
+        attributes: [
+          {
+            key: 'puckHandling',
+            label: 'Puck Handling',
+          },
+          {
+            key: 'goaliePassing',
+            label: 'Passing',
+          },
+        ],
+      },
+    ];
+
+    const categories =
+      isGoalie
+        ? goalieCategories
+        : skaterCategories;
+    const upgradeableCategories =
+      getUpgradeableAttributeCategories(
+        player
+      );
+
+    const getCategoryRating =
+      categoryAttributes => {
+        const validRatings =
+          categoryAttributes
+            .map(attribute =>
+              Number(
+                attributes[
+                  attribute.key
+                ]
+              )
+            )
+            .filter(
+              rating =>
+                Number.isFinite(rating)
+            );
+
+        if (validRatings.length === 0) {
+          return 50;
+        }
+
+        return Math.round(
+          validRatings.reduce(
+            (sum, rating) =>
+              sum + rating,
+            0
+          ) /
+          validRatings.length
+        );
+      };
+
+    const getRatingClass =
+      rating => {
+        if (rating >= 80) {
+          return 'pp-stat__bar-fill--elite';
+        }
+
+        if (rating >= 70) {
+          return 'pp-stat__bar-fill--high';
+        }
+
+        if (rating >= 60) {
+          return 'pp-stat__bar-fill--mid';
+        }
+
+        return 'pp-stat__bar-fill--low';
+      };
+
+    container.innerHTML =
+      categories
+        .map(category => {
+          const categoryRating =
+            getCategoryRating(
+              category.attributes
+            );
+
+          const attributeRows =
+            category.attributes
+              .map(attribute => {
+                const rating =
+                  Math.max(
+                    25,
+                    Math.min(
+                      99,
+                      Number(
+                        attributes[
+                          attribute.key
+                        ]
+                      ) || 50
+                    )
+                  );
+
+                const eligibility =
+                  WorldEngine
+                    .canUpgradePlayerAttribute(
+                      player,
+                      attribute.key
+                    );
+
+                const currentXP =
+                  Math.max(
+                    0,
+                    Number(
+                      eligibility.currentXP
+                    ) || 0
+                  );
+
+                const requiredXP =
+                  Math.max(
+                    0,
+                    Number(
+                      eligibility.requiredXP
+                    ) || 0
+                  );
+
+                const xpPercentage =
+                  requiredXP > 0
+                    ? Math.max(
+                        0,
+                        Math.min(
+                          100,
+                          (
+                            currentXP /
+                            requiredXP
+                          ) * 100
+                        )
+                      )
+                    : 100;
+
+                const upgradeMarkup =
+                  eligibility.canUpgrade
+                    ? `
+                      <button
+                        class="pp-attribute-upgrade"
+                        type="button"
+                        data-upgrade-attribute="${attribute.key}"
+                      >
+                        +1 Upgrade
+                      </button>
+                    `
+                    : eligibility.reason ===
+                      'attribute-capped'
+                      ? `
+                        <span
+                          class="pp-attribute-capped"
+                        >
+                          MAX
+                        </span>
+                      `
+                      : '';
+
+                return `
+                  <div
+                    class="pp-stat pp-stat--development"
+                    data-attribute-key="${attribute.key}"
+                  >
+                    <div
+                      class="pp-stat__main"
+                    >
+                      <span
+                        class="pp-stat__name"
+                      >
+                        ${attribute.label}
+                      </span>
+
+                      <div
+                        class="pp-stat__bar"
+                      >
+                        <div
+                          class="
+                            pp-stat__bar-fill
+                            ${getRatingClass(rating)}
+                          "
+                          style="width: ${rating}%"
+                        ></div>
+                      </div>
+
+                      <span
+                        class="pp-stat__val"
+                      >
+                        ${rating}
+                      </span>
+                    </div>
+
+                    <div
+                      class="pp-attribute-progress"
+                    >
+                      <div
+                        class="pp-attribute-progress__track"
+                      >
+                        <div
+                          class="pp-attribute-progress__fill"
+                          style="width: ${xpPercentage}%"
+                        ></div>
+                      </div>
+
+                      <div
+                        class="pp-attribute-progress__details"
+                      >
+                        <span
+                          class="pp-attribute-progress__xp"
+                        >
+                          ${
+                            requiredXP > 0
+                              ? `${currentXP} / ${requiredXP} XP`
+                              : 'Attribute Maxed'
+                          }
+                        </span>
+
+                        ${upgradeMarkup}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              })
+              .join('');
+
+          return `
+            <div class="pp-attr-cat">
+              <button
+                class="pp-attr-cat__header"
+                type="button"
+                aria-expanded="false"
+              >
+                <span
+                  class="pp-attr-cat__icon"
+                >
+                  ${category.icon}
+                </span>
+
+                <span
+  class="pp-attr-cat__name"
+>
+  ${category.name}
+</span>
+
+${
+  upgradeableCategories.includes(
+    category.name
+  )
+    ? `
+      <span
+        class="pp-attr-cat__upgrade-ready"
+      >
+        <span
+          class="pp-attr-cat__upgrade-dot"
+          aria-hidden="true"
+        ></span>
+
+        Upgrade Available
+      </span>
+    `
+    : ''
+}
+
+<span
+  class="pp-attr-cat__ovr"
+>
+  ${categoryRating}
+</span>
+
+                <span
+                  class="pp-attr-cat__chevron"
+                >
+                  ›
+                </span>
+              </button>
+
+              <div class="pp-attr-cat__body">
+                ${attributeRows}
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+    /*
+     * Bind one delegated handler after the dynamic attribute
+     * markup has been rendered.
+     */
+    container.onclick = event => {
+      const upgradeButton =
+        event.target.closest(
+          '[data-upgrade-attribute]'
+        );
+
+      /*
+       * Handle upgrades before category headers so clicking an
+       * upgrade button never accidentally collapses the group.
+       */
+      if (upgradeButton) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const attributeKey =
+          upgradeButton.dataset
+            .upgradeAttribute;
+
+        if (!attributeKey) {
+          return;
+        }
+
+        const canonicalPlayer =
+          syncCareerPlayerWithWorld();
+
+        if (!canonicalPlayer) {
+          console.error(
+            '[Project Ice] Career player could not be synchronized before upgrading.'
+          );
+
+          return;
+        }
+
+        const result =
+          WorldEngine
+            .upgradePlayerAttribute(
+              canonicalPlayer,
+              attributeKey
+            );
+
+        if (!result?.success) {
+          console.warn(
+            '[Project Ice] Attribute upgrade failed:',
+            result
+          );
+
+          return;
+        }
+
+        syncCareerPlayerWithWorld();
+        saveCareerPreview();
+        updateHubScreen();
+
+        return;
+      }
+
+      const categoryHeader =
+        event.target.closest(
+          '.pp-attr-cat__header'
+        );
+
+      if (!categoryHeader) {
+        return;
+      }
+
+      const category =
+        categoryHeader.closest(
+          '.pp-attr-cat'
+        );
+
+      if (!category) {
+        return;
+      }
+
+      const isOpen =
+        category.classList.toggle(
+          'pp-attr-cat--open'
+        );
+
+      categoryHeader.setAttribute(
+        'aria-expanded',
+        String(isOpen)
+      );
+    };
+  }
+
+  
 
   // ── One-time setup ────────────────────────────────────────
   if (!hubCalendarReady) {
@@ -1355,8 +9573,535 @@ function updateHubScreen() {
     hubCalendarReady = true;
   }
 }
+function orderNpcRosterByOverall(npcRoster) {
+  const orderedRoster = npcRoster.map(player => ({
+    ...player
+  }));
 
+  const positionSlots = {
+    LW: [
+      'fwd-1-lw',
+      'fwd-2-lw',
+      'fwd-3-lw',
+      'fwd-4-lw'
+    ],
+    C: [
+      'fwd-1-c',
+      'fwd-2-c',
+      'fwd-3-c',
+      'fwd-4-c'
+    ],
+    RW: [
+      'fwd-1-rw',
+      'fwd-2-rw',
+      'fwd-3-rw',
+      'fwd-4-rw'
+    ],
+    LD: [
+      'def-1-ld',
+      'def-2-ld',
+      'def-3-ld'
+    ],
+    RD: [
+      'def-1-rd',
+      'def-2-rd',
+      'def-3-rd'
+    ],
+    G: [
+      'g-starter',
+      'g-backup'
+    ]
+  };
+
+  Object.entries(positionSlots).forEach(
+    ([position, slots]) => {
+      const playersAtPosition = orderedRoster
+        .filter(player => player.position === position)
+        .sort(
+          (a, b) =>
+            (Number(b.overall) || 0) -
+            (Number(a.overall) || 0)
+        );
+
+      playersAtPosition.forEach((player, index) => {
+        player.rosterSlot = slots[index] || player.rosterSlot;
+
+        if (position === 'G') {
+          player.goalieRole =
+            index === 0 ? 'Starter' : 'Backup';
+        } else if (position === 'LD' || position === 'RD') {
+          player.pair = index + 1;
+        } else {
+          player.line = index + 1;
+        }
+      });
+    }
+  );
+
+  return orderedRoster;
+}
+function openTeamTab(teamId = null, origin = 'hub') {
+  const playerTeamId =
+    Game.player.teamId ||
+    Game.player.highSchoolTeamId ||
+    null;
+
+  Game.teamTabSelectedTeamId =
+    teamId || playerTeamId;
+
+  Game.teamTabOrigin = origin;
+
+  openHubTab('team');
+}
+    function renderTeamTab(
+      teamId = null
+    ) {
+      const teams =
+        WorldEngine.state.teams || [];
+
+      const playerTeamId =
+        Game.player.teamId ||
+        Game.player.highSchoolTeamId ||
+        null;
+
+      const selectedTeamId =
+        teamId ||
+        Game.teamTabSelectedTeamId ||
+        playerTeamId;
+
+      const team =
+        teams.find(
+          item =>
+            String(item.teamId) ===
+            String(selectedTeamId)
+        );
+
+      if (!team) return;
+
+      /*
+       * Preserve the selected team so every later refresh,
+       * Full Stats link and profile transition uses the same
+       * team instead of reverting to the career player's team.
+       */
+      Game.teamTabSelectedTeamId =
+        team.teamId;
+
+  const teamNameEl =
+    document.getElementById('team-page-name');
+
+  const recordEl =
+    document.getElementById('team-page-record');
+
+  const prestigeEl =
+    document.getElementById('team-page-prestige');
+
+  const identityEl =
+    document.getElementById('team-page-identity');
+
+  const coachEl =
+    document.getElementById('team-page-coach');
+
+  const coachStyleEl =
+    document.getElementById('team-page-coach-style');
+
+  const arenaEl =
+    document.getElementById('team-page-arena');
+
+  const arenaCapacityEl =
+    document.getElementById(
+      'team-page-arena-capacity'
+    );
+
+  const wins = Number(team.wins) || 0;
+  const losses = Number(team.losses) || 0;
+  const overtimeLosses =
+    Number(team.overtimeLosses) || 0;
+  const points = Number(team.points) || 0;
+
+  const prestige =
+    Math.max(
+      0,
+      Math.min(5, Number(team.prestige) || 0)
+    );
+
+  if (teamNameEl) {
+    teamNameEl.textContent =
+      `${team.schoolName} ${team.teamName}`;
+  }
+
+  if (recordEl) {
+    recordEl.textContent =
+      Game.player?.teamLevel || 'Junior Varsity';
+  }
+  const seasonRecordEl =
+    document.getElementById('team-page-season-record');
+
+  const leaguePositionEl =
+    document.getElementById('team-page-league-position');
+
+  const goalsForEl =
+    document.getElementById('team-page-goals-for');
+
+  const goalsAgainstEl =
+    document.getElementById('team-page-goals-against');
+
+  const pointsEl =
+    document.getElementById('team-page-points');
+  if (seasonRecordEl) {
+    seasonRecordEl.textContent =
+      `${wins}-${losses}-${overtimeLosses}`;
+  }
+
+  if (pointsEl) {
+    pointsEl.textContent = points;
+  }
+
+  if (goalsForEl) {
+    goalsForEl.textContent = team.goalsFor ?? 0;
+  }
+
+  if (goalsAgainstEl) {
+    goalsAgainstEl.textContent = team.goalsAgainst ?? 0;
+  }
+
+  if (prestigeEl) {
+    prestigeEl.textContent =
+      '★'.repeat(Number(team.prestige) || 0);
+  }
+
+  if (identityEl) {
+    identityEl.textContent =
+      team.identity || 'Program identity unavailable.';
+  }
+
+  if (coachEl) {
+    coachEl.textContent =
+      team.coach?.name || 'Coach unavailable';
+  }
+
+  if (coachStyleEl) {
+    coachStyleEl.textContent =
+      team.coach?.style || 'Coaching style unavailable.';
+  }
+
+  if (arenaEl) {
+    arenaEl.textContent =
+      team.arena?.name || 'Arena unavailable';
+  }
+
+  if (arenaCapacityEl) {
+    const capacity =
+      Number(team.arena?.capacity) || 0;
+
+    arenaCapacityEl.textContent =
+      capacity > 0
+        ? `Capacity: ${capacity.toLocaleString('en-US')}`
+        : 'Capacity unavailable';
+  }
+  const rosterCountEl =
+    document.getElementById('team-roster-count');
+
+  const rosterListEl =
+    document.getElementById('team-roster-list');
+
+  const specialTeamsListEl =
+      document.getElementById(
+        'team-special-teams-list'
+      );
+
+  const npcRoster =
+    Array.isArray(team.roster)
+      ? orderNpcRosterByOverall(team.roster)
+      : [];
+
+    const roster =
+      WorldEngine.getTeamRoster(
+        team.teamId
+      );
+
+  if (rosterCountEl) {
+    rosterCountEl.textContent =
+      `${roster.length} Player${roster.length === 1 ? '' : 's'}`;
+  }
+
+  if (rosterListEl) {
+    const getPlayerCard = player => {
+      if (!player) return '<div class="lineup-player lineup-player--empty">Empty</div>';
+
+      const fullName =
+        `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+        'Unknown Player';
+
+      const position = player.position || '—';
+      const overall = Number(player.overall) || 0;
+      const playerId = player.playerId || player.id || '';
+      const leadershipBadge =
+        player.captain
+          ? `
+            <span
+              class="lineup-player__leadership tp-roster-leadership-badge"
+              aria-label="Captain"
+              title="Captain"
+            >
+              C
+            </span>
+          `
+          : player.alternateCaptain
+            ? `
+              <span
+                class="lineup-player__leadership tp-roster-leadership-badge"
+                aria-label="Alternate captain"
+                title="Alternate Captain"
+              >
+                A
+              </span>
+            `
+            : '';
+      
+
+      return `
+        <button
+          class="team-roster__player lineup-player ${player.isCareerPlayer ? 'career-player-highlight' : ''}"
+          type="button"
+          data-player-id="${playerId}"
+        >
+          <span class="lineup-player__position">${position}</span>
+          <span class="lineup-player__name">
+  ${fullName}
+  ${leadershipBadge}
+</span>
+          <span class="lineup-player__overall">${overall} OVR</span>
+        </button>
+      `;
+    };
+
+    const getPlayerBySlot = slot =>
+      roster.find(player =>
+        (player.rosterSlot || player.slot) === slot
+      );
+
+    rosterListEl.innerHTML = `
+      <section class="lineup-section">
+        <h3 class="lineup-section__title">Forwards</h3>
+
+        ${[1, 2, 3, 4].map(lineNumber => `
+          <div class="lineup-unit">
+            <div class="lineup-unit__label">Line ${lineNumber}</div>
+
+            <div class="lineup-unit__players lineup-unit__players--three">
+              ${getPlayerCard(getPlayerBySlot(`fwd-${lineNumber}-lw`))}
+              ${getPlayerCard(getPlayerBySlot(`fwd-${lineNumber}-c`))}
+              ${getPlayerCard(getPlayerBySlot(`fwd-${lineNumber}-rw`))}
+            </div>
+          </div>
+        `).join('')}
+      </section>
+
+      <section class="lineup-section">
+        <h3 class="lineup-section__title">Defense</h3>
+
+        ${[1, 2, 3].map(pairNumber => `
+          <div class="lineup-unit">
+            <div class="lineup-unit__label">Pair ${pairNumber}</div>
+
+            <div class="lineup-unit__players lineup-unit__players--two">
+              ${getPlayerCard(getPlayerBySlot(`def-${pairNumber}-ld`))}
+              ${getPlayerCard(getPlayerBySlot(`def-${pairNumber}-rd`))}
+            </div>
+          </div>
+        `).join('')}
+      </section>
+
+      <section class="lineup-section">
+        <h3 class="lineup-section__title">Goaltenders</h3>
+
+        <div class="lineup-unit">
+          <div class="lineup-unit__players lineup-unit__players--two">
+            <div class="lineup-goalie">
+              <div class="lineup-unit__label">Starter</div>
+              ${getPlayerCard(getPlayerBySlot('g-starter'))}
+            </div>
+
+            <div class="lineup-goalie">
+              <div class="lineup-unit__label">Backup</div>
+              ${getPlayerCard(getPlayerBySlot('g-backup'))}
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+    if (specialTeamsListEl) {
+      specialTeamsListEl.innerHTML =
+        buildTeamSpecialTeamsMarkup(
+          team,
+          roster
+        );
+    }
+    
+  rosterListEl
+  .querySelectorAll('.team-roster__player')
+  .forEach(button => {
+    button.addEventListener('click', () => {
+      const playerId =
+        button.dataset.playerId;
+
+      const selectedPlayer =
+        roster.find(
+          player =>
+          String(player.playerId || player.id) ===
+          String(playerId)
+        );
+
+      if (!selectedPlayer) return;
+
+      openPlayerProfile(selectedPlayer, 'hub-team');
+    });
+  });
+
+    if (specialTeamsListEl) {
+      specialTeamsListEl
+        .querySelectorAll(
+          '.team-roster__player'
+        )
+        .forEach(button => {
+          button.addEventListener(
+            'click',
+            () => {
+              const playerId =
+                button.dataset.playerId;
+
+              const selectedPlayer =
+                roster.find(
+                  player =>
+                    String(
+                      player.playerId ||
+                      player.id
+                    ) === String(playerId)
+                );
+
+              if (!selectedPlayer) return;
+
+              openPlayerProfile(
+                selectedPlayer,
+                'hub-team'
+              );
+            }
+          );
+        });
+    }
+
+    setupTeamLineupToggle();
+}
+
+function setupTeamLineupToggle(
+  root = document,
+  idPrefix = ''
+) {
+  const evenButton =
+    root.querySelector(
+      `#${idPrefix}team-lineup-view-even`
+    );
+
+  const specialButton =
+    root.querySelector(
+      `#${idPrefix}team-lineup-view-special`
+    );
+
+  const evenStrengthList =
+    root.querySelector(
+      `#${idPrefix}team-roster-list`
+    );
+
+  const specialTeamsList =
+    root.querySelector(
+      `#${idPrefix}team-special-teams-list`
+    );
+
+  if (
+    !evenButton ||
+    !specialButton ||
+    !evenStrengthList ||
+    !specialTeamsList
+  ) {
+    return;
+  }
+
+  const setView = view => {
+    const showEvenStrength =
+      view === 'even';
+
+    evenStrengthList.hidden =
+      !showEvenStrength;
+
+    specialTeamsList.hidden =
+      showEvenStrength;
+
+    evenButton.classList.toggle(
+      'team-lineup-toggle__button--active',
+      showEvenStrength
+    );
+
+    specialButton.classList.toggle(
+      'team-lineup-toggle__button--active',
+      !showEvenStrength
+    );
+
+    evenButton.setAttribute(
+      'aria-pressed',
+      String(showEvenStrength)
+    );
+
+    specialButton.setAttribute(
+      'aria-pressed',
+      String(!showEvenStrength)
+    );
+  };
+
+  evenButton.onclick = () => {
+    setView('even');
+  };
+
+  specialButton.onclick = () => {
+    setView('special');
+  };
+
+  setView('even');
+}
+
+function refreshCareerUI() {
+  refreshScheduleEvents();
+
+  setupHubCalendar();
+
+  renderScheduleCalendar(
+    scheduleViewYear,
+    scheduleViewMonth
+  );
+
+  renderScheduleKeyEvents();
+
+  renderTeamTab();
+}
 function setupHubCalendar() {
+  const currentDateKey =
+    Game.player.currentDate || '2026-09-01';
+
+  const currentDate =
+    new Date(`${currentDateKey}T12:00:00`);
+  const weekLabel = document.querySelector(
+    '.hub-cal__week-label'
+  );
+
+  if (weekLabel) {
+    weekLabel.textContent =
+      `Week of ${currentDate.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      })}`;
+  }
   const strip     = document.getElementById('hub-cal-strip');
   const epIcon    = document.getElementById('hub-ep-icon');
   const epName    = document.getElementById('hub-ep-name');
@@ -1366,11 +10111,61 @@ function setupHubCalendar() {
   const epToast   = document.getElementById('hub-ep-toast');
   const epBtn     = document.getElementById('btn-hub-event');
   if (!strip) return;
+  strip.innerHTML = '';
 
-  const TODAY_INDEX = HUB_DAYS.findIndex(d => d.isToday);
+  const TODAY_INDEX = 2;
 
   // ── Build cards ───────────────────────────────────────────
-  HUB_DAYS.forEach((d, i) => {
+    Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(currentDate);
+      date.setDate(currentDate.getDate() + i - 2);
+
+      const dateKey = date.toISOString().slice(0, 10);
+
+      const templateDay =
+        HUB_DAYS.find(day => day.dateKey === dateKey) || {
+          icon: '📅',
+          event: 'Open Day',
+          location: '—',
+          objective: 'No scheduled activities.',
+          eventId: 'open-day',
+          isCompleted: false,
+        };
+      const scheduledEvent =
+        scheduleEvents.find(event =>
+          event.date === dateKey
+        );
+
+      const eventData = scheduledEvent
+        ? {
+            icon: scheduledEvent.icon || '📅',
+            event:
+              scheduledEvent.label || 'Open Day',
+            location:
+              scheduledEvent.location || '—',
+            objective:
+              scheduledEvent.objective ||
+              'No scheduled activities.',
+            eventId:
+              scheduledEvent.eventId || 'open-day',
+            summaryScreen:
+              scheduledEvent.summaryScreen,
+            isCompleted:
+              Boolean(scheduledEvent.isCompleted),
+          }
+        : templateDay;
+
+      const d = {
+        ...eventData,
+        date: dateKey,
+        day: date.toLocaleDateString('en-US', {
+          weekday: 'short'
+        }),
+        dateNumber: date.getDate(),
+        isToday: i === TODAY_INDEX,
+        isCompleted: i < TODAY_INDEX
+      };
+      
     const isToday     = i === TODAY_INDEX;
     const isFuture    = i > TODAY_INDEX;
     const isCompleted = Boolean(d.isCompleted);
@@ -1388,7 +10183,7 @@ function setupHubCalendar() {
 
     card.innerHTML = `
       <span class="hub-cal-card__day">${d.day}</span>
-      <span class="hub-cal-card__date">${d.date}</span>
+      <span class="hub-cal-card__date">${d.dateNumber}</span>
       ${isCompleted
         ? '<span class="hub-cal-card__check" aria-hidden="true">✓</span>'
         : `<span class="hub-cal-card__icon">${d.icon}</span>`
@@ -1397,6 +10192,7 @@ function setupHubCalendar() {
       ${isCompleted ? '<span class="hub-cal-card__status-done" aria-hidden="true">Done</span>' : ''}
       ${isToday ? '<span class="hub-cal-card__dot" aria-hidden="true"></span>' : ''}
     `;
+      card.eventData = d;
 
     strip.appendChild(card);
   });
@@ -1408,7 +10204,7 @@ function setupHubCalendar() {
     cards.forEach(c => c.classList.remove('hub-cal-card--selected'));
     cards[index].classList.add('hub-cal-card--selected');
 
-    const d           = HUB_DAYS[index];
+    const d = cards[index].eventData;
     const isFuture    = index > TODAY_INDEX;
     const isCompleted = Boolean(d.isCompleted);
 
@@ -1433,19 +10229,38 @@ function setupHubCalendar() {
   if (epBtn) {
     epBtn.addEventListener('click', () => {
       const selectedIndex = [...cards].findIndex(c => c.classList.contains('hub-cal-card--selected'));
-      const d           = HUB_DAYS[selectedIndex];
+      const selectedCard = cards[selectedIndex];
+      const d = selectedCard?.eventData;
+
+      if (!d) return;
       const isFuture    = selectedIndex > TODAY_INDEX;
       const isCompleted = Boolean(d.isCompleted);
 
       if (isCompleted) {
-        // Open this event's result summary screen
-        if (d.summaryScreen === 'tryout-summary') openTryoutSummary('history');
+        if (d.eventId === 'tryout-freshman') {
+          openTryoutSummary('history');
+          return;
+        }
+
+          EventSystem.openEvent(d.eventId, 'hub');
+          return;
       } else if (isFuture) {
-        // Simulation not yet built
-        if (epToast) epToast.hidden = false;
+        const nextDate = simulateToDate(d.date);
+
+        if (epToast) {
+          epToast.hidden = false;
+          epToast.textContent = `Advanced to ${nextDate}`;
+        }
+
+        refreshCareerUI();
       } else {
         // Enter the event via the Event System
-        EventSystem.openEvent(d.eventId, 'hub');
+        const selectedCard = cards[selectedIndex];
+        const selectedEvent = selectedCard?.eventData;
+
+        if (!selectedEvent?.eventId) return;
+
+        EventSystem.openEvent(selectedEvent.eventId, 'hub');
       }
     });
   }
@@ -1462,6 +10277,10 @@ function setupHubCalendar() {
 document.getElementById('btn-hub-standings-all').addEventListener('click', () => {
   showScreen('standings');
 });
+document.getElementById('btn-league-full-standings')
+  .addEventListener('click', () => {
+    showScreen('standings');
+});
 
 document.getElementById('btn-back-standings').addEventListener('click', () => {
   showScreen('hub');
@@ -1476,7 +10295,17 @@ document.getElementById('hub-standings-preview').addEventListener('click', e => 
   if (!row) return;
   openTeamProfile(row.dataset.teamId, 'hub');
 });
+document
+.getElementById('league-standings-preview-rows')
+?.addEventListener('click', event => {
+  const row = event.target.closest('[data-team-id]');
+  if (!row) return;
 
+  openTeamProfile(
+    row.dataset.teamId,
+    'league'
+  );
+});
 document.getElementById('sl-rows').addEventListener('click', e => {
   const row = e.target.closest('[data-team-id]');
   if (!row) return;
@@ -1499,58 +10328,235 @@ document.getElementById('tp-roster').addEventListener('click', e => {
 // ── Top 100 Prospects navigation ──────────────────────────────
 
 // Hub card → open prospects screen
-document.getElementById('hub-prospects-card').addEventListener('click', () => {
+document
+.getElementById('hub-prospects-card')
+?.addEventListener('click', () => {
+  Game.prospectScreenOrigin = 'home';
   showScreen('prospects');
 });
 
 // Back button → return to hub
-document.getElementById('btn-back-prospects').addEventListener('click', () => {
-  showScreen('hub');
+document
+.getElementById('btn-back-prospects')
+?.addEventListener('click', () => {
+  if (Game.prospectScreenOrigin === 'league') {
+    openHubTab('league');
+    return;
+  }
+
+  openHubTab('home');
 });
 
 // Row tap → brief flash + show toast
-(function () {
-  let toastTimer = null;
+document
+.getElementById('pr-rows')
+?.addEventListener('click', event => {
+  const row =
+    event.target.closest('.pr-row--data');
 
-  document.getElementById('pr-rows').addEventListener('click', e => {
-    const row = e.target.closest('.pr-row--data');
-    if (!row) return;
+  if (!row) return;
 
-    // Brief row highlight
-    row.classList.add('is-tapped');
-    setTimeout(() => row.classList.remove('is-tapped'), 200);
+  const playerId =
+    row.dataset.playerId;
 
-    // Show/re-show toast with fade-out
-    const toast = document.getElementById('pr-toast');
-    if (!toast) return;
-    if (toastTimer) clearTimeout(toastTimer);
-    toast.classList.remove('is-fading');
-    toast.hidden = false;
-    toastTimer = setTimeout(() => {
-      toast.classList.add('is-fading');
-      setTimeout(() => { toast.hidden = true; toast.classList.remove('is-fading'); }, 320);
-    }, 2200);
-  });
-})();
+  if (!playerId) return;
+
+  const visibleProspects =
+    Array.isArray(Game.visibleProspects)
+      ? Game.visibleProspects
+      : [];
+
+  const selectedProspect =
+    visibleProspects.find(player =>
+      String(player.id || player.playerId) ===
+      String(playerId)
+    );
+
+  if (!selectedProspect) {
+    console.warn(
+      'Prospect not found:',
+      playerId
+    );
+    return;
+  }
+
+  row.classList.add('is-tapped');
+
+  setTimeout(() => {
+    row.classList.remove('is-tapped');
+  }, 200);
+
+  openPlayerProfile(
+    selectedProspect,
+    'prospects'
+  );
+});
 
 // ── Event screen navigation ───────────────────────────────────
 
 // Back — returns to whichever screen opened this event
-document.getElementById('btn-back-event').addEventListener('click', () => {
-  showScreen(EventSystem.getOrigin());
+document
+.getElementById('btn-back-event')
+.addEventListener('click', () => {
+  const origin = EventSystem.getOrigin();
+
+  showScreen('hub');
+
+  const targetTab =
+    origin === 'schedule'
+      ? 'schedule'
+      : origin === 'player'
+        ? 'player'
+        : origin === 'team'
+          ? 'team'
+          : origin === 'league'
+            ? 'league'
+            : 'home';
+
+  document
+    .querySelectorAll('.hub-nav__tab')
+    .forEach(tab => {
+      tab.classList.toggle(
+        'hub-nav__tab--active',
+        tab.dataset.hubTab === targetTab
+      );
+    });
+
+  document
+    .querySelectorAll('.hub-tab-panel')
+    .forEach(panel => {
+      const isTarget =
+        panel.id === `hub-tab-${targetTab}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isTarget
+      );
+
+      if (isTarget) {
+        panel.removeAttribute('aria-hidden');
+      } else {
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    });
+
+  if (targetTab === 'schedule') {
+    refreshScheduleEvents();
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+    renderScheduleKeyEvents();
+  }
+
+  if (targetTab === 'home') {
+    setupHubCalendar();
+  }
 });
 
 // ── Tryout Summary helpers ────────────────────────────────────
 // context 'first-time' = player just finished tryouts for the first time.
 // context 'history'    = player reviewing from the hub calendar.
+function getTryoutLetterGrade(score) {
+  if (score >= 97) return 'A+';
+  if (score >= 93) return 'A';
+  if (score >= 90) return 'A−';
+  if (score >= 87) return 'B+';
+  if (score >= 83) return 'B';
+  if (score >= 80) return 'B−';
+  if (score >= 77) return 'C+';
+  if (score >= 73) return 'C';
+  if (score >= 70) return 'C−';
+  if (score >= 67) return 'D+';
+  if (score >= 63) return 'D';
+  if (score >= 60) return 'D−';
+  return 'F';
+}
 
+function getOverallTryoutFeedback(score) {
+  if (score >= 93) {
+    return 'An exceptional tryout. You consistently stood out in all three evaluations.';
+  }
+
+  if (score >= 85) {
+    return 'A strong overall performance. You showed that you can contribute at this level.';
+  }
+
+  if (score >= 75) {
+    return 'A solid tryout with several encouraging moments. Continued development will be important.';
+  }
+
+  if (score >= 65) {
+    return 'You competed hard, but several parts of your game still need refinement.';
+  }
+
+  return 'The effort was there, but the coaching staff believes you need significant development.';
+}
 let _tryoutSummaryContext = 'history';
 
 function openTryoutSummary(context) {
   _tryoutSummaryContext = context;
-  // Show the "Enter Career Hub" CTA only on first completion
+
+  const results = Game.player.tryoutResults || {};
+
+  const skating = results.skating || {
+    score: 0,
+    grade: '--',
+  };
+
+  const puckControl = results.puckControl || {
+    score: 0,
+    grade: '--',
+  };
+
+  const scrimmage = results.scrimmage || {
+    score: 0,
+    grade: '--',
+  };
+
+  const completedResults = [
+    skating,
+    puckControl,
+    scrimmage,
+  ].filter(result => typeof result.score === 'number' && result.grade !== '--');
+
+  const overallScore = completedResults.length
+    ? Math.round(
+        completedResults.reduce((total, result) => total + result.score, 0)
+        / completedResults.length
+      )
+    : 0;
+
+  const overallGrade = completedResults.length === 3
+    ? getTryoutLetterGrade(overallScore)
+    : '--';
+
+  Game.player.overallTryoutScore = overallScore;
+  Game.player.overallTryoutGrade = overallGrade;
+
+  const skatingEl = document.getElementById('ts-skating-grade');
+  const puckEl = document.getElementById('ts-puck-grade');
+  const scrimmageEl = document.getElementById('ts-scrimmage-grade');
+  const overallEl = document.getElementById('ts-overall-grade');
+  const evaluationEl = document.getElementById('ts-coach-evaluation');
+
+  if (skatingEl) skatingEl.textContent = skating.grade;
+  if (puckEl) puckEl.textContent = puckControl.grade;
+  if (scrimmageEl) scrimmageEl.textContent = scrimmage.grade;
+  if (overallEl) overallEl.textContent = overallGrade;
+
+  if (evaluationEl) {
+    evaluationEl.textContent = completedResults.length === 3
+      ? getOverallTryoutFeedback(overallScore)
+      : 'Complete all three evaluations to receive a final report.';
+  }
+
   const ctaEl = document.getElementById('ts-cta-hub');
-  if (ctaEl) ctaEl.hidden = context !== 'first-time';
+  if (ctaEl) {
+    ctaEl.hidden = context !== 'first-time';
+  }
+
+  saveCareerPreview();
   showScreen('tryout-summary');
 }
 
@@ -1562,18 +10568,562 @@ const COMPLETE_SCREENS = {
   // 'tryout-summary' → open the tryout summary (used by results "Continue")
   'tryout-summary':        () => openTryoutSummary('first-time'),
 };
+/*
+ * Reusable Event Results controller.
+ *
+ * Converts a World Engine completion result into the
+ * player-facing Event Results screen.
+ */
+const EventResultsSystem = (() => {
 
-// Begin Event — if the event defines a completeScreen, navigate there.
-// Otherwise show the "gameplay coming soon" toast.
-document.getElementById('btn-ev-begin').addEventListener('click', () => {
-  const def = EventSystem.getCurrentDef();
-  if (def && def.completeScreen && COMPLETE_SCREENS[def.completeScreen]) {
-    COMPLETE_SCREENS[def.completeScreen]();
-  } else {
-    const toast = document.getElementById('ev-begin-toast');
-    if (toast) toast.hidden = false;
+  function setText(
+    elementId,
+    value
+  ) {
+    const element =
+      document.getElementById(
+        elementId
+      );
+
+    if (element) {
+      element.textContent =
+        value ?? '';
+    }
   }
-});
+
+  function formatResultLabel(
+    value = ''
+  ) {
+    return String(value)
+      .replace(
+        /([a-z])([A-Z])/g,
+        '$1 $2'
+      )
+      .replace(
+        /[-_]/g,
+        ' '
+      )
+      .replace(
+        /\b\w/g,
+        letter =>
+          letter.toUpperCase()
+      );
+  }
+
+  function createResultRow({
+    label,
+    value,
+    detail = '',
+  }) {
+    return `
+      <div class="er-result-row">
+        <div class="er-result-row__copy">
+          <span class="er-result-row__label">
+            ${label}
+          </span>
+
+          ${
+            detail
+              ? `
+                <span class="er-result-row__detail">
+                  ${detail}
+                </span>
+              `
+              : ''
+          }
+        </div>
+
+        <strong class="er-result-row__value">
+          ${value}
+        </strong>
+      </div>
+    `;
+  }
+
+  function buildXPResults(
+    xp = {},
+    player = {}
+  ) {
+    const rows = [];
+
+    const totalXP =
+      Number(xp.total) || 0;
+
+    if (totalXP > 0) {
+      rows.push(
+        createResultRow({
+          label:
+            'Development Earned',
+
+          value:
+            `+${totalXP} XP`,
+
+          detail:
+            'Applied to individual attributes',
+        })
+      );
+    }
+
+    const attributeXP =
+      xp.attributes &&
+      typeof xp.attributes ===
+        'object'
+        ? xp.attributes
+        : {};
+
+    Object.entries(
+      attributeXP
+    ).forEach(
+      ([attributeKey, amount]) => {
+        const xpAmount =
+          Number(amount) || 0;
+
+        if (xpAmount <= 0) {
+          return;
+        }
+
+        const eligibility =
+          WorldEngine
+            .canUpgradePlayerAttribute(
+              player,
+              attributeKey
+            );
+
+        const currentXP =
+          Math.max(
+            0,
+            Number(
+              eligibility?.currentXP
+            ) || 0
+          );
+
+        const requiredXP =
+          Number(
+            eligibility?.requiredXP
+          );
+
+        let progressDetail =
+          'Attribute progress recorded';
+
+        if (
+          eligibility
+            ?.reason ===
+          'attribute-capped'
+        ) {
+          progressDetail =
+            'Attribute is at maximum';
+        } else if (
+          eligibility
+            ?.canUpgrade === true
+        ) {
+          progressDetail =
+            'Upgrade available';
+        } else if (
+          Number.isFinite(
+            requiredXP
+          )
+        ) {
+          progressDetail =
+            `${currentXP} / ${requiredXP} XP toward upgrade`;
+        }
+
+        rows.push(
+          createResultRow({
+            label:
+              formatResultLabel(
+                attributeKey
+              ),
+
+            value:
+              `+${xpAmount} XP`,
+
+            detail:
+              progressDetail,
+          })
+        );
+      }
+    );
+
+    return rows;
+  }
+
+  function buildRecoveryResults(
+    result = {}
+  ) {
+    const rows = [];
+
+    const moraleChange =
+      Number(result.morale) || 0;
+
+    if (moraleChange !== 0) {
+      rows.push(
+        createResultRow({
+          label: 'Morale',
+
+          value:
+            moraleChange > 0
+              ? `+${moraleChange}`
+              : String(
+                  moraleChange
+                ),
+        })
+      );
+    }
+
+    const coachTrustChange =
+      Number(
+        result.coachTrust
+      ) || 0;
+
+    if (coachTrustChange !== 0) {
+      rows.push(
+        createResultRow({
+          label:
+            'Coach Trust',
+
+          value:
+            coachTrustChange > 0
+              ? `+${coachTrustChange}`
+              : String(
+                  coachTrustChange
+                ),
+
+          detail:
+            'Your standing with the coaching staff',
+        })
+      );
+    }
+
+    const injuryRiskChange =
+      Number(
+        result.health
+          ?.injuryRiskModifier
+      ) || 0;
+
+    if (injuryRiskChange < 0) {
+      rows.push(
+        createResultRow({
+          label: 'Injury Risk',
+          value: 'Reduced',
+
+          detail:
+            `${Math.round(
+              Math.abs(
+                injuryRiskChange
+              ) * 100
+            )}% improvement`,
+        })
+      );
+    }
+
+    return rows;
+  }
+
+  function open(
+    eventDefinition,
+    completion
+  ) {
+    const result =
+      completion?.result ||
+      {};
+
+    const eventType =
+      String(
+        result.type ||
+        eventDefinition?.type ||
+        'event'
+      );
+
+    const eventLabel =
+      eventDefinition?.label ||
+      eventDefinition?.title ||
+      formatResultLabel(
+        eventType
+      );
+
+    const eventIcon =
+      eventDefinition?.icon ||
+      (
+        eventType === 'recovery'
+          ? '💪'
+          : '🏒'
+      );
+
+    setText(
+      'er-type-badge',
+      eventType.toUpperCase()
+    );
+
+    setText(
+      'er-icon',
+      eventIcon
+    );
+
+    setText(
+      'er-title',
+      `${eventLabel} Complete`
+    );
+
+    setText(
+      'er-subtitle',
+      eventType === 'recovery'
+        ? 'Your recovery work has been recorded.'
+        : 'Your development progress has been recorded.'
+    );
+
+    const resultRows = [
+      ...buildXPResults(
+        result.xp,
+        Game.player
+      ),
+
+      ...buildRecoveryResults(
+        result
+      ),
+    ];
+
+    const resultsList =
+      document.getElementById(
+        'er-results-list'
+      );
+
+    if (resultsList) {
+      resultsList.innerHTML =
+        resultRows.length > 0
+          ? resultRows.join('')
+          : createResultRow({
+              label:
+                'Event Completed',
+
+              value:
+                'Recorded',
+            });
+    }
+
+    const noteCard =
+      document.getElementById(
+        'er-note-card'
+      );
+
+    const noteText =
+      document.getElementById(
+        'er-note-text'
+      );
+
+    const coachNote =
+      result.coachNote ||
+      completion?.coachNote ||
+      '';
+
+    if (noteCard) {
+      noteCard.hidden =
+        !coachNote;
+    }
+
+    if (noteText) {
+      noteText.textContent =
+        coachNote || '—';
+    }
+
+    showScreen(
+      'event-results'
+    );
+  }
+
+  return {
+    open,
+  };
+})();
+/*
+ * Universal career-event completion registry.
+ *
+ * Each supported interactive event type maps to one
+ * World Engine completion method. Future event types can
+ * register here without adding another large button branch.
+ */
+const EVENT_COMPLETION_HANDLERS = {
+  practice(eventId) {
+    return WorldEngine
+      .completePracticeEvent(
+        eventId
+      );
+  },
+
+  recovery(eventId) {
+    return WorldEngine
+      .completeRecoveryEvent(
+        eventId
+      );
+  },
+
+  'coach-meeting'(eventId) {
+    return WorldEngine
+      .completeCoachMeetingEvent(
+        eventId
+      );
+  },
+};
+
+function completeCurrentCareerEvent(
+  eventDefinition
+) {
+  const eventType =
+    String(
+      eventDefinition?.type ||
+      ''
+    );
+
+  const completionHandler =
+    EVENT_COMPLETION_HANDLERS[
+      eventType
+    ];
+
+  if (
+    typeof completionHandler !==
+    'function'
+  ) {
+    return {
+      supported: false,
+      completion: null,
+    };
+  }
+
+  const eventId =
+    eventDefinition?.id ||
+    eventDefinition?.eventId ||
+    null;
+
+  if (!eventId) {
+    console.error(
+      `[Project Ice] ${eventType} event is missing its canonical ID.`
+    );
+
+    return {
+      supported: true,
+
+      completion: {
+        success: false,
+        reason:
+          'canonical-event-id-missing',
+      },
+    };
+  }
+
+  return {
+    supported: true,
+    completion:
+      completionHandler(
+        eventId
+      ),
+  };
+}
+
+// Begin Event — complete supported career events or route
+// into an existing dedicated event screen.
+document
+  .getElementById('btn-ev-begin')
+  .addEventListener('click', () => {
+    const def =
+      EventSystem.getCurrentDef();
+
+    if (!def) {
+      return;
+    }
+
+    /*
+     * Canonical Practice completion.
+     */
+    const {
+      supported,
+      completion,
+    } =
+      completeCurrentCareerEvent(
+        def
+      );
+
+    if (supported) {
+      if (!completion?.success) {
+        console.error(
+          '[Project Ice] Event completion failed:',
+          completion
+        );
+
+        return;
+      }
+
+      syncCareerPlayerWithWorld();
+
+      Game.player.currentDate =
+        WorldEngine.state.season
+          ?.currentDate ||
+        completion.date ||
+        Game.player.currentDate;
+
+      saveCareerPreview();
+
+      refreshCareerUI();
+
+      refreshScheduleEvents();
+
+      EventResultsSystem.open(
+        def,
+        completion
+      );
+
+      return;
+    }
+
+    /*
+     * Existing tryout and future dedicated event routes.
+     */
+    if (
+      def.completeScreen &&
+      COMPLETE_SCREENS[
+        def.completeScreen
+      ]
+    ) {
+      COMPLETE_SCREENS[
+        def.completeScreen
+      ]();
+
+      return;
+    }
+
+    const toast =
+      document.getElementById(
+        'ev-begin-toast'
+      );
+
+    if (toast) {
+      toast.hidden = false;
+    }
+  });
+
+/*
+ * Event Results — shared continuation path.
+ *
+ * Practice, Recovery, and future career events all return
+ * through the same refreshed Schedule-tab route.
+ */
+const btnEventResultsContinue =
+  document.getElementById(
+    'btn-event-results-continue'
+  );
+
+if (btnEventResultsContinue) {
+  btnEventResultsContinue.addEventListener(
+    'click',
+    () => {
+      refreshCareerUI();
+
+      refreshScheduleEvents();
+
+      openHubTab(
+        'schedule'
+      );
+    }
+  );
+}
 
 // ── Tryout Summary navigation ─────────────────────────────────
 
@@ -1763,6 +11313,20 @@ const DrillEngine = (function () {
       _state.feedback   = config.coachFeedback(score);
       _state.npcResults = _generateNpcs(score);
 
+      // Permanently store this drill's result for the final tryout evaluation.
+      if (!Game.player.tryoutResults) {
+        Game.player.tryoutResults = {};
+      }
+
+      Game.player.tryoutResults[config.resultKey] = {
+        score,
+        grade: _state.grade,
+        feedback: _state.feedback,
+      };
+
+      // Save after every drill so progress survives a reload.
+      saveCareerPreview();
+
       _renderResults();
       showScreen('skating-results');
     }
@@ -1850,8 +11414,9 @@ const DrillEngine = (function () {
 
 // ── Skating Evaluation (Drill 1 of 3) ────────────────────────────
 
-const SkatingDrill = DrillEngine({
-  evalNumber:  1,
+  const SkatingDrill = DrillEngine({
+    resultKey:   'skating',
+    evalNumber:  1,
   evalTotal:   3,
   evalName:    'Skating',
   evalIcon:    '⛸️',
@@ -1895,8 +11460,9 @@ const SkatingDrill = DrillEngine({
 
 // ── Puck Control Evaluation (Drill 2 of 3) ───────────────────────
 
-const PuckControlDrill = DrillEngine({
-  evalNumber:  2,
+  const PuckControlDrill = DrillEngine({
+    resultKey:   'puckControl',
+    evalNumber:  2,
   evalTotal:   3,
   evalName:    'Puck Control',
   evalIcon:    '🏒',
@@ -1935,9 +11501,133 @@ const PuckControlDrill = DrillEngine({
     if (score >= 60) return 'Average result. Puck control separates players at this level — keep working your hands every day.';
     return 'Struggled to control the puck today. Touch and feel come with repetition — get your stickhandling reps in.';
   },
-  onComplete: () => openTryoutSummary('first-time'),
+  onComplete: () => ScrimmageDrill.open(),
 });
+// ── Scrimmage Evaluation (Drill 3 of 3) ─────────────────────────
 
+  const ScrimmageDrill = DrillEngine({
+    resultKey: 'scrimmage',
+    evalNumber: 3,
+  evalTotal: 3,
+  evalName: 'Scrimmage',
+  evalIcon: '🥅',
+  coachSpeech:
+    '"The final evaluation is a live scrimmage. We want to see how you read the game, support your teammates, and compete when the play breaks down."',
+
+  traits: [
+    '🧠 Hockey IQ',
+    '👁️ Offensive Awareness',
+    '🛡️ Defensive Awareness',
+  ],
+
+  decisions: [
+    {
+      prompt:
+        'Your line enters the offensive zone on a three-on-two rush. The puck carrier draws the first defender toward him. What do you do?',
+      choices: [
+        {
+          label: 'Drive the far post',
+          desc: 'Create a passing lane and force the second defender back.',
+          range: [25, 34],
+          outcome:
+            'You time the drive perfectly. The defender collapses toward you, opening space for your teammate in the slot.',
+        },
+        {
+          label: 'Trail the play high',
+          desc: 'Stay available for a late pass and protect against a turnover.',
+          range: [22, 29],
+          outcome:
+            'You remain available above the puck and give your line a safe option. Smart, responsible positioning.',
+        },
+        {
+          label: 'Call for the puck immediately',
+          desc: 'Demand possession and try to create the play yourself.',
+          range: [14, 23],
+          outcome:
+            'You call for it, but the passing lane is covered. The rush loses momentum and the defense resets.',
+        },
+      ],
+    },
+
+    {
+      prompt:
+        'The puck turns over at the offensive blue line. An opponent accelerates the other way while one of your teammates is caught deep.',
+      choices: [
+        {
+          label: 'Backcheck through the middle',
+          desc: 'Take away the most dangerous lane and support your defense.',
+          range: [26, 34],
+          outcome:
+            'You sprint through the middle and eliminate the passing option. The rush is forced harmlessly toward the boards.',
+        },
+        {
+          label: 'Pressure the puck carrier',
+          desc: 'Attack quickly and try to stop the rush before it develops.',
+          range: [21, 30],
+          outcome:
+            'You close the gap aggressively. The puck carrier is rushed, although the middle lane briefly opens behind you.',
+        },
+        {
+          label: 'Wait near the blue line',
+          desc: 'Stay available for offense if your team wins the puck back.',
+          range: [10, 19],
+          outcome:
+            'You remain high while the opponent creates an odd-man rush. Coach Reynolds immediately notices the missed backcheck.',
+        },
+      ],
+    },
+
+    {
+      prompt:
+        'Late in the scrimmage, the score is tied. You collect a loose puck below the faceoff circle with a teammate open near the net.',
+      choices: [
+        {
+          label: 'Pass into the slot',
+          desc: 'Make the high-percentage play to the open teammate.',
+          range: [25, 34],
+          outcome:
+            'You find the open stick in the slot. The quick chance forces a difficult save and keeps the pressure alive.',
+        },
+        {
+          label: 'Attack the net yourself',
+          desc: 'Protect the puck and challenge the goalie from close range.',
+          range: [22, 31],
+          outcome:
+            'You drive hard to the crease and create a dangerous chance. The coaches like the confidence and compete level.',
+        },
+        {
+          label: 'Send the puck around the boards',
+          desc: 'Keep possession and avoid making a risky play.',
+          range: [16, 24],
+          outcome:
+            'Your line keeps possession, but an excellent scoring opportunity disappears. Safe, but not decisive.',
+        },
+      ],
+    },
+  ],
+
+  coachFeedback(score) {
+    if (score >= 90) {
+      return 'Outstanding scrimmage. You anticipated plays before they developed and consistently made your linemates better. Coach Reynolds was impressed.';
+    }
+
+    if (score >= 80) {
+      return 'Strong performance. You supported the puck well, competed defensively, and made smart decisions under pressure.';
+    }
+
+    if (score >= 70) {
+      return 'Solid showing. You had several good reads, though your positioning became inconsistent when the play changed direction.';
+    }
+
+    if (score >= 60) {
+      return 'Average scrimmage. You showed flashes, but the coaches want quicker decisions and more consistent defensive effort.';
+    }
+
+    return 'Tough scrimmage. Slow reads and missed assignments hurt your evaluation. Keep learning how to impact the play without the puck.';
+  },
+
+    onComplete: () => showScreen('coach-results'),
+});
 
 document.getElementById('btn-back-tryout-summary').addEventListener('click', () => {
   if (_tryoutSummaryContext === 'first-time') {
@@ -1946,12 +11636,173 @@ document.getElementById('btn-back-tryout-summary').addEventListener('click', () 
     showScreen('hub');
   }
 });
+document.getElementById('btn-view-roster').addEventListener('click', () => {
+  openTryoutSummary('first-time');
+});
+document.getElementById('btn-back-coach-results').addEventListener('click', () => {
+  showScreen('skating-results');
+});
+function calculateTryoutPlacement() {
+  const score = Number(Game.player.overallTryoutScore) || 0;
+  const teams = WorldEngine.state.teams || [];
 
+  // Assign one random high school once and preserve it permanently.
+  let assignedTeam = teams.find(team => team.teamId === Game.player.teamId);
+
+  if (!assignedTeam && teams.length > 0) {
+    assignedTeam = teams[Math.floor(Math.random() * teams.length)];
+
+    Game.player.teamId = assignedTeam.teamId;
+    Game.player.schoolName = assignedTeam.schoolName;
+    Game.player.teamName = assignedTeam.teamName;
+  }
+
+  // Varsity is intentionally difficult for a freshman to reach.
+  let level = 'Junior Varsity';
+
+  if (score >= 95) {
+    level = Math.random() < 0.75 ? 'Varsity' : 'Junior Varsity';
+  } else if (score >= 90) {
+    level = Math.random() < 0.25 ? 'Varsity' : 'Junior Varsity';
+  }
+
+  let startingLine;
+
+  if (level === 'Varsity') {
+    if (score >= 97) startingLine = '1st Line';
+    else if (score >= 93) startingLine = '2nd Line';
+    else startingLine = '3rd Line';
+  } else {
+    if (score >= 92) startingLine = '1st Line';
+    else if (score >= 84) startingLine = '2nd Line';
+    else if (score >= 72) startingLine = '3rd Line';
+    else startingLine = '4th Line';
+  }
+
+  const coachTrust = Math.max(
+    35,
+    Math.min(50, 35 + Math.round((score - 60) * 0.4))
+  );
+
+  const reputationStars = score >= 93 ? 2 : 1;
+
+  Game.player.teamLevel = level;
+  Game.player.startingLine = startingLine;
+  Game.player.coachTrust = coachTrust;
+  Game.player.reputationStars = reputationStars;
+
+  saveCareerPreview();
+
+  return {
+    assignedTeam,
+    level,
+    startingLine,
+    coachTrust,
+    reputationStars,
+  };
+}
 // Enter Career Hub — only visible on first completion.
 // Marks stage='hub' so future save loads skip the intro sequence.
 document.getElementById('btn-ts-enter-hub').addEventListener('click', () => {
-  Game.player.stage          = 'hub';
-  Game.player.tryoutsComplete = true;
+  const placement = calculateTryoutPlacement();
+  const team = placement.assignedTeam;
+
+  const fullTeamName = team
+    ? `${team.schoolName} ${team.teamName}`
+    : 'High School Team';
+
+  const position = Game.player.position || 'Player';
+  const stars =
+    '★'.repeat(placement.reputationStars) +
+    '☆'.repeat(5 - placement.reputationStars);
+
+  document.getElementById('rr-team-name').textContent = fullTeamName;
+  document.getElementById('rr-team-level').textContent = placement.level;
+  document.getElementById('rr-position').textContent = position;
+  document.getElementById('rr-line').textContent = placement.startingLine;
+  document.getElementById('rr-trust').textContent = `${placement.coachTrust}%`;
+  document.getElementById('rr-reputation').textContent = stars;
+
+  showScreen('roster-reveal');
+});
+document
+.getElementById('btn-begin-season')
+.addEventListener('click', () => {
+  const canonicalPlayer =
+    WorldEngine.upsertCareerPlayer({
+      ...Game.player,
+
+      playerId:
+        Game.player.playerId ||
+        Game.player.id ||
+        'career-player',
+    });
+
+  if (!canonicalPlayer) {
+    console.error(
+      '[Project Ice] Career player could not be added to the World Engine roster.'
+    );
+
+    return;
+  }
+
+  /*
+   * Keep the player save synchronized with the canonical
+   * World Engine record created from the tryout results.
+   */
+  Game.player = {
+    ...Game.player,
+
+    playerId:
+      canonicalPlayer.playerId,
+
+    id:
+      canonicalPlayer.id,
+
+    position:
+      canonicalPlayer.position,
+
+    attributes: {
+      ...canonicalPlayer.attributes,
+    },
+
+    overall:
+      canonicalPlayer.overall,
+
+    startingOverall:
+      canonicalPlayer.startingOverall,
+
+    tryoutProfile:
+      canonicalPlayer.tryoutProfile,
+
+    rosterSlot:
+      canonicalPlayer.rosterSlot,
+
+    lineupAssignment:
+      canonicalPlayer.lineupAssignment,
+
+    lineupStatus:
+      canonicalPlayer.lineupStatus,
+
+    coachTrust:
+      canonicalPlayer.coachTrust,
+
+    recentForm:
+      canonicalPlayer.recentForm,
+
+    morale:
+      canonicalPlayer.morale,
+
+    reputationStars:
+      canonicalPlayer.reputationStars,
+
+    reputationPoints:
+      canonicalPlayer.reputationPoints,
+
+    stage: 'hub',
+    tryoutsComplete: true,
+  };
+
   saveCareerPreview();
   showScreen('hub');
 });
@@ -1972,22 +11823,49 @@ document.getElementById('btn-sr-continue').addEventListener('click', () => {
   // Routes to the next drill or the tryout summary, depending on which drill just finished.
   if (_drillContinueCallback) _drillContinueCallback();
 });
+document
+  .getElementById('schedule-prev-month')
+  ?.addEventListener('click', () => {
+    scheduleViewMonth--;
 
-document.querySelectorAll('.hub-nav__tab').forEach(tab => {
+    if (scheduleViewMonth < 0) {
+      scheduleViewMonth = 11;
+      scheduleViewYear--;
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+  });
+
+document
+  .getElementById('schedule-next-month')
+  ?.addEventListener('click', () => {
+    scheduleViewMonth++;
+
+    if (scheduleViewMonth > 11) {
+      scheduleViewMonth = 0;
+      scheduleViewYear++;
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+  });
+document
+.querySelectorAll('.hub-nav__tab')
+.forEach(tab => {
   tab.addEventListener('click', () => {
     const id = tab.dataset.hubTab;
-    if (id !== 'home' && id !== 'player') return; // schedule / team / league not yet functional
-    document.querySelectorAll('.hub-nav__tab').forEach(t => t.classList.remove('hub-nav__tab--active'));
-    tab.classList.add('hub-nav__tab--active');
-    document.querySelectorAll('.hub-tab-panel').forEach(p => {
-      p.classList.remove('hub-tab-panel--active');
-      p.setAttribute('aria-hidden', 'true');
-    });
-    const panel = document.getElementById(`hub-tab-${id}`);
-    if (panel) {
-      panel.classList.add('hub-tab-panel--active');
-      panel.removeAttribute('aria-hidden');
+
+    if (id === 'team') {
+      openTeamTab(null, 'hub');
+      return;
     }
+
+    openHubTab(id);
   });
 });
 
@@ -1998,7 +11876,82 @@ document.querySelectorAll('.pp-attr-cat__header').forEach(header => {
     cat.classList.toggle('pp-attr-cat--open');
   });
 });
+document
+.getElementById('btn-league-full-stats')
+?.addEventListener('click', () => {
+  Game.fullStatsOrigin = 'league';
+  Game.fullStatsTeamId = null;
+  Game.fullStatsSelectedTeamId = null;
 
+  showScreen('full-stats');
+});
+document
+.getElementById('btn-league-full-prospects')
+?.addEventListener('click', () => {
+  Game.prospectScreenOrigin = 'league';
+  showScreen('prospects');
+});
+document
+  .getElementById('team-view-full-stats')
+  ?.addEventListener('click', () => {
+    Game.fullStatsOrigin = 'team';
+
+    Game.fullStatsTeamId =
+      Game.player.teamId ||
+      Game.player.highSchoolTeamId ||
+      null;
+    Game.fullStatsSelectedTeamId =
+      Game.fullStatsTeamId;
+
+    showScreen('full-stats');
+  });
+
+document
+  .getElementById('btn-back-full-stats')
+  ?.addEventListener('click', () => {
+    if (Game.fullStatsOrigin === 'team-profile') {
+      showScreen('team-profile');
+      return;
+    }
+    if (Game.fullStatsOrigin === 'team') {
+      openHubTab('team');
+      return;
+    }
+
+    if (Game.fullStatsOrigin === 'league') {
+      openHubTab('league');
+      return;
+    }
+
+    openHubTab('home');
+  });
+document
+.getElementById('full-stats-team-filter')
+?.addEventListener('change', event => {
+  Game.fullStatsSelectedTeamId =
+    event.target.value;
+
+  renderFullStatsScreen();
+});
+document
+.querySelectorAll('.full-stats-type-toggle__button')
+.forEach(button => {
+  button.addEventListener('click', () => {
+    Game.fullStatsView =
+      button.dataset.statsType || 'skaters';
+
+    document
+      .querySelectorAll('.full-stats-type-toggle__button')
+      .forEach(toggleButton => {
+        toggleButton.classList.toggle(
+          'full-stats-type-toggle__button--active',
+          toggleButton === button
+        );
+      });
+
+    renderFullStatsScreen();
+  });
+});
 // ── Cinematic intro sequence ────────────────────────────────
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -2041,17 +11994,83 @@ btnDeleteSave.addEventListener('click', () => {
 });
 
 playerForm.addEventListener('submit', handlePlayerFormSubmit);
+if (playerWeightInput && playerWeightValue) {
+  const updateWeightDisplay = () => {
+    playerWeightValue.textContent =
+      `${playerWeightInput.value} lbs`;
+  };
+
+  playerWeightInput.addEventListener(
+    'input',
+    updateWeightDisplay
+  );
+
+  updateWeightDisplay();
+}
 
 document.querySelectorAll('.choice-card').forEach((button) => {
   button.addEventListener('click', () => {
     handleChoiceButton(button);
   });
 });
+document.addEventListener('click', event => {
+  const button = event.target.closest('.tp-player-link');
+  if (!button) return;
+
+  const playerId = button.dataset.playerId;
+
+  let player = null;
+  if (playerId === 'career-player') {
+    const assignedTeam = (WorldEngine.state.teams || [])
+      .find(team => team.teamId === Game.player.teamId);
+
+    player = {
+      ...Game.player,
+      id: 'career-player',
+      firstName: Game.player.firstName || '',
+      lastName: Game.player.lastName || '',
+      position: Game.player.position || 'C',
+      overall: Number(Game.player.overall) || 60,
+      age: Number(Game.player.age) || 14,
+      year: Game.player.year || 'Freshman',
+      teamId: Game.player.teamId || '',
+      teamName: assignedTeam?.teamName || '',
+      schoolName: assignedTeam?.schoolName || '',
+      attributes: Game.player.attributes || {},
+      reputationStars: Number(Game.player.reputationStars) || 1,
+      potential: Number(Game.player.potential) || 78,
+    };
+  } else {
+
+  for (const team of WorldEngine.state.teams || []) {
+    const foundPlayer = (team.roster || []).find(
+      p => String(p.id) === String(playerId)
+    );
+
+    if (foundPlayer) {
+      player = {
+        ...foundPlayer,
+        teamId: team.teamId,
+      };
+      break;
+    }
+  }
+}
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = 'team-profile';
+  renderPlayerProfile();
+  showScreen('player-profile');
+});
 
 // ── App initialization ──────────────────────────────────────
 function init() {
+  WorldEngine.load();
+  WorldEngine.ensureGeneratedRosters();
+
   updateContinueButton();
-  updateDevShortcut(); // DEV SHORTCUT — remove with dev shortcut
+  updateDevShortcut();
   showScreen('title');
 }
 

@@ -258,6 +258,61 @@
                 </button>
               </div>
             </fieldset>
+            <!-- Player measurements -->
+            <fieldset class="creation-section creation-measurements">
+              <legend>Physical Profile</legend>
+
+              <div class="creation-field">
+                <label for="player-height">Height</label>
+
+                <select id="player-height" name="height">
+                  <option value="5'6&quot;">5'6"</option>
+                  <option value="5'7&quot;">5'7"</option>
+                  <option value="5'8&quot;">5'8"</option>
+                  <option value="5'9&quot;">5'9"</option>
+                  <option value="5'10&quot;" selected>5'10"</option>
+                  <option value="5'11&quot;">5'11"</option>
+                  <option value="6'0&quot;">6'0"</option>
+                  <option value="6'1&quot;">6'1"</option>
+                  <option value="6'2&quot;">6'2"</option>
+                  <option value="6'3&quot;">6'3"</option>
+                  <option value="6'4&quot;">6'4"</option>
+                  <option value="6'5&quot;">6'5"</option>
+                  <option value="6'6&quot;">6'6"</option>
+                </select>
+              </div>
+
+              <div class="creation-field">
+                <div class="creation-field__label-row">
+                  <label for="player-weight">Weight</label>
+                  <span id="player-weight-value">175 lbs</span>
+                </div>
+
+                <input
+                  id="player-weight"
+                  name="weight"
+                  type="range"
+                  min="130"
+                  max="250"
+                  step="1"
+                  value="175"
+                />
+              </div>
+
+              <div class="creation-field">
+                <label for="player-jersey-number">Jersey Number</label>
+
+                <input
+                  id="player-jersey-number"
+                  name="jerseyNumber"
+                  type="number"
+                  min="1"
+                  max="99"
+                  value="19"
+                  inputmode="numeric"
+                />
+              </div>
+            </fieldset>
 
             <p id="form-error" class="form-error" aria-live="polite"></p>
 
@@ -605,7 +660,7 @@
       <section id="hub-screen" class="screen screen--hidden">
 
         <!-- Fixed player identity bar -->
-        <div class="hub-info-bar">
+          <div class="hub-info-bar" id="hub-info-bar">
           <p class="hub-info-bar__name" id="hub-player-name">—</p>
           <p class="hub-info-bar__attrs">
             <span id="hub-player-pos">C</span><span class="hub-info-bar__dot"> · </span><span>Age <span id="hub-player-age-bar">14</span></span><span class="hub-info-bar__dot"> · </span><span>OVR <span class="hub-info-bar__ovr-inline" id="hub-player-ovr">60</span></span>
@@ -620,14 +675,16 @@
         <!-- Scrollable main content -->
         <div class="hub-content">
 
-          <!-- Objective bar -->
-          <div class="hub-objective-bar">
-            <span class="hub-objective-bar__label">Current Objective</span>
-            <span class="hub-objective-bar__text">Impress the coaching staff during freshman tryouts.</span>
-          </div>
-
+          
           <!-- Home tab panel -->
           <div id="hub-tab-home" class="hub-tab-panel hub-tab-panel--active">
+            <!-- Objective bar -->
+            <div class="hub-objective-bar">
+              <span class="hub-objective-bar__label">Current Objective</span>
+              <span class="hub-objective-bar__text" id="hub-current-objective">
+                Impress the coaching staff during freshman tryouts.
+              </span>
+            </div>
 
             <!-- Weekly calendar -->
             <div class="hub-cal">
@@ -742,7 +799,99 @@
           </div><!-- /#hub-tab-home -->
 
           <!-- Other tab panels — not yet functional -->
-          <div id="hub-tab-schedule" class="hub-tab-panel" aria-hidden="true"></div>
+          <div id="hub-tab-schedule" class="hub-tab-panel" aria-hidden="true">
+          <div class="schedule-page">
+            <div class="schedule-header">
+              <button
+                id="schedule-prev-month"
+                class="schedule-month-btn"
+                type="button"
+                aria-label="Previous month"
+              >
+                ‹
+              </button>
+
+              <div class="schedule-month-center">
+                <p class="schedule-eyebrow">Season Calendar</p>
+                <h2 id="schedule-month-title">September 2026</h2>
+              </div>
+
+              <button
+                id="schedule-next-month"
+                class="schedule-month-btn"
+                type="button"
+                aria-label="Next month"
+              >
+                ›
+              </button>
+            </div>
+
+            <div class="schedule-calendar-card">
+              <div class="schedule-weekdays">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+              </div>
+
+              <div
+                id="schedule-calendar-grid"
+                class="schedule-calendar-grid"
+              >
+                <!-- Filled by JavaScript -->
+              </div>
+            </div>
+            <section
+              id="schedule-selected-day-panel"
+              class="schedule-selected-day-panel"
+              hidden
+            >
+              <p class="schedule-eyebrow">Selected Day</p>
+
+              <h3 id="schedule-selected-day-date">
+                September 18, 2026
+              </h3>
+
+              <div id="schedule-selected-day-content">
+                <!-- Filled by JavaScript -->
+              </div>
+
+              <div class="schedule-selected-day-actions">
+                <button
+                  id="schedule-selected-day-details"
+                  class="btn schedule-selected-day-details"
+                  type="button"
+                >
+                  View Details
+                </button>
+
+                <button
+                  id="schedule-selected-day-action"
+                  class="btn btn--primary schedule-selected-day-action"
+                  type="button"
+                >
+                  Simulate to Selected Day
+                </button>
+              </div>
+            </section>
+
+            <section class="schedule-key-events">
+              <div class="schedule-section-heading">
+                <div>
+                  <p class="schedule-eyebrow">Schedule</p>
+                  <h3>Upcoming</h3>
+                </div>
+              </div>
+
+                <div id="schedule-upcoming-list">
+                <!-- Filled by JavaScript -->
+              </div>
+            </section>
+          </div>
+            </div><!-- /#hub-tab-schedule -->
 
           <!-- PLAYER PROFILE TAB -->
           <div id="hub-tab-player" class="hub-tab-panel" aria-hidden="true">
@@ -757,18 +906,178 @@
                 </div>
               </div>
               <p class="pp-header__name" id="pp-player-name">—</p>
-              <p class="pp-header__meta"><span id="pp-player-age">14 years old</span> · <span class="pp-header__team" id="pp-player-team">Freshman Tryouts</span></p>
+              <div class="pp-header__identity">
+                <span
+                  class="pp-header__archetype"
+                  id="pp-player-archetype"
+                >
+                  Playmaker
+                </span>
+
+                <span class="pp-header__identity-dot">
+                  •
+                </span>
+
+                <span
+                  class="pp-header__age"
+                  id="pp-player-age"
+                >
+                  Age 14
+                </span>
+              </div>
+
+              <p class="pp-header__meta">
+                <span
+                  class="pp-header__career-subtitle"
+                  id="pp-player-career-subtitle"
+                >
+                  Freshman
+                </span>
+
+                <span class="pp-header__meta-dot">
+                  •
+                </span>
+
+                <span
+                  class="pp-header__team"
+                  id="pp-player-team"
+                >
+                  Freshman Tryouts
+                </span>
+              </p>
               <div class="pp-header__divider"></div>
               <div class="pp-header__rep">
-                <span class="pp-header__rep-stars">⭐⭐☆☆☆</span>
-                <span class="pp-header__rep-label">Regional Prospect</span>
+                <span
+                  class="pp-header__rep-stars"
+                  id="career-player-reputation-stars"
+                >
+                  ★☆☆☆☆
+                </span>
+
+                <span
+                  class="pp-header__rep-label"
+                  id="career-player-reputation-label"
+                >
+                  Local Prospect
+                </span>
               </div>
+            </div>
+
+            <!-- Career outlook -->
+            <div class="pp-career-summary">
+
+              <section class="pp-career-card">
+                <p class="pp-career-card__title">
+                  Development
+                </p>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    Potential
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value"
+                    id="pp-development-potential"
+                  >
+                    —
+                  </strong>
+                </div>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    Trend
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value pp-career-card__value--trend"
+                    id="pp-development-trend"
+                  >
+                    Stable
+                  </strong>
+                </div>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    Coach Trust
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value"
+                    id="pp-development-trust"
+                  >
+                    50%
+                  </strong>
+                </div>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    Reputation
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value pp-career-card__value--stars"
+                    id="pp-development-reputation"
+                  >
+                    ★★☆☆☆
+                  </strong>
+                </div>
+              </section>
+
+              <section class="pp-career-card">
+                <p class="pp-career-card__title">
+                  Growth
+                </p>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    This Season
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value pp-career-card__value--positive"
+                    id="pp-growth-season"
+                  >
+                    +0 OVR
+                  </strong>
+                </div>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    Career
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value pp-career-card__value--positive"
+                    id="pp-growth-career"
+                  >
+                    +0 OVR
+                  </strong>
+                </div>
+
+                <div class="pp-career-card__item">
+                  <span class="pp-career-card__label">
+                    Prime Window
+                  </span>
+
+                  <strong
+                    class="pp-career-card__value"
+                    id="pp-growth-prime"
+                  >
+                    24–28
+                  </strong>
+                </div>
+              </section>
+
             </div>
 
             <!-- Section: Attributes -->
             <div class="pp-section-label">Attributes</div>
 
-            <div class="pp-attr-list">
+              <div
+                class="pp-attr-list"
+                id="career-player-attributes"
+              >
 
               <!-- Shooting -->
               <div class="pp-attr-cat">
@@ -1004,60 +1313,664 @@
 
             </div><!-- /.pp-attr-list -->
 
-            <!-- Section: Development -->
-            <div class="pp-section-label">Development</div>
+            <!-- Section: Statistics -->
+            <section class="pp-statistics-section">
 
-            <div class="pp-dev-card">
-              <div class="pp-dev-col">
-                <div class="pp-dev-col__header pp-dev-col__header--strengths">
-                  <span class="pp-dev-col__icon">↑</span>
-                  Strengths
+              <div class="pp-section-heading">
+                <div>
+                  <p class="pp-section-label">
+                    Statistics
+                  </p>
+
+                  
                 </div>
-                <ul class="pp-dev-list">
-                  <li class="pp-dev-list__item">Excellent Vision</li>
-                  <li class="pp-dev-list__item">Quick Release</li>
-                  <li class="pp-dev-list__item">Hockey Sense</li>
-                </ul>
+
+                <select
+                  class="pp-statistics-filter"
+                  id="pp-statistics-filter"
+                  aria-label="Statistics type"
+                >
+                  <option value="regular-season">
+                    Regular Season
+                  </option>
+
+                  <option value="playoffs">
+                    Playoffs
+                  </option>
+
+                  <option value="international">
+                    International
+                  </option>
+                </select>
               </div>
-              <div class="pp-dev-divider"></div>
-              <div class="pp-dev-col">
-                <div class="pp-dev-col__header pp-dev-col__header--improve">
-                  <span class="pp-dev-col__icon">↓</span>
-                  Areas To Improve
+
+              <div class="pp-statistics-card">
+                <div
+                  class="pp-statistics-scroll"
+                  id="pp-statistics-scroll"
+                >
+                  <table
+                    class="pp-statistics-table"
+                    id="pp-statistics-table"
+                  >
+                    <thead id="pp-statistics-head">
+                      <!-- Filled by JavaScript -->
+                    </thead>
+
+                    <tbody id="pp-statistics-body">
+                      <!-- Filled by JavaScript -->
+                    </tbody>
+
+                    <tfoot id="pp-statistics-foot">
+                      <!-- Filled by JavaScript -->
+                    </tfoot>
+                  </table>
                 </div>
-                <ul class="pp-dev-list">
-                  <li class="pp-dev-list__item">Strength</li>
-                  <li class="pp-dev-list__item">Defensive Awareness</li>
-                  <li class="pp-dev-list__item">Shot Blocking</li>
-                </ul>
               </div>
-            </div>
 
-            <!-- Section: Scouting Report -->
-            <div class="pp-section-label">Scouting Report</div>
+            </section>
 
-            <div class="pp-scout-card">
-              <div class="pp-scout-card__byline">
-                <span class="pp-scout-card__scout">Regional Scout</span>
-                <span class="pp-scout-card__date">September 2022</span>
+            <!-- Section: Scouting -->
+            <section class="pp-scouting-section">
+
+              <div class="pp-section-heading">
+                <div>
+                  <p class="pp-section-label">
+                    Scouting
+                  </p>
+
+                  <p class="pp-scouting-section__subtitle">
+                    How the hockey world currently views you
+                  </p>
+                </div>
               </div>
-              <p class="pp-scout-card__text">
-                A skilled young forward with good offensive instincts. Scouts believe continued physical development will determine his ceiling.
-              </p>
-              <div class="pp-scout-card__tags">
-                <span class="pp-scout-tag">Offensive Upside</span>
-                <span class="pp-scout-tag">Needs Physicality</span>
-                <span class="pp-scout-tag">High-IQ Player</span>
+
+              <div class="pp-scouting-grid">
+
+                <article class="pp-scouting-card">
+                  <span class="pp-scouting-card__label">
+                    Current Ranking
+                  </span>
+
+                  <strong
+                    class="pp-scouting-card__value"
+                    id="pp-scouting-ranking"
+                  >
+                    Not Ranked
+                  </strong>
+
+                  <span
+                    class="pp-scouting-card__detail"
+                    id="pp-scouting-ranking-change"
+                  >
+                    No ranking history
+                  </span>
+                </article>
+
+                <article class="pp-scouting-card">
+                  <span class="pp-scouting-card__label">
+                    Interest
+                  </span>
+
+                  <strong
+                    class="pp-scouting-card__value"
+                    id="pp-scouting-interest"
+                  >
+                    None
+                  </strong>
+
+                  <span
+                    class="pp-scouting-card__detail"
+                    id="pp-scouting-watchers"
+                  >
+                    No organizations watching
+                  </span>
+                </article>
+
+                <article class="pp-scouting-card">
+                  <span class="pp-scouting-card__label">
+                    Games Observed
+                  </span>
+
+                  <strong
+                    class="pp-scouting-card__value"
+                    id="pp-scouting-games-observed"
+                  >
+                    0
+                  </strong>
+
+                  <span class="pp-scouting-card__detail">
+                    Scout-attended games
+                  </span>
+                </article>
+
+                <article class="pp-scouting-card">
+                  <span class="pp-scouting-card__label">
+                    Evaluation
+                  </span>
+
+                  <strong
+                    class="pp-scouting-card__value"
+                    id="pp-scouting-accuracy"
+                  >
+                    Low
+                  </strong>
+
+                  <span class="pp-scouting-card__detail">
+                    Current scouting certainty
+                  </span>
+                </article>
+
               </div>
-            </div>
+
+              <div class="pp-scouting-evaluation">
+                <div class="pp-scouting-evaluation__header">
+                  <span>
+                    Scout Summary
+                  </span>
+
+                  <span
+                    id="pp-scouting-report-date"
+                  >
+                    No report yet
+                  </span>
+                </div>
+
+                <p
+                  class="pp-scouting-evaluation__text"
+                  id="pp-scouting-report-text"
+                >
+                  Play in scout-attended games to begin building an external evaluation.
+                </p>
+
+                <div class="pp-scouting-traits">
+
+                  <div class="pp-scouting-traits__group">
+                    <span class="pp-scouting-traits__label pp-scouting-traits__label--strength">
+                      Known Strengths
+                    </span>
+
+                    <div
+                      class="pp-scouting-traits__list"
+                      id="pp-scouting-strengths"
+                    >
+                      <span class="pp-scouting-empty">
+                        Not evaluated
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="pp-scouting-traits__group">
+                    <span class="pp-scouting-traits__label pp-scouting-traits__label--weakness">
+                      Known Weaknesses
+                    </span>
+
+                    <div
+                      class="pp-scouting-traits__list"
+                      id="pp-scouting-weaknesses"
+                    >
+                      <span class="pp-scouting-empty">
+                        Not evaluated
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </section>
+
+            <!-- Section: Awards -->
+            <section class="pp-awards-section">
+
+              <div class="pp-section-heading">
+                <p class="pp-section-label">
+                  Awards
+                </p>
+              </div>
+
+              <div
+                class="pp-awards-list"
+                id="pp-awards-list"
+              >
+                <div class="pp-awards-empty">
+                  <span class="pp-awards-empty__icon">
+                    🏆
+                  </span>
+
+                  <div>
+                    <strong class="pp-awards-empty__title">
+                      No Awards Yet
+                    </strong>
+
+                    <p class="pp-awards-empty__text">
+                      Individual awards and championships will appear here throughout your career.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+
+            <!-- Section: Records -->
+            <section class="pp-records-section">
+
+              <div class="pp-section-heading">
+                <p class="pp-section-label">
+                  Records
+                </p>
+              </div>
+
+              <div
+                class="pp-records-list"
+                id="pp-records-list"
+              >
+                <div class="pp-records-empty">
+                  <span class="pp-records-empty__icon">
+                    📖
+                  </span>
+
+                  <div>
+                    <strong class="pp-records-empty__title">
+                      No Records Yet
+                    </strong>
+
+                    <p class="pp-records-empty__text">
+                      Team, league, and career records will appear here when you set them.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+
+            <!-- Section: Career Timeline -->
+            <section class="pp-timeline-section">
+
+              <div class="pp-section-heading">
+                <div>
+                  <p class="pp-section-label">
+                    Career Timeline
+                  </p>
+
+                  <p class="pp-timeline-section__subtitle">
+                    Your hockey journey
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="pp-timeline"
+                id="pp-career-timeline"
+              >
+                <div class="pp-timeline-empty">
+                  <span class="pp-timeline-empty__icon">
+                    🏒
+                  </span>
+
+                  <div>
+                    <strong class="pp-timeline-empty__title">
+                      Your Story Starts Here
+                    </strong>
+
+                    <p class="pp-timeline-empty__text">
+                      Teams, promotions, milestones, awards, championships, and major career moments will appear here.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </section>
 
             <!-- Bottom spacer -->
             <div style="height: 8px"></div>
 
           </div><!-- /#hub-tab-player -->
 
-          <div id="hub-tab-team"     class="hub-tab-panel" aria-hidden="true"></div>
-          <div id="hub-tab-league"   class="hub-tab-panel" aria-hidden="true"></div>
+          <div
+            id="hub-tab-team"
+            class="hub-tab-panel"
+            aria-hidden="true"
+          >
+              <section
+                class="team-page"
+                id="team-page-root"
+              >
+              
+
+              <section class="team-overview">
+                <div class="team-profile-style-hero__color-bar">
+                  <span class="team-profile-style-hero__color-primary"></span>
+                  <span class="team-profile-style-hero__color-secondary"></span>
+                </div>
+                <header class="team-overview__hero team-profile-style-hero">
+                  <p class="team-profile-style-hero__eyebrow">
+                    My Team
+                  </p>
+
+                  <div class="team-profile-style-hero__heading">
+                    <h2 id="team-page-name">
+                      Summit Academy Titans
+                    </h2>
+
+                    <div
+                      class="team-profile-style-hero__prestige"
+                      id="team-page-prestige"
+                      aria-label="Program prestige"
+                    >
+                      ★★★★★
+                    </div>
+                  </div>
+
+                  <p
+                    class="team-profile-style-hero__level"
+                    id="team-page-level"
+                  >
+                    Junior Varsity
+                  </p>
+
+                  <p
+                    class="team-profile-style-hero__identity"
+                    id="team-page-identity"
+                  >
+                    Elite powerhouse with strong scout attention.
+                  </p>
+                </header>
+
+                <section class="team-overview__season">
+                  <p class="team-section-label">Season</p>
+
+                  <div class="team-season-summary">
+                    <div class="team-season-summary__item">
+                      <span class="team-season-summary__label">
+                        Record
+                      </span>
+
+                      <strong id="team-page-season-record">
+                        0-0-0
+                      </strong>
+                    </div>
+
+                    <div class="team-season-summary__item">
+                      <span class="team-season-summary__label">
+                        Standing
+                      </span>
+
+                      <strong id="team-page-league-position">
+                        1st of 8
+                      </strong>
+                    </div>
+
+                    <div class="team-season-summary__item">
+                      <span class="team-season-summary__label">
+                        Points
+                      </span>
+
+                      <strong id="team-page-points">
+                        0
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div class="team-season-goals">
+                    <span>
+                      GF
+                      <strong id="team-page-goals-for">0</strong>
+                    </span>
+
+                    <span>
+                      GA
+                      <strong id="team-page-goals-against">0</strong>
+                    </span>
+                  </div>
+                </section>
+
+                <section class="team-overview__detail">
+                  <p class="team-section-label">Coach</p>
+
+                  <h3 id="team-page-coach">
+                    Marcus Hale
+                  </h3>
+
+                  <p id="team-page-coach-style">
+                    Offensive-minded coach with championship expectations.
+                  </p>
+                </section>
+
+                <section class="team-overview__detail">
+                  <p class="team-section-label">Arena</p>
+
+                  <h3 id="team-page-arena">
+                    Summit Ice Center
+                  </h3>
+
+                  <p id="team-page-arena-capacity">
+                    Capacity: 2,400
+                  </p>
+                </section>
+              </section>
+                <section class="team-roster">
+                  <div class="team-roster__header">
+                    <p class="team-section-label">Lineup</p>
+
+                    <div
+                      class="team-lineup-toggle"
+                      role="group"
+                      aria-label="Choose lineup view"
+                    >
+                      <button
+                        class="team-lineup-toggle__button team-lineup-toggle__button--active"
+                        id="team-lineup-view-even"
+                        type="button"
+                        aria-pressed="true"
+                      >
+                        Even Strength
+                      </button>
+
+                      <button
+                        class="team-lineup-toggle__button"
+                        id="team-lineup-view-special"
+                        type="button"
+                        aria-pressed="false"
+                      >
+                        Special Teams
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="team-roster__list"
+                    id="team-roster-list"
+                  >
+                  </div>
+
+                  <div
+                    class="team-roster__list"
+                    id="team-special-teams-list"
+                    hidden
+                  >
+                  </div>
+                </section>
+              <section class="team-leaders">
+                <div class="team-leaders__header">
+                  <p class="team-section-label">Team Leaders</p>
+
+                  <button
+                    class="team-leaders__stats-button"
+                    id="team-view-full-stats"
+                    type="button"
+                  >
+                    View Full Stats
+                    <span aria-hidden="true">›</span>
+                  </button>
+                </div>
+
+                <div class="team-leaders__grid">
+                  <div class="team-leaders__item">
+                    <span>Goals</span>
+                    <strong id="team-leader-goals">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Assists</span>
+                    <strong id="team-leader-assists">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Points</span>
+                    <strong id="team-leader-points">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Goalie Wins</span>
+                    <strong id="team-leader-wins">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Save %</span>
+                    <strong id="team-leader-save-percentage">No stats yet</strong>
+                  </div>
+                </div>
+              </section>
+            </section>
+          </div>
+          <div
+            id="hub-tab-league"
+            class="hub-tab-panel"
+            aria-hidden="true">
+
+            <section class="league-tab">
+
+              <header class="league-tab__header">
+                <p class="eyebrow">League</p>
+                <h2 id="league-name">Midwest Youth Hockey League</h2>
+
+                <p
+                  class="league-tab__context"
+                  id="league-season">
+                  2022–23 Season
+                </p>
+              </header>
+
+              <section class="league-section" id="league-standings-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">Standings</p>
+                    <h3>League Standings</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-full-standings"
+                    type="button">
+                    View All
+                  </button>
+                </div>
+
+                <div
+                  id="league-standings-preview"
+                  class="league-standings-preview">
+
+                  <div class="league-standings-preview__scroll">
+                    <table class="league-standings-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">TEAM</th>
+                          <th scope="col">PTS</th>
+                          <th scope="col">W</th>
+                          <th scope="col">L</th>
+                          <th scope="col">OTL</th>
+                          <th scope="col">GF</th>
+                          <th scope="col">GA</th>
+                          <th scope="col">PP%</th>
+                          <th scope="col">PK%</th>
+                        </tr>
+                      </thead>
+
+                      <tbody id="league-standings-preview-rows"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+
+              <section class="league-section" id="league-leaders-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">League Leaders</p>
+                    <h3>Top Performers</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-full-stats"
+                    type="button">
+                    Full Stats
+                  </button>
+                </div>
+
+                <div id="league-leaders-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-awards-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">Award Races</p>
+                    <h3>Season Favorites</h3>
+                  </div>
+                </div>
+
+                <div id="league-awards-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-prospects-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">Top Prospects</p>
+                    <h3>Draft Rankings</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-full-prospects"
+                    type="button">
+                    View Rankings
+                  </button>
+                </div>
+
+                <div id="league-prospects-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-news-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">League News</p>
+                    <h3>Around the League</h3>
+                  </div>
+                </div>
+
+                <div id="league-news-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-history-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">History</p>
+                    <h3>League History & Records</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-history"
+                    type="button">
+                    Explore
+                  </button>
+                </div>
+
+                <div id="league-history-preview"></div>
+              </section>
+
+            </section>
+          </div>
 
         </div><!-- /.hub-content -->
 
@@ -1107,21 +2020,36 @@
 
           <div class="sl-table-wrap">
 
-            <!-- Column headers -->
-            <div class="sl-row sl-row--header" aria-hidden="true">
-              <span class="sl-col sl-col--rank">#</span>
-              <span class="sl-col sl-col--school">School</span>
-              <span class="sl-col sl-col--record">Record</span>
-              <span class="sl-col sl-col--pts">PTS</span>
-              <span class="sl-col sl-col--gd">GD</span>
-            </div>
+            <div class="sl-table-scroll">
+              <table class="sl-table">
+                <thead>
+                  <tr>
+                    <th scope="col">TEAM</th>
+                    <th scope="col">PTS</th>
+                    <th scope="col">W</th>
+                    <th scope="col">L</th>
+                    <th scope="col">OTL</th>
+                    <th scope="col">GF</th>
+                    <th scope="col">GA</th>
+                    <th scope="col">PP%</th>
+                    <th scope="col">PK%</th>
+                  </tr>
+                </thead>
 
-            <!-- Rows injected by renderStandingsScreen() -->
-            <div id="sl-rows" role="list" aria-label="League standings"></div>
+                <tbody
+                  id="sl-rows"
+                  aria-label="League standings"
+                >
+                  <!-- Rows injected by renderStandingsScreen() -->
+                </tbody>
+              </table>
+            </div>
 
           </div>
 
-          <p class="sl-footnote">GD = Goal Differential &nbsp;·&nbsp; Record = W-L-OT</p>
+          <p class="sl-footnote">
+            Tap any team to open its profile.
+          </p>
 
         </div>
 
@@ -1130,11 +2058,6 @@
       <!-- TEAM PROFILE SCREEN — single reusable screen, populated by renderTeamProfile() -->
       <section id="team-profile-screen" class="screen screen--hidden">
 
-        <!-- Two-tone color bar at very top, colors set by JS -->
-        <div class="tp-color-bar" id="tp-color-bar" aria-hidden="true">
-          <div class="tp-color-bar__half" id="tp-color-bar-primary"></div>
-          <div class="tp-color-bar__half" id="tp-color-bar-secondary"></div>
-        </div>
 
         <!-- Scrollable content wrapper -->
         <div class="tp-wrap">
@@ -1146,10 +2069,18 @@
               <h2 class="tp-school-name" id="tp-school-name">—</h2>
             </div>
           </header>
+          <div
+            id="team-profile-modern-content"
+            class="team-profile-modern-content"
+          ></div>
 
           <!-- Hero: full team name + prestige -->
           <div class="tp-hero">
-            <p class="tp-hero__team-name" id="tp-team-name">—</p>
+            <div>
+              <p class="tp-hero__team-name" id="tp-team-name">—</p>
+              <p class="tp-hero__level" id="tp-team-level">Junior Varsity</p>
+            </div>
+
             <p class="tp-hero__prestige" id="tp-prestige">☆☆☆☆☆</p>
           </div>
 
@@ -1190,14 +2121,16 @@
           <div class="tp-section">
             <p class="tp-section__label">Coach</p>
             <div class="tp-section__body">
-              <p class="tp-placeholder">Coach information coming soon.</p>
+              <p class="tp-detail-title" id="tp-coach-name">—</p>
+              <p class="tp-detail-subtitle" id="tp-coach-style">—</p>
             </div>
           </div>
 
           <div class="tp-section">
             <p class="tp-section__label">Arena</p>
             <div class="tp-section__body">
-              <p class="tp-placeholder">Arena information coming soon.</p>
+              <p class="tp-detail-title" id="tp-arena-name">—</p>
+              <p class="tp-detail-subtitle" id="tp-arena-capacity">—</p>
             </div>
           </div>
 
@@ -1349,7 +2282,295 @@
         </div><!-- /.tp-wrap -->
 
       </section>
+        <section id="player-profile-screen" class="screen screen--hidden player-profile-screen">
 
+        <header class="tp-header">
+          <button
+            class="back-button"
+            id="btn-back-player-profile"
+            aria-label="Go back"
+          >
+            ‹
+          </button>
+
+          <div class="tp-header__text">
+            <p class="eyebrow">Player Profile</p>
+            <h2 id="player-profile-title">—</h2>
+          </div>
+        </header>
+
+        <div id="player-profile-content">
+
+          <!-- Profile Header -->
+          <div class="pp-header">
+            <div class="pp-header__top">
+              <span class="pp-header__pos-badge" id="player-profile-pos">—</span>
+
+              <div class="pp-header__ovr">
+                <span class="pp-header__ovr-label">OVR</span>
+                <span class="pp-header__ovr-value" id="pp-player-ovr">60</span>
+              </div>
+            </div>
+
+            <p class="pp-header__name" id="player-profile-name">—</p>
+
+            <p class="pp-header__meta">
+              <span id="player-profile-age">14 years old</span>
+              ·
+              <span id="player-profile-team">Freshman Tryouts</span>
+              ·
+              <span id="player-profile-archetype">Two-Way Forward</span>
+            </p>
+            <p class="pp-header__bio">
+              <span id="player-profile-height">5'10"</span>
+              ·
+              <span id="player-profile-weight">175 lbs</span>
+              ·
+              <span id="player-profile-shoots">Shoots L</span>
+            </p>
+
+            <div class="pp-header__divider"></div>
+
+            <div class="pp-header__rep">
+              <span id="pp-player-stars">⭐⭐☆☆☆</span>
+              <span id="pp-player-label">Regional Prospect</span>
+            </div>
+            <div class="pp-header__potential">
+              <span class="pp-header__potential-title">Potential</span>
+
+              <div class="pp-header__potential-value">
+                <span id="player-profile-potential-role">Top 9 F</span>
+                <span id="player-profile-potential-accuracy">MED</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attributes -->
+          <div class="pp-section-label">Attributes</div>
+
+          <div class="pp-attr-list" id="pp-attributes">
+
+            <!-- Filled by JavaScript -->
+
+          </div>
+
+          <!-- Statistics -->
+          <section class="player-snapshot-section">
+
+            <div class="pp-section-heading">
+              <p class="pp-section-label">
+                Statistics
+              </p>
+            </div>
+
+            <div class="pp-statistics-card">
+              <div class="pp-statistics-scroll">
+                <table
+                  class="pp-statistics-table"
+                  id="player-profile-statistics-table"
+                >
+                  <thead id="player-profile-statistics-head">
+                    <!-- Filled by JavaScript -->
+                  </thead>
+
+                  <tbody id="player-profile-statistics-body">
+                    <!-- Filled by JavaScript -->
+                  </tbody>
+
+                  <tfoot id="player-profile-statistics-foot">
+                    <!-- Filled by JavaScript -->
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+          </section>
+
+          <!-- Development -->
+          <div class="pp-section-label">Development</div>
+
+          <div class="pp-dev-card">
+
+            <div class="pp-dev-col">
+
+              <div class="pp-dev-col__header pp-dev-col__header--strengths">
+                ↑ Strengths
+              </div>
+
+              <ul
+                class="pp-dev-list"
+                id="pp-strengths">
+              </ul>
+
+            </div>
+
+            <div class="pp-dev-divider"></div>
+
+            <div class="pp-dev-col">
+
+              <div class="pp-dev-col__header pp-dev-col__header--improve">
+                ↓ Areas To Improve
+              </div>
+
+              <ul
+                class="pp-dev-list"
+                id="pp-weaknesses">
+              </ul>
+
+            </div>
+
+          </div>
+
+          <!-- Scouting Report -->
+          <div class="pp-section-label">
+            Scouting Report
+          </div>
+
+          <div class="pp-scout-card">
+
+            <div class="pp-scout-card__byline">
+
+              <span
+                class="pp-scout-card__scout"
+                id="pp-scout-name">
+                Regional Scout
+              </span>
+
+              <span
+                class="pp-scout-card__date"
+                id="pp-scout-date">
+              </span>
+
+            </div>
+
+            <p
+              class="pp-scout-card__text"
+              id="pp-scout-text">
+            </p>
+
+            <div
+              class="pp-scout-card__tags"
+              id="pp-scout-tags">
+            </div>
+
+          </div>
+
+          <!-- Awards -->
+          <section class="player-snapshot-section">
+
+            <div class="pp-section-heading">
+              <p class="pp-section-label">
+                Awards
+              </p>
+            </div>
+
+            <div
+              class="pp-awards-list"
+              id="player-profile-awards-list"
+            >
+              <!-- Filled by JavaScript -->
+            </div>
+
+          </section>
+
+          <!-- Records -->
+          <section class="player-snapshot-section">
+
+            <div class="pp-section-heading">
+              <p class="pp-section-label">
+                Records
+              </p>
+            </div>
+
+            <div
+              class="pp-records-list"
+              id="player-profile-records-list"
+            >
+              <!-- Filled by JavaScript -->
+            </div>
+
+          </section>
+
+        </div>
+
+      </section>
+      <!-- SHARED FULL STATS SCREEN -->
+      <section
+        id="full-stats-screen"
+        class="screen screen--hidden full-stats-screen"
+      >
+        <div class="full-stats-wrap">
+          <header class="full-stats-header">
+            <button
+              class="back-button"
+              id="btn-back-full-stats"
+              type="button"
+              aria-label="Go back"
+            >
+              ‹
+            </button>
+
+            <div class="full-stats-header__text">
+              <p class="eyebrow">Statistics</p>
+              <h2 id="full-stats-title">Full Stats</h2>
+            </div>
+          </header>
+
+          <div class="full-stats-controls">
+            <div
+              class="full-stats-type-toggle"
+              role="group"
+              aria-label="Statistics type"
+            >
+              <button
+                class="full-stats-type-toggle__button full-stats-type-toggle__button--active"
+                id="full-stats-skaters-button"
+                type="button"
+                data-stats-type="skaters"
+              >
+                Skaters
+              </button>
+
+              <button
+                class="full-stats-type-toggle__button"
+                id="full-stats-goalies-button"
+                type="button"
+                data-stats-type="goalies"
+              >
+                Goalies
+              </button>
+            </div>
+
+            <label
+              class="full-stats-filter"
+              for="full-stats-team-filter"
+            >
+              <span>View</span>
+
+              <select id="full-stats-team-filter">
+                <option value="league">Entire League</option>
+              </select>
+            </label>
+          </div>
+
+          <p
+            class="full-stats-context"
+            id="full-stats-context"
+          >
+            Entire League
+          </p>
+
+          <div class="full-stats-table-wrap">
+            <table
+              class="full-stats-table"
+              id="full-stats-table"
+            >
+              <thead id="full-stats-table-head"></thead>
+              <tbody id="full-stats-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
       <!-- TOP 100 PROSPECTS SCREEN -->
       <section id="prospects-screen" class="screen screen--hidden">
 
@@ -1366,7 +2587,7 @@
             </div>
           </header>
 
-          <p class="sl-context">Prospect Rankings · Draft Class 2027</p>
+          <p class="sl-context">National Prospect Rankings</p>
 
           <div class="pr-table-wrap">
 
@@ -1437,6 +2658,31 @@
             </p>
           </div>
 
+          <div class="ev-section" id="ev-details-section" hidden>
+              <p class="ev-section__label">Details</p>
+
+              <div id="ev-details">
+                  <!-- Filled by JS -->
+              </div>
+          </div>
+
+          <div
+            class="ev-section"
+            id="ev-featured-section"
+            hidden
+          >
+            <p class="ev-section__label">
+              Why This Game Matters
+            </p>
+
+            <div
+              id="ev-featured-reasons"
+              class="ev-featured-reasons"
+            >
+              <!-- Filled by JavaScript -->
+            </div>
+          </div>
+
           <!-- CTA -->
           <div class="ev-begin-area">
             <button class="btn btn--primary ev-begin-btn" id="btn-ev-begin">
@@ -1450,6 +2696,101 @@
 
         </div><!-- /.ev-wrap -->
 
+      </section>
+
+      <!-- EVENT RESULTS SCREEN — reusable outcome screen -->
+      <section
+        id="event-results-screen"
+        class="screen screen--hidden"
+      >
+        <div class="er-wrap">
+
+          <header class="er-header">
+            <p class="eyebrow">
+              Event Complete
+            </p>
+
+            <span
+              class="er-type-badge"
+              id="er-type-badge"
+            >
+              EVENT
+            </span>
+          </header>
+
+          <div class="er-hero">
+            <span
+              class="er-hero__icon"
+              id="er-icon"
+            >
+              ✓
+            </span>
+
+            <h2
+              class="er-hero__title"
+              id="er-title"
+            >
+              Event Complete
+            </h2>
+
+            <p
+              class="er-hero__subtitle"
+              id="er-subtitle"
+            >
+              Your progress has been recorded.
+            </p>
+          </div>
+
+          <div
+            class="er-summary-card"
+            id="er-summary-card"
+          >
+            <p class="er-section-label">
+              Results
+            </p>
+
+            <div
+              class="er-results-list"
+              id="er-results-list"
+            >
+              <!-- Filled by JavaScript -->
+            </div>
+          </div>
+
+          <div
+            class="er-note-card"
+            id="er-note-card"
+            hidden
+          >
+            <p class="er-section-label">
+              Coach Notes
+            </p>
+
+            <p
+              class="er-note-text"
+              id="er-note-text"
+            >
+              —
+            </p>
+          </div>
+
+          <div class="er-actions">
+            <button
+              class="btn btn--primary"
+              id="btn-event-results-continue"
+              type="button"
+            >
+              <span class="btn__label">
+                Continue
+              </span>
+
+              <span class="btn__arrow">
+                ›
+              </span>
+            </button>
+          </div>
+
+        </div>
       </section>
 
       <!-- COACH INTRO SCREEN — shown before skating evaluation drill -->
@@ -1499,6 +2840,59 @@
         </div>
       </section>
 
+          <section id="coach-results-screen" class="screen screen--hidden coach-results-screen">
+        <div class="ci-wrap">
+
+          <header class="ci-header">
+              <button id="btn-back-coach-results" class="back-button" aria-label="Back">‹</button>
+            <span class="ci-eyebrow">TRYOUTS COMPLETE</span>
+          </header>
+
+          <div class="ci-coach-card">
+            <div class="ci-coach-avatar">
+              <span class="ci-coach-avatar__initials">CR</span>
+            </div>
+            <div class="ci-coach-meta">
+              <span class="ci-coach-name">Coach Reynolds</span>
+              <span class="ci-coach-role">Head Evaluator · Eastdale Ice Arena</span>
+            </div>
+          </div>
+
+          <div class="ci-eval-block">
+              <span id="cr-eval-tag" class="ci-eval-tag">FINAL EVALUATION</span>
+            <div class="ci-eval-title-row">
+                <span id="cr-eval-icon" class="ci-eval-icon">📋</span>
+                <h1 id="cr-eval-title" class="ci-eval-title">Coach's Evaluation</h1>
+            </div>
+          </div>
+
+          <div class="ci-speech">
+            <p id="cr-speech-text" class="ci-speech__text">
+              "That's all for today.<br><br>
+              I appreciate the effort every one of you gave.<br><br>
+              We evaluated your skating, puck skills, and how you compete.<br><br>
+              Some of you will begin on varsity.<br><br>
+              Some of you will begin on junior varsity.<br><br>
+              No matter where you start, your hockey career begins today.<br><br>
+              Let's take a look at the roster."
+            </p>
+          </div>
+
+          <div id="cr-traits" class="ci-traits">
+            <span class="ci-trait">⛸️ Skating Evaluated</span>
+            <span class="ci-trait">🏒 Puck Skills Evaluated</span>
+            <span class="ci-trait">🧠 Game Sense Evaluated</span>
+          </div>
+
+          <div class="ci-cta">
+            <button id="btn-view-roster" class="ci-begin-btn">
+              <span id="cr-begin-btn-label" class="ci-begin-btn__label">View Tryout Results</span>
+              <span class="ci-begin-btn__arrow">›</span>
+            </button>
+          </div>
+
+        </div>
+      </section>
       <!-- SKATING EVALUATION SCREEN — active 3-decision drill -->
       <section id="skating-eval-screen" class="screen screen--hidden">
         <div class="se-wrap">
@@ -1598,26 +2992,42 @@
 
           <div class="ts-divider" aria-hidden="true"></div>
 
-          <!-- Placeholder results -->
+          <!-- Real tryout evaluation results -->
           <div class="ts-results-card">
-            <div class="ts-result-row">
-              <span class="ts-result-row__label">Drill Results</span>
-              <span class="ts-result-row__value ts-result-row__value--pending">Coming Soon</span>
+
+            <div class="ts-result-row ts-result-row--featured">
+              <span class="ts-result-row__label">Overall Tryout Grade</span>
+              <span class="ts-result-row__value" id="ts-overall-grade">--</span>
             </div>
+
             <div class="ts-result-row">
+              <span class="ts-result-row__label">⛸️ Skating</span>
+              <span class="ts-result-row__value" id="ts-skating-grade">--</span>
+            </div>
+
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">🏒 Puck Control</span>
+              <span class="ts-result-row__value" id="ts-puck-grade">--</span>
+            </div>
+
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">🥅 Scrimmage</span>
+              <span class="ts-result-row__value" id="ts-scrimmage-grade">--</span>
+            </div>
+
+            <div class="ts-result-row ts-result-row--stacked">
               <span class="ts-result-row__label">Coach Evaluation</span>
-              <span class="ts-result-row__value ts-result-row__value--pending">Coming Soon</span>
+              <span class="ts-result-row__value ts-result-row__value--note" id="ts-coach-evaluation">
+                Evaluation unavailable.
+              </span>
             </div>
-            <div class="ts-result-row">
-              <span class="ts-result-row__label">Team Placement</span>
-              <span class="ts-result-row__value ts-result-row__value--pending">Coming Soon</span>
-            </div>
+
           </div>
 
           <!-- CTA: only visible when first completing tryouts (stage !== 'hub') -->
           <div class="ts-cta" id="ts-cta-hub" hidden>
             <button class="btn btn--primary ts-cta-btn" id="btn-ts-enter-hub">
-              <span class="btn__label">Enter Career Hub</span>
+              <span class="btn__label">Continue to Roster Reveal</span>
               <span class="btn__arrow">›</span>
             </button>
           </div>
@@ -1625,7 +3035,76 @@
         </div><!-- /.ts-wrap -->
 
       </section>
+      <section id="roster-reveal-screen" class="screen screen--hidden">
 
+        <div class="ts-wrap">
+
+          <header class="ts-header">
+            <div class="ts-header__text">
+              <p class="eyebrow">Congratulations</p>
+              <h2>Roster Reveal</h2>
+            </div>
+          </header>
+
+          <div class="ts-hero">
+            <span class="ts-hero__icon" id="rr-team-logo">🦅</span>
+
+            <div class="ts-hero__info">
+              <h3 class="ts-hero__title" id="rr-team-name">
+                Eastdale Falcons
+              </h3>
+
+              <p class="ts-hero__subtitle" id="rr-team-level">
+                Junior Varsity
+              </p>
+            </div>
+          </div>
+
+          <div class="ts-divider"></div>
+
+          <div class="ts-results-card">
+
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Position</span>
+              <span class="ts-result-row__value" id="rr-position">Center</span>
+            </div>
+
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Starting Line</span>
+              <span class="ts-result-row__value" id="rr-line">3rd Line</span>
+            </div>
+
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Coach Trust</span>
+              <span class="ts-result-row__value" id="rr-trust">42%</span>
+            </div>
+
+            <div class="ts-result-row">
+              <span class="ts-result-row__label">Reputation</span>
+              <span class="ts-result-row__value" id="rr-reputation">★☆☆☆☆</span>
+            </div>
+
+          </div>
+
+          <div class="ts-cta">
+
+            <button
+              class="btn btn--primary ts-cta-btn"
+              id="btn-begin-season">
+
+              <span class="btn__label">
+                Begin Your Season
+              </span>
+
+              <span class="btn__arrow">›</span>
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </section>
       <!-- NHL TEAM SCREEN -->
       <section id="nhlteam-screen" class="screen screen--hidden">
         <header class="screen-header">
@@ -2192,7 +3671,7 @@
         </div>
       </section>
     </main>
-
+    <script src="prospects.js"></script>
     <script src="/world.js"></script>
     <script src="/game.js"></script>
     <!-- CINEMATIC OVERLAY -->
