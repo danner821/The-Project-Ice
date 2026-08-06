@@ -3127,7 +3127,82 @@
             <section class="postgame-section">
               <div class="postgame-section__heading">
                 <div>
+                  <p class="eyebrow">Game Comparison</p>
+                  <h3>Team Stats</h3>
+                </div>
+              </div>
+
+              <div class="postgame-team-stats">
+
+                <div class="postgame-team-stats__header">
+                  <strong
+                    id="postgame-team-stats-away"
+                  >
+                    AWY
+                  </strong>
+
+                  <span>Stat</span>
+
+                  <strong
+                    id="postgame-team-stats-home"
+                  >
+                    HOM
+                  </strong>
+                </div>
+
+                <div class="postgame-team-stat-row">
+                  <strong
+                    id="postgame-away-goals"
+                  >
+                    0
+                  </strong>
+
+                  <span>Goals</span>
+
+                  <strong
+                    id="postgame-home-goals"
+                  >
+                    0
+                  </strong>
+                </div>
+
+                <div class="postgame-team-stat-row">
+                  <strong
+                    id="postgame-away-shots"
+                  >
+                    0
+                  </strong>
+
+                  <span>Shots</span>
+
+                  <strong
+                    id="postgame-home-shots"
+                  >
+                    0
+                  </strong>
+                </div>
+
+              </div>
+            </section>
+
+            <section class="postgame-section">
+              <div class="postgame-section__heading">
+                <div>
                   <p class="eyebrow">Game Leaders</p>
+                  <section class="postgame-section">
+                    <div class="postgame-section__heading">
+                      <div>
+                        <p class="eyebrow">Goal Timeline</p>
+                        <h3>Scoring Summary</h3>
+                      </div>
+                    </div>
+
+                    <div
+                      class="postgame-scoring-summary"
+                      id="postgame-scoring-summary"
+                    >
+                    </div>
+                  </section>
                   <h3>Three Stars</h3>
                 </div>
               </div>
@@ -3158,7 +3233,7 @@
 
           <footer class="postgame-summary__footer">
             <button
-              class="btn btn--secondary"
+              class="btn btn--primary"
               id="btn-postgame-box-score"
               type="button"
             >
@@ -3180,8 +3255,167 @@
         </div>
       </section>
 
-      <!-- TRYOUT SUMMARY SCREEN -->
-      <section id="tryout-summary-screen" class="screen screen--hidden">
+      <!-- FULL BOX SCORE SCREEN -->
+      <section
+        id="box-score-screen"
+        class="screen screen--hidden"
+      >
+        <div class="box-score-screen">
+
+          <header class="box-score-header">
+            <button
+              class="back-button"
+              id="btn-box-score-back"
+              type="button"
+              aria-label="Return to postgame summary"
+            >
+              ‹
+            </button>
+
+            <div class="box-score-header__copy">
+              <p class="eyebrow">Completed Game</p>
+              <h2>Full Box Score</h2>
+            </div>
+          </header>
+
+          <section class="box-score-scoreboard">
+            <p
+              class="box-score-scoreboard__status"
+              id="box-score-status"
+            >
+              Final
+            </p>
+
+            <div class="box-score-scoreboard__teams">
+              <div class="box-score-scoreboard__team">
+                <span
+                  class="box-score-scoreboard__abbreviation"
+                  id="box-score-away-abbreviation"
+                >
+                  AWY
+                </span>
+
+                <strong
+                  class="box-score-scoreboard__score"
+                  id="box-score-away-score"
+                >
+                  0
+                </strong>
+              </div>
+
+              <span class="box-score-scoreboard__divider">
+                —
+              </span>
+
+              <div class="box-score-scoreboard__team">
+                <span
+                  class="box-score-scoreboard__abbreviation"
+                  id="box-score-home-abbreviation"
+                >
+                  HOM
+                </span>
+
+                <strong
+                  class="box-score-scoreboard__score"
+                  id="box-score-home-score"
+                >
+                  0
+                </strong>
+              </div>
+            </div>
+          </section>
+
+          <div
+            class="box-score-team-toggle"
+            role="tablist"
+            aria-label="Select team box score"
+          >
+            <button
+              class="box-score-team-toggle__button box-score-team-toggle__button--active"
+              id="box-score-away-toggle"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-box-score-side="away"
+            >
+              Away
+            </button>
+
+            <button
+              class="box-score-team-toggle__button"
+              id="box-score-home-toggle"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-box-score-side="home"
+            >
+              Home
+            </button>
+          </div>
+
+          <main class="box-score-content">
+
+            <section class="box-score-section">
+              <div class="box-score-section__heading">
+                <div>
+                  <p class="eyebrow">Single-Game Statistics</p>
+                  <h3 id="box-score-team-name">
+                    Away Team
+                  </h3>
+                </div>
+              </div>
+
+              <div class="box-score-table-wrap">
+                <table class="box-score-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>G</th>
+                      <th>A</th>
+                      <th>PTS</th>
+                      <th>+/-</th>
+                      <th>PIM</th>
+                      <th>SOG</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="box-score-skater-rows">
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="box-score-section">
+              <div class="box-score-section__heading">
+                <div>
+                  <p class="eyebrow">Goaltending</p>
+                  <h3>Goalies</h3>
+                </div>
+              </div>
+
+              <div class="box-score-table-wrap">
+                <table class="box-score-table box-score-table--goalies">
+                  <thead>
+                    <tr>
+                      <th>Goalie</th>
+                      <th>SA</th>
+                      <th>SV</th>
+                      <th>GA</th>
+                      <th>SV%</th>
+                      <th>DEC</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="box-score-goalie-rows">
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+          </main>
+
+        </div>
+      </section>
 
       <!-- TRYOUT SUMMARY SCREEN -->
       <section id="tryout-summary-screen" class="screen screen--hidden">

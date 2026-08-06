@@ -64,6 +64,11 @@ const postgameSummaryScreen =
     'postgame-summary-screen'
   );
 
+const boxScoreScreen =
+  document.getElementById(
+    'box-score-screen'
+  );
+
 const tryoutSummaryScreen =
   document.getElementById(
     'tryout-summary-screen'
@@ -498,6 +503,10 @@ function showScreen(screenName) {
     'screen--hidden'
   );
 
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
   tryoutSummaryScreen.classList.add(
     'screen--hidden'
   );
@@ -586,6 +595,15 @@ function showScreen(screenName) {
       'postgame-summary'
     ) {
       postgameSummaryScreen.classList.remove(
+        'screen--hidden'
+      );
+    }
+
+    if (
+      screenName ===
+      'box-score'
+    ) {
+      boxScoreScreen.classList.remove(
         'screen--hidden'
       );
     }
@@ -5194,6 +5212,52 @@ function openPostgameSummary(gameId) {
     0
   );
 
+  /*
+   * Team Stats
+   *
+   * Use only values already saved in the frozen
+   * postgame package.
+   */
+  setText(
+    'postgame-team-stats-away',
+    awayTeam?.abbreviation ||
+    'AWY'
+  );
+
+  setText(
+    'postgame-team-stats-home',
+    homeTeam?.abbreviation ||
+    'HOM'
+  );
+
+  setText(
+    'postgame-away-goals',
+    summary.finalScore?.away ??
+    summary.away?.score ??
+    0
+  );
+
+  setText(
+    'postgame-home-goals',
+    summary.finalScore?.home ??
+    summary.home?.score ??
+    0
+  );
+
+  setText(
+    'postgame-away-shots',
+    Number(
+      summary.away?.shots
+    ) || 0
+  );
+
+  setText(
+    'postgame-home-shots',
+    Number(
+      summary.home?.shots
+    ) || 0
+  );
+
   setText(
     'postgame-player-name',
     [
@@ -5252,6 +5316,947 @@ function openPostgameSummary(gameId) {
     ) || 0
   );
 
+  /*
+   * Three Stars
+   *
+   * Rank skaters from both teams using their frozen
+   * single-game box-score production. This is display-only
+   * and never changes the saved game result.
+   */
+  const getPostgamePlayerName = player => {
+    const fullName =
+      [
+        player?.firstName,
+        player?.lastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+    return (
+      fullName ||
+      player?.name ||
+      player?.playerName ||
+      (
+        String(player?.playerId) ===
+        playerId
+          ? [
+              Game.player.firstName,
+              Game.player.lastName,
+            ]
+              .filter(Boolean)
+              .join(' ')
+          : ''
+      ) ||
+      'Unknown Player'
+    );
+  };
+
+  const getPostgameTeamAbbreviation =
+    player => {
+      const skaterTeamId =
+        String(
+          player?.teamId ||
+          ''
+        );
+
+      if (
+        skaterTeamId ===
+        String(summary.home?.teamId)
+      ) {
+        return (
+          homeTeam?.abbreviation ||
+          'HOME'
+        );
+      }
+
+      if (
+        skaterTeamId ===
+        String(summary.away?.teamId)
+      ) {
+        return (
+          awayTeam?.abbreviation ||
+          'AWAY'
+        );
+      }
+
+      return '';
+    };
+
+  const rankedPostgameSkaters =
+    allSkaters
+      .map(skater => {
+        const goals =
+          Number(skater.goals) || 0;
+
+        const assists =
+          Number(skater.assists) || 0;
+
+        const points =
+          Number(skater.points) ||
+          goals + assists;
+
+        const shots =
+          Number(skater.shots) || 0;
+
+        const plusMinus =
+          Number(skater.plusMinus) || 0;
+
+        /*
+         * Goals lead the ranking, followed by assists,
+         * overall production, shot volume, and plus/minus.
+         */
+        const starScore =
+          (goals * 10) +
+          (assists * 6) +
+          (points * 2) +
+          (shots * 0.25) +
+          (plusMinus * 0.5);
+
+        return {
+          ...skater,
+          goals,
+          assists,
+          points,
+          shots,
+          plusMinus,
+          starScore,
+        };
+      })
+      .sort((first, second) => {
+        if (
+          second.starScore !==
+          first.starScore
+        ) {
+          return (
+            second.starScore -
+            first.starScore
+          );
+        }
+
+        if (
+          second.goals !==
+          first.goals
+        ) {
+          return (
+            second.goals -
+            first.goals
+          );
+        }
+
+        if (
+          second.assists !==
+          first.assists
+        ) {
+          return (
+            second.assists -
+            first.assists
+          );
+        }
+
+        return (
+          second.shots -
+          first.shots
+        );
+      })
+      .slice(0, 3);
+
+  /*
+   * Starting Goalies
+   *
+   * Use the frozen single-game goalie lines saved inside
+   * the completed game's postgame package.
+   */
+  const homeGoalies =
+    Array.isArray(
+      summary.home?.goalies
+    )
+      ? summary.home.goalies
+      : [];
+
+  const awayGoalies =
+    Array.isArray(
+      summary.away?.goalies
+    )
+      ? summary.away.goalies
+      : [];
+
+  const homeStarter =
+    homeGoalies.find(
+      goalie =>
+        goalie.started === true
+    ) ||
+    homeGoalies[0] ||
+    null;
+
+  const awayStarter =
+    awayGoalies.find(
+      goalie =>
+        goalie.started === true
+    ) ||
+    awayGoalies[0] ||
+    null;
+
+  const getGoalieName = goalie => {
+    if (!goalie) {
+      return 'Goalie Unavailable';
+    }
+
+    const fullName =
+      [
+        goalie.firstName,
+        goalie.lastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+    if (fullName) {
+      return fullName;
+    }
+
+    if (goalie.name) {
+      return goalie.name;
+    }
+
+    if (goalie.playerName) {
+      return goalie.playerName;
+    }
+
+    const goaliePlayerId =
+      String(
+        goalie.playerId ||
+        goalie.id ||
+        ''
+      );
+
+    const rosterPlayer =
+      [
+        ...(
+          Array.isArray(
+            homeTeam?.roster
+          )
+            ? homeTeam.roster
+            : []
+        ),
+
+        ...(
+          Array.isArray(
+            awayTeam?.roster
+          )
+            ? awayTeam.roster
+            : []
+        ),
+      ].find(player =>
+        String(
+          player.playerId ||
+          player.id
+        ) === goaliePlayerId
+      );
+
+    return (
+      [
+        rosterPlayer?.firstName,
+        rosterPlayer?.lastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      rosterPlayer?.name ||
+      'Unknown Goalie'
+    );
+  };
+
+  const formatGoalieSavePercentage =
+    goalie => {
+      const savedPercentage =
+        Number(
+          goalie?.savePercentage
+        );
+
+      if (
+        Number.isFinite(
+          savedPercentage
+        ) &&
+        savedPercentage > 0
+      ) {
+        return savedPercentage
+          .toFixed(3)
+          .replace(/^0/, '');
+      }
+
+      const shotsAgainst =
+        Number(
+          goalie?.shotsAgainst
+        ) || 0;
+
+      const saves =
+        Number(
+          goalie?.saves
+        ) || 0;
+
+      if (shotsAgainst <= 0) {
+        return '.000';
+      }
+
+      return (
+        saves /
+        shotsAgainst
+      )
+        .toFixed(3)
+        .replace(/^0/, '');
+    };
+
+  const buildGoalieRow = (
+    goalie,
+    team,
+    fallbackLabel
+  ) => {
+    if (!goalie) {
+      return `
+        <div class="postgame-goalie-row">
+          <div class="postgame-goalie-row__identity">
+            <strong>
+              Goalie Unavailable
+            </strong>
+
+            <span>
+              ${fallbackLabel}
+            </span>
+          </div>
+
+          <span class="postgame-goalie-row__stats">
+            —
+          </span>
+        </div>
+      `;
+    }
+
+    const saves =
+      Number(goalie.saves) || 0;
+
+    const shotsAgainst =
+      Number(
+        goalie.shotsAgainst
+      ) || 0;
+
+    const goalsAgainst =
+      Number(
+        goalie.goalsAgainst
+      ) || 0;
+
+    return `
+      <div class="postgame-goalie-row">
+        <div class="postgame-goalie-row__identity">
+          <strong>
+            ${getGoalieName(goalie)}
+          </strong>
+
+          <span>
+            ${
+              team?.abbreviation ||
+              fallbackLabel
+            }
+            • Starter
+          </span>
+        </div>
+
+        <span class="postgame-goalie-row__stats">
+          ${saves} SV •
+          ${goalsAgainst} GA •
+          ${formatGoalieSavePercentage(
+            goalie
+          )} SV%
+          ${
+            shotsAgainst > 0
+              ? ` • ${shotsAgainst} SA`
+              : ''
+          }
+        </span>
+      </div>
+    `;
+  };
+
+  const goalieList =
+    document.getElementById(
+      'postgame-goalie-list'
+    );
+
+  if (goalieList) {
+    goalieList.innerHTML = [
+      buildGoalieRow(
+        awayStarter,
+        awayTeam,
+        'AWAY'
+      ),
+
+      buildGoalieRow(
+        homeStarter,
+        homeTeam,
+        'HOME'
+      ),
+    ].join('');
+  }
+
+  /*
+   * Combine the best skaters with both starting goalies
+   * so strong goalie performances can earn a game star.
+   */
+  const goalieStarCandidates = [
+    {
+      goalie: awayStarter,
+      team: awayTeam,
+    },
+    {
+      goalie: homeStarter,
+      team: homeTeam,
+    },
+  ]
+    .filter(candidate =>
+      candidate.goalie
+    )
+    .map(candidate => {
+      const goalie =
+        candidate.goalie;
+
+      const saves =
+        Number(goalie.saves) || 0;
+
+      const shotsAgainst =
+        Number(
+          goalie.shotsAgainst
+        ) || 0;
+
+      const goalsAgainst =
+        Number(
+          goalie.goalsAgainst
+        ) || 0;
+
+      const savePercentage =
+        shotsAgainst > 0
+          ? saves / shotsAgainst
+          : 0;
+
+      const shutoutBonus =
+        goalsAgainst === 0 &&
+        shotsAgainst > 0
+          ? 18
+          : 0;
+
+      const goalieStarScore =
+        (saves * 0.55) +
+        (savePercentage * 22) -
+        (goalsAgainst * 5) +
+        shutoutBonus;
+
+      return {
+        type: 'goalie',
+
+        playerId:
+          goalie.playerId ||
+          goalie.id ||
+          '',
+
+        displayName:
+          getGoalieName(goalie),
+
+        teamAbbreviation:
+          candidate.team
+            ?.abbreviation ||
+          '',
+
+        saves,
+        shotsAgainst,
+        goalsAgainst,
+        savePercentage,
+        starScore:
+          goalieStarScore,
+      };
+    });
+
+  const combinedPostgameStars = [
+    ...rankedPostgameSkaters.map(
+      skater => ({
+        ...skater,
+        type: 'skater',
+      })
+    ),
+
+    ...goalieStarCandidates,
+  ]
+    .sort((first, second) =>
+      second.starScore -
+      first.starScore
+    )
+    .slice(0, 3);
+
+  /*
+   * Scoring Summary
+   *
+   * Render the frozen scoring timeline and derive the running
+   * score by processing each goal in chronological order.
+   */
+  const scoringSummaryContainer =
+    document.getElementById(
+      'postgame-scoring-summary'
+    );
+
+  const homeTeamId =
+    String(
+      summary.home?.teamId ||
+      scheduledGame.homeTeamId ||
+      ''
+    );
+
+  const awayTeamId =
+    String(
+      summary.away?.teamId ||
+      scheduledGame.awayTeamId ||
+      ''
+    );
+
+  const homeAbbreviation =
+    homeTeam?.abbreviation ||
+    'HOME';
+
+  const awayAbbreviation =
+    awayTeam?.abbreviation ||
+    'AWAY';
+
+  const rawScoringPlays =
+    Array.isArray(summary.timeline)
+      ? summary.timeline
+      : [];
+
+  const formatScoringTime =
+    play => {
+      const rawTime =
+        play?.timeRemaining;
+
+      if (
+        typeof rawTime === 'string' &&
+        rawTime.includes(':')
+      ) {
+        return rawTime;
+      }
+
+      const seconds =
+        Number(rawTime);
+
+      if (
+        Number.isFinite(seconds) &&
+        seconds >= 0
+      ) {
+        const minutes =
+          Math.floor(seconds / 60);
+
+        const remainingSeconds =
+          Math.floor(seconds % 60);
+
+        return `${minutes}:${String(
+          remainingSeconds
+        ).padStart(2, '0')}`;
+      }
+
+      const elapsedSeconds =
+        Number(
+          play?.elapsedSeconds
+        );
+
+      if (
+        Number.isFinite(elapsedSeconds) &&
+        elapsedSeconds >= 0
+      ) {
+        const periodLength = 20 * 60;
+
+        const remaining =
+          Math.max(
+            0,
+            periodLength -
+            elapsedSeconds
+          );
+
+        const minutes =
+          Math.floor(remaining / 60);
+
+        const secondsLeft =
+          Math.floor(remaining % 60);
+
+        return `${minutes}:${String(
+          secondsLeft
+        ).padStart(2, '0')}`;
+      }
+
+      return '—';
+    };
+
+  const normalizePeriod =
+    play => {
+      const rawPeriod =
+        play?.period;
+
+      if (
+        rawPeriod === 'OT' ||
+        rawPeriod === 'SO'
+      ) {
+        return rawPeriod;
+      }
+
+      const periodNumber =
+        Number(rawPeriod);
+
+      return Number.isFinite(
+        periodNumber
+      )
+        ? periodNumber
+        : 1;
+    };
+
+  let runningHomeScore = 0;
+  let runningAwayScore = 0;
+
+  const scoringPlays =
+    rawScoringPlays
+      .filter(play =>
+        Boolean(
+          play?.scorerId ||
+          play?.scorerName
+        ) &&
+        Boolean(play?.teamId)
+      )
+      .map(play => {
+        const scoringTeamId =
+          String(
+            play.teamId ||
+            ''
+          );
+
+        if (
+          scoringTeamId ===
+          homeTeamId
+        ) {
+          runningHomeScore += 1;
+        }
+
+        if (
+          scoringTeamId ===
+          awayTeamId
+        ) {
+          runningAwayScore += 1;
+        }
+
+        return {
+          ...play,
+
+          normalizedPeriod:
+            normalizePeriod(play),
+
+          formattedTime:
+            formatScoringTime(play),
+
+          homeScoreAfter:
+            runningHomeScore,
+
+          awayScoreAfter:
+            runningAwayScore,
+        };
+      });
+
+  const periodGroups = [
+    {
+      key: 1,
+      label: '1st Period',
+    },
+    {
+      key: 2,
+      label: '2nd Period',
+    },
+    {
+      key: 3,
+      label: '3rd Period',
+    },
+  ];
+
+  if (
+    scoringPlays.some(
+      play =>
+        play.normalizedPeriod === 4 ||
+        play.normalizedPeriod === 'OT'
+    )
+  ) {
+    periodGroups.push({
+      key: 'OT',
+      label: 'Overtime',
+    });
+  }
+
+  const escapeScoringText =
+    value =>
+      String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+
+  if (scoringSummaryContainer) {
+    scoringSummaryContainer.innerHTML =
+      periodGroups
+        .map(periodGroup => {
+          const periodPlays =
+            scoringPlays.filter(
+              play => {
+                if (
+                  periodGroup.key ===
+                  'OT'
+                ) {
+                  return (
+                    play.normalizedPeriod ===
+                      'OT' ||
+                    play.normalizedPeriod ===
+                      4
+                  );
+                }
+
+                return (
+                  play.normalizedPeriod ===
+                  periodGroup.key
+                );
+              }
+            );
+
+          const playsMarkup =
+            periodPlays.length > 0
+              ? periodPlays
+                  .map(play => {
+                    const assists = [
+                      play.primaryAssistName,
+                      play.secondaryAssistName,
+                    ].filter(Boolean);
+
+                    const strength =
+                      String(
+                        play.strength ||
+                        ''
+                      ).toUpperCase();
+
+                    const showStrengthBadge =
+                      strength &&
+                      strength !== 'EV';
+
+                    const scoringTeamId =
+                      String(
+                        play.teamId ||
+                        ''
+                      );
+
+                    const scoringTeamAbbreviation =
+                      scoringTeamId ===
+                      homeTeamId
+                        ? homeAbbreviation
+                        : awayAbbreviation;
+
+                    return `
+                      <div class="postgame-scoring-play">
+                        <div class="postgame-scoring-play__time">
+                          ${escapeScoringText(
+                            play.formattedTime
+                          )}
+                        </div>
+
+                        <div class="postgame-scoring-play__details">
+                          <div class="postgame-scoring-play__scorer-row">
+                            <strong>
+                              🥅 ${escapeScoringText(
+                                play.scorerName ||
+                                'Unknown Scorer'
+                              )}
+                            </strong>
+
+                            ${
+                              showStrengthBadge
+                                ? `
+                                  <span class="postgame-scoring-play__badge">
+                                    ${escapeScoringText(
+                                      strength
+                                    )}
+                                  </span>
+                                `
+                                : ''
+                            }
+                          </div>
+
+                          <span class="postgame-scoring-play__assists">
+                            ${
+                              assists.length > 0
+                                ? `Assists: ${assists
+                                    .map(
+                                      escapeScoringText
+                                    )
+                                    .join(', ')}`
+                                : 'Unassisted'
+                            }
+                          </span>
+
+                          <span class="postgame-scoring-play__score">
+                            ${escapeScoringText(
+                              awayAbbreviation
+                            )}
+                            ${play.awayScoreAfter}
+                            —
+                            ${play.homeScoreAfter}
+                            ${escapeScoringText(
+                              homeAbbreviation
+                            )}
+                            •
+                            ${escapeScoringText(
+                              scoringTeamAbbreviation
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    `;
+                  })
+                  .join('')
+              : `
+                <div class="postgame-scoring-period__empty">
+                  No scoring
+                </div>
+              `;
+
+          return `
+            <section class="postgame-scoring-period">
+              <header class="postgame-scoring-period__header">
+                ${periodGroup.label}
+              </header>
+
+              <div class="postgame-scoring-period__plays">
+                ${playsMarkup}
+              </div>
+            </section>
+          `;
+        })
+        .join('');
+  }
+
+  const threeStarsContainer =
+    document.getElementById(
+      'postgame-three-stars'
+    );
+
+  if (threeStarsContainer) {
+    threeStarsContainer.innerHTML =
+      combinedPostgameStars.length > 0
+        ? combinedPostgameStars
+              .map((star, index) => {
+              const starLabels = [
+                'First Star',
+                'Second Star',
+                'Third Star',
+              ];
+
+              const starIcons = [
+                '⭐',
+                '⭐⭐',
+                '⭐⭐⭐',
+              ];
+
+                const statParts = [];
+
+                if (
+                  star.type === 'goalie'
+                ) {
+                  statParts.push(
+                    `${star.saves} SV`
+                  );
+
+                  if (
+                    star.goalsAgainst === 0
+                  ) {
+                    statParts.push(
+                      'SHO'
+                    );
+                  } else {
+                    statParts.push(
+                      `${star.goalsAgainst} GA`
+                    );
+                  }
+                } else {
+                  if (star.goals > 0) {
+                    statParts.push(
+                      `${star.goals} G`
+                    );
+                  }
+
+                  if (star.assists > 0) {
+                    statParts.push(
+                      `${star.assists} A`
+                    );
+                  }
+
+                  if (
+                    statParts.length === 0
+                  ) {
+                    statParts.push(
+                      `${star.shots} SOG`
+                    );
+                  }
+                }
+
+                const teamAbbreviation =
+                  star.type === 'goalie'
+                    ? star.teamAbbreviation
+                    : getPostgameTeamAbbreviation(
+                        star
+                      );
+
+                const starName =
+                  star.type === 'goalie'
+                    ? star.displayName
+                    : getPostgamePlayerName(
+                        star
+                      );
+
+              return `
+                <div class="postgame-star-row">
+                  <div class="postgame-star-row__identity">
+                    <strong>
+                      ${starIcons[index]}
+                      ${starName}
+                    </strong>
+
+                    <span>
+                      ${starLabels[index]}${
+                        teamAbbreviation
+                          ? ` • ${teamAbbreviation}`
+                          : ''
+                      }
+                    </span>
+                  </div>
+
+                  <span class="postgame-star-row__stats">
+                    ${statParts.join(' • ')}
+                  </span>
+                </div>
+              `;
+            })
+            .join('')
+        : `
+          <div class="postgame-star-row">
+            <div class="postgame-star-row__identity">
+              <strong>
+                Three Stars Unavailable
+              </strong>
+
+              <span>
+                No player box-score data was saved.
+              </span>
+            </div>
+          </div>
+        `;
+  }
+
+
   const resultBadge =
     document.getElementById(
       'postgame-result-badge'
@@ -5295,6 +6300,561 @@ function openPostgameSummary(gameId) {
       behavior: 'instant',
     }
   );
+
+  return true;
+}
+
+/* ============================================================
+   FULL BOX SCORE
+   Opens one completed game's frozen single-game statistics.
+   ============================================================ */
+
+function openBoxScore(
+  gameId,
+  startingSide = 'away'
+) {
+  const schedule =
+    Array.isArray(
+      WorldEngine.state.schedule
+    )
+      ? WorldEngine.state.schedule
+      : [];
+
+  const scheduledGame =
+    schedule.find(game =>
+      String(
+        game.gameId ||
+        game.id
+      ) === String(gameId)
+    ) ||
+    null;
+
+  const summary =
+    scheduledGame?.postgameSummary ||
+    null;
+
+  if (
+    !scheduledGame ||
+    !summary
+  ) {
+    console.error(
+      '[Box Score] Saved game result not found.',
+      {
+        gameId,
+        scheduledGame,
+      }
+    );
+
+    return false;
+  }
+
+  const homeTeam =
+    WorldEngine.getTeamById(
+      summary.home?.teamId ||
+      scheduledGame.homeTeamId
+    );
+
+  const awayTeam =
+    WorldEngine.getTeamById(
+      summary.away?.teamId ||
+      scheduledGame.awayTeamId
+    );
+
+  const setText = (
+    id,
+    value
+  ) => {
+    const element =
+      document.getElementById(id);
+
+    if (element) {
+      element.textContent =
+        value ?? '—';
+    }
+  };
+
+  setText(
+    'box-score-status',
+    summary.wentToShootout
+      ? 'Final / SO'
+      : (
+          summary.wentToOvertime
+            ? 'Final / OT'
+            : 'Final'
+        )
+  );
+
+  setText(
+    'box-score-away-abbreviation',
+    awayTeam?.abbreviation ||
+    'AWY'
+  );
+
+  setText(
+    'box-score-home-abbreviation',
+    homeTeam?.abbreviation ||
+    'HOM'
+  );
+
+  setText(
+    'box-score-away-score',
+    summary.finalScore?.away ??
+    summary.away?.score ??
+    0
+  );
+
+  setText(
+    'box-score-home-score',
+    summary.finalScore?.home ??
+    summary.home?.score ??
+    0
+  );
+
+  const awayToggle =
+    document.getElementById(
+      'box-score-away-toggle'
+    );
+
+  const homeToggle =
+    document.getElementById(
+      'box-score-home-toggle'
+    );
+
+  if (awayToggle) {
+    awayToggle.textContent =
+      awayTeam?.abbreviation ||
+      awayTeam?.teamName ||
+      'Away';
+  }
+
+  if (homeToggle) {
+    homeToggle.textContent =
+      homeTeam?.abbreviation ||
+      homeTeam?.teamName ||
+      'Home';
+  }
+
+  const getRoster = team => {
+    if (
+      Array.isArray(team?.roster)
+    ) {
+      return team.roster;
+    }
+
+    if (
+      Array.isArray(team?.players)
+    ) {
+      return team.players;
+    }
+
+    return [];
+  };
+
+  const findRosterPlayer = (
+    playerId,
+    team
+  ) => {
+    const normalizedId =
+      String(playerId || '');
+
+    return (
+      getRoster(team).find(player =>
+        String(
+          player.playerId ||
+          player.id
+        ) === normalizedId
+      ) ||
+      null
+    );
+  };
+
+  const getPlayerName = (
+    line,
+    team
+  ) => {
+    const directName =
+      [
+        line?.firstName,
+        line?.lastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+    if (directName) {
+      return directName;
+    }
+
+    if (
+      line?.name ||
+      line?.playerName
+    ) {
+      return (
+        line.name ||
+        line.playerName
+      );
+    }
+
+    const rosterPlayer =
+      findRosterPlayer(
+        line?.playerId ||
+        line?.id,
+        team
+      );
+
+    const rosterName =
+      [
+        rosterPlayer?.firstName,
+        rosterPlayer?.lastName,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+
+    return (
+      rosterName ||
+      rosterPlayer?.name ||
+      'Unknown Player'
+    );
+  };
+
+  const formatPlusMinus = value => {
+    const number =
+      Number(value) || 0;
+
+    return number > 0
+      ? `+${number}`
+      : String(number);
+  };
+
+  const formatSavePercentage =
+    goalie => {
+      const savedValue =
+        Number(
+          goalie?.savePercentage
+        );
+
+      if (
+        Number.isFinite(savedValue) &&
+        savedValue > 0
+      ) {
+        return savedValue
+          .toFixed(3)
+          .replace(/^0/, '');
+      }
+
+      const shotsAgainst =
+        Number(
+          goalie?.shotsAgainst
+        ) || 0;
+
+      const saves =
+        Number(
+          goalie?.saves
+        ) || 0;
+
+      if (shotsAgainst <= 0) {
+        return '.000';
+      }
+
+      return (
+        saves /
+        shotsAgainst
+      )
+        .toFixed(3)
+        .replace(/^0/, '');
+    };
+
+  const getGoalieDecision =
+    goalie => {
+      if (
+        Number(goalie?.wins) > 0 ||
+        goalie?.decision === 'W'
+      ) {
+        return 'W';
+      }
+
+      if (
+        Number(
+          goalie?.overtimeLosses
+        ) > 0 ||
+        goalie?.decision === 'OTL'
+      ) {
+        return 'OTL';
+      }
+
+      if (
+        Number(goalie?.losses) > 0 ||
+        goalie?.decision === 'L'
+      ) {
+        return 'L';
+      }
+
+      return '—';
+    };
+
+  const careerPlayerId =
+    String(
+      Game.player.playerId ||
+      Game.player.id ||
+      ''
+    );
+
+  const renderSide = side => {
+    const isHome =
+      side === 'home';
+
+    const teamSummary =
+      isHome
+        ? summary.home
+        : summary.away;
+
+    const team =
+      isHome
+        ? homeTeam
+        : awayTeam;
+
+    const skaters =
+      Array.isArray(
+        teamSummary?.skaters
+      )
+        ? teamSummary.skaters
+        : [];
+
+    const goalies =
+      Array.isArray(
+        teamSummary?.goalies
+      )
+        ? teamSummary.goalies
+        : [];
+
+    setText(
+      'box-score-team-name',
+      team?.teamName ||
+      team?.schoolName ||
+      team?.abbreviation ||
+      (
+        isHome
+          ? 'Home Team'
+          : 'Away Team'
+      )
+    );
+
+    const skaterRows =
+      document.getElementById(
+        'box-score-skater-rows'
+      );
+
+    if (skaterRows) {
+      skaterRows.innerHTML =
+        skaters.length > 0
+          ? skaters
+              .map(skater => {
+                const goals =
+                  Number(
+                    skater.goals
+                  ) || 0;
+
+                const assists =
+                  Number(
+                    skater.assists
+                  ) || 0;
+
+                const points =
+                  Number(
+                    skater.points
+                  ) ||
+                  goals + assists;
+
+                const isCareerPlayer =
+                  String(
+                    skater.playerId ||
+                    skater.id ||
+                    ''
+                  ) === careerPlayerId;
+
+                return `
+                  <tr>
+                    <td
+                      class="
+                        box-score-table__player
+                        ${
+                          isCareerPlayer
+                            ? 'box-score-table__player--career'
+                            : ''
+                        }
+                      "
+                    >
+                      ${getPlayerName(
+                        skater,
+                        team
+                      )}
+                    </td>
+
+                    <td>${goals}</td>
+                    <td>${assists}</td>
+                    <td>${points}</td>
+
+                    <td>
+                      ${formatPlusMinus(
+                        skater.plusMinus
+                      )}
+                    </td>
+
+                    <td>
+                      ${
+                        Number(
+                          skater.penaltyMinutes
+                        ) || 0
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        Number(
+                          skater.shots
+                        ) || 0
+                      }
+                    </td>
+                  </tr>
+                `;
+              })
+              .join('')
+          : `
+            <tr>
+              <td
+                class="box-score-table__empty"
+                colspan="7"
+              >
+                No skater statistics saved.
+              </td>
+            </tr>
+          `;
+    }
+
+    const goalieRows =
+      document.getElementById(
+        'box-score-goalie-rows'
+      );
+
+    if (goalieRows) {
+      goalieRows.innerHTML =
+        goalies.length > 0
+          ? goalies
+              .map(goalie => `
+                <tr>
+                  <td class="box-score-table__player">
+                    ${getPlayerName(
+                      goalie,
+                      team
+                    )}
+                  </td>
+
+                  <td>
+                    ${
+                      Number(
+                        goalie.shotsAgainst
+                      ) || 0
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      Number(
+                        goalie.saves
+                      ) || 0
+                    }
+                  </td>
+
+                  <td>
+                    ${
+                      Number(
+                        goalie.goalsAgainst
+                      ) || 0
+                    }
+                  </td>
+
+                  <td>
+                    ${formatSavePercentage(
+                      goalie
+                    )}
+                  </td>
+
+                  <td>
+                    ${getGoalieDecision(
+                      goalie
+                    )}
+                  </td>
+                </tr>
+              `)
+              .join('')
+          : `
+            <tr>
+              <td
+                class="box-score-table__empty"
+                colspan="6"
+              >
+                No goalie statistics saved.
+              </td>
+            </tr>
+          `;
+    }
+
+    [
+      awayToggle,
+      homeToggle,
+    ].forEach(button => {
+      if (!button) {
+        return;
+      }
+
+      const isActive =
+        button.dataset
+          .boxScoreSide === side;
+
+      button.classList.toggle(
+        'box-score-team-toggle__button--active',
+        isActive
+      );
+
+      button.setAttribute(
+        'aria-selected',
+        String(isActive)
+      );
+    });
+
+    if (boxScoreScreen) {
+      boxScoreScreen.dataset.side =
+        side;
+    }
+  };
+
+  renderSide(
+    startingSide === 'home'
+      ? 'home'
+      : 'away'
+  );
+
+  if (boxScoreScreen) {
+    boxScoreScreen.dataset.gameId =
+      String(gameId);
+
+    /*
+     * Save the renderer so team toggle listeners can
+     * switch teams without reopening or resimulating.
+     */
+    boxScoreScreen._renderSide =
+      renderSide;
+  }
+
+  showScreen(
+    'box-score'
+  );
+
+  boxScoreScreen?.scrollTo({
+    top: 0,
+    behavior: 'instant',
+  });
 
   return true;
 }
@@ -6044,16 +7604,70 @@ function simulateToDate(
         String(blockingEventId)
       ) || null;
 
-    if (blockingScheduleEvent) {
-      EventSystem.openEvent(
-        blockingScheduleEvent.eventId,
-        'schedule',
-        blockingScheduleEvent
-      );
-    }
-  }
+if (blockingScheduleEvent) {
+  EventSystem.openEvent(
+    blockingScheduleEvent.eventId,
+    'schedule',
+    blockingScheduleEvent
+  );
+}
+}
 
-  return reachedDate;
+/*
+* When normal simulation completes one or more games,
+* immediately open the first newly completed game's
+* permanently saved Postgame Summary.
+*
+* Do not override a practice, recovery session, meeting,
+* or other player-controlled event that stopped simulation.
+*/
+if (
+result?.stopSimulation !== true
+) {
+const canonicalSchedule =
+  Array.isArray(
+    WorldEngine.state.schedule
+  )
+    ? WorldEngine.state.schedule
+    : [];
+
+const newlyCompletedGame =
+  canonicalSchedule
+    .filter(game => {
+      const gameDate =
+        game.date ||
+        '';
+
+      return (
+        game.type === 'game' &&
+        game.played === true &&
+        game.postgameSummary &&
+        gameDate > currentDate &&
+        gameDate <= reachedDate
+      );
+    })
+    .sort((a, b) =>
+      String(a.date).localeCompare(
+        String(b.date)
+      )
+    )[0] ||
+  null;
+
+const completedGameId =
+  newlyCompletedGame
+    ?.gameId ||
+  newlyCompletedGame
+    ?.id ||
+  null;
+
+if (completedGameId) {
+  openPostgameSummary(
+    completedGameId
+  );
+}
+}
+
+return reachedDate;
 }
 document
 .getElementById('schedule-selected-day-action')
@@ -6069,12 +7683,38 @@ document
 
   if (!selectedDateKey) return;
 
-  const currentDate =
-    Game.player.currentDate || '2026-09-01';
+const currentDate =
+  Game.player.currentDate || '2026-09-01';
 
-  if (selectedDateKey <= currentDate) return;
+if (selectedDateKey <= currentDate) return;
 
-  simulateToDate(selectedDateKey);
+const selectedEvent =
+  scheduleEvents.find(
+    event =>
+      String(event.date) ===
+      String(selectedDateKey)
+  ) ||
+  null;
+
+/*
+ * Games should enter their normal pregame event screen first.
+ * The game is not simulated until the player presses
+ * Begin Event from that screen.
+ */
+if (
+  selectedEvent?.type === 'game' &&
+  selectedEvent.isCompleted !== true
+) {
+  EventSystem.openEvent(
+    selectedEvent.eventId,
+    'schedule',
+    selectedEvent
+  );
+
+  return;
+}
+
+simulateToDate(selectedDateKey);
 });
 document
 .getElementById('schedule-selected-day-details')
@@ -11910,6 +13550,32 @@ document
     }
 
     /*
+     * Games use the normal Season Engine simulation path.
+     * Opening the event screen does not simulate anything;
+     * the game begins only after the player presses Begin Event.
+     */
+    if (def.type === 'game') {
+      const gameDate =
+        def.date ||
+        null;
+
+      if (!gameDate) {
+        console.error(
+          '[Project Ice] Game event is missing its scheduled date.',
+          def
+        );
+
+        return;
+      }
+
+      simulateToDate(
+        gameDate
+      );
+
+      return;
+    }
+
+    /*
      * Canonical Practice completion.
      */
     const {
@@ -11984,6 +13650,81 @@ document
  * Practice, Recovery, and future career events all return
  * through the same refreshed Schedule-tab route.
  */
+
+const btnPostgameContinue =
+  document.getElementById(
+    'btn-postgame-continue'
+  );
+
+if (btnPostgameContinue) {
+  btnPostgameContinue.addEventListener(
+    'click',
+    () => {
+      refreshCareerUI();
+      refreshScheduleEvents();
+
+      openHubTab(
+        'schedule'
+      );
+    }
+  );
+}
+
+document
+  .getElementById(
+    'btn-postgame-box-score'
+  )
+  ?.addEventListener(
+    'click',
+    () => {
+      const gameId =
+        postgameSummaryScreen?.dataset
+          ?.gameId;
+
+      if (gameId) {
+        openBoxScore(gameId);
+      }
+    }
+  );
+
+document
+  .getElementById(
+    'btn-box-score-back'
+  )
+  ?.addEventListener(
+    'click',
+    () => {
+      showScreen(
+        'postgame-summary'
+      );
+    }
+  );
+
+document
+  .getElementById(
+    'box-score-away-toggle'
+  )
+  ?.addEventListener(
+    'click',
+    () => {
+      boxScoreScreen?._renderSide?.(
+        'away'
+      );
+    }
+  );
+
+document
+  .getElementById(
+    'box-score-home-toggle'
+  )
+  ?.addEventListener(
+    'click',
+    () => {
+      boxScoreScreen?._renderSide?.(
+        'home'
+      );
+    }
+  );
 const btnEventResultsContinue =
   document.getElementById(
     'btn-event-results-continue'
