@@ -15241,6 +15241,15 @@ const WorldEngine = (() => {
           )
         : [],
 
+      development:
+      gameResult.development &&
+      typeof gameResult.development ===
+        'object'
+        ? structuredClone(
+            gameResult.development
+          )
+        : null,
+
       savedAt:
         scheduledGame.gameResult
           ?.metadata
@@ -18105,6 +18114,75 @@ const WorldEngine = (() => {
             applyPostGameProgression(
               progressionResult
             );
+
+          /*
+           * Freeze the already-applied career development result
+           * onto both the canonical game result and the permanently
+           * saved schedule entry. Team/schedule application happens
+           * earlier, so its postgameSummary must be updated directly.
+           */
+          const savedDevelopment = {
+            progressionResult:
+              progressionResult &&
+              typeof progressionResult ===
+                'object'
+                ? structuredClone(
+                    progressionResult
+                  )
+                : null,
+
+            progressionApplication:
+              progressionApplication &&
+              typeof progressionApplication ===
+                'object'
+                ? structuredClone(
+                    progressionApplication
+                  )
+                : null,
+
+            performanceScore:
+              Number(
+                performanceScore
+              ) || 0,
+
+            playerId:
+              careerPerformance
+                ?.playerId ||
+              null,
+          };
+
+          if (
+            result.gameResult &&
+            typeof result.gameResult ===
+              'object'
+          ) {
+            result.gameResult.development =
+              structuredClone(
+                savedDevelopment
+              );
+          }
+
+          const completedScheduledGame =
+            teamAndScheduleApplication
+              ?.scheduledGame ||
+            null;
+
+          if (
+            completedScheduledGame
+              ?.postgameSummary &&
+            typeof completedScheduledGame
+              .postgameSummary ===
+                'object'
+          ) {
+            completedScheduledGame
+              .postgameSummary
+              .development =
+              structuredClone(
+                savedDevelopment
+              );
+          }
+
+          save();
 
           if (
             progressionApplication

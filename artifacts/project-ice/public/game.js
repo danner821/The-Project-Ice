@@ -6282,6 +6282,257 @@ function openPostgameSummary(gameId) {
   }
 
   /*
+   * Career Impact
+   *
+   * Read the frozen development package saved with this game.
+   * This is display-only. XP has already been applied once by
+   * the World Engine and is never awarded again here.
+   */
+  const careerEffectsContainer =
+    document.getElementById(
+      'postgame-career-effects'
+    );
+
+  const savedDevelopment =
+    summary.development &&
+    typeof summary.development ===
+      'object'
+      ? summary.development
+      : null;
+
+  const progressionApplication =
+    savedDevelopment
+      ?.progressionApplication &&
+    typeof savedDevelopment
+      .progressionApplication ===
+        'object'
+      ? savedDevelopment
+          .progressionApplication
+      : null;
+
+  const progressionResult =
+    savedDevelopment
+      ?.progressionResult &&
+    typeof savedDevelopment
+      .progressionResult ===
+        'object'
+      ? savedDevelopment
+          .progressionResult
+      : null;
+
+  const attributeRewards =
+    progressionApplication
+      ?.attributeRewards &&
+    typeof progressionApplication
+      .attributeRewards ===
+        'object'
+      ? progressionApplication
+          .attributeRewards
+      : (
+          progressionResult
+            ?.attributeRewards &&
+          typeof progressionResult
+            .attributeRewards ===
+              'object'
+            ? progressionResult
+                .attributeRewards
+            : {}
+        );
+
+  const attributeLabels = {
+    acceleration: 'Acceleration',
+    agility: 'Agility',
+    balance: 'Balance',
+    speed: 'Speed',
+
+    wristShotPower:
+      'Wrist Shot Power',
+
+    wristShotAccuracy:
+      'Wrist Shot Accuracy',
+
+    slapShotPower:
+      'Slap Shot Power',
+
+    slapShotAccuracy:
+      'Slap Shot Accuracy',
+
+    passing: 'Passing',
+    puckControl: 'Puck Control',
+    deking: 'Deking',
+
+    offensiveAwareness:
+      'Offensive Awareness',
+
+    defensiveAwareness:
+      'Defensive Awareness',
+
+    stickChecking:
+      'Stick Checking',
+
+    shotBlocking:
+      'Shot Blocking',
+
+    bodyChecking:
+      'Body Checking',
+
+    strength: 'Strength',
+    faceoffs: 'Faceoffs',
+
+    positioning: 'Positioning',
+    reflexes: 'Reflexes',
+
+    reboundControl:
+      'Rebound Control',
+
+    puckTracking:
+      'Puck Tracking',
+
+    gloveHigh: 'Glove High',
+    gloveLow: 'Glove Low',
+    blockerHigh: 'Blocker High',
+    blockerLow: 'Blocker Low',
+    fiveHole: 'Five Hole',
+    passingGoalie:
+      'Goalie Passing',
+  };
+
+  const careerImpactItems = [];
+
+  Object.entries(
+    attributeRewards
+  )
+    .filter(
+      ([, amount]) =>
+        Number(amount) > 0
+    )
+    .sort(
+      (
+        [, firstAmount],
+        [, secondAmount]
+      ) =>
+        Number(secondAmount) -
+        Number(firstAmount)
+    )
+    .forEach(
+      ([attributeKey, amount]) => {
+        careerImpactItems.push({
+          type: 'xp',
+          label:
+            attributeLabels[
+              attributeKey
+            ] ||
+            attributeKey
+              .replace(
+                /([a-z])([A-Z])/g,
+                '$1 $2'
+              )
+              .replace(
+                /^./,
+                character =>
+                  character.toUpperCase()
+              ),
+
+          value:
+            `+${Math.round(
+              Number(amount)
+            )} XP`,
+        });
+      }
+    );
+
+  const coachTrustChange =
+    Number(
+      progressionApplication
+        ?.coachTrustChange ??
+      progressionResult
+        ?.coachTrustChange
+    ) || 0;
+
+  const reputationChange =
+    Number(
+      progressionApplication
+        ?.reputationChange ??
+      progressionResult
+        ?.reputationChange
+    ) || 0;
+
+  const moraleChange =
+    Number(
+      progressionApplication
+        ?.moraleChange ??
+      progressionResult
+        ?.moraleChange
+    ) || 0;
+
+  if (coachTrustChange !== 0) {
+    careerImpactItems.push({
+      type: 'career',
+      label: 'Coach Trust',
+      value:
+        coachTrustChange > 0
+          ? `+${coachTrustChange}`
+          : String(
+              coachTrustChange
+            ),
+    });
+  }
+
+  if (reputationChange !== 0) {
+    careerImpactItems.push({
+      type: 'career',
+      label: 'Reputation',
+      value:
+        reputationChange > 0
+          ? `+${reputationChange}`
+          : String(
+              reputationChange
+            ),
+    });
+  }
+
+  if (moraleChange !== 0) {
+    careerImpactItems.push({
+      type: 'career',
+      label: 'Morale',
+      value:
+        moraleChange > 0
+          ? `+${moraleChange}`
+          : String(
+              moraleChange
+            ),
+    });
+  }
+
+  if (careerEffectsContainer) {
+    careerEffectsContainer.innerHTML =
+      careerImpactItems.length > 0
+        ? careerImpactItems
+            .map(item => `
+              <div
+                class="
+                  postgame-impact-item
+                  postgame-impact-item--${item.type}
+                "
+              >
+                <span class="postgame-impact-item__label">
+                  ${item.label}
+                </span>
+
+                <strong class="postgame-impact-item__value">
+                  ${item.value}
+                </strong>
+              </div>
+            `)
+            .join('')
+        : `
+          <div class="postgame-impact-empty">
+            No development rewards were recorded for this game.
+          </div>
+        `;
+  }
+
+  /*
    * Save the active game ID so Continue and Full Box Score
    * know which permanently stored game they are displaying.
    */
