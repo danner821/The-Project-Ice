@@ -9939,9 +9939,256 @@ function openTeamTab(teamId = null, origin = 'hub') {
           roster
         );
     }
-    
-  rosterListEl
-  .querySelectorAll('.team-roster__player')
+
+    /*
+     * Render Team Leaders from the same canonical roster and
+     * season-stat data used by Full Stats and Player Profiles.
+     */
+    const getSeasonStat = (
+      player,
+      statKey
+    ) =>
+      Number(
+        player?.seasonStats?.[
+          statKey
+        ] ??
+        player?.[statKey]
+      ) || 0;
+
+    const isGoalie = player => {
+      const position =
+        String(
+          player?.position || ''
+        )
+          .trim()
+          .toUpperCase();
+
+      return (
+        position === 'G' ||
+        position.includes(
+          'GOAL'
+        )
+      );
+    };
+
+    const skaters =
+      roster.filter(
+        player =>
+          !isGoalie(player)
+      );
+
+    const goalies =
+      roster.filter(
+        isGoalie
+      );
+
+    const getLeader = (
+      players,
+      statKey
+    ) =>
+      [...players].sort(
+        (
+          firstPlayer,
+          secondPlayer
+        ) => {
+          const statDifference =
+            getSeasonStat(
+              secondPlayer,
+              statKey
+            ) -
+            getSeasonStat(
+              firstPlayer,
+              statKey
+            );
+
+          if (
+            statDifference !== 0
+          ) {
+            return statDifference;
+          }
+
+          return (
+            Number(
+              secondPlayer.overall
+            ) || 0
+          ) -
+          (
+            Number(
+              firstPlayer.overall
+            ) || 0
+          );
+        }
+      )[0] || null;
+
+    const getFullName = player =>
+      player
+        ? `${
+            player.firstName || ''
+          } ${
+            player.lastName || ''
+          }`.trim() ||
+          'Unknown Player'
+        : '';
+
+    const setLeaderText = (
+      elementId,
+      player,
+      formattedValue
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (!element) {
+        return;
+      }
+
+      element.textContent =
+        player
+          ? `${getFullName(
+              player
+            )} — ${formattedValue}`
+          : 'No stats yet';
+    };
+
+    const goalsLeader =
+      getLeader(
+        skaters,
+        'goals'
+      );
+
+    const assistsLeader =
+      getLeader(
+        skaters,
+        'assists'
+      );
+
+    const pointsLeader =
+      getLeader(
+        skaters,
+        'points'
+      );
+
+    const winsLeader =
+      getLeader(
+        goalies,
+        'wins'
+      );
+
+    const getSavePercentage =
+      goalie => {
+        const savedPercentage =
+          Number(
+            goalie?.seasonStats
+              ?.savePercentage ??
+            goalie?.savePercentage
+          );
+
+        if (
+          Number.isFinite(
+            savedPercentage
+          ) &&
+          savedPercentage > 0
+        ) {
+          return savedPercentage;
+        }
+
+        const saves =
+          getSeasonStat(
+            goalie,
+            'saves'
+          );
+
+        const shotsAgainst =
+          getSeasonStat(
+            goalie,
+            'shotsAgainst'
+          );
+
+        return shotsAgainst > 0
+          ? saves /
+            shotsAgainst
+          : 0;
+      };
+
+    const savePercentageLeader =
+      [...goalies].sort(
+        (
+          firstGoalie,
+          secondGoalie
+        ) =>
+          getSavePercentage(
+            secondGoalie
+          ) -
+          getSavePercentage(
+            firstGoalie
+          )
+      )[0] || null;
+
+    const formatSavePercentage =
+      value => {
+        const percentage =
+          Number(value) || 0;
+
+        return percentage > 0
+          ? percentage
+              .toFixed(3)
+              .replace(
+                /^0/,
+                ''
+              )
+          : '.000';
+      };
+
+    setLeaderText(
+      'team-leader-goals',
+      goalsLeader,
+      getSeasonStat(
+        goalsLeader,
+        'goals'
+      )
+    );
+
+    setLeaderText(
+      'team-leader-assists',
+      assistsLeader,
+      getSeasonStat(
+        assistsLeader,
+        'assists'
+      )
+    );
+
+    setLeaderText(
+      'team-leader-points',
+      pointsLeader,
+      getSeasonStat(
+        pointsLeader,
+        'points'
+      )
+    );
+
+    setLeaderText(
+      'team-leader-wins',
+      winsLeader,
+      getSeasonStat(
+        winsLeader,
+        'wins'
+      )
+    );
+
+    setLeaderText(
+      'team-leader-save-percentage',
+      savePercentageLeader,
+      formatSavePercentage(
+        getSavePercentage(
+          savePercentageLeader
+        )
+      )
+    );
+
+    rosterListEl
+    .querySelectorAll('.team-roster__player')
   .forEach(button => {
     button.addEventListener('click', () => {
       const playerId =
