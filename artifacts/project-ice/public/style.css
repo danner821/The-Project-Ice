@@ -10277,4 +10277,133 @@ tr.career-player-highlight .full-stats-player-button {
 .er-actions {
   flex-shrink: 0;
 }
+
+/* ============================================================
+   COMPLETED SCHEDULE CALENDAR — TWO-LINE RESULT LAYOUT
+   ============================================================ */
+
+.schedule-day {
+  aspect-ratio: auto;
+  min-height: 92px;
+  padding: 8px 6px;
+}
+
+.schedule-day-event {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+
+  width: 100%;
+  min-width: 0;
+  margin-top: 6px;
+
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.schedule-day-event--game {
+  min-height: 34px;
+  padding: 4px 3px;
+}
+
+.schedule-day-event__matchup,
+.schedule-day-event__result {
+  display: block;
+  width: 100%;
+  min-width: 0;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.schedule-day-event__matchup {
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.schedule-day-event__result {
+  font-size: 0.63rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.schedule-day-event--win {
+  background: rgba(22, 125, 80, 0.42);
+  border-color: rgba(68, 218, 143, 0.72);
+}
+
+.schedule-day-event--loss {
+  background: rgba(145, 47, 58, 0.4);
+  border-color: rgba(239, 92, 105, 0.68);
+}
+
+.schedule-day-event--overtime-loss {
+  background: rgba(145, 103, 30, 0.42);
+  border-color: rgba(238, 181, 70, 0.7);
+}
+
+/* ============================================================
+   COMPLETED NON-GAME CALENDAR EVENTS
+   ============================================================ */
+
+.schedule-day-event--completed:not(.schedule-day-event--game) {
+  opacity: 0.58;
+  color: rgba(190, 205, 232, 0.82);
+}
+
+.schedule-day-event--completed:not(.schedule-day-event--game)
+.schedule-day-event__matchup {
+  font-weight: 700;
+}
+
+.schedule-day:has(
+  .schedule-day-event--completed:not(.schedule-day-event--game)
+) {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018),
+      rgba(255, 255, 255, 0.006)
+    );
+}
+
+.schedule-day:has(
+  .schedule-day-event--completed:not(.schedule-day-event--game)
+):not(.schedule-day--selected) {
+  opacity: 0.76;
+}
+
+.schedule-day:has(
+  .schedule-day-event--completed:not(.schedule-day-event--game)
+).schedule-day--selected {
+  opacity: 1;
+}
+/* ============================================================
+   PAST OPEN CALENDAR DAYS
+   ============================================================ */
+
+.schedule-day--past:not(
+  :has(.schedule-day-event)
+) {
+  opacity: 0.48;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.012),
+      rgba(255, 255, 255, 0.004)
+    );
+}
+
+.schedule-day--past:not(
+  :has(.schedule-day-event)
+).schedule-day--selected {
+  opacity: 1;
+}
 /* ═══════════════════════════════════════════════════════════ */

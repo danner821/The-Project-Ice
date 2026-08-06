@@ -1202,15 +1202,24 @@ btnDevHub.addEventListener('click', () => {
     const devDate =
       '2026-09-17';
 
+    /*
+     * Begin from the actual season start so the shortcut can
+     * process every scheduled career event before September 17.
+     */
+    const devStartDate =
+      WorldEngine.state.season
+        ?.startDate ||
+      '2026-09-01';
+
     WorldEngine.setCurrentDate(
-      devDate,
+      devStartDate,
       {
         save: false,
       }
     );
 
     Game.player.currentDate =
-      devDate;
+      devStartDate;
 
     const canonicalPlayer =
       syncCareerPlayerWithWorld();
@@ -1234,6 +1243,126 @@ btnDevHub.addEventListener('click', () => {
     isDevSession = true;
     window.PROJECT_ICE_DEV_SESSION = true;
 
+    /*
+     * DEV-ONLY FAST FORWARD
+     *
+     * Advance through every date before September 17 while
+     * automatically completing player-controlled practices,
+     * recovery sessions, and coach meetings.
+     */
+    let devReachedDate =
+      WorldEngine.state.season
+        ?.currentDate ||
+      devStartDate;
+
+    let devSafetyCount = 0;
+
+    while (
+      devReachedDate < devDate &&
+      devSafetyCount < 100
+    ) {
+      const advanceResult =
+        WorldEngine.advanceToDate(
+          devDate
+        );
+
+      devReachedDate =
+        advanceResult?.currentDate ||
+        WorldEngine.state.season
+          ?.currentDate ||
+        devReachedDate;
+
+      if (
+        advanceResult
+          ?.stopSimulation !== true
+      ) {
+        break;
+      }
+
+      const blockingEvent =
+        advanceResult
+          ?.blockingEventResult
+          ?.event ||
+        null;
+
+      const blockingEventId =
+        blockingEvent?.id ||
+        blockingEvent?.eventId ||
+        null;
+
+      if (!blockingEventId) {
+        console.error(
+          '[DEV] Blocking event was missing an event ID.',
+          advanceResult
+        );
+
+        break;
+      }
+
+      let completionResult = null;
+
+      switch (blockingEvent.type) {
+        case 'practice':
+          completionResult =
+            WorldEngine.completePracticeEvent(
+              blockingEventId,
+              {
+                save: false,
+              }
+            );
+          break;
+
+        case 'recovery':
+          completionResult =
+            WorldEngine.completeRecoveryEvent(
+              blockingEventId,
+              {
+                save: false,
+              }
+            );
+          break;
+
+        case 'coach-meeting':
+          completionResult =
+            WorldEngine.completeCoachMeetingEvent(
+              blockingEventId,
+              {
+                save: false,
+              }
+            );
+          break;
+
+        default:
+          console.error(
+            '[DEV] Unsupported blocking event type:',
+            blockingEvent.type,
+            blockingEvent
+          );
+          break;
+      }
+
+      if (
+        !completionResult ||
+        completionResult.success !== true
+      ) {
+        console.error(
+          '[DEV] Could not auto-complete blocking event.',
+          completionResult,
+          blockingEvent
+        );
+
+        break;
+      }
+
+      devSafetyCount += 1;
+    }
+
+    Game.player.currentDate =
+      WorldEngine.state.season
+        ?.currentDate ||
+      devReachedDate;
+
+    refreshScheduleEvents();
     refreshCareerUI();
     showScreen('hub');
   } catch (err) {
@@ -5048,12 +5177,74 @@ function pickStableEvent(items, dateKey, salt = '') {
           ? game.featuredReasons
           : [];
 
-      const isFeatured =
-        Boolean(game.isFeatured) ||
-        Boolean(game.isGameOfWeek);
+        const isFeatured =
+          Boolean(game.isFeatured) ||
+          Boolean(game.isGameOfWeek);
 
-      return {
-        date: game.date,
+        /*
+         * Build completed-game calendar labels from the canonical
+         * World Engine schedule result.
+         */
+        const isCompleted =
+          Boolean(
+            game.played ||
+            game.completed
+          );
+
+        const playerScore =
+          isHome
+            ? Number(game.homeScore)
+            : Number(game.awayScore);
+
+        const opponentScore =
+          isHome
+            ? Number(game.awayScore)
+            : Number(game.homeScore);
+
+        const didPlayerWin =
+          String(game.winnerTeamId) ===
+          String(playerTeamId);
+
+        const didPlayerLose =
+          isCompleted &&
+          String(game.loserTeamId) ===
+          String(playerTeamId);
+
+        let completedResultLabel = '';
+
+        let calendarResultType = '';
+
+        if (
+          isCompleted &&
+          Number.isFinite(playerScore) &&
+          Number.isFinite(opponentScore)
+        ) {
+          if (didPlayerWin) {
+            completedResultLabel =
+              `W ${playerScore}–${opponentScore}`;
+
+            calendarResultType =
+              'win';
+          } else if (
+            didPlayerLose &&
+            game.wentToOvertime
+          ) {
+            completedResultLabel =
+              `OTL ${playerScore}–${opponentScore}`;
+
+            calendarResultType =
+              'overtime-loss';
+          } else if (didPlayerLose) {
+            completedResultLabel =
+              `L ${playerScore}–${opponentScore}`;
+
+            calendarResultType =
+              'loss';
+          }
+        }
+
+        return {
+          date: game.date,
         type: 'game',
         location: isHome ? 'home' : 'away',
         label: isHome
@@ -5115,10 +5306,19 @@ function pickStableEvent(items, dateKey, salt = '') {
           Boolean(game.hasScouts) ||
           Number(game.scoutsAttending) > 0,
 
-        featuredReasons,
+          featuredReasons,
 
-        isCompleted:
-          Boolean(game.played),
+          completedMatchupLabel:
+            isHome
+              ? `vs ${opponentAbbreviation}`
+              : `@ ${opponentAbbreviation}`,
+
+          completedResultLabel,
+
+          resultType:
+            calendarResultType,
+
+          isCompleted,
       };
     });
   const gameDates = new Set(
@@ -5326,10 +5526,23 @@ function renderScheduleCalendar(year, month) {
     ${event.resultType ? `schedule-day-event--${event.resultType}` : ''}
     ${event.isCompleted ? 'schedule-day-event--completed' : ''}"
 >
+  <span class="schedule-day-event__matchup">
+    ${
+      event.completedMatchupLabel ||
+      event.shortLabel ||
+      event.label
+    }
+  </span>
+
   ${
-    event.isCompleted
-      ? `✓ ${event.shortLabel || event.label}`
-      : event.shortLabel || event.label
+    event.isCompleted &&
+    event.completedResultLabel
+      ? `
+        <span class="schedule-day-event__result">
+          ${event.completedResultLabel}
+        </span>
+      `
+      : ''
   }
 </span>
     `
@@ -5523,12 +5736,51 @@ document
   const eventId =
     detailsButton?.dataset.eventId;
 
-  const selectedEvent =
-    scheduleEvents.find(event => event.eventId === eventId);
+    const selectedEvent =
+      scheduleEvents.find(
+        event =>
+          String(event.eventId) ===
+          String(eventId)
+      );
 
-  if (!selectedEvent) return;
+    if (!selectedEvent) return;
 
-  if (
+    /*
+     * Completed career events reopen their permanently saved
+     * completion screen instead of reopening the pre-event screen.
+     *
+     * This is display-only. Event rewards are not processed again.
+     */
+    const isCompletedCareerEvent =
+      Boolean(selectedEvent.isCompleted) &&
+      selectedEvent.type !== 'game' &&
+      selectedEvent.result &&
+      typeof selectedEvent.result === 'object';
+
+    if (isCompletedCareerEvent) {
+      EventResultsSystem.open(
+        selectedEvent,
+        {
+          success: true,
+
+          result:
+            selectedEvent.result,
+
+          date:
+            selectedEvent.completedAt ||
+            selectedEvent.date,
+
+          coachNote:
+            selectedEvent.result
+              ?.coachNote ||
+            '',
+        }
+      );
+
+      return;
+    }
+
+    if (
     selectedEvent.isCompleted &&
     selectedEvent.summaryScreen === 'tryout-summary'
   ) {
