@@ -2637,9 +2637,11 @@
           </div>
 
           <!-- Location row -->
-          <div class="ev-meta-row">
-            <span class="ev-meta-row__icon" aria-hidden="true">📍</span>
-            <span class="ev-meta-row__text" id="ev-location">Summit Ice Center</span>
+          <div class="ev-meta-row" id="ev-meta-row">
+              <span class="ev-meta-row__icon">📍</span>
+              <span class="ev-meta-row__text" id="ev-location">
+                  Summit Ice Center
+              </span>
           </div>
 
           <div class="ev-divider" aria-hidden="true"></div>
@@ -2965,6 +2967,221 @@
 
         </div>
       </section>
+
+      </section>
+
+      <!-- POSTGAME SUMMARY SCREEN -->
+      <section
+        id="postgame-summary-screen"
+        class="screen screen--hidden"
+      >
+        <div class="postgame-summary">
+
+          <header class="postgame-summary__header">
+            <div>
+              <p class="eyebrow">Game Complete</p>
+              <h2>Postgame Summary</h2>
+            </div>
+
+            <span
+              class="postgame-summary__result"
+              id="postgame-result-badge"
+            >
+              W
+            </span>
+          </header>
+
+          <main class="postgame-summary__content">
+
+            <section class="postgame-scoreboard">
+              <p
+                class="postgame-scoreboard__status"
+                id="postgame-final-status"
+              >
+                Final
+              </p>
+
+              <div class="postgame-scoreboard__teams">
+
+                <div class="postgame-scoreboard__team">
+                  <span
+                    class="postgame-scoreboard__abbreviation"
+                    id="postgame-away-abbreviation"
+                  >
+                    AWY
+                  </span>
+
+                  <span
+                    class="postgame-scoreboard__name"
+                    id="postgame-away-name"
+                  >
+                    Away Team
+                  </span>
+
+                  <strong
+                    class="postgame-scoreboard__score"
+                    id="postgame-away-score"
+                  >
+                    0
+                  </strong>
+                </div>
+
+                <div class="postgame-scoreboard__divider">
+                  —
+                </div>
+
+                <div class="postgame-scoreboard__team">
+                  <span
+                    class="postgame-scoreboard__abbreviation"
+                    id="postgame-home-abbreviation"
+                  >
+                    HOM
+                  </span>
+
+                  <span
+                    class="postgame-scoreboard__name"
+                    id="postgame-home-name"
+                  >
+                    Home Team
+                  </span>
+
+                  <strong
+                    class="postgame-scoreboard__score"
+                    id="postgame-home-score"
+                  >
+                    0
+                  </strong>
+                </div>
+
+              </div>
+            </section>
+
+            <section class="postgame-section">
+              <div class="postgame-section__heading">
+                <div>
+                  <p class="eyebrow">Your Performance</p>
+                  <h3 id="postgame-player-name">
+                    Player
+                  </h3>
+                </div>
+
+                <span
+                  class="postgame-section__subtext"
+                  id="postgame-player-position"
+                >
+                  —
+                </span>
+              </div>
+
+              <div
+                class="postgame-stat-grid"
+                id="postgame-player-stats"
+              >
+                <div class="postgame-stat">
+                  <span>G</span>
+                  <strong id="postgame-player-goals">0</strong>
+                </div>
+
+                <div class="postgame-stat">
+                  <span>A</span>
+                  <strong id="postgame-player-assists">0</strong>
+                </div>
+
+                <div class="postgame-stat">
+                  <span>PTS</span>
+                  <strong id="postgame-player-points">0</strong>
+                </div>
+
+                <div class="postgame-stat">
+                  <span>+/-</span>
+                  <strong id="postgame-player-plus-minus">0</strong>
+                </div>
+
+                <div class="postgame-stat">
+                  <span>SOG</span>
+                  <strong id="postgame-player-shots">0</strong>
+                </div>
+
+                <div class="postgame-stat">
+                  <span>PIM</span>
+                  <strong id="postgame-player-pim">0</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="postgame-section">
+              <div class="postgame-section__heading">
+                <div>
+                  <p class="eyebrow">Goaltending</p>
+                  <h3>Starting Goalies</h3>
+                </div>
+              </div>
+
+              <div
+                class="postgame-goalie-list"
+                id="postgame-goalie-list"
+              >
+              </div>
+            </section>
+
+            <section class="postgame-section">
+              <div class="postgame-section__heading">
+                <div>
+                  <p class="eyebrow">Game Leaders</p>
+                  <h3>Three Stars</h3>
+                </div>
+              </div>
+
+              <div
+                class="postgame-stars"
+                id="postgame-three-stars"
+              >
+              </div>
+            </section>
+
+            <section class="postgame-section">
+              <div class="postgame-section__heading">
+                <div>
+                  <p class="eyebrow">Career Impact</p>
+                  <h3>Progress Earned</h3>
+                </div>
+              </div>
+
+              <div
+                class="postgame-impact-list"
+                id="postgame-career-effects"
+              >
+              </div>
+            </section>
+
+          </main>
+
+          <footer class="postgame-summary__footer">
+            <button
+              class="btn btn--secondary"
+              id="btn-postgame-box-score"
+              type="button"
+            >
+              <span class="btn__icon">📊</span>
+              <span class="btn__label">View Full Box Score</span>
+              <span class="btn__arrow">›</span>
+            </button>
+
+            <button
+              class="btn btn--primary"
+              id="btn-postgame-continue"
+              type="button"
+            >
+              <span class="btn__label">Continue</span>
+              <span class="btn__arrow">›</span>
+            </button>
+          </footer>
+
+        </div>
+      </section>
+
+      <!-- TRYOUT SUMMARY SCREEN -->
+      <section id="tryout-summary-screen" class="screen screen--hidden">
 
       <!-- TRYOUT SUMMARY SCREEN -->
       <section id="tryout-summary-screen" class="screen screen--hidden">

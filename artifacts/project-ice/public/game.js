@@ -59,6 +59,11 @@ const eventResultsScreen =
     'event-results-screen'
   );
 
+const postgameSummaryScreen =
+  document.getElementById(
+    'postgame-summary-screen'
+  );
+
 const tryoutSummaryScreen =
   document.getElementById(
     'tryout-summary-screen'
@@ -279,9 +284,23 @@ const EventSystem = (() => {
     _set('ev-type-badge',  def.type.toUpperCase());
     _set('ev-icon',        def.icon);
     _set('ev-title',       def.title);
-    _set('ev-location',    def.location);
+    _set(
+      'ev-location',
+      def.type === 'game'
+        ? ''
+        : def.location
+    );
     _set('ev-objective',   def.objective);
     _set('ev-description', def.description);
+
+    const metaRow = document.getElementById('ev-meta-row');
+
+    if (metaRow) {
+      metaRow.style.display =
+        def.type === 'game'
+          ? 'none'
+          : '';
+    }
 
     const detailsSection =
       document.getElementById('ev-details-section');
@@ -475,6 +494,10 @@ function showScreen(screenName) {
     'screen--hidden'
   );
 
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
   tryoutSummaryScreen.classList.add(
     'screen--hidden'
   );
@@ -549,15 +572,25 @@ function showScreen(screenName) {
     eventScreen.classList.remove('screen--hidden');
     // Content already populated by EventSystem.openEvent() before showScreen() is called
   }
-  if (
-    screenName ===
-    'event-results'
-  ) {
-    eventResultsScreen.classList.remove(
-      'screen--hidden'
-    );
-  }
-  if (screenName === 'tryout-summary') {
+    if (
+      screenName ===
+      'event-results'
+    ) {
+      eventResultsScreen.classList.remove(
+        'screen--hidden'
+      );
+    }
+
+    if (
+      screenName ===
+      'postgame-summary'
+    ) {
+      postgameSummaryScreen.classList.remove(
+        'screen--hidden'
+      );
+    }
+
+    if (screenName === 'tryout-summary') {
     tryoutSummaryScreen.classList.remove('screen--hidden');
   }
   if (screenName === 'roster-reveal') {
@@ -4973,6 +5006,299 @@ const HUB_DAYS = [
   { dateKey: '2026-09-07',day: 'SAT', date: '9/10', fullDate: 'Saturday, September 10', icon: '😴', event: 'Recovery',         isToday: false, isCompleted: false, location: 'Training Facility',  objective: 'Rest and light conditioning.',       eventId: 'recovery-sleep'                                          },
 ];
 
+/* ============================================================
+   POSTGAME SUMMARY
+   Opens the permanently saved result for one completed game.
+   Used both immediately after simulation and from Schedule.
+   ============================================================ */
+
+function openPostgameSummary(gameId) {
+  const schedule =
+    Array.isArray(
+      WorldEngine.state.schedule
+    )
+      ? WorldEngine.state.schedule
+      : [];
+
+  const scheduledGame =
+    schedule.find(
+      game =>
+        String(
+          game.gameId ||
+          game.id
+        ) === String(gameId)
+    );
+
+  const summary =
+    scheduledGame?.postgameSummary ||
+    null;
+
+  if (
+    !scheduledGame ||
+    !summary
+  ) {
+    console.error(
+      '[Postgame Summary] Saved game result not found.',
+      {
+        gameId,
+        scheduledGame,
+      }
+    );
+
+    return false;
+  }
+
+  const homeTeam =
+    WorldEngine.getTeamById(
+      summary.home?.teamId ||
+      scheduledGame.homeTeamId
+    );
+
+  const awayTeam =
+    WorldEngine.getTeamById(
+      summary.away?.teamId ||
+      scheduledGame.awayTeamId
+    );
+
+  const playerId =
+    String(
+      Game.player.playerId ||
+      Game.player.id ||
+      ''
+    );
+
+  const allSkaters = [
+    ...(
+      Array.isArray(
+        summary.home?.skaters
+      )
+        ? summary.home.skaters
+        : []
+    ),
+
+    ...(
+      Array.isArray(
+        summary.away?.skaters
+      )
+        ? summary.away.skaters
+        : []
+    ),
+  ];
+
+  const playerLine =
+    allSkaters.find(
+      player =>
+        String(player.playerId) ===
+        playerId
+    ) ||
+    {
+      goals: 0,
+      assists: 0,
+      points: 0,
+      plusMinus: 0,
+      shots: 0,
+      penaltyMinutes: 0,
+    };
+
+  const playerTeamId =
+    String(
+      Game.player.teamId ||
+      Game.player.currentTeamId ||
+      ''
+    );
+
+  const didPlayerWin =
+    String(summary.winnerTeamId) ===
+    playerTeamId;
+
+  const didPlayerLose =
+    String(summary.loserTeamId) ===
+    playerTeamId;
+
+  const resultLabel =
+    didPlayerWin
+      ? 'W'
+      : (
+          didPlayerLose &&
+          summary.wentToOvertime
+            ? 'OTL'
+            : 'L'
+        );
+
+  const setText = (
+    id,
+    value
+  ) => {
+    const element =
+      document.getElementById(id);
+
+    if (element) {
+      element.textContent =
+        value ?? '—';
+    }
+  };
+
+  setText(
+    'postgame-result-badge',
+    resultLabel
+  );
+
+  setText(
+    'postgame-final-status',
+    summary.wentToShootout
+      ? 'Final / SO'
+      : (
+          summary.wentToOvertime
+            ? 'Final / OT'
+            : 'Final'
+        )
+  );
+
+  setText(
+    'postgame-away-abbreviation',
+    awayTeam?.abbreviation ||
+    'AWY'
+  );
+
+  setText(
+    'postgame-away-name',
+    awayTeam?.teamName ||
+    awayTeam?.schoolName ||
+    'Away Team'
+  );
+
+  setText(
+    'postgame-away-score',
+    summary.finalScore?.away ??
+    summary.away?.score ??
+    0
+  );
+
+  setText(
+    'postgame-home-abbreviation',
+    homeTeam?.abbreviation ||
+    'HOM'
+  );
+
+  setText(
+    'postgame-home-name',
+    homeTeam?.teamName ||
+    homeTeam?.schoolName ||
+    'Home Team'
+  );
+
+  setText(
+    'postgame-home-score',
+    summary.finalScore?.home ??
+    summary.home?.score ??
+    0
+  );
+
+  setText(
+    'postgame-player-name',
+    [
+      Game.player.firstName,
+      Game.player.lastName,
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    'Your Player'
+  );
+
+  setText(
+    'postgame-player-position',
+    Game.player.position ||
+    '—'
+  );
+
+  setText(
+    'postgame-player-goals',
+    Number(playerLine.goals) || 0
+  );
+
+  setText(
+    'postgame-player-assists',
+    Number(playerLine.assists) || 0
+  );
+
+  setText(
+    'postgame-player-points',
+    Number(playerLine.points) ||
+    (
+      (Number(playerLine.goals) || 0) +
+      (Number(playerLine.assists) || 0)
+    )
+  );
+
+  const plusMinus =
+    Number(playerLine.plusMinus) || 0;
+
+  setText(
+    'postgame-player-plus-minus',
+    plusMinus > 0
+      ? `+${plusMinus}`
+      : plusMinus
+  );
+
+  setText(
+    'postgame-player-shots',
+    Number(playerLine.shots) || 0
+  );
+
+  setText(
+    'postgame-player-pim',
+    Number(
+      playerLine.penaltyMinutes
+    ) || 0
+  );
+
+  const resultBadge =
+    document.getElementById(
+      'postgame-result-badge'
+    );
+
+  if (resultBadge) {
+    resultBadge.classList.remove(
+      'postgame-summary__result--loss',
+      'postgame-summary__result--otl'
+    );
+
+    if (resultLabel === 'L') {
+      resultBadge.classList.add(
+        'postgame-summary__result--loss'
+      );
+    }
+
+    if (resultLabel === 'OTL') {
+      resultBadge.classList.add(
+        'postgame-summary__result--otl'
+      );
+    }
+  }
+
+  /*
+   * Save the active game ID so Continue and Full Box Score
+   * know which permanently stored game they are displaying.
+   */
+  if (postgameSummaryScreen) {
+    postgameSummaryScreen.dataset.gameId =
+      String(gameId);
+  }
+
+  showScreen(
+    'postgame-summary'
+  );
+
+  window.scrollTo(
+    {
+      top: 0,
+      behavior: 'instant',
+    }
+  );
+
+  return true;
+}
+
 let hubCalendarReady = false;
 let scheduleViewYear = 2026;
 let scheduleViewMonth = 8;
@@ -5522,27 +5848,42 @@ function renderScheduleCalendar(year, month) {
       <span
   class="schedule-day-event
     schedule-day-event--${event.type}
+    ${event.type !== 'game' ? 'schedule-day-event--icon-only' : ''}
     ${event.location ? `schedule-day-event--${event.location}` : ''}
     ${event.resultType ? `schedule-day-event--${event.resultType}` : ''}
     ${event.isCompleted ? 'schedule-day-event--completed' : ''}"
+  title="${event.label || event.shortLabel || 'Scheduled event'}"
 >
-  <span class="schedule-day-event__matchup">
-    ${
-      event.completedMatchupLabel ||
-      event.shortLabel ||
-      event.label
-    }
-  </span>
-
   ${
-    event.isCompleted &&
-    event.completedResultLabel
+    event.type === 'game'
       ? `
-        <span class="schedule-day-event__result">
-          ${event.completedResultLabel}
+        <span class="schedule-day-event__matchup">
+          ${
+            event.completedMatchupLabel ||
+            event.shortLabel ||
+            event.label
+          }
+        </span>
+
+        ${
+          event.isCompleted &&
+          event.completedResultLabel
+            ? `
+              <span class="schedule-day-event__result">
+                ${event.completedResultLabel}
+              </span>
+            `
+            : ''
+        }
+      `
+      : `
+        <span
+          class="schedule-day-event__icon"
+          aria-hidden="true"
+        >
+          ${event.icon || '📅'}
         </span>
       `
-      : ''
   }
 </span>
     `
@@ -5590,14 +5931,22 @@ function renderScheduleCalendar(year, month) {
               </div>
 
               <div class="schedule-selected-event__info">
-                <h4>${selectedEvent.label}</h4>
-                <p>
-                  ${selectedEvent.location || 'No location listed'}
-                </p>
-                <p>
-                  ${selectedEvent.objective || 'No additional details.'}
-                </p>
-              </div>
+  <h4>${selectedEvent.label}</h4>
+
+  ${
+    selectedEvent.type === 'game'
+      ? ''
+      : `
+        <p>
+          ${selectedEvent.location || 'No location listed'}
+        </p>
+      `
+  }
+
+  <p>
+    ${selectedEvent.objective || 'No additional details.'}
+  </p>
+</div>
             </div>
           `;
         } else {
@@ -5751,6 +6100,37 @@ document
      *
      * This is display-only. Event rewards are not processed again.
      */
+    /*
+     * Completed games reopen their permanently saved
+     * postgame summary instead of the pregame event page.
+     */
+    const isCompletedGame =
+      Boolean(selectedEvent.isCompleted) &&
+      selectedEvent.type === 'game';
+
+    if (isCompletedGame) {
+      const completedGameId =
+        selectedEvent.gameId ||
+        selectedEvent.eventId ||
+        null;
+
+      if (
+        completedGameId &&
+        openPostgameSummary(
+          completedGameId
+        )
+      ) {
+        return;
+      }
+
+      console.error(
+        '[Schedule] Could not open completed game summary.',
+        selectedEvent
+      );
+
+      return;
+    }
+  
     const isCompletedCareerEvent =
       Boolean(selectedEvent.isCompleted) &&
       selectedEvent.type !== 'game' &&

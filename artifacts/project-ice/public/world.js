@@ -15125,6 +15125,129 @@ const WorldEngine = (() => {
       },
     };
 
+    /*
+     * Freeze the completed game's postgame data on the canonical
+     * schedule record. The summary and full box score will both
+     * read from this saved package without resimulating the game.
+     */
+    scheduledGame.postgameSummary = {
+      gameId,
+
+      date:
+        scheduledGame.date ||
+        gameResult.date ||
+        null,
+
+      resultType:
+        scheduledGame.resultType,
+
+      wentToOvertime:
+        Boolean(
+          scheduledGame.wentToOvertime
+        ),
+
+      wentToShootout:
+        Boolean(
+          scheduledGame.wentToShootout
+        ),
+
+      winnerTeamId,
+      loserTeamId,
+
+      finalScore: {
+        home:
+          Number(homeScore) || 0,
+
+        away:
+          Number(awayScore) || 0,
+      },
+
+      home: {
+        teamId:
+          gameResult.home?.teamId ||
+          scheduledGame.homeTeamId ||
+          null,
+
+        score:
+          Number(
+            gameResult.home?.score
+          ) || 0,
+
+        shots:
+          Number(
+            gameResult.home?.shots
+          ) || 0,
+
+        skaters:
+          Array.isArray(
+            gameResult.home?.skaters
+          )
+            ? structuredClone(
+                gameResult.home.skaters
+              )
+            : [],
+
+        goalies:
+          Array.isArray(
+            gameResult.home?.goalies
+          )
+            ? structuredClone(
+                gameResult.home.goalies
+              )
+            : [],
+      },
+
+      away: {
+        teamId:
+          gameResult.away?.teamId ||
+          scheduledGame.awayTeamId ||
+          null,
+
+        score:
+          Number(
+            gameResult.away?.score
+          ) || 0,
+
+        shots:
+          Number(
+            gameResult.away?.shots
+          ) || 0,
+
+        skaters:
+          Array.isArray(
+            gameResult.away?.skaters
+          )
+            ? structuredClone(
+                gameResult.away.skaters
+              )
+            : [],
+
+        goalies:
+          Array.isArray(
+            gameResult.away?.goalies
+          )
+            ? structuredClone(
+                gameResult.away.goalies
+              )
+            : [],
+      },
+
+      timeline:
+        Array.isArray(
+          gameResult.timeline
+        )
+          ? structuredClone(
+              gameResult.timeline
+            )
+          : [],
+
+      savedAt:
+        scheduledGame.gameResult
+          ?.metadata
+          ?.appliedAt ||
+        new Date().toISOString(),
+    };
+
     gameResult.completed =
       true;
 

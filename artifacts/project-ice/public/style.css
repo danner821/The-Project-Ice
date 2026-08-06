@@ -10406,4 +10406,415 @@ tr.career-player-highlight .full-stats-player-button {
 ).schedule-day--selected {
   opacity: 1;
 }
+
+/* ============================================================
+   NON-GAME CALENDAR EVENT ICONS
+   ============================================================ */
+
+.schedule-day {
+  position: relative;
+}
+
+.schedule-day-event--icon-only {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+
+  display: block;
+  overflow: visible;
+
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.schedule-day-event--icon-only
+.schedule-day-event__icon {
+  display: block;
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.schedule-day-event--icon-only.schedule-day-event--completed {
+  opacity: 0.48;
+}
+
+.schedule-day--selected
+.schedule-day-event--icon-only {
+  opacity: 1;
+}
+
+/* ============================================================
+   POSTGAME SUMMARY SCREEN
+   ============================================================ */
+
+#postgame-summary-screen {
+  background:
+    radial-gradient(
+      circle at top center,
+      rgba(28, 83, 177, 0.24),
+      transparent 38%
+    ),
+    #031023;
+}
+
+.postgame-summary {
+  width: 100%;
+  min-height: 100%;
+  padding:
+    calc(env(safe-area-inset-top) + 26px)
+    22px
+    calc(env(safe-area-inset-bottom) + 34px);
+
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.postgame-summary__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+
+  padding-bottom: 18px;
+  border-bottom:
+    1px solid rgba(91, 137, 210, 0.24);
+}
+
+.postgame-summary__header h2 {
+  margin: 5px 0 0;
+  color: #f6f9ff;
+  font-size: 1.85rem;
+  line-height: 1.05;
+}
+
+.postgame-summary__result {
+  min-width: 58px;
+  height: 42px;
+  padding: 0 15px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+  border:
+    1px solid rgba(70, 222, 144, 0.62);
+
+  background:
+    rgba(20, 121, 75, 0.36);
+
+  color: #95f3bd;
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.postgame-summary__result--loss {
+  border-color:
+    rgba(242, 99, 112, 0.62);
+
+  background:
+    rgba(145, 43, 55, 0.34);
+
+  color: #ff9ba5;
+}
+
+.postgame-summary__result--otl {
+  border-color:
+    rgba(237, 180, 73, 0.66);
+
+  background:
+    rgba(145, 101, 28, 0.36);
+
+  color: #ffd27b;
+}
+
+.postgame-summary__content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.postgame-scoreboard,
+.postgame-section {
+  border:
+    1px solid rgba(72, 116, 183, 0.28);
+
+  border-radius: 20px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(13, 32, 68, 0.92),
+      rgba(7, 22, 49, 0.92)
+    );
+
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.18);
+}
+
+.postgame-scoreboard {
+  padding: 22px 18px;
+}
+
+.postgame-scoreboard__status {
+  margin: 0 0 18px;
+
+  color: #7699d1;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.postgame-scoreboard__teams {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    minmax(0, 1fr);
+
+  align-items: center;
+  gap: 12px;
+}
+
+.postgame-scoreboard__team {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+
+  text-align: center;
+}
+
+.postgame-scoreboard__abbreviation {
+  color: #7799cf;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.postgame-scoreboard__name {
+  width: 100%;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #e6edfa;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.postgame-scoreboard__score {
+  margin-top: 5px;
+
+  color: #ffffff;
+  font-size: 2.65rem;
+  line-height: 1;
+}
+
+.postgame-scoreboard__divider {
+  color: rgba(142, 171, 219, 0.56);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.postgame-section {
+  padding: 18px;
+}
+
+.postgame-section__heading {
+  margin-bottom: 16px;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.postgame-section__heading h3 {
+  margin: 4px 0 0;
+
+  color: #f4f7fd;
+  font-size: 1.12rem;
+}
+
+.postgame-section__subtext {
+  color: #7d9ac8;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.postgame-stat-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 10px;
+}
+
+.postgame-stat {
+  min-height: 74px;
+  padding: 12px 8px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  border:
+    1px solid rgba(72, 118, 188, 0.26);
+
+  border-radius: 14px;
+
+  background:
+    rgba(3, 14, 34, 0.48);
+}
+
+.postgame-stat span {
+  color: #718fbe;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.postgame-stat strong {
+  color: #ffffff;
+  font-size: 1.28rem;
+  line-height: 1;
+}
+
+.postgame-goalie-list,
+.postgame-stars,
+.postgame-impact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.postgame-goalie-row,
+.postgame-star-row,
+.postgame-impact-row {
+  min-height: 58px;
+  padding: 12px 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  border:
+    1px solid rgba(65, 104, 164, 0.24);
+
+  border-radius: 14px;
+
+  background:
+    rgba(3, 14, 34, 0.42);
+}
+
+.postgame-goalie-row__identity,
+.postgame-star-row__identity {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.postgame-goalie-row__identity strong,
+.postgame-star-row__identity strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  color: #eef3fb;
+  font-size: 0.92rem;
+}
+
+.postgame-goalie-row__identity span,
+.postgame-star-row__identity span {
+  color: #7897c5;
+  font-size: 0.75rem;
+}
+
+.postgame-goalie-row__stats,
+.postgame-star-row__stats {
+  flex-shrink: 0;
+
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.postgame-impact-row span:first-child {
+  color: #8aa5cf;
+  font-size: 0.84rem;
+}
+
+.postgame-impact-row strong {
+  color: #ffffff;
+  font-size: 0.92rem;
+}
+
+.postgame-summary__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.postgame-summary__footer .btn {
+  width: 100%;
+}
+
+@media (max-width: 380px) {
+  .postgame-summary {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .postgame-scoreboard__score {
+    font-size: 2.25rem;
+  }
+
+  .postgame-stat-grid {
+    gap: 8px;
+  }
+
+  .postgame-stat {
+    min-height: 68px;
+  }
+}
+
+/* ============================================================
+   POSTGAME SUMMARY SCROLLING
+   ============================================================ */
+
+#postgame-summary-screen {
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.postgame-summary {
+  height: auto;
+  min-height: 100%;
+  padding-bottom:
+    calc(env(safe-area-inset-bottom) + 140px);
+}
 /* ═══════════════════════════════════════════════════════════ */
