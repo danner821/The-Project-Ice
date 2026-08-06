@@ -15233,13 +15233,13 @@ const WorldEngine = (() => {
       },
 
       timeline:
-        Array.isArray(
-          gameResult.timeline
-        )
-          ? structuredClone(
-              gameResult.timeline
-            )
-          : [],
+      Array.isArray(
+        gameResult.scoringPlays
+      )
+        ? structuredClone(
+            gameResult.scoringPlays
+          )
+        : [],
 
       savedAt:
         scheduledGame.gameResult
