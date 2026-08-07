@@ -1533,8 +1533,10 @@ const WorldEngine = (() => {
           definition.focus,
 
         requiresPlayerInteraction:
-          eventType ===
-          EVENT_TYPES.PRACTICE,
+        eventType ===
+          EVENT_TYPES.PRACTICE ||
+        eventType ===
+          EVENT_TYPES.TRAINING,
 
         completed: false,
 

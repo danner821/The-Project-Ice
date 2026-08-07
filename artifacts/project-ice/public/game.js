@@ -1558,16 +1558,18 @@ btnDevHub.addEventListener('click', () => {
       '2026-09-17';
 
     /*
-     * Begin from the actual season start so the shortcut can
-     * process every scheduled career event before September 17.
+     * DEV SHORTCUT
+     *
+     * Jump directly to the intended testing date.
+     *
+     * Do not rewind the canonical world to season start and
+     * re-simulate already processed history. Rewinding only the
+     * clock while retaining completed games/events creates an
+     * internally inconsistent world and can stop early on a
+     * player-controlled event such as Training.
      */
-    const devStartDate =
-      WorldEngine.state.season
-        ?.startDate ||
-      '2026-09-01';
-
     WorldEngine.setCurrentDate(
-      devStartDate,
+      devDate,
       {
         save: false,
       }
@@ -1617,9 +1619,6 @@ btnDevHub.addEventListener('click', () => {
       devSafetyCount < 100
     ) {
       const advanceResult =
-        WorldEngine.advanceToDate(
-          devDate
-        );
 
       devReachedDate =
         advanceResult?.currentDate ||
@@ -7586,13 +7585,14 @@ function pickStableEvent(items, dateKey, salt = '') {
      * preserved so the Event screen can complete the exact
      * underlying event.
      */
-    const lifeEvents =
-      canonicalSchedule
-        .filter(event =>
-          event.type === 'practice' ||
-          event.type === 'recovery' ||
-          event.type === 'coach-meeting'
-        )
+      const lifeEvents =
+        canonicalSchedule
+          .filter(event =>
+            event.type === 'practice' ||
+            event.type === 'recovery' ||
+            event.type === 'training' ||
+            event.type === 'coach-meeting'
+          )
         .map(event => ({
           ...event,
 
@@ -8163,6 +8163,65 @@ function simulateToDate(
   }
 
   /*
+   * Snapshot completed career-team games before advancing.
+   *
+   * Postgame routing must identify games that became completed
+   * during THIS simulation call instead of trying to infer that
+   * afterward from date ranges.
+   */
+  const preSimulationSchedule =
+    Array.isArray(
+      WorldEngine.state.schedule
+    )
+      ? WorldEngine.state.schedule
+      : [];
+
+  const careerTeamId =
+    WorldEngine.state.player
+      ?.teamId ||
+    Game.player
+      ?.teamId ||
+    null;
+
+  const previouslyCompletedCareerGameIds =
+    new Set(
+      preSimulationSchedule
+        .filter(event => {
+          if (
+            event?.type !== 'game' ||
+            event?.played !== true
+          ) {
+            return false;
+          }
+
+          const isCareerTeamGame =
+            careerTeamId &&
+            (
+              String(
+                event.homeTeamId || ''
+              ) ===
+                String(careerTeamId) ||
+              String(
+                event.awayTeamId || ''
+              ) ===
+                String(careerTeamId)
+            );
+
+          return Boolean(
+            isCareerTeamGame
+          );
+        })
+        .map(event =>
+          String(
+            event.id ||
+            event.gameId ||
+            ''
+          )
+        )
+        .filter(Boolean)
+    );
+
+  /*
    * Time advancement now belongs to the Season Engine.
    * The UI only requests a target date and reacts to
    * the result.
@@ -8216,7 +8275,6 @@ function simulateToDate(
         String(blockingEventId)
       ) || null;
 
-    if (blockingScheduleEvent) {
       if (
         blockingScheduleEvent.type ===
         'training'
@@ -8224,8 +8282,6 @@ function simulateToDate(
         openTrainingScreen(
           blockingScheduleEvent.eventId
         );
-
-        return reachedDate;
       }
 
       EventSystem.openEvent(
@@ -8244,9 +8300,7 @@ function simulateToDate(
 * Do not override a practice, recovery session, meeting,
 * or other player-controlled event that stopped simulation.
 */
-if (
-result?.stopSimulation !== true
-) {
+
 const canonicalSchedule =
   Array.isArray(
     WorldEngine.state.schedule
@@ -8264,9 +8318,24 @@ const canonicalSchedule =
   const newlyCompletedGame =
     canonicalSchedule
       .filter(game => {
-        const gameDate =
-          game.date ||
-          '';
+        if (
+          game?.type !== 'game' ||
+          game?.played !== true ||
+          !game?.postgameSummary
+        ) {
+          return false;
+        }
+
+        const gameId =
+          String(
+            game.id ||
+            game.gameId ||
+            ''
+          );
+
+        if (!gameId) {
+          return false;
+        }
 
         const isCareerTeamGame =
           careerTeamId &&
@@ -8281,19 +8350,20 @@ const canonicalSchedule =
               String(careerTeamId)
           );
 
+        if (!isCareerTeamGame) {
+          return false;
+        }
+
         return (
-          game.type === 'game' &&
-          game.played === true &&
-          game.postgameSummary &&
-          gameDate > currentDate &&
-          gameDate <= reachedDate &&
-          isCareerTeamGame
+          !previouslyCompletedCareerGameIds
+            .has(gameId)
         );
       })
       .sort((a, b) =>
-        String(a.date).localeCompare(
-          String(b.date)
-        )
+        String(a.date || '')
+          .localeCompare(
+            String(b.date || '')
+          )
       )[0] ||
     null;
 
@@ -8309,7 +8379,7 @@ if (completedGameId) {
     completedGameId
   );
 }
-}
+
 
 return reachedDate;
 }
