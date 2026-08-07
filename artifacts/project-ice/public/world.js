@@ -705,6 +705,451 @@ const WorldEngine = (() => {
     },
   ];
 
+  /*
+   * Player-selected weekly Training.
+   *
+   * Unlike team Practice, Training is controlled by the career
+   * player and awards targeted individual attribute XP.
+   *
+   * Each training option identifies the exact attributes it can
+   * develop. XP values will be calculated when the Training
+   * completion system is added.
+   *
+   * Skater and goalie training pools remain separate so players
+   * are never offered irrelevant attributes.
+   */
+  const HIGH_SCHOOL_TRAINING_TYPES = {
+    skater: [
+      {
+        trainingKey: 'training-first-step',
+        label: 'First-Step Quickness',
+        shortLabel: 'First Step',
+        icon: '⚡',
+        category: 'Skating',
+        description:
+          'Explosive starts and short-area acceleration work.',
+        attributes: [
+          'acceleration',
+        ],
+      },
+
+      {
+        trainingKey: 'training-top-speed',
+        label: 'Top-Speed Skating',
+        shortLabel: 'Speed',
+        icon: '💨',
+        category: 'Skating',
+        description:
+          'Straight-line speed and stride efficiency.',
+        attributes: [
+          'speed',
+        ],
+      },
+
+      {
+        trainingKey: 'training-edgework',
+        label: 'Edgework & Mobility',
+        shortLabel: 'Edgework',
+        icon: '⛸️',
+        category: 'Skating',
+        description:
+          'Tight turns, lateral movement and edge control.',
+        attributes: [
+          'agility',
+        ],
+      },
+
+      {
+        trainingKey: 'training-balance',
+        label: 'Balance Training',
+        shortLabel: 'Balance',
+        icon: '⚖️',
+        category: 'Skating',
+        description:
+          'Puck protection, stability and body control.',
+        attributes: [
+          'balance',
+        ],
+      },
+
+      {
+        trainingKey: 'training-conditioning',
+        label: 'Conditioning',
+        shortLabel: 'Conditioning',
+        icon: '🏃',
+        category: 'Skating',
+        description:
+          'Build game-long skating endurance.',
+        attributes: [
+          'endurance',
+        ],
+      },
+
+      {
+        trainingKey: 'training-wrist-shot',
+        label: 'Wrist Shot Session',
+        shortLabel: 'Wrist Shot',
+        icon: '🎯',
+        category: 'Shooting',
+        description:
+          'Repetition focused on release placement and velocity.',
+        attributes: [
+          'wristShotAccuracy',
+          'wristShotPower',
+        ],
+      },
+
+      {
+        trainingKey: 'training-slap-shot',
+        label: 'Slap Shot Session',
+        shortLabel: 'Slap Shot',
+        icon: '💥',
+        category: 'Shooting',
+        description:
+          'One-timers and full-power shooting mechanics.',
+        attributes: [
+          'slapShotAccuracy',
+          'slapShotPower',
+        ],
+      },
+
+      {
+        trainingKey: 'training-passing',
+        label: 'Passing Session',
+        shortLabel: 'Passing',
+        icon: '↔️',
+        category: 'Playmaking',
+        description:
+          'Touch passes, saucer passes and quick puck movement.',
+        attributes: [
+          'passing',
+        ],
+      },
+
+      {
+        trainingKey: 'training-puck-control',
+        label: 'Puck Control',
+        shortLabel: 'Puck Control',
+        icon: '🏒',
+        category: 'Playmaking',
+        description:
+          'Possession work in traffic and under pressure.',
+        attributes: [
+          'puckControl',
+        ],
+      },
+
+      {
+        trainingKey: 'training-deking',
+        label: 'Deking Session',
+        shortLabel: 'Deking',
+        icon: '🪄',
+        category: 'Playmaking',
+        description:
+          'One-on-one moves and creative puck handling.',
+        attributes: [
+          'deking',
+        ],
+      },
+
+      {
+        trainingKey: 'training-hand-eye',
+        label: 'Hand-Eye Drills',
+        shortLabel: 'Hand-Eye',
+        icon: '👁️',
+        category: 'Playmaking',
+        description:
+          'Deflections, loose pucks and coordination work.',
+        attributes: [
+          'handEye',
+        ],
+      },
+
+      {
+        trainingKey: 'training-offensive-iq',
+        label: 'Offensive Film Study',
+        shortLabel: 'Offensive IQ',
+        icon: '🧠',
+        category: 'Playmaking',
+        description:
+          'Study spacing, reads and offensive-zone decisions.',
+        attributes: [
+          'offensiveAwareness',
+        ],
+      },
+
+      {
+        trainingKey: 'training-defensive-iq',
+        label: 'Defensive Film Study',
+        shortLabel: 'Defensive IQ',
+        icon: '📋',
+        category: 'Defense',
+        description:
+          'Study positioning, coverage and defensive reads.',
+        attributes: [
+          'defensiveAwareness',
+        ],
+      },
+
+      {
+        trainingKey: 'training-stick-checking',
+        label: 'Stick Checking',
+        shortLabel: 'Stick Check',
+        icon: '🛡️',
+        category: 'Defense',
+        description:
+          'Poke checks, stick lifts and puck separation.',
+        attributes: [
+          'stickChecking',
+        ],
+      },
+
+      {
+        trainingKey: 'training-shot-blocking',
+        label: 'Shot Blocking',
+        shortLabel: 'Shot Blocking',
+        icon: '🚫',
+        category: 'Defense',
+        description:
+          'Lane reads, positioning and blocking technique.',
+        attributes: [
+          'shotBlocking',
+        ],
+      },
+
+      {
+        trainingKey: 'training-body-checking',
+        label: 'Body Checking',
+        shortLabel: 'Checking',
+        icon: '💢',
+        category: 'Physical',
+        description:
+          'Angling, contact timing and finishing checks.',
+        attributes: [
+          'bodyChecking',
+        ],
+      },
+
+      {
+        trainingKey: 'training-strength',
+        label: 'Strength Training',
+        shortLabel: 'Strength',
+        icon: '🏋️',
+        category: 'Physical',
+        description:
+          'Build strength for battles and puck protection.',
+        attributes: [
+          'strength',
+        ],
+      },
+
+      {
+        trainingKey: 'training-composure',
+        label: 'Pressure & Composure',
+        shortLabel: 'Composure',
+        icon: '🧊',
+        category: 'Hockey IQ',
+        description:
+          'Situational reps designed to improve decision-making under pressure.',
+        attributes: [
+          'poise',
+        ],
+      },
+
+      {
+        trainingKey: 'training-discipline',
+        label: 'Discipline & Positioning',
+        shortLabel: 'Discipline',
+        icon: '🎓',
+        category: 'Hockey IQ',
+        description:
+          'Controlled defensive reps focused on staying composed and avoiding unnecessary penalties.',
+        attributes: [
+          'discipline',
+        ],
+      },
+
+      {
+        trainingKey: 'training-durability',
+        label: 'Durability Training',
+        shortLabel: 'Durability',
+        icon: '🦾',
+        category: 'Physical',
+        description:
+          'Mobility, core stability and body maintenance for handling the grind of a season.',
+        attributes: [
+          'durability',
+        ],
+      },
+
+      {
+        trainingKey: 'training-faceoffs',
+        label: 'Faceoff Work',
+        shortLabel: 'Faceoffs',
+        icon: '⭕',
+        category: 'Specialty',
+        description:
+          'Timing, leverage and technique at the faceoff dot.',
+        attributes: [
+          'faceoffs',
+        ],
+      },
+    ],
+
+    goalie: [
+      {
+        trainingKey: 'training-goalie-reflexes',
+        label: 'Reaction Drills',
+        shortLabel: 'Reflexes',
+        icon: '⚡',
+        category: 'Athleticism',
+        description:
+          'Rapid-fire reaction drills focused on making instinctive saves.',
+        attributes: [
+          'reflexes',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-mobility',
+        label: 'Crease Mobility',
+        shortLabel: 'Mobility',
+        icon: '⛸️',
+        category: 'Athleticism',
+        description:
+          'Edgework and movement drills for faster movement around the crease.',
+        attributes: [
+          'agility',
+          'lateralMovement',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-recovery',
+        label: 'Recovery Drills',
+        shortLabel: 'Recovery',
+        icon: '🔄',
+        category: 'Athleticism',
+        description:
+          'Second-save situations focused on recovering quickly after the initial stop.',
+        attributes: [
+          'recoverySpeed',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-positioning',
+        label: 'Positioning & Angles',
+        shortLabel: 'Positioning',
+        icon: '📐',
+        category: 'Technique',
+        description:
+          'Crease positioning and angle management against controlled shooting sequences.',
+        attributes: [
+          'positioning',
+          'angles',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-rebounds',
+        label: 'Rebound Control',
+        shortLabel: 'Rebounds',
+        icon: '🧱',
+        category: 'Technique',
+        description:
+          'Direct rebounds away from dangerous areas and control second chances.',
+        attributes: [
+          'reboundControl',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-glove',
+        label: 'Glove Training',
+        shortLabel: 'Glove',
+        icon: '🥎',
+        category: 'Technique',
+        description:
+          'High and low glove-side save repetitions.',
+        attributes: [
+          'gloveHigh',
+          'gloveLow',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-blocker',
+        label: 'Blocker Training',
+        shortLabel: 'Blocker',
+        icon: '🛡️',
+        category: 'Technique',
+        description:
+          'High and low blocker-side reaction and placement drills.',
+        attributes: [
+          'blockerHigh',
+          'blockerLow',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-low-coverage',
+        label: 'Low-Net Coverage',
+        shortLabel: 'Five Hole',
+        icon: '🥅',
+        category: 'Technique',
+        description:
+          'Butterfly timing, stick placement and sealing the lower net.',
+        attributes: [
+          'fiveHole',
+          'stickControl',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-tracking',
+        label: 'Puck Tracking',
+        shortLabel: 'Tracking',
+        icon: '👁️',
+        category: 'Mental',
+        description:
+          'Track shots through traffic and read developing plays.',
+        attributes: [
+          'puckTracking',
+          'anticipation',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-composure',
+        label: 'Mental Preparation',
+        shortLabel: 'Composure',
+        icon: '🧠',
+        category: 'Mental',
+        description:
+          'Pressure situations and film study focused on staying composed and dependable.',
+        attributes: [
+          'composure',
+          'consistency',
+        ],
+      },
+
+      {
+        trainingKey: 'training-goalie-puck-play',
+        label: 'Puck-Playing Session',
+        shortLabel: 'Puck Play',
+        icon: '🏒',
+        category: 'Puck Playing',
+        description:
+          'Handle dump-ins, make outlet passes and move the puck under pressure.',
+        attributes: [
+          'puckHandling',
+          'goaliePassing',
+        ],
+      },
+    ],
+  };
+
   const HIGH_SCHOOL_RECOVERY_TYPES = [
     {
       eventKey: 'recovery',
@@ -999,9 +1444,13 @@ const WorldEngine = (() => {
       const isRecoveryDay =
         weekday === 3;
 
+      const isTrainingDay =
+        weekday === 0;
+
       if (
         !isPracticeDay &&
-        !isRecoveryDay
+        !isRecoveryDay &&
+        !isTrainingDay
       ) {
         continue;
       }
@@ -1009,19 +1458,44 @@ const WorldEngine = (() => {
       const eventType =
         isPracticeDay
           ? EVENT_TYPES.PRACTICE
-          : EVENT_TYPES.RECOVERY;
-
-      const definitions =
-        isPracticeDay
-          ? HIGH_SCHOOL_PRACTICE_TYPES
-          : HIGH_SCHOOL_RECOVERY_TYPES;
+          : isRecoveryDay
+            ? EVENT_TYPES.RECOVERY
+            : EVENT_TYPES.TRAINING;
 
       const definition =
-        pickStableHighSchoolEvent(
-          definitions,
-          dateKey,
-          eventType
-        );
+        isTrainingDay
+          ? {
+              eventKey:
+                `training-${dateKey}`,
+
+              label:
+                'Training',
+
+              shortLabel:
+                'Training',
+
+              icon:
+                '🏋️',
+
+              location:
+                'Training Facility',
+
+              objective:
+                'Choose an area of your game to develop.',
+
+              focus:
+                'player-choice',
+
+              description:
+                'Use your weekly training session to target specific areas of your game.',
+            }
+          : pickStableHighSchoolEvent(
+              isPracticeDay
+                ? HIGH_SCHOOL_PRACTICE_TYPES
+                : HIGH_SCHOOL_RECOVERY_TYPES,
+              dateKey,
+              eventType
+            );
 
       if (!definition) {
         continue;
@@ -3061,6 +3535,30 @@ const WorldEngine = (() => {
           event,
           options
         );
+
+        case EVENT_TYPES.TRAINING:
+        /*
+         * Training is a player-controlled weekly development event.
+         * Never auto-resolve it while advancing the calendar.
+         *
+         * Stop simulation and allow game.js to open the Training
+         * selection screen, where the career player chooses a focus.
+         */
+        return {
+          success: true,
+          resolved: false,
+          stopSimulation: true,
+
+          reason:
+            'training-selection-required',
+
+          eventId:
+            event?.id ||
+            event?.eventId ||
+            null,
+
+          event,
+        };
 
       case EVENT_TYPES.RECOVERY:
         return resolveRecoveryEvent(
@@ -22857,6 +23355,11 @@ const WorldEngine = (() => {
     repairCompletedGameDevelopment,
     reset,
     syncSeedTeamMetadata,
+    getTrainingTypes() {
+      return structuredClone(
+        HIGH_SCHOOL_TRAINING_TYPES
+      );
+    },
     createHighSchoolSchedule,
     createHighSchoolCareerSchedule,
     completePracticeEvent,

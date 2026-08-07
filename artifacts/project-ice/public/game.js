@@ -54,6 +54,21 @@ const prospectsScreen      = document.getElementById('prospects-screen');
 const eventScreen =
   document.getElementById('event-screen');
 
+const trainingScreen =
+  document.getElementById(
+    'training-screen'
+  );
+
+const trainingOptions =
+  document.getElementById(
+    'training-options'
+  );
+
+const btnBackTraining =
+  document.getElementById(
+    'btn-back-training'
+  );
+
 const eventResultsScreen =
   document.getElementById(
     'event-results-screen'
@@ -171,6 +186,295 @@ function filterArchetypeCards() {
   document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
     const show = card.dataset.positionGroup === group;
     card.style.display = show ? '' : 'none';
+  });
+}
+
+function renderTrainingOptions() {
+  if (
+    !trainingOptions ||
+    typeof WorldEngine
+      ?.getTrainingTypes !==
+      'function'
+  ) {
+    return;
+  }
+
+  const trainingCatalog =
+    WorldEngine.getTrainingTypes();
+
+  const positionGroup =
+    getPositionGroup(
+      Game.player.position
+    );
+
+  const trainingPool =
+    positionGroup === 'goalie'
+      ? trainingCatalog.goalie
+      : trainingCatalog.skater;
+
+  if (
+    !Array.isArray(trainingPool) ||
+    trainingPool.length === 0
+  ) {
+    trainingOptions.innerHTML = `
+      <div class="training-empty">
+        No training options are available.
+      </div>
+    `;
+
+    return;
+  }
+
+  const formatAttributeLabel =
+    attributeKey => {
+      const labelMap = {
+        wristShotPower:
+          'Wrist Shot Power',
+
+        wristShotAccuracy:
+          'Wrist Shot Accuracy',
+
+        slapShotPower:
+          'Slap Shot Power',
+
+        slapShotAccuracy:
+          'Slap Shot Accuracy',
+
+        passing:
+          'Passing',
+
+        puckControl:
+          'Puck Control',
+
+        deking:
+          'Deking',
+
+        handEye:
+          'Hand-Eye',
+
+        speed:
+          'Speed',
+
+        acceleration:
+          'Acceleration',
+
+        agility:
+          'Agility',
+
+        balance:
+          'Balance',
+
+        endurance:
+          'Endurance',
+
+        offensiveAwareness:
+          'Offensive Awareness',
+
+        defensiveAwareness:
+          'Defensive Awareness',
+
+        poise:
+          'Poise',
+
+        discipline:
+          'Discipline',
+
+        stickChecking:
+          'Stick Checking',
+
+        shotBlocking:
+          'Shot Blocking',
+
+        bodyChecking:
+          'Body Checking',
+
+        strength:
+          'Strength',
+
+        durability:
+          'Durability',
+
+        faceoffs:
+          'Faceoffs',
+
+        reflexes:
+          'Reflexes',
+
+        lateralMovement:
+          'Lateral Movement',
+
+        recoverySpeed:
+          'Recovery Speed',
+
+        positioning:
+          'Positioning',
+
+        angles:
+          'Angles',
+
+        reboundControl:
+          'Rebound Control',
+
+        gloveHigh:
+          'Glove High',
+
+        gloveLow:
+          'Glove Low',
+
+        blockerHigh:
+          'Blocker High',
+
+        blockerLow:
+          'Blocker Low',
+
+        fiveHole:
+          'Five Hole',
+
+        stickControl:
+          'Stick Control',
+
+        puckTracking:
+          'Puck Tracking',
+
+        anticipation:
+          'Anticipation',
+
+        composure:
+          'Composure',
+
+        consistency:
+          'Consistency',
+
+        puckHandling:
+          'Puck Handling',
+
+        goaliePassing:
+          'Goalie Passing',
+      };
+
+      return (
+        labelMap[attributeKey] ||
+        attributeKey
+      );
+    };
+
+  trainingOptions.innerHTML =
+    trainingPool
+      .map(training => {
+        const attributeMarkup =
+          Array.isArray(
+            training.attributes
+          )
+            ? training.attributes
+                .map(attributeKey => `
+                  <span
+                    class="training-option__attribute"
+                  >
+                    + ${formatAttributeLabel(
+                      attributeKey
+                    )}
+                  </span>
+                `)
+                .join('')
+            : '';
+
+        return `
+          <button
+            class="training-option"
+            type="button"
+            data-training-key="${
+              training.trainingKey
+            }"
+          >
+            <div
+              class="training-option__icon"
+              aria-hidden="true"
+            >
+              ${training.icon || '🏋️'}
+            </div>
+
+            <div
+              class="training-option__content"
+            >
+              <div
+                class="training-option__top"
+              >
+                <strong
+                  class="training-option__name"
+                >
+                  ${training.label}
+                </strong>
+
+                <span
+                  class="training-option__category"
+                >
+                  ${training.category}
+                </span>
+              </div>
+
+              <p
+                class="training-option__description"
+              >
+                ${
+                  training.description ||
+                  ''
+                }
+              </p>
+
+              <div
+                class="training-option__attributes"
+              >
+                ${attributeMarkup}
+              </div>
+            </div>
+
+            <span
+              class="training-option__arrow"
+              aria-hidden="true"
+            >
+              ›
+            </span>
+          </button>
+        `;
+      })
+      .join('');
+}
+
+let activeTrainingEventId = null;
+
+function openTrainingScreen(
+  eventId
+) {
+  if (
+    !trainingScreen ||
+    !eventId
+  ) {
+    return;
+  }
+
+  activeTrainingEventId =
+    String(eventId);
+
+  renderTrainingOptions();
+
+  document
+    .querySelectorAll(
+      '.screen'
+    )
+    .forEach(screen => {
+      screen.classList.add(
+        'screen--hidden'
+      );
+    });
+
+  trainingScreen.classList.remove(
+    'screen--hidden'
+  );
+
+  trainingScreen.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: 'instant',
   });
 }
 
@@ -7912,13 +8216,24 @@ function simulateToDate(
         String(blockingEventId)
       ) || null;
 
-if (blockingScheduleEvent) {
-  EventSystem.openEvent(
-    blockingScheduleEvent.eventId,
-    'schedule',
-    blockingScheduleEvent
-  );
-}
+    if (blockingScheduleEvent) {
+      if (
+        blockingScheduleEvent.type ===
+        'training'
+      ) {
+        openTrainingScreen(
+          blockingScheduleEvent.eventId
+        );
+
+        return reachedDate;
+      }
+
+      EventSystem.openEvent(
+        blockingScheduleEvent.eventId,
+        'schedule',
+        blockingScheduleEvent
+      );
+    }
 }
 
 /*
