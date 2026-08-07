@@ -16251,67 +16251,6 @@ const WorldEngine = (() => {
     const playerType =
       performance.playerType;
 
-    /*
-     * Use a simulator-provided rating whenever one exists.
-     * The canonical game-line contract reserves gameRating,
-     * but the fallback below keeps progression functional
-     * before a dedicated rating generator is installed.
-     */
-    const suppliedGameRating =
-      Number(
-        gameLine.gameRating
-      );
-
-    if (
-      Number.isFinite(
-        suppliedGameRating
-      )
-    ) {
-      const normalizedRating =
-        suppliedGameRating <= 10
-          ? suppliedGameRating * 10
-          : suppliedGameRating;
-
-      const score =
-        Math.round(
-          clamp(
-            normalizedRating,
-            0,
-            100
-          )
-        );
-
-      return {
-        success: true,
-
-        scored: true,
-
-        reason:
-          'simulated-game-rating-used',
-
-        score,
-
-        tier:
-          score >= 90
-            ? 'elite'
-            : score >= 80
-              ? 'excellent'
-              : score >= 70
-                ? 'strong'
-                : score >= 60
-                  ? 'solid'
-                  : score >= 50
-                    ? 'average'
-                    : score >= 40
-                      ? 'poor'
-                      : 'very-poor',
-
-        components: {
-          suppliedGameRating,
-          normalizedRating,
-        },
-      };
-    }
 
     if (
       playerType === 'goalie'
@@ -17450,11 +17389,76 @@ const WorldEngine = (() => {
           );
       }
 
-      const totalDevelopmentWeight =
-        Object.values(
+      /*
+       * Keep only the most relevant skills from this game.
+       *
+       * A player can touch many areas in one performance, but
+       * development should feel focused rather than diluted
+       * across every attribute that received a tiny weight.
+       */
+      const rankedDevelopmentWeights =
+        Object.entries(
           developmentWeights
-        ).reduce(
-          (sum, weight) =>
+        )
+          .filter(
+            ([, weight]) =>
+              Number(weight) > 0
+          )
+          .sort(
+            (
+              [, firstWeight],
+              [, secondWeight]
+            ) =>
+              Number(secondWeight) -
+              Number(firstWeight)
+          );
+
+      /*
+       * The number of rewarded attributes can vary naturally.
+       *
+       * Quiet games remain focused on roughly three skills.
+       * More varied performances can develop four or five.
+       */
+      let rewardAttributeCount = 3;
+
+      if (
+        rankedDevelopmentWeights.length >= 4 &&
+        (
+          goals +
+          assists +
+          blockedShots +
+          hits +
+          takeaways
+        ) >= 2
+      ) {
+        rewardAttributeCount = 4;
+      }
+
+      if (
+        rankedDevelopmentWeights.length >= 5 &&
+        (
+          goals +
+          assists +
+          blockedShots +
+          hits +
+          takeaways
+        ) >= 4
+      ) {
+        rewardAttributeCount = 5;
+      }
+
+      const selectedDevelopmentWeights =
+        rankedDevelopmentWeights.slice(
+          0,
+          rewardAttributeCount
+        );
+
+      const selectedWeightTotal =
+        selectedDevelopmentWeights.reduce(
+          (
+            sum,
+            [, weight]
+          ) =>
             sum +
             (
               Number(weight) || 0
@@ -17462,12 +17466,8 @@ const WorldEngine = (() => {
           0
         );
 
-      if (
-        totalDevelopmentWeight > 0
-      ) {
-        Object.entries(
-          developmentWeights
-        ).forEach(
+      if (selectedWeightTotal > 0) {
+        selectedDevelopmentWeights.forEach(
           ([
             attributeKey,
             weight
@@ -17477,7 +17477,7 @@ const WorldEngine = (() => {
               totalXP *
                 (
                   weight /
-                  totalDevelopmentWeight
+                  selectedWeightTotal
                 )
             );
           }

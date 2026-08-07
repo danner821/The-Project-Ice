@@ -7882,27 +7882,48 @@ const canonicalSchedule =
     ? WorldEngine.state.schedule
     : [];
 
-const newlyCompletedGame =
-  canonicalSchedule
-    .filter(game => {
-      const gameDate =
-        game.date ||
-        '';
+  const careerTeamId =
+    WorldEngine.state.player
+      ?.teamId ||
+    Game.player
+      ?.teamId ||
+    null;
 
-      return (
-        game.type === 'game' &&
-        game.played === true &&
-        game.postgameSummary &&
-        gameDate > currentDate &&
-        gameDate <= reachedDate
-      );
-    })
-    .sort((a, b) =>
-      String(a.date).localeCompare(
-        String(b.date)
-      )
-    )[0] ||
-  null;
+  const newlyCompletedGame =
+    canonicalSchedule
+      .filter(game => {
+        const gameDate =
+          game.date ||
+          '';
+
+        const isCareerTeamGame =
+          careerTeamId &&
+          (
+            String(
+              game.homeTeamId || ''
+            ) ===
+              String(careerTeamId) ||
+            String(
+              game.awayTeamId || ''
+            ) ===
+              String(careerTeamId)
+          );
+
+        return (
+          game.type === 'game' &&
+          game.played === true &&
+          game.postgameSummary &&
+          gameDate > currentDate &&
+          gameDate <= reachedDate &&
+          isCareerTeamGame
+        );
+      })
+      .sort((a, b) =>
+        String(a.date).localeCompare(
+          String(b.date)
+        )
+      )[0] ||
+    null;
 
 const completedGameId =
   newlyCompletedGame
