@@ -3137,8 +3137,17 @@ const WorldEngine = (() => {
       dressed:
         true,
 
+      /*
+       * Every skater placed on the active game roster is
+       * participating in this simulated game.
+       *
+       * This must be 1 so the performance/development engine
+       * recognizes the appearance after simulation.
+       */
       gamesPlayed:
-        0,
+        player
+          ? 1
+          : 0,
 
       goals:
         0,
@@ -3808,6 +3817,11 @@ const WorldEngine = (() => {
             player ===
             homeRoster.startingGoalie;
 
+          goalieLine.gamesPlayed =
+            goalieLine.started
+              ? 1
+              : 0;
+
           return goalieLine;
         }
       );
@@ -3823,6 +3837,11 @@ const WorldEngine = (() => {
           goalieLine.started =
             player ===
             awayRoster.startingGoalie;
+
+          goalieLine.gamesPlayed =
+            goalieLine.started
+              ? 1
+              : 0;
 
           return goalieLine;
         }
@@ -18219,6 +18238,262 @@ const WorldEngine = (() => {
     };
   }
 
+  function repairCompletedGameDevelopment(
+    gameId,
+    options = {}
+  ) {
+    if (!gameId) {
+      return {
+        success: false,
+        repaired: false,
+        reason: 'game-id-missing',
+      };
+    }
+
+    const scheduledGame =
+      Array.isArray(_state.schedule)
+        ? _state.schedule.find(game =>
+            String(
+              game?.id ||
+              game?.gameId ||
+              ''
+            ) ===
+            String(gameId)
+          ) || null
+        : null;
+
+    if (!scheduledGame) {
+      return {
+        success: false,
+        repaired: false,
+        reason: 'scheduled-game-not-found',
+        gameId,
+      };
+    }
+
+    const savedGameResult =
+      scheduledGame.gameResult &&
+      typeof scheduledGame.gameResult ===
+        'object'
+        ? structuredClone(
+            scheduledGame.gameResult
+          )
+        : null;
+
+    if (!savedGameResult) {
+      return {
+        success: false,
+        repaired: false,
+        reason: 'saved-game-result-missing',
+        gameId,
+      };
+    }
+
+    /*
+     * Older completed games were saved before the simulator
+     * correctly marked skater/goalie appearances.
+     *
+     * Repair participation only on the temporary copy used
+     * for development reconstruction.
+     */
+    [
+      savedGameResult.home,
+      savedGameResult.away,
+    ].forEach(teamResult => {
+      if (!teamResult) {
+        return;
+      }
+
+      if (
+        Array.isArray(
+          teamResult.skaters
+        )
+      ) {
+        teamResult.skaters.forEach(
+          skaterLine => {
+            if (
+              skaterLine &&
+              skaterLine.dressed !== false
+            ) {
+              skaterLine.gamesPlayed = 1;
+            }
+          }
+        );
+      }
+
+      if (
+        Array.isArray(
+          teamResult.goalies
+        )
+      ) {
+        teamResult.goalies.forEach(
+          goalieLine => {
+            if (!goalieLine) {
+              return;
+            }
+
+            if (
+              goalieLine.started === true
+            ) {
+              goalieLine.gamesPlayed = 1;
+            }
+          }
+        );
+      }
+    });
+
+    const careerPerformance =
+      getCareerPlayerGamePerformance(
+        savedGameResult
+      );
+
+    if (
+      careerPerformance.success !== true ||
+      careerPerformance.found !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          careerPerformance.reason ||
+          'career-player-performance-not-found',
+        gameId,
+        careerPerformance,
+      };
+    }
+
+    const performanceScore =
+      calculateCareerGamePerformanceScore(
+        careerPerformance
+      );
+
+    if (
+      performanceScore.success !== true ||
+      performanceScore.scored !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          performanceScore.reason ||
+          'career-performance-score-not-created',
+        gameId,
+        careerPerformance,
+        performanceScore,
+      };
+    }
+
+    const progressionResult =
+      createPostGameProgressionResult(
+        careerPerformance,
+        performanceScore
+      );
+
+    if (
+      progressionResult.success !== true ||
+      progressionResult.created !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          progressionResult.reason ||
+          'progression-result-not-created',
+        gameId,
+        careerPerformance,
+        performanceScore,
+        progressionResult,
+      };
+    }
+
+    /*
+     * applyPostGameProgression already contains the permanent
+     * game-log duplicate guard, so an old game can never award
+     * its XP twice.
+     */
+    const progressionApplication =
+      applyPostGameProgression(
+        progressionResult
+      );
+
+    const savedDevelopment = {
+      progressionResult:
+        structuredClone(
+          progressionResult
+        ),
+
+      progressionApplication:
+        progressionApplication &&
+        typeof progressionApplication ===
+          'object'
+          ? structuredClone(
+              progressionApplication
+            )
+          : null,
+
+      performanceScore:
+        Number(
+          performanceScore.score
+        ) || 0,
+
+      playerId:
+        careerPerformance.playerId ||
+        null,
+
+      repaired:
+        true,
+
+      repairedAt:
+        new Date().toISOString(),
+    };
+
+    scheduledGame.postgameSummary =
+      scheduledGame.postgameSummary &&
+      typeof scheduledGame
+        .postgameSummary === 'object'
+        ? scheduledGame.postgameSummary
+        : {};
+
+    scheduledGame
+      .postgameSummary
+      .development =
+      structuredClone(
+        savedDevelopment
+      );
+
+    scheduledGame
+      .gameResult
+      .development =
+      structuredClone(
+        savedDevelopment
+      );
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return {
+      success: true,
+      repaired: true,
+      reason:
+        progressionApplication
+          ?.reason ===
+          'post-game-progression-already-applied'
+          ? 'development-display-repaired'
+          : 'development-repaired-and-applied',
+
+      gameId,
+
+      careerPerformance,
+      performanceScore,
+      progressionResult,
+      progressionApplication,
+
+      development:
+        savedDevelopment,
+    };
+  }
+
   function processSeasonDate(
     dateString,
     options = {}
@@ -22579,6 +22854,7 @@ const WorldEngine = (() => {
     upgradePlayerAttribute,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
+    repairCompletedGameDevelopment,
     reset,
     syncSeedTeamMetadata,
     createHighSchoolSchedule,

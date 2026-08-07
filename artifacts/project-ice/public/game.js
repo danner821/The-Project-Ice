@@ -5047,14 +5047,63 @@ function openPostgameSummary(gameId) {
         ) === String(gameId)
     );
 
-  const summary =
-    scheduledGame?.postgameSummary ||
-    null;
+    let summary =
+      scheduledGame?.postgameSummary ||
+      null;
 
-  if (
-    !scheduledGame ||
-    !summary
-  ) {
+    /*
+     * Older completed career games may have a valid frozen
+     * box score but no usable Development Engine result because
+     * they were completed before the participation/progression
+     * fixes.
+     *
+     * Repair only when the saved progression package is missing.
+     * The World Engine's permanent game-log guard prevents the
+     * same game from awarding XP twice.
+     */
+    const hasSavedCareerDevelopment =
+      Boolean(
+        summary
+          ?.development
+          ?.progressionResult
+          ?.created === true
+      );
+
+    if (
+      scheduledGame &&
+      !hasSavedCareerDevelopment &&
+      typeof WorldEngine
+        .repairCompletedGameDevelopment ===
+          'function'
+    ) {
+      const repairResult =
+        WorldEngine
+          .repairCompletedGameDevelopment(
+            gameId
+          );
+
+      if (
+        repairResult?.success === true
+      ) {
+        /*
+         * The repair mutates the canonical scheduled game.
+         * Re-read its summary before rendering the screen.
+         */
+        summary =
+          scheduledGame.postgameSummary ||
+          summary;
+      } else {
+        console.warn(
+          '[Postgame Summary] Development repair failed.',
+          repairResult
+        );
+      }
+    }
+
+    if (
+      !scheduledGame ||
+      !summary
+    ) {
     console.error(
       '[Postgame Summary] Saved game result not found.',
       {
