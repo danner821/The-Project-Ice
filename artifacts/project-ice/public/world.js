@@ -9425,6 +9425,231 @@ const WorldEngine = (() => {
     
   }
 
+  function completeTrainingEvent(
+    eventId,
+    trainingKey,
+    {
+      save = true,
+    } = {}
+  ) {
+    const canonicalEvent =
+      (_state.schedule || [])
+        .find(event =>
+          String(
+            event?.id ||
+            event?.eventId ||
+            ''
+          ) ===
+          String(eventId || '')
+        );
+
+    if (!canonicalEvent) {
+      return {
+        success: false,
+        reason:
+          'training-event-not-found',
+      };
+    }
+
+    if (
+      canonicalEvent.type !==
+      EVENT_TYPES.TRAINING
+    ) {
+      return {
+        success: false,
+        reason:
+          'event-is-not-training',
+      };
+    }
+
+    if (
+      canonicalEvent.completed === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'training-already-completed',
+      };
+    }
+
+    const careerPlayer =
+      _state.player ||
+      null;
+
+    if (!careerPlayer) {
+      return {
+        success: false,
+        reason:
+          'career-player-not-found',
+      };
+    }
+
+    const rawPosition =
+      String(
+        careerPlayer.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes(
+        'GOAL'
+      );
+
+    const trainingPool =
+      isGoalie
+        ? HIGH_SCHOOL_TRAINING_TYPES
+            .goalie
+        : HIGH_SCHOOL_TRAINING_TYPES
+            .skater;
+
+    const selectedTraining =
+      trainingPool.find(training =>
+        String(
+          training.trainingKey || ''
+        ) ===
+        String(trainingKey || '')
+      ) ||
+      null;
+
+    if (!selectedTraining) {
+      return {
+        success: false,
+        reason:
+          'training-type-not-found',
+      };
+    }
+
+    const attributeKeys =
+      Array.isArray(
+        selectedTraining.attributes
+      )
+        ? selectedTraining.attributes
+        : [];
+
+    if (attributeKeys.length === 0) {
+      return {
+        success: false,
+        reason:
+          'training-has-no-attributes',
+      };
+    }
+
+    /*
+     * Weekly Training is deliberately more targeted than
+     * Practice, but still modest compared with game-earned XP.
+     *
+     * One-attribute sessions give a stronger focused reward.
+     * Multi-attribute sessions spread the reward across the
+     * selected skill group.
+     */
+    const xpPerAttribute =
+      attributeKeys.length === 1
+        ? 18
+        : attributeKeys.length === 2
+          ? 12
+          : 9;
+
+    const attributeXP = {};
+
+    attributeKeys.forEach(
+      attributeKey => {
+        attributeXP[
+          attributeKey
+        ] =
+          xpPerAttribute;
+      }
+    );
+
+    const totalXP =
+      attributeKeys.length *
+      xpPerAttribute;
+
+    const xpResult =
+      addPlayerAttributeXP(
+        careerPlayer,
+        attributeXP,
+        {
+          source:
+            'weekly-training',
+        }
+      );
+
+    if (
+      !xpResult ||
+      xpResult.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          'training-xp-application-failed',
+        xpResult,
+      };
+    }
+
+    canonicalEvent.completed = true;
+
+    canonicalEvent.completedAt =
+      _state.season
+        ?.currentDate ||
+      canonicalEvent.date ||
+      null;
+
+    canonicalEvent.trainingKey =
+      selectedTraining.trainingKey;
+
+    canonicalEvent.trainingResult = {
+      label:
+        selectedTraining.label,
+
+      category:
+        selectedTraining.category,
+
+      attributes: [
+        ...attributeKeys,
+      ],
+
+      xpPerAttribute,
+
+      totalXP,
+    };
+
+    if (save) {
+      saveState();
+    }
+
+    return {
+      success: true,
+
+      result: {
+        type:
+          EVENT_TYPES.TRAINING,
+
+        trainingKey:
+          selectedTraining
+            .trainingKey,
+
+        label:
+          selectedTraining.label,
+
+        category:
+          selectedTraining.category,
+
+        xp: {
+          total:
+            totalXP,
+
+          attributes:
+            attributeXP,
+        },
+      },
+
+      event:
+        canonicalEvent,
+    };
+  }
+
   function completeRecoveryEvent(
     eventId,
     options = {}
@@ -23365,6 +23590,7 @@ const WorldEngine = (() => {
     createHighSchoolSchedule,
     createHighSchoolCareerSchedule,
     completePracticeEvent,
+    completeTrainingEvent,
     completeRecoveryEvent,
     completeCoachMeetingEvent,
     setCurrentDate,

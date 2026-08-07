@@ -438,6 +438,134 @@ function renderTrainingOptions() {
         `;
       })
       .join('');
+
+  trainingOptions
+    .querySelectorAll(
+      '[data-training-key]'
+    )
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () => {
+          const trainingKey =
+            button.dataset
+              .trainingKey;
+
+          if (
+            !trainingKey ||
+            !activeTrainingEventId
+          ) {
+            console.error(
+              '[Project Ice] Training selection is missing its canonical event or training key.'
+            );
+
+            return;
+          }
+
+          const trainingDefinition =
+            trainingPool.find(
+              training =>
+                String(
+                  training.trainingKey
+                ) ===
+                String(trainingKey)
+            ) ||
+            null;
+
+          if (!trainingDefinition) {
+            console.error(
+              '[Project Ice] Selected Training definition could not be found.',
+              trainingKey
+            );
+
+            return;
+          }
+
+          /*
+           * Prevent double taps while the World Engine
+           * completes the canonical Training event.
+           */
+          trainingOptions
+            .querySelectorAll(
+              '[data-training-key]'
+            )
+            .forEach(
+              trainingButton => {
+                trainingButton.disabled =
+                  true;
+              }
+            );
+
+          const completion =
+            WorldEngine
+              .completeTrainingEvent(
+                activeTrainingEventId,
+                trainingKey
+              );
+
+          if (
+            !completion ||
+            completion.success !== true
+          ) {
+            console.error(
+              '[Project Ice] Training completion failed:',
+              completion
+            );
+
+            trainingOptions
+              .querySelectorAll(
+                '[data-training-key]'
+              )
+              .forEach(
+                trainingButton => {
+                  trainingButton.disabled =
+                    false;
+                }
+              );
+
+            return;
+          }
+
+          /*
+           * Pull the newly earned attribute XP back into
+           * the career-player UI/save representation.
+           */
+          syncCareerPlayerWithWorld();
+
+          saveCareerPreview();
+
+          refreshScheduleEvents();
+
+          refreshCareerUI();
+
+          /*
+           * Training now uses the same reusable results
+           * presentation as Practice and Recovery.
+           */
+          EventResultsSystem.open(
+            {
+              ...trainingDefinition,
+
+              type:
+                'training',
+
+              label:
+                trainingDefinition
+                  .label,
+
+              icon:
+                trainingDefinition
+                  .icon ||
+                '🏋️',
+            },
+            completion
+          );
+
+          activeTrainingEventId =
+            null;
+        }
+      );
+    });
 }
 
 let activeTrainingEventId = null;
@@ -1576,7 +1704,7 @@ btnDevHub.addEventListener('click', () => {
     );
 
     Game.player.currentDate =
-      devStartDate;
+      devDate;
 
     const canonicalPlayer =
       syncCareerPlayerWithWorld();
@@ -1600,121 +1728,7 @@ btnDevHub.addEventListener('click', () => {
     isDevSession = true;
     window.PROJECT_ICE_DEV_SESSION = true;
 
-    /*
-     * DEV-ONLY FAST FORWARD
-     *
-     * Advance through every date before September 17 while
-     * automatically completing player-controlled practices,
-     * recovery sessions, and coach meetings.
-     */
-    let devReachedDate =
-      WorldEngine.state.season
-        ?.currentDate ||
-      devStartDate;
-
-    let devSafetyCount = 0;
-
-    while (
-      devReachedDate < devDate &&
-      devSafetyCount < 100
-    ) {
-      const advanceResult =
-
-      devReachedDate =
-        advanceResult?.currentDate ||
-        WorldEngine.state.season
-          ?.currentDate ||
-        devReachedDate;
-
-      if (
-        advanceResult
-          ?.stopSimulation !== true
-      ) {
-        break;
-      }
-
-      const blockingEvent =
-        advanceResult
-          ?.blockingEventResult
-          ?.event ||
-        null;
-
-      const blockingEventId =
-        blockingEvent?.id ||
-        blockingEvent?.eventId ||
-        null;
-
-      if (!blockingEventId) {
-        console.error(
-          '[DEV] Blocking event was missing an event ID.',
-          advanceResult
-        );
-
-        break;
-      }
-
-      let completionResult = null;
-
-      switch (blockingEvent.type) {
-        case 'practice':
-          completionResult =
-            WorldEngine.completePracticeEvent(
-              blockingEventId,
-              {
-                save: false,
-              }
-            );
-          break;
-
-        case 'recovery':
-          completionResult =
-            WorldEngine.completeRecoveryEvent(
-              blockingEventId,
-              {
-                save: false,
-              }
-            );
-          break;
-
-        case 'coach-meeting':
-          completionResult =
-            WorldEngine.completeCoachMeetingEvent(
-              blockingEventId,
-              {
-                save: false,
-              }
-            );
-          break;
-
-        default:
-          console.error(
-            '[DEV] Unsupported blocking event type:',
-            blockingEvent.type,
-            blockingEvent
-          );
-          break;
-      }
-
-      if (
-        !completionResult ||
-        completionResult.success !== true
-      ) {
-        console.error(
-          '[DEV] Could not auto-complete blocking event.',
-          completionResult,
-          blockingEvent
-        );
-
-        break;
-      }
-
-      devSafetyCount += 1;
-    }
-
-    Game.player.currentDate =
-      WorldEngine.state.season
-        ?.currentDate ||
-      devReachedDate;
+    
 
     refreshScheduleEvents();
     refreshCareerUI();
@@ -8275,15 +8289,14 @@ function simulateToDate(
         String(blockingEventId)
       ) || null;
 
-      if (
-        blockingScheduleEvent.type ===
-        'training'
-      ) {
-        openTrainingScreen(
-          blockingScheduleEvent.eventId
-        );
-      }
-
+    if (
+      blockingScheduleEvent.type ===
+      'training'
+    ) {
+      openTrainingScreen(
+        blockingScheduleEvent.eventId
+      );
+    } else {
       EventSystem.openEvent(
         blockingScheduleEvent.eventId,
         'schedule',
@@ -8308,12 +8321,6 @@ const canonicalSchedule =
     ? WorldEngine.state.schedule
     : [];
 
-  const careerTeamId =
-    WorldEngine.state.player
-      ?.teamId ||
-    Game.player
-      ?.teamId ||
-    null;
 
   const newlyCompletedGame =
     canonicalSchedule
@@ -14373,6 +14380,17 @@ const EVENT_COMPLETION_HANDLERS = {
       );
   },
 
+  training(eventId) {
+    openTrainingScreen(
+      eventId
+    );
+
+    return {
+      success: true,
+      awaitingSelection: true,
+    };
+  },
+
   recovery(eventId) {
     return WorldEngine
       .completeRecoveryEvent(
@@ -14491,17 +14509,23 @@ document
         def
       );
 
-    if (supported) {
-      if (!completion?.success) {
-        console.error(
-          '[Project Ice] Event completion failed:',
-          completion
-        );
+      if (supported) {
+        if (!completion?.success) {
+          console.error(
+            '[Project Ice] Event completion failed:',
+            completion
+          );
 
-        return;
-      }
+          return;
+        }
 
-      syncCareerPlayerWithWorld();
+        if (
+          completion.awaitingSelection === true
+        ) {
+          return;
+        }
+
+        syncCareerPlayerWithWorld();
 
       Game.player.currentDate =
         WorldEngine.state.season
