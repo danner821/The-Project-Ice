@@ -11432,4 +11432,146 @@ tr.career-player-highlight .full-stats-player-button {
     font-size: 0.82rem;
   }
 }
+
+/* ============================================================
+   POSTGAME CAREER IMPACT
+   ============================================================ */
+
+.postgame-impact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+
+  overflow: hidden;
+
+  border:
+    1px solid rgba(67, 108, 171, 0.24);
+
+  border-radius: 14px;
+
+  background:
+    rgba(3, 14, 34, 0.42);
+}
+
+.postgame-impact-item {
+  min-height: 56px;
+  padding: 13px 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  border-bottom:
+    1px solid rgba(67, 108, 171, 0.18);
+}
+
+.postgame-impact-item:last-child {
+  border-bottom: 0;
+}
+
+.postgame-impact-item__label {
+  min-width: 0;
+
+  color: #c8d5e9;
+  font-size: 0.83rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.postgame-impact-item__value {
+  flex-shrink: 0;
+
+  color: #f4f8ff;
+  font-size: 0.88rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.postgame-impact-item--xp {
+  position: relative;
+  padding-left: 42px;
+}
+
+.postgame-impact-item--xp::before {
+  content: '↗';
+
+  position: absolute;
+  left: 14px;
+
+  width: 20px;
+  height: 20px;
+
+  display: grid;
+  place-items: center;
+
+  border:
+    1px solid rgba(77, 143, 247, 0.4);
+
+  border-radius: 7px;
+
+  background:
+    rgba(34, 91, 183, 0.28);
+
+  color: #8ec0ff;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.postgame-impact-item--xp
+.postgame-impact-item__value {
+  color: #8ec0ff;
+}
+
+.postgame-impact-item--career {
+  position: relative;
+  padding-left: 42px;
+
+  background:
+    rgba(34, 58, 101, 0.12);
+}
+
+.postgame-impact-item--career::before {
+  content: '◆';
+
+  position: absolute;
+  left: 15px;
+
+  color: #c7a85b;
+  font-size: 0.68rem;
+}
+
+.postgame-impact-item--career
+.postgame-impact-item__value {
+  color: #e7d39a;
+}
+
+.postgame-impact-empty {
+  padding: 18px 14px;
+
+  color: #7894bd;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-align: center;
+}
+
+@media (max-width: 380px) {
+  .postgame-impact-item {
+    min-height: 52px;
+    padding-right: 12px;
+  }
+
+  .postgame-impact-item--xp,
+  .postgame-impact-item--career {
+    padding-left: 39px;
+  }
+
+  .postgame-impact-item__label {
+    font-size: 0.79rem;
+  }
+
+  .postgame-impact-item__value {
+    font-size: 0.84rem;
+  }
+}
 /* ═══════════════════════════════════════════════════════════ */

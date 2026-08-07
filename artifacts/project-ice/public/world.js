@@ -14320,41 +14320,32 @@ const WorldEngine = (() => {
       );
 
     /*
-     * Base cost rises sharply as an attribute approaches
-     * elite levels.
+     * Core rating-based progression curve.
+     *
+     * Raw attributes improve relatively quickly.
+     * As a skill becomes stronger, each additional point
+     * requires substantially more development XP.
      */
-    let baseCost = 60;
+    let baseCost;
 
     if (currentRating < 60) {
-      baseCost =
-        55 +
-        (
-          currentRating - 50
-        ) * 2;
+      baseCost = 35;
     } else if (currentRating < 70) {
-      baseCost =
-        80 +
-        (
-          currentRating - 60
-        ) * 4;
+      baseCost = 50;
+    } else if (currentRating < 75) {
+      baseCost = 70;
     } else if (currentRating < 80) {
-      baseCost =
-        120 +
-        (
-          currentRating - 70
-        ) * 7;
+      baseCost = 95;
+    } else if (currentRating < 85) {
+      baseCost = 130;
     } else if (currentRating < 90) {
-      baseCost =
-        190 +
-        (
-          currentRating - 80
-        ) * 12;
+      baseCost = 180;
+    } else if (currentRating < 95) {
+      baseCost = 260;
+    } else if (currentRating < 98) {
+      baseCost = 400;
     } else {
-      baseCost =
-        310 +
-        (
-          currentRating - 90
-        ) * 20;
+      baseCost = 700;
     }
 
     const priorUpgradeCount =
@@ -14398,7 +14389,7 @@ const WorldEngine = (() => {
       );
 
     return Math.max(
-      40,
+      25,
       calculatedCost
     );
   }
@@ -16910,33 +16901,121 @@ const WorldEngine = (() => {
      * Better performances add more XP, but one great game
      * must never produce an instant attribute increase.
      */
-    const baseXP =
-      isGoalie
-        ? 10
-        : 8;
+    /*
+     * Game development XP.
+     *
+     * The player should feel meaningful progress after every
+     * appearance, while elite performances accelerate growth
+     * without creating instant attribute increases.
+     */
 
-    const performanceXP =
-      Math.max(
-        0,
+    /*
+     * Be-A-Pro-style game progression pace.
+     *
+     * The performance score already incorporates actual game
+     * production and two-way play. Convert that score into a
+     * predictable development reward so every game produces
+     * visible progress without creating instant upgrades.
+     */
+    let totalXP;
+
+    if (score < 40) {
+      /*
+       * Very poor game
+       * Target: 10–13 XP
+       */
+      totalXP =
+        10 +
+        Math.round(
+          (
+            score - 20
+          ) / 7
+        );
+
+    } else if (score < 50) {
+      /*
+       * Poor game
+       * Target: 14–17 XP
+       */
+      totalXP =
+        14 +
         Math.round(
           (
             score - 40
-          ) * 0.45
-        )
-      );
+          ) / 3
+        );
 
-    const winXP =
-      performance.teamWon === true
-        ? 3
-        : 0;
+    } else if (score < 60) {
+      /*
+       * Average game
+       * Target: 18–21 XP
+       */
+      totalXP =
+        18 +
+        Math.round(
+          (
+            score - 50
+          ) / 3
+        );
 
-    const totalXP =
+    } else if (score < 70) {
+      /*
+       * Solid game
+       * Target: 22–25 XP
+       */
+      totalXP =
+        22 +
+        Math.round(
+          (
+            score - 60
+          ) / 3
+        );
+
+    } else if (score < 80) {
+      /*
+       * Strong game
+       * Target: 26–30 XP
+       */
+      totalXP =
+        26 +
+        Math.round(
+          (
+            score - 70
+          ) / 2
+        );
+
+    } else if (score < 90) {
+      /*
+       * Excellent game
+       * Target: 31–36 XP
+       */
+      totalXP =
+        31 +
+        Math.round(
+          (
+            score - 80
+          ) / 2
+        );
+
+    } else {
+      /*
+       * Elite / dominant game
+       * Target: 37–45 XP
+       */
+      totalXP =
+        37 +
+        Math.round(
+          (
+            score - 90
+          ) * 0.8
+        );
+    }
+
+    totalXP =
       clamp(
-        baseXP +
-          performanceXP +
-          winXP,
-        5,
-        40
+        totalXP,
+        10,
+        45
       );
 
     /*
@@ -17003,57 +17082,407 @@ const WorldEngine = (() => {
         'reboundControl',
         totalXP * 0.22
       );
-    } else if (
-      normalizedPosition === 'LD' ||
-      normalizedPosition === 'RD'
-    ) {
-      /*
-       * Defensemen receive a balanced mix of defensive reads,
-       * puck movement, skating and physical positioning.
-       */
-      addAttributeXP(
-        'defensiveAwareness',
-        totalXP * 0.28
-      );
-
-      addAttributeXP(
-        'stickChecking',
-        totalXP * 0.24
-      );
-
-      addAttributeXP(
-        'passing',
-        totalXP * 0.24
-      );
-
-      addAttributeXP(
-        'agility',
-        totalXP * 0.24
-      );
     } else {
       /*
-       * Forwards receive game XP across offense, puck movement,
-       * skating and hockey sense.
+       * Smart skater development.
+       *
+       * XP direction now responds to the player's actual game
+       * instead of giving every forward or defenseman the same
+       * fixed attribute split.
        */
-      addAttributeXP(
-        'offensiveAwareness',
-        totalXP * 0.27
-      );
 
-      addAttributeXP(
-        'puckControl',
-        totalXP * 0.25
-      );
+      const goals =
+        Math.max(
+          0,
+          Number(gameLine.goals) || 0
+        );
 
-      addAttributeXP(
-        'passing',
-        totalXP * 0.24
-      );
+      const assists =
+        Math.max(
+          0,
+          Number(gameLine.assists) || 0
+        );
 
-      addAttributeXP(
-        'acceleration',
-        totalXP * 0.24
-      );
+      const shots =
+        Math.max(
+          0,
+          Number(gameLine.shots) || 0
+        );
+
+      const plusMinus =
+        Number(gameLine.plusMinus) || 0;
+
+      const blockedShots =
+        Math.max(
+          0,
+          Number(
+            gameLine.blockedShots
+          ) || 0
+        );
+
+      const hits =
+        Math.max(
+          0,
+          Number(gameLine.hits) || 0
+        );
+
+      const takeaways =
+        Math.max(
+          0,
+          Number(
+            gameLine.takeaways
+          ) || 0
+        );
+
+      const giveaways =
+        Math.max(
+          0,
+          Number(
+            gameLine.giveaways
+          ) || 0
+        );
+
+      const penaltyMinutes =
+        Math.max(
+          0,
+          Number(
+            gameLine.penaltyMinutes
+          ) || 0
+        );
+
+      const isDefenseman =
+        normalizedPosition === 'LD' ||
+        normalizedPosition === 'RD';
+
+      /*
+       * Weight map, not raw XP.
+       * These weights are normalized into totalXP below.
+       */
+      const developmentWeights = {};
+
+      const addWeight = (
+        attributeKey,
+        amount
+      ) => {
+        const safeAmount =
+          Math.max(
+            0,
+            Number(amount) || 0
+          );
+
+        if (safeAmount <= 0) {
+          return;
+        }
+
+        developmentWeights[
+          attributeKey
+        ] =
+          (
+            Number(
+              developmentWeights[
+                attributeKey
+              ]
+            ) || 0
+          ) + safeAmount;
+      };
+
+      /*
+       * Every skater gets a small involvement baseline.
+       * Position changes what that baseline emphasizes.
+       */
+      if (isDefenseman) {
+        addWeight(
+          'defensiveAwareness',
+          1.8
+        );
+
+        addWeight(
+          'passing',
+          1.1
+        );
+
+        addWeight(
+          'stickChecking',
+          1.0
+        );
+
+        addWeight(
+          'agility',
+          0.7
+        );
+      } else {
+        addWeight(
+          'offensiveAwareness',
+          1.5
+        );
+
+        addWeight(
+          'puckControl',
+          1.0
+        );
+
+        addWeight(
+          'acceleration',
+          0.7
+        );
+
+        addWeight(
+          'passing',
+          0.6
+        );
+      }
+
+      /*
+       * Goals:
+       * finishing, shooting and offensive reads.
+       */
+      if (goals > 0) {
+        addWeight(
+          'wristShotAccuracy',
+          goals * 3.2
+        );
+
+        addWeight(
+          'wristShotPower',
+          goals * 1.5
+        );
+
+        addWeight(
+          'offensiveAwareness',
+          goals * 2.3
+        );
+
+        addWeight(
+          'puckControl',
+          goals * 1.0
+        );
+      }
+
+      /*
+       * Assists:
+       * passing, reads and puck possession.
+       */
+      if (assists > 0) {
+        addWeight(
+          'passing',
+          assists * 3.4
+        );
+
+        addWeight(
+          'offensiveAwareness',
+          assists * 2.2
+        );
+
+        addWeight(
+          'puckControl',
+          assists * 1.6
+        );
+      }
+
+      /*
+       * Shot volume provides smaller shooting growth even when
+       * the player does not score.
+       */
+      if (shots > 0) {
+        addWeight(
+          'wristShotAccuracy',
+          Math.min(
+            shots,
+            8
+          ) * 0.45
+        );
+
+        addWeight(
+          'wristShotPower',
+          Math.min(
+            shots,
+            8
+          ) * 0.20
+        );
+      }
+
+      /*
+       * Two-way results.
+       */
+      if (plusMinus > 0) {
+        addWeight(
+          'defensiveAwareness',
+          Math.min(
+            plusMinus,
+            4
+          ) * 0.8
+        );
+
+        addWeight(
+          'offensiveAwareness',
+          Math.min(
+            plusMinus,
+            4
+          ) * 0.5
+        );
+      }
+
+      /*
+       * Shot blocking.
+       */
+      if (blockedShots > 0) {
+        addWeight(
+          'shotBlocking',
+          Math.min(
+            blockedShots,
+            6
+          ) * 2.2
+        );
+
+        addWeight(
+          'defensiveAwareness',
+          Math.min(
+            blockedShots,
+            6
+          ) * 1.1
+        );
+      }
+
+      /*
+       * Physical play.
+       */
+      if (hits > 0) {
+        addWeight(
+          'bodyChecking',
+          Math.min(
+            hits,
+            8
+          ) * 1.8
+        );
+
+        addWeight(
+          'strength',
+          Math.min(
+            hits,
+            8
+          ) * 0.9
+        );
+      }
+
+      /*
+       * Puck retrieval and defensive reads.
+       */
+      if (takeaways > 0) {
+        addWeight(
+          'stickChecking',
+          Math.min(
+            takeaways,
+            6
+          ) * 2.2
+        );
+
+        addWeight(
+          'defensiveAwareness',
+          Math.min(
+            takeaways,
+            6
+          ) * 1.3
+        );
+      }
+
+      /*
+       * Mistakes do not remove previously earned XP, but they
+       * reduce the weighting of awareness/puck-control growth.
+       */
+      if (giveaways > 0) {
+        const giveawayPenalty =
+          Math.min(
+            giveaways,
+            6
+          ) * 0.45;
+
+        if (
+          developmentWeights
+            .puckControl
+        ) {
+          developmentWeights
+            .puckControl =
+            Math.max(
+              0.25,
+              developmentWeights
+                .puckControl -
+                giveawayPenalty
+            );
+        }
+
+        if (
+          developmentWeights
+            .offensiveAwareness
+        ) {
+          developmentWeights
+            .offensiveAwareness =
+            Math.max(
+              0.25,
+              developmentWeights
+                .offensiveAwareness -
+                giveawayPenalty *
+                  0.6
+            );
+        }
+      }
+
+      /*
+       * Excessive penalties slightly suppress discipline-
+       * adjacent defensive development rather than subtracting
+       * XP from the player.
+       */
+      if (
+        penaltyMinutes >= 4 &&
+        developmentWeights
+          .defensiveAwareness
+      ) {
+        developmentWeights
+          .defensiveAwareness =
+          Math.max(
+            0.25,
+            developmentWeights
+              .defensiveAwareness -
+              Math.min(
+                penaltyMinutes,
+                10
+              ) *
+                0.12
+          );
+      }
+
+      const totalDevelopmentWeight =
+        Object.values(
+          developmentWeights
+        ).reduce(
+          (sum, weight) =>
+            sum +
+            (
+              Number(weight) || 0
+            ),
+          0
+        );
+
+      if (
+        totalDevelopmentWeight > 0
+      ) {
+        Object.entries(
+          developmentWeights
+        ).forEach(
+          ([
+            attributeKey,
+            weight
+          ]) => {
+            addAttributeXP(
+              attributeKey,
+              totalXP *
+                (
+                  weight /
+                  totalDevelopmentWeight
+                )
+            );
+          }
+        );
+      }
     }
 
     /*
