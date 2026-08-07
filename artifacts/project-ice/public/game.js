@@ -6594,6 +6594,14 @@ function openPostgameSummary(gameId) {
     'postgame-summary'
   );
 
+  if (postgameSummaryScreen) {
+    postgameSummaryScreen.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'instant',
+    });
+  }
+
   window.scrollTo(
     {
       top: 0,
@@ -11507,6 +11515,102 @@ function updateHubScreen() {
         .join('');
   }
 
+  function showAttributeUpgradeConfirmation({
+    attributeLabel = 'Attribute',
+    attributeBefore = 0,
+    attributeAfter = 0,
+    overallBefore = 0,
+    overallAfter = 0,
+  } = {}) {
+    const existingToast =
+      document.getElementById(
+        'attribute-upgrade-confirmation'
+      );
+
+    if (existingToast) {
+      existingToast.remove();
+    }
+
+    const overallChanged =
+      Number(overallAfter) !==
+      Number(overallBefore);
+
+    const toast =
+      document.createElement('div');
+
+    toast.id =
+      'attribute-upgrade-confirmation';
+
+    toast.className =
+      'attribute-upgrade-confirmation';
+
+    toast.innerHTML = `
+      <div
+        class="attribute-upgrade-confirmation__eyebrow"
+      >
+        ATTRIBUTE UPGRADED
+      </div>
+
+      <div
+        class="attribute-upgrade-confirmation__name"
+      >
+        ${attributeLabel}
+      </div>
+
+      <div
+        class="attribute-upgrade-confirmation__change"
+      >
+        <span>${attributeBefore}</span>
+
+        <span
+          class="attribute-upgrade-confirmation__arrow"
+        >
+          →
+        </span>
+
+        <strong>${attributeAfter}</strong>
+      </div>
+
+      ${
+        overallChanged
+          ? `
+            <div
+              class="attribute-upgrade-confirmation__overall"
+            >
+              <span>Overall</span>
+
+              <strong>
+                ${overallBefore}
+                →
+                ${overallAfter}
+              </strong>
+            </div>
+          `
+          : ''
+      }
+    `;
+
+    document.body.appendChild(
+      toast
+    );
+
+    requestAnimationFrame(() => {
+      toast.classList.add(
+        'attribute-upgrade-confirmation--visible'
+      );
+    });
+
+    window.setTimeout(() => {
+      toast.classList.remove(
+        'attribute-upgrade-confirmation--visible'
+      );
+
+      window.setTimeout(() => {
+        toast.remove();
+      }, 250);
+    }, 2200);
+  }
+
   function renderCareerPlayerAttributes(
     player = {}
   ) {
@@ -11514,6 +11618,17 @@ function updateHubScreen() {
       document.getElementById(
         'career-player-attributes'
       );
+
+    const previouslyOpenCategoryNames =
+      Array.from(
+        container?.querySelectorAll(
+          '.pp-attr-cat.pp-attr-cat--open .pp-attr-cat__name'
+        ) || []
+      )
+        .map(element =>
+          element.textContent?.trim()
+        )
+        .filter(Boolean);
 
     if (
       !container ||
@@ -11929,7 +12044,7 @@ function updateHubScreen() {
                         type="button"
                         data-upgrade-attribute="${attribute.key}"
                       >
-                        +1 Upgrade
+                        Upgrade Available
                       </button>
                     `
                     : eligibility.reason ===
@@ -12068,6 +12183,44 @@ ${
         })
         .join('');
 
+    container
+    .querySelectorAll(
+      '.pp-attr-cat'
+    )
+    .forEach(categoryElement => {
+      const categoryName =
+        categoryElement
+          .querySelector(
+            '.pp-attr-cat__name'
+          )
+          ?.textContent
+          ?.trim();
+
+      if (
+        !categoryName ||
+        !previouslyOpenCategoryNames
+          .includes(categoryName)
+      ) {
+        return;
+      }
+
+      categoryElement.classList.add(
+        'pp-attr-cat--open'
+      );
+
+      const header =
+        categoryElement.querySelector(
+          '.pp-attr-cat__header'
+        );
+
+      if (header) {
+        header.setAttribute(
+          'aria-expanded',
+          'true'
+        );
+      }
+    });
+
     /*
      * Bind one delegated handler after the dynamic attribute
      * markup has been rendered.
@@ -12094,6 +12247,18 @@ ${
           return;
         }
 
+        const attributeLabel =
+          upgradeButton
+            .closest(
+              '.pp-stat--development'
+            )
+            ?.querySelector(
+              '.pp-stat__name'
+            )
+            ?.textContent
+            ?.trim() ||
+          attributeKey;
+
         const canonicalPlayer =
           syncCareerPlayerWithWorld();
 
@@ -12104,6 +12269,19 @@ ${
 
           return;
         }
+
+        const attributeBefore =
+          Number(
+            canonicalPlayer
+              .attributes?.[
+                attributeKey
+              ]
+          ) || 0;
+
+        const overallBefore =
+          Number(
+            canonicalPlayer.overall
+          ) || 0;
 
         const result =
           WorldEngine
@@ -12120,6 +12298,27 @@ ${
 
           return;
         }
+
+        const attributeAfter =
+          Number(
+            canonicalPlayer
+              .attributes?.[
+                attributeKey
+              ]
+          ) || attributeBefore;
+
+        const overallAfter =
+          Number(
+            canonicalPlayer.overall
+          ) || overallBefore;
+
+        showAttributeUpgradeConfirmation({
+          attributeLabel,
+          attributeBefore,
+          attributeAfter,
+          overallBefore,
+          overallAfter,
+        });
 
         syncCareerPlayerWithWorld();
         saveCareerPreview();
