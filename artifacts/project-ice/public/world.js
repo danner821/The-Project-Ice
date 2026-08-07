@@ -16075,11 +16075,44 @@ const WorldEngine = (() => {
             playerId
           );
 
+        const canonicalCareerPlayerId =
+          _state.player?.playerId ||
+          _state.player?.id ||
+          null;
+
+        const isCareerPlayer =
+          Boolean(
+            player &&
+            (
+              player.isCareerPlayer === true ||
+              (
+                canonicalCareerPlayerId &&
+                (
+                  String(
+                    player.playerId ||
+                    player.id ||
+                    ''
+                  ) ===
+                  String(
+                    canonicalCareerPlayerId
+                  )
+                )
+              )
+            )
+          );
+
+        if (!isCareerPlayer) {
+          continue;
+        }
+
+        /*
+         * Repair older/migrated career-player records that match
+         * the canonical career ID but are missing the explicit flag.
+         */
         if (
-          !player ||
           player.isCareerPlayer !== true
         ) {
-          continue;
+          player.isCareerPlayer = true;
         }
 
         ensureCanonicalPlayerContract(
