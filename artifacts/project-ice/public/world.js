@@ -16031,6 +16031,4994 @@ const WorldEngine = (() => {
       developmentEntry,
     };
   }
+
+  /*
+   * ============================================================
+   * LIVE GAME SIMULATION STATE
+   * ============================================================
+   *
+   * This is the authoritative in-progress representation of one
+   * hockey game.
+   *
+   * The live simulator will mutate this object as the clock runs.
+   * When the game ends, this state will be converted into the same
+   * permanent gameResult contract already consumed by Project Ice's
+   * standings, statistics, Postgame Summary, and Development Engine.
+   *
+   * Nothing permanent should be applied while this object is live.
+   */
+  function createLiveGameSimulationState(
+    scheduledGame
+  ) {
+    if (
+      !scheduledGame ||
+      typeof scheduledGame !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-scheduled-game',
+        simulation: null,
+      };
+    }
+
+    const gameId =
+      scheduledGame.gameId ||
+      scheduledGame.eventId ||
+      scheduledGame.id ||
+      null;
+
+    const homeTeamId =
+      scheduledGame.homeTeamId ||
+      null;
+
+    const awayTeamId =
+      scheduledGame.awayTeamId ||
+      null;
+
+    if (
+      !gameId ||
+      !homeTeamId ||
+      !awayTeamId
+    ) {
+      return {
+        success: false,
+        reason:
+          'scheduled-game-missing-teams',
+        simulation: null,
+      };
+    }
+
+    const homeTeam =
+      getTeamById(
+        homeTeamId
+      );
+
+    const awayTeam =
+      getTeamById(
+        awayTeamId
+      );
+
+    if (
+      !homeTeam ||
+      !awayTeam
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-team-not-found',
+        simulation: null,
+      };
+    }
+
+    const createTeamState =
+      team => {
+        const roster =
+          Array.isArray(team.roster)
+            ? team.roster
+            : [];
+
+        const activeSkaters =
+          roster
+            .filter(player => {
+              const normalizedPosition =
+                normalizeAttributePosition(
+                  player.position
+                );
+
+              if (normalizedPosition === 'G') {
+                return false;
+              }
+
+              return (
+                player.lineupStatus ===
+                  'active' ||
+                Boolean(
+                  player.lineupAssignment
+                )
+              );
+            })
+            .map(player => ({
+              playerId:
+                player.playerId ||
+                player.id ||
+                null,
+
+              firstName:
+                player.firstName ||
+                '',
+
+              lastName:
+                player.lastName ||
+                '',
+
+              position:
+                player.position ||
+                '',
+
+              rosterSlot:
+                player.rosterSlot ||
+                player.slot ||
+                null,
+
+              lineupAssignment:
+                player.lineupAssignment
+                  ? structuredClone(
+                      player.lineupAssignment
+                    )
+                  : null,
+
+              overall:
+                Number(
+                  player.overall
+                ) || 50,
+
+              dressed: true,
+
+              goals: 0,
+              assists: 0,
+              points: 0,
+
+              shots: 0,
+              hits: 0,
+              blockedShots: 0,
+              takeaways: 0,
+              giveaways: 0,
+
+              plusMinus: 0,
+
+              penaltyMinutes: 0,
+
+              powerPlayGoals: 0,
+              powerPlayPoints: 0,
+              shorthandedGoals: 0,
+              gameWinningGoals: 0,
+
+              timeOnIceSeconds: 0,
+
+              firstStar: false,
+              secondStar: false,
+              thirdStar: false,
+            }));
+
+        const goalies =
+          roster
+            .filter(player =>
+              normalizeAttributePosition(
+                player.position
+              ) === 'G'
+            )
+            .sort((firstGoalie, secondGoalie) => {
+              const firstIsStarter =
+                (
+                  firstGoalie.rosterSlot ||
+                  firstGoalie.slot
+                ) === 'g-starter';
+
+              const secondIsStarter =
+                (
+                  secondGoalie.rosterSlot ||
+                  secondGoalie.slot
+                ) === 'g-starter';
+
+              if (
+                firstIsStarter !==
+                secondIsStarter
+              ) {
+                return firstIsStarter
+                  ? -1
+                  : 1;
+              }
+
+              return (
+                Number(
+                  secondGoalie.overall
+                ) || 0
+              ) -
+              (
+                Number(
+                  firstGoalie.overall
+                ) || 0
+              );
+            })
+            .map((player, index) => ({
+              playerId:
+                player.playerId ||
+                player.id ||
+                null,
+
+              firstName:
+                player.firstName ||
+                '',
+
+              lastName:
+                player.lastName ||
+                '',
+
+              position: 'G',
+
+              rosterSlot:
+                player.rosterSlot ||
+                player.slot ||
+                null,
+
+              overall:
+                Number(
+                  player.overall
+                ) || 50,
+
+              started:
+                index === 0,
+
+              gamesPlayed:
+                index === 0
+                  ? 1
+                  : 0,
+
+              wins: 0,
+              losses: 0,
+              overtimeLosses: 0,
+
+              shotsAgainst: 0,
+              saves: 0,
+              goalsAgainst: 0,
+
+              minutesPlayed:
+                index === 0
+                  ? 60
+                  : 0,
+
+              shutout: false,
+            }));
+
+        return {
+          teamId:
+            team.teamId,
+
+          schoolName:
+            team.schoolName ||
+            '',
+
+          teamName:
+            team.teamName ||
+            '',
+
+          abbreviation:
+            team.abbreviation ||
+            '',
+
+          score: 0,
+
+          shots: 0,
+
+          hits: 0,
+
+          blockedShots: 0,
+
+          giveaways: 0,
+
+          takeaways: 0,
+
+          penaltyMinutes: 0,
+
+          powerPlayOpportunities: 0,
+
+          powerPlayGoals: 0,
+
+          faceoffWins: 0,
+
+          skaters:
+            activeSkaters,
+
+          goalies,
+        };
+      };
+
+    const simulation = {
+      simulationVersion:
+        'live-game-v1',
+
+      gameId,
+
+      eventId:
+        gameId,
+
+      date:
+        scheduledGame.date ||
+        null,
+
+      status:
+        'pregame',
+
+      /*
+       * Three regulation periods of 20:00.
+       * The clock is stored as remaining seconds so presentation
+       * speed never changes the underlying hockey simulation.
+       */
+      period: 1,
+
+      periodLabel:
+        '1st',
+
+      clockSecondsRemaining:
+        20 * 60,
+
+      regulationComplete:
+        false,
+
+      overtime:
+        false,
+
+      shootout:
+        false,
+
+      gameComplete:
+        false,
+
+      homeTeamId,
+
+      awayTeamId,
+
+      home:
+        createTeamState(
+          homeTeam
+        ),
+
+      away:
+        createTeamState(
+          awayTeam
+        ),
+
+      /*
+       * Chronological event history.
+       *
+       * Future entries will include:
+       * shot
+       * goal
+       * save
+       * hit
+       * block
+       * penalty
+       * faceoff
+       * takeaway
+       * giveaway
+       * period-start
+       * period-end
+       * interactive-moment
+       */
+      events: [],
+
+      /*
+       * Scoring events are also kept separately because the
+       * existing Postgame Summary already expects a permanent
+       * scoring-summary style representation.
+       */
+      scoringEvents: [],
+
+      penalties: [],
+
+      /*
+       * ========================================================
+       * SPECIAL TEAMS STATE
+       * ========================================================
+       *
+       * Tracks active penalties and determines whether play is
+       * even-strength, power-play, or penalty-kill.
+       */
+      specialTeams: {
+        situation:
+          'even-strength',
+
+        powerPlaySide:
+          null,
+
+        penaltyKillSide:
+          null,
+
+        homeSkaters:
+          5,
+
+        awaySkaters:
+          5,
+
+        activePenalties: [],
+      },
+
+      /*
+       * ========================================================
+       * LIVE GAME FLOW STATE
+       * ========================================================
+       *
+       * Tracks the hockey context between events.
+       *
+       * Events should not exist as unrelated random rolls.
+       * A takeaway can create transition offense, a saved shot
+       * can create a rebound, a whistle resets play, etc.
+       */
+      flow: {
+        /*
+         * Team currently controlling the puck.
+         *
+         * null = no established possession, such as before
+         * the opening faceoff or immediately after a whistle.
+         */
+        possessionSide: null,
+
+        /*
+         * Where the puck currently is from the perspective of
+         * the team with possession.
+         *
+         * neutral
+         * offensive
+         * defensive
+         */
+        zone: 'neutral',
+
+        /*
+         * Used by the event-time scheduler for realistic clusters.
+         *
+         * normal
+         * transition
+         * offensive-zone
+         * rebound
+         * scramble
+         * after-faceoff
+         * quiet
+         */
+        paceContext:
+          'after-faceoff',
+
+        /*
+         * Whether play is currently stopped.
+         *
+         * Goals, penalties, goalie freezes, icing, offsides, etc.
+         * will eventually set this true until the next faceoff.
+         */
+        stopped: true,
+
+        stoppageReason:
+          'period-start',
+
+        /*
+         * Keeps event generation aware of the immediately
+         * preceding action.
+         */
+        lastEventType: null,
+
+        lastEventSide: null,
+
+        /*
+         * Consecutive attacking pressure matters.
+         *
+         * Sustained zone time can increase the chance of another
+         * shot without guaranteeing one.
+         */
+        pressureLevel: 0,
+
+        /*
+         * The selected even-strength deployment remains on the
+         * ice for a stretch of play rather than rerolling all five
+         * skaters every few seconds.
+         */
+        homeDeployment: null,
+
+        awayDeployment: null,
+
+        deploymentAgeSeconds: 0,
+      },
+
+      /*
+       * Career-player interaction state.
+       *
+       * This is where future Be-A-Pro moments can pause the
+       * simulation for decisions such as Shoot / Pass.
+       */
+      interactiveMoment: null,
+
+      interactiveMomentsCompleted: [],
+
+      /*
+       * Presentation speed is UI state only.
+       * The simulator itself works in hockey-time increments.
+       */
+      presentation: {
+        speed: 1,
+
+        paused: false,
+      },
+
+      /*
+       * These make the finalization step explicit.
+       * The live state must only become permanent once.
+       */
+      finalized: false,
+
+      finalizedGameResult: null,
+    };
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-state-created',
+
+      simulation,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — ON-ICE DEPLOYMENT
+   * ============================================================
+   *
+   * Returns the players currently deployed for one team.
+   *
+   * Supported situations:
+   * - even-strength
+   * - power-play
+   * - penalty-kill
+   *
+   * No statistics are changed here. This function only resolves
+   * which real players are eligible to participate in the next
+   * live-game event.
+   */
+  function getLiveGameOnIcePlayers(
+    simulation,
+    side,
+    options = {}
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        players: [],
+      };
+    }
+
+    const teamState =
+      side === 'home'
+        ? simulation.home
+        : side === 'away'
+          ? simulation.away
+          : null;
+
+    if (!teamState) {
+      return {
+        success: false,
+        reason:
+          'invalid-team-side',
+        players: [],
+      };
+    }
+
+    const canonicalTeam =
+      getTeamById(
+        teamState.teamId
+      );
+
+    if (!canonicalTeam) {
+      return {
+        success: false,
+        reason:
+          'live-game-team-not-found',
+        players: [],
+      };
+    }
+
+    const skaters =
+      Array.isArray(
+        teamState.skaters
+      )
+        ? teamState.skaters
+        : [];
+
+    const starter =
+      Array.isArray(
+        teamState.goalies
+      )
+        ? (
+            teamState.goalies.find(
+              goalie =>
+                goalie.started === true
+            ) ||
+            teamState.goalies[0] ||
+            null
+          )
+        : null;
+
+    const situation =
+      options.situation ||
+      'even-strength';
+
+    const forwardLine =
+      Math.max(
+        1,
+        Math.min(
+          4,
+          Number(
+            options.forwardLine
+          ) || 1
+        )
+      );
+
+    const defensePair =
+      Math.max(
+        1,
+        Math.min(
+          3,
+          Number(
+            options.defensePair
+          ) || 1
+        )
+      );
+
+    const specialTeamsUnit =
+      Math.max(
+        1,
+        Math.min(
+          2,
+          Number(
+            options.specialTeamsUnit
+          ) || 1
+        )
+      );
+
+    const findSkaterById =
+      playerId =>
+        skaters.find(player =>
+          String(
+            player.playerId || ''
+          ) ===
+          String(playerId || '')
+        ) ||
+        null;
+
+    let deployedSkaters = [];
+
+    /*
+     * ==========================================================
+     * EVEN STRENGTH
+     * ==========================================================
+     *
+     * 3 forwards + 2 defensemen.
+     */
+    if (
+      situation ===
+      'even-strength'
+    ) {
+      const forwards =
+        skaters.filter(player =>
+          player.lineupAssignment
+            ?.unit === 'forward' &&
+          Number(
+            player.lineupAssignment
+              ?.line
+          ) === forwardLine
+        );
+
+      const defensemen =
+        skaters.filter(player =>
+          player.lineupAssignment
+            ?.unit === 'defense' &&
+          Number(
+            player.lineupAssignment
+              ?.pair
+          ) === defensePair
+        );
+
+      deployedSkaters = [
+        ...forwards,
+        ...defensemen,
+      ];
+    }
+
+    /*
+     * ==========================================================
+     * POWER PLAY
+     * ==========================================================
+     *
+     * Uses the exact coach-selected PP1 / PP2 unit already saved
+     * on the team.
+     */
+    if (
+      situation ===
+      'power-play'
+    ) {
+      const powerPlayUnit =
+        canonicalTeam
+          .specialTeams
+          ?.powerPlay
+          ?.[
+            specialTeamsUnit - 1
+          ] ||
+        null;
+
+      const slots =
+        powerPlayUnit?.slots ||
+        {};
+
+      deployedSkaters =
+        [
+          slots.leftFlank,
+          slots.bumper,
+          slots.rightFlank,
+          slots.netFront,
+          slots.quarterback,
+        ]
+          .map(
+            findSkaterById
+          )
+          .filter(Boolean);
+    }
+
+    /*
+     * ==========================================================
+     * PENALTY KILL
+     * ==========================================================
+     *
+     * Uses the exact coach-selected PK1 / PK2 unit.
+     */
+    if (
+      situation ===
+      'penalty-kill'
+    ) {
+      const penaltyKillUnit =
+        canonicalTeam
+          .specialTeams
+          ?.penaltyKill
+          ?.[
+            specialTeamsUnit - 1
+          ] ||
+        null;
+
+      const slots =
+        penaltyKillUnit?.slots ||
+        {};
+
+      deployedSkaters =
+        [
+          slots.forward1,
+          slots.forward2,
+          slots.defense1,
+          slots.defense2,
+        ]
+          .map(
+            findSkaterById
+          )
+          .filter(Boolean);
+    }
+
+    /*
+     * Remove accidental duplicate player IDs.
+     */
+    const uniquePlayers = [];
+
+    const usedPlayerIds =
+      new Set();
+
+    deployedSkaters.forEach(
+      player => {
+        const playerId =
+          String(
+            player.playerId ||
+            ''
+          );
+
+        if (
+          !playerId ||
+          usedPlayerIds.has(
+            playerId
+          )
+        ) {
+          return;
+        }
+
+        usedPlayerIds.add(
+          playerId
+        );
+
+        uniquePlayers.push(
+          player
+        );
+      }
+    );
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-deployment-resolved',
+
+      side,
+
+      situation,
+
+      forwardLine,
+
+      defensePair,
+
+      specialTeamsUnit,
+
+      skaters:
+        uniquePlayers,
+
+      goalie:
+        starter,
+
+      players:
+        starter
+          ? [
+              ...uniquePlayers,
+              starter,
+            ]
+          : [
+              ...uniquePlayers,
+            ],
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — EVEN-STRENGTH DEPLOYMENT ROTATION
+   * ============================================================
+   *
+   * Selects a forward line and defense pair for the next stretch
+   * of even-strength play.
+   *
+   * The weights approximate normal hockey usage without giving
+   * the career player any artificial preference.
+   */
+  function selectLiveGameEvenStrengthDeployment(
+    simulation,
+    side
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        deployment: null,
+      };
+    }
+
+    if (
+      side !== 'home' &&
+      side !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-team-side',
+        deployment: null,
+      };
+    }
+
+    /*
+     * Forward usage targets.
+     *
+     * These are relative weights, not exact TOI percentages.
+     */
+    const forwardLineWeights = [
+      {
+        line: 1,
+        weight: 34,
+      },
+      {
+        line: 2,
+        weight: 28,
+      },
+      {
+        line: 3,
+        weight: 22,
+      },
+      {
+        line: 4,
+        weight: 16,
+      },
+    ];
+
+    /*
+     * Defensive-pair usage targets.
+     */
+    const defensePairWeights = [
+      {
+        pair: 1,
+        weight: 42,
+      },
+      {
+        pair: 2,
+        weight: 34,
+      },
+      {
+        pair: 3,
+        weight: 24,
+      },
+    ];
+
+    const weightedPick =
+      weightedOptions => {
+        const totalWeight =
+          weightedOptions.reduce(
+            (sum, option) =>
+              sum +
+              Math.max(
+                0,
+                Number(
+                  option.weight
+                ) || 0
+              ),
+            0
+          );
+
+        if (totalWeight <= 0) {
+          return (
+            weightedOptions[0] ||
+            null
+          );
+        }
+
+        let roll =
+          Math.random() *
+          totalWeight;
+
+        for (
+          const option of
+          weightedOptions
+        ) {
+          roll -=
+            Math.max(
+              0,
+              Number(
+                option.weight
+              ) || 0
+            );
+
+          if (roll <= 0) {
+            return option;
+          }
+        }
+
+        return (
+          weightedOptions[
+            weightedOptions.length - 1
+          ] ||
+          null
+        );
+      };
+
+    const selectedForwardLine =
+      weightedPick(
+        forwardLineWeights
+      );
+
+    const selectedDefensePair =
+      weightedPick(
+        defensePairWeights
+      );
+
+    if (
+      !selectedForwardLine ||
+      !selectedDefensePair
+    ) {
+      return {
+        success: false,
+        reason:
+          'deployment-selection-failed',
+        deployment: null,
+      };
+    }
+
+    const deployment =
+      getLiveGameOnIcePlayers(
+        simulation,
+        side,
+        {
+          situation:
+            'even-strength',
+
+          forwardLine:
+            selectedForwardLine.line,
+
+          defensePair:
+            selectedDefensePair.pair,
+        }
+      );
+
+    if (
+      !deployment ||
+      deployment.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          'deployment-resolution-failed',
+        deployment:
+          deployment || null,
+      };
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'even-strength-deployment-selected',
+
+      side,
+
+      forwardLine:
+        selectedForwardLine.line,
+
+      defensePair:
+        selectedDefensePair.pair,
+
+      deployment,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — EVENT TIME SCHEDULER
+   * ============================================================
+   *
+   * Determines how many SECONDS of game clock pass before the
+   * next meaningful hockey event.
+   *
+   * This is deliberately separate from event generation.
+   *
+   * A single minute may contain:
+   * - no meaningful events
+   * - one event
+   * - several events
+   *
+   * Related sequences such as rebounds and scrambles can happen
+   * only a few seconds apart, while normal possession stretches
+   * may burn considerably more clock.
+   */
+  function scheduleNextLiveGameEventTime(
+    simulation,
+    context = {}
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        elapsedSeconds: 0,
+        nextClockSecondsRemaining: 0,
+      };
+    }
+
+    const currentClock =
+      Math.max(
+        0,
+        Number(
+          simulation
+            .clockSecondsRemaining
+        ) || 0
+      );
+
+    if (currentClock <= 0) {
+      return {
+        success: true,
+        reason:
+          'period-clock-expired',
+        elapsedSeconds: 0,
+        nextClockSecondsRemaining: 0,
+      };
+    }
+
+    /*
+     * CONTEXT TYPES
+     *
+     * normal
+     *   Standard flowing play.
+     *
+     * transition
+     *   Quick change of possession / rush.
+     *
+     * offensive-zone
+     *   Sustained pressure creates events more frequently.
+     *
+     * rebound
+     *   Immediate follow-up after a save.
+     *
+     * scramble
+     *   Net-front chaos, blocked shot, loose puck, etc.
+     *
+     * after-faceoff
+     *   Play immediately following a draw.
+     *
+     * quiet
+     *   Low-event possession stretch.
+     */
+    const paceContext =
+      context.paceContext ||
+      'normal';
+
+    /*
+     * Generate an integer between min and max, inclusive.
+     */
+    const randomBetween =
+      (
+        minimum,
+        maximum
+      ) => {
+        const min =
+          Math.ceil(
+            Number(minimum) || 0
+          );
+
+        const max =
+          Math.floor(
+            Number(maximum) || min
+          );
+
+        return (
+          min +
+          Math.floor(
+            Math.random() *
+            (
+              max -
+              min +
+              1
+            )
+          )
+        );
+      };
+
+    let minimumSeconds = 6;
+    let maximumSeconds = 20;
+
+    switch (paceContext) {
+      /*
+       * A rebound can create another attempt almost immediately.
+       *
+       * Example:
+       * 12:37 shot
+       * 12:34 rebound shot
+       */
+      case 'rebound':
+        minimumSeconds = 2;
+        maximumSeconds = 6;
+        break;
+
+      /*
+       * Loose puck / crease scramble.
+       */
+      case 'scramble':
+        minimumSeconds = 2;
+        maximumSeconds = 8;
+        break;
+
+      /*
+       * Rushes and possession changes generate moderately
+       * quick follow-up action.
+       */
+      case 'transition':
+        minimumSeconds = 4;
+        maximumSeconds = 13;
+        break;
+
+      /*
+       * Sustained offensive-zone pressure means meaningful
+       * events tend to happen more frequently.
+       */
+      case 'offensive-zone':
+        minimumSeconds = 4;
+        maximumSeconds = 14;
+        break;
+
+      /*
+       * After a faceoff, teams usually need at least a few
+       * seconds to establish possession or create an event.
+       */
+      case 'after-faceoff':
+        minimumSeconds = 5;
+        maximumSeconds = 16;
+        break;
+
+      /*
+       * Some stretches simply contain cycling, regrouping,
+       * line changes or neutral-zone play without anything
+       * worth putting in the live event feed.
+       */
+      case 'quiet':
+        minimumSeconds = 14;
+        maximumSeconds = 30;
+        break;
+
+      case 'normal':
+      default:
+        minimumSeconds = 6;
+        maximumSeconds = 20;
+        break;
+    }
+
+    let elapsedSeconds =
+      randomBetween(
+        minimumSeconds,
+        maximumSeconds
+      );
+
+    /*
+     * Add natural variance.
+     *
+     * Occasionally flowing hockey produces a particularly quick
+     * event even when there was no explicit rebound/scramble.
+     */
+    if (
+      paceContext === 'normal' &&
+      Math.random() < 0.10
+    ) {
+      elapsedSeconds =
+        randomBetween(
+          3,
+          6
+        );
+    }
+
+    /*
+     * Occasionally a possession produces a longer quiet stretch.
+     * This prevents the feed from becoming an endless machine-gun
+     * stream of events.
+     */
+    if (
+      (
+        paceContext === 'normal' ||
+        paceContext === 'after-faceoff'
+      ) &&
+      Math.random() < 0.08
+    ) {
+      elapsedSeconds +=
+        randomBetween(
+          6,
+          14
+        );
+    }
+
+    /*
+     * Never advance past the end of the period.
+     */
+    elapsedSeconds =
+      Math.min(
+        currentClock,
+        Math.max(
+          1,
+          elapsedSeconds
+        )
+      );
+
+    const nextClockSecondsRemaining =
+      Math.max(
+        0,
+        currentClock -
+        elapsedSeconds
+      );
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-event-time-scheduled',
+
+      paceContext,
+
+      elapsedSeconds,
+
+      previousClockSecondsRemaining:
+        currentClock,
+
+      nextClockSecondsRemaining,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — EVENT TYPE SELECTOR
+   * ============================================================
+   *
+   * Chooses the next meaningful hockey event based on the
+   * current flow of play.
+   *
+   * This function only selects the TYPE of event.
+   * Separate resolution helpers will later determine:
+   *
+   * shot-attempt
+   *   → miss / block / save / goal
+   *
+   * turnover
+   *   → giveaway / takeaway / transition
+   *
+   * penalty
+   *   → penalized player / infraction / PP state
+   *
+   * stoppage
+   *   → goalie freeze / icing / offside / etc.
+   */
+  function selectNextLiveGameEventType(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        eventType: null,
+      };
+    }
+
+    const flow =
+      simulation.flow &&
+      typeof simulation.flow === 'object'
+        ? simulation.flow
+        : null;
+
+    if (!flow) {
+      return {
+        success: false,
+        reason:
+          'live-game-flow-missing',
+        eventType: null,
+      };
+    }
+
+    /*
+     * Dead puck means the next meaningful action must restart
+     * play with a faceoff.
+     */
+    if (flow.stopped === true) {
+      return {
+        success: true,
+        reason:
+          'stopped-play-requires-faceoff',
+        eventType:
+          'faceoff',
+      };
+    }
+
+    const zone =
+      flow.zone ||
+      'neutral';
+
+    const paceContext =
+      flow.paceContext ||
+      'normal';
+
+    const pressureLevel =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            flow.pressureLevel
+          ) || 0
+        )
+      );
+
+    /*
+     * Weighted choices rather than direct percentages.
+     *
+     * These are intentionally easy to tune once we begin
+     * whole-game calibration.
+     */
+    const weights = {
+      'shot-attempt': 24,
+      hit: 15,
+      turnover: 17,
+      penalty: 4,
+      stoppage: 7,
+      'possession-advance': 17,
+      'quiet-play': 16,
+    };
+
+    /*
+     * ==========================================================
+     * OFFENSIVE ZONE
+     * ==========================================================
+     *
+     * More shot attempts and sustained-possession events.
+     */
+    if (zone === 'offensive') {
+      weights['shot-attempt'] +=
+        9;
+
+      weights['possession-advance'] +=
+        3;
+
+      weights['quiet-play'] -=
+        4;
+
+      /*
+       * Sustained pressure makes another attempt increasingly
+       * plausible without guaranteeing one.
+       */
+      weights['shot-attempt'] +=
+        pressureLevel * 2;
+
+      weights.turnover +=
+        pressureLevel * 0.7;
+    }
+
+    /*
+     * ==========================================================
+     * NEUTRAL ZONE
+     * ==========================================================
+     *
+     * More puck movement and turnovers, fewer direct shots.
+     */
+    if (zone === 'neutral') {
+      weights['shot-attempt'] -=
+        12;
+
+      weights.turnover +=
+        5;
+
+      weights['possession-advance'] +=
+        9;
+
+      weights['quiet-play'] +=
+        3;
+    }
+
+    /*
+     * ==========================================================
+     * DEFENSIVE ZONE
+     * ==========================================================
+     *
+     * From the perspective of the team that currently owns the
+     * puck, this usually means breakout attempts.
+     */
+    if (zone === 'defensive') {
+      weights['shot-attempt'] -=
+        14;
+
+      weights.turnover +=
+        6;
+
+      weights['possession-advance'] +=
+        10;
+
+      weights['quiet-play'] +=
+        4;
+    }
+
+    /*
+     * ==========================================================
+     * REBOUND / SCRAMBLE
+     * ==========================================================
+     *
+     * These contexts should strongly favor another immediate
+     * attempt or a whistle.
+     */
+    if (paceContext === 'rebound') {
+      weights['shot-attempt'] +=
+        34;
+
+      weights.stoppage +=
+        14;
+
+      weights.hit -=
+        7;
+
+      weights['quiet-play'] -=
+        12;
+
+      weights['possession-advance'] -=
+        9;
+    }
+
+    if (paceContext === 'scramble') {
+      weights['shot-attempt'] +=
+        22;
+
+      weights.stoppage +=
+        12;
+
+      weights.turnover +=
+        5;
+
+      weights['quiet-play'] -=
+        10;
+    }
+
+    /*
+     * ==========================================================
+     * TRANSITION
+     * ==========================================================
+     *
+     * Rush hockey creates more chances and possession swings.
+     */
+    if (paceContext === 'transition') {
+      weights['shot-attempt'] +=
+        9;
+
+      weights.turnover +=
+        6;
+
+      weights['possession-advance'] +=
+        6;
+
+      weights['quiet-play'] -=
+        7;
+    }
+
+    /*
+     * After a draw there is commonly some possession-establishing
+     * play before a dangerous attempt develops.
+     */
+    if (
+      paceContext ===
+      'after-faceoff'
+    ) {
+      weights['possession-advance'] +=
+        7;
+
+      weights['shot-attempt'] -=
+        5;
+    }
+
+    /*
+     * Quiet context intentionally suppresses major events.
+     */
+    if (paceContext === 'quiet') {
+      weights['quiet-play'] +=
+        20;
+
+      weights['possession-advance'] +=
+        5;
+
+      weights['shot-attempt'] -=
+        8;
+
+      weights.penalty -=
+        1;
+    }
+
+    /*
+     * Normalize impossible negative weights.
+     */
+    Object.keys(
+      weights
+    ).forEach(eventType => {
+      weights[eventType] =
+        Math.max(
+          0,
+          Number(
+            weights[eventType]
+          ) || 0
+        );
+    });
+
+    const weightedEntries =
+      Object.entries(
+        weights
+      )
+        .filter(
+          ([, weight]) =>
+            weight > 0
+        );
+
+    const totalWeight =
+      weightedEntries.reduce(
+        (
+          sum,
+          [, weight]
+        ) =>
+          sum + weight,
+        0
+      );
+
+    if (totalWeight <= 0) {
+      return {
+        success: false,
+        reason:
+          'live-game-event-weights-empty',
+        eventType: null,
+        weights,
+      };
+    }
+
+    let roll =
+      Math.random() *
+      totalWeight;
+
+    let selectedEventType =
+      weightedEntries[0][0];
+
+    for (
+      const [
+        eventType,
+        weight,
+      ] of weightedEntries
+    ) {
+      roll -= weight;
+
+      if (roll <= 0) {
+        selectedEventType =
+          eventType;
+
+        break;
+      }
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-event-type-selected',
+
+      eventType:
+        selectedEventType,
+
+      context: {
+        zone,
+        paceContext,
+        pressureLevel,
+      },
+
+      weights: {
+        ...weights,
+      },
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — FACEOFF RESOLUTION
+   * ============================================================
+   *
+   * Resolves a faceoff, awards possession, and resets the flow
+   * state for the next stretch of play.
+   *
+   * This uses the actual deployed skaters when available.
+   */
+  function resolveLiveGameFaceoff(
+    simulation,
+    options = {}
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    const homeDeployment =
+      simulation.flow
+        ?.homeDeployment ||
+      selectLiveGameEvenStrengthDeployment(
+        simulation,
+        'home'
+      )?.deployment ||
+      null;
+
+    const awayDeployment =
+      simulation.flow
+        ?.awayDeployment ||
+      selectLiveGameEvenStrengthDeployment(
+        simulation,
+        'away'
+      )?.deployment ||
+      null;
+
+    if (
+      !homeDeployment ||
+      !awayDeployment
+    ) {
+      return {
+        success: false,
+        reason:
+          'faceoff-deployment-missing',
+        event: null,
+      };
+    }
+
+    const findCenter =
+      deployment => {
+        const skaters =
+          Array.isArray(
+            deployment.skaters
+          )
+            ? deployment.skaters
+            : [];
+
+        return (
+          skaters.find(player =>
+            normalizeAttributePosition(
+              player.position
+            ) === 'C'
+          ) ||
+          skaters[0] ||
+          null
+        );
+      };
+
+    const homeCenter =
+      findCenter(
+        homeDeployment
+      );
+
+    const awayCenter =
+      findCenter(
+        awayDeployment
+      );
+
+    const getFaceoffRating =
+      player => {
+        if (!player) {
+          return 50;
+        }
+
+        const canonicalPlayer =
+          getPlayerById(
+            player.playerId
+          );
+
+        return Math.max(
+          25,
+          Math.min(
+            99,
+            Number(
+              canonicalPlayer
+                ?.attributes
+                ?.faceoffs
+            ) ||
+            Number(
+              canonicalPlayer
+                ?.overall
+            ) ||
+            Number(
+              player.overall
+            ) ||
+            50
+          )
+        );
+      };
+
+    const homeRating =
+      getFaceoffRating(
+        homeCenter
+      );
+
+    const awayRating =
+      getFaceoffRating(
+        awayCenter
+      );
+
+    /*
+     * Skill matters, but randomness still matters a lot on one draw.
+     */
+    const homeScore =
+      homeRating +
+      (
+        Math.random() * 30
+      );
+
+    const awayScore =
+      awayRating +
+      (
+        Math.random() * 30
+      );
+
+    const winnerSide =
+      homeScore >= awayScore
+        ? 'home'
+        : 'away';
+
+    const loserSide =
+      winnerSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const winningTeamState =
+      winnerSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    winningTeamState.faceoffWins =
+      (
+        Number(
+          winningTeamState
+            .faceoffWins
+        ) || 0
+      ) + 1;
+
+    const requestedZone =
+      options.zone ||
+      'neutral';
+
+    simulation.flow
+      .possessionSide =
+      winnerSide;
+
+    simulation.flow.zone =
+      requestedZone;
+
+    simulation.flow
+      .paceContext =
+      'after-faceoff';
+
+    simulation.flow.stopped =
+      false;
+
+    simulation.flow
+      .stoppageReason =
+      null;
+
+    simulation.flow
+      .lastEventType =
+      'faceoff';
+
+    simulation.flow
+      .lastEventSide =
+      winnerSide;
+
+    simulation.flow
+      .pressureLevel =
+      0;
+
+    simulation.flow
+      .homeDeployment =
+      homeDeployment;
+
+    simulation.flow
+      .awayDeployment =
+      awayDeployment;
+
+    simulation.flow
+      .deploymentAgeSeconds =
+      0;
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'faceoff',
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      winnerSide,
+
+      loserSide,
+
+      winnerTeamId:
+        winnerSide === 'home'
+          ? simulation.homeTeamId
+          : simulation.awayTeamId,
+
+      loserTeamId:
+        loserSide === 'home'
+          ? simulation.homeTeamId
+          : simulation.awayTeamId,
+
+      winnerPlayerId:
+        winnerSide === 'home'
+          ? homeCenter?.playerId ||
+            null
+          : awayCenter?.playerId ||
+            null,
+
+      loserPlayerId:
+        loserSide === 'home'
+          ? homeCenter?.playerId ||
+            null
+          : awayCenter?.playerId ||
+            null,
+
+      zone:
+        requestedZone,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-faceoff-resolved',
+
+      winnerSide,
+
+      loserSide,
+
+      event,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — POSSESSION / ZONE ADVANCE
+   * ============================================================
+   *
+   * Resolves normal puck movement through the rink.
+   *
+   * This creates connected hockey sequences:
+   *
+   * defensive zone
+   * → breakout
+   * → neutral zone
+   * → zone entry
+   * → offensive pressure
+   *
+   * It can also produce failed entries, possession changes,
+   * and transition opportunities for the other team.
+   */
+  function resolveLiveGamePossessionAdvance(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    const flow =
+      simulation.flow &&
+      typeof simulation.flow === 'object'
+        ? simulation.flow
+        : null;
+
+    if (
+      !flow ||
+      flow.stopped === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-not-in-flowing-play',
+        event: null,
+      };
+    }
+
+    const possessionSide =
+      flow.possessionSide;
+
+    if (
+      possessionSide !== 'home' &&
+      possessionSide !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'possession-side-missing',
+        event: null,
+      };
+    }
+
+    const defendingSide =
+      possessionSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const currentZone =
+      flow.zone ||
+      'neutral';
+
+    let nextZone =
+      currentZone;
+
+    let nextPossessionSide =
+      possessionSide;
+
+    let outcome =
+      'possession-maintained';
+
+    let paceContext =
+      'normal';
+
+    /*
+     * ==========================================================
+     * DEFENSIVE ZONE
+     * ==========================================================
+     *
+     * Usually a breakout attempt.
+     */
+    if (
+      currentZone ===
+      'defensive'
+    ) {
+      const roll =
+        Math.random();
+
+      if (roll < 0.68) {
+        /*
+         * Successful breakout.
+         */
+        nextZone =
+          'neutral';
+
+        paceContext =
+          'transition';
+
+        outcome =
+          'successful-breakout';
+      } else if (
+        roll < 0.86
+      ) {
+        /*
+         * Team keeps the puck but remains trapped.
+         */
+        nextZone =
+          'defensive';
+
+        paceContext =
+          'quiet';
+
+        outcome =
+          'breakout-delayed';
+      } else {
+        /*
+         * Turnover deep in the zone.
+         *
+         * From the new possessing team's perspective,
+         * the puck is immediately in its offensive zone.
+         */
+        nextPossessionSide =
+          defendingSide;
+
+        nextZone =
+          'offensive';
+
+        paceContext =
+          'transition';
+
+        outcome =
+          'defensive-zone-turnover';
+      }
+    }
+
+    /*
+     * ==========================================================
+     * NEUTRAL ZONE
+     * ==========================================================
+     *
+     * Zone entries, failed entries and possession exchanges.
+     */
+    if (
+      currentZone ===
+      'neutral'
+    ) {
+      const roll =
+        Math.random();
+
+      if (roll < 0.52) {
+        /*
+         * Clean offensive-zone entry.
+         */
+        nextZone =
+          'offensive';
+
+        paceContext =
+          'offensive-zone';
+
+        outcome =
+          'successful-zone-entry';
+      } else if (
+        roll < 0.72
+      ) {
+        /*
+         * Possession maintained in neutral ice.
+         */
+        nextZone =
+          'neutral';
+
+        paceContext =
+          'normal';
+
+        outcome =
+          'neutral-zone-possession';
+      } else if (
+        roll < 0.88
+      ) {
+        /*
+         * Possession changes in the neutral zone.
+         */
+        nextPossessionSide =
+          defendingSide;
+
+        nextZone =
+          'neutral';
+
+        paceContext =
+          'transition';
+
+        outcome =
+          'neutral-zone-turnover';
+      } else {
+        /*
+         * Possessing team is forced backward.
+         */
+        nextZone =
+          'defensive';
+
+        paceContext =
+          'quiet';
+
+        outcome =
+          'regroup';
+      }
+    }
+
+    /*
+     * ==========================================================
+     * OFFENSIVE ZONE
+     * ==========================================================
+     *
+     * Sustained pressure, cycling or defensive clearances.
+     */
+    if (
+      currentZone ===
+      'offensive'
+    ) {
+      const roll =
+        Math.random();
+
+      if (roll < 0.60) {
+        /*
+         * Offensive pressure continues.
+         */
+        nextZone =
+          'offensive';
+
+        paceContext =
+          'offensive-zone';
+
+        outcome =
+          'offensive-pressure';
+
+        flow.pressureLevel =
+          Math.min(
+            5,
+            (
+              Number(
+                flow.pressureLevel
+              ) || 0
+            ) + 1
+          );
+      } else if (
+        roll < 0.80
+      ) {
+        /*
+         * Defense clears the puck but attacking team may
+         * still retain possession in neutral ice.
+         */
+        nextZone =
+          'neutral';
+
+        paceContext =
+          'transition';
+
+        outcome =
+          'zone-cleared';
+
+        flow.pressureLevel =
+          Math.max(
+            0,
+            (
+              Number(
+                flow.pressureLevel
+              ) || 0
+            ) - 2
+          );
+      } else {
+        /*
+         * Defending team gains clean possession.
+         *
+         * From their perspective they now own the puck in
+         * their defensive zone and must break out.
+         */
+        nextPossessionSide =
+          defendingSide;
+
+        nextZone =
+          'defensive';
+
+        paceContext =
+          'transition';
+
+        outcome =
+          'defensive-recovery';
+
+        flow.pressureLevel =
+          0;
+      }
+    }
+
+    /*
+     * If possession changed, sustained attacking pressure resets.
+     */
+    if (
+      nextPossessionSide !==
+      possessionSide
+    ) {
+      flow.pressureLevel =
+        0;
+    }
+
+    flow.possessionSide =
+      nextPossessionSide;
+
+    flow.zone =
+      nextZone;
+
+    flow.paceContext =
+      paceContext;
+
+    flow.lastEventType =
+      'possession-advance';
+
+    flow.lastEventSide =
+      nextPossessionSide;
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'possession-advance',
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      side:
+        nextPossessionSide,
+
+      previousSide:
+        possessionSide,
+
+      previousZone:
+        currentZone,
+
+      zone:
+        nextZone,
+
+      outcome,
+
+      possessionChanged:
+        nextPossessionSide !==
+        possessionSide,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-possession-advanced',
+
+      event,
+
+      possessionSide:
+        nextPossessionSide,
+
+      zone:
+        nextZone,
+
+      outcome,
+
+      paceContext,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — SHOT ATTEMPT RESOLUTION
+   * ============================================================
+   *
+   * Resolves one shot attempt into:
+   *
+   * blocked
+   * missed
+   * saved
+   * goal
+   *
+   * Uses real deployed players, canonical attributes, current
+   * zone pressure, and the defending goalie.
+   */
+  function resolveLiveGameShotAttempt(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    const flow =
+      simulation.flow &&
+      typeof simulation.flow === 'object'
+        ? simulation.flow
+        : null;
+
+    if (
+      !flow ||
+      flow.stopped === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-not-in-flowing-play',
+        event: null,
+      };
+    }
+
+    const attackingSide =
+      flow.possessionSide;
+
+    if (
+      attackingSide !== 'home' &&
+      attackingSide !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'shot-possession-side-missing',
+        event: null,
+      };
+    }
+
+    const defendingSide =
+      attackingSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const attackingDeployment =
+      attackingSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const defendingDeployment =
+      defendingSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    if (
+      !attackingDeployment ||
+      !defendingDeployment
+    ) {
+      return {
+        success: false,
+        reason:
+          'shot-deployment-missing',
+        event: null,
+      };
+    }
+
+    const attackingSkaters =
+      Array.isArray(
+        attackingDeployment.skaters
+      )
+        ? attackingDeployment.skaters
+        : [];
+
+    const defendingSkaters =
+      Array.isArray(
+        defendingDeployment.skaters
+      )
+        ? defendingDeployment.skaters
+        : [];
+
+    const goalie =
+      defendingDeployment.goalie ||
+      null;
+
+    if (
+      attackingSkaters.length === 0 ||
+      !goalie
+    ) {
+      return {
+        success: false,
+        reason:
+          'shot-participants-missing',
+        event: null,
+      };
+    }
+
+    /*
+     * Choose the shooter using offensive involvement rather than
+     * giving every skater equal odds.
+     */
+    const shooterEntries =
+      attackingSkaters.map(
+        player => {
+          const canonicalPlayer =
+            getPlayerById(
+              player.playerId
+            );
+
+          const attributes =
+            canonicalPlayer
+              ?.attributes ||
+            {};
+
+          const shootingScore =
+            (
+              Number(
+                attributes
+                  .wristShotAccuracy
+              ) || 50
+            ) * 0.35 +
+            (
+              Number(
+                attributes
+                  .wristShotPower
+              ) || 50
+            ) * 0.15 +
+            (
+              Number(
+                attributes
+                  .offensiveAwareness
+              ) || 50
+            ) * 0.30 +
+            (
+              Number(
+                attributes
+                  .puckControl
+              ) || 50
+            ) * 0.20;
+
+          return {
+            player,
+            weight:
+              Math.max(
+                10,
+                shootingScore
+              ),
+          };
+        }
+      );
+
+    const totalShooterWeight =
+      shooterEntries.reduce(
+        (sum, entry) =>
+          sum +
+          entry.weight,
+        0
+      );
+
+    let shooterRoll =
+      Math.random() *
+      totalShooterWeight;
+
+    let shooter =
+      shooterEntries[0]
+        ?.player ||
+      attackingSkaters[0];
+
+    for (
+      const entry of
+      shooterEntries
+    ) {
+      shooterRoll -=
+        entry.weight;
+
+      if (shooterRoll <= 0) {
+        shooter =
+          entry.player;
+
+        break;
+      }
+    }
+
+    const shooterPlayer =
+      getPlayerById(
+        shooter.playerId
+      );
+
+    const goaliePlayer =
+      getPlayerById(
+        goalie.playerId
+      );
+
+    const shooterAttributes =
+      shooterPlayer
+        ?.attributes ||
+      {};
+
+    const goalieAttributes =
+      goaliePlayer
+        ?.attributes ||
+      {};
+
+    /*
+     * Choose one defending skater as the primary blocker threat.
+     */
+    const blocker =
+      defendingSkaters[
+        Math.floor(
+          Math.random() *
+          defendingSkaters.length
+        )
+      ] ||
+      null;
+
+    const blockerPlayer =
+      blocker
+        ? getPlayerById(
+            blocker.playerId
+          )
+        : null;
+
+    const blockerAttributes =
+      blockerPlayer
+        ?.attributes ||
+      {};
+
+    const shotAccuracy =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          (
+            Number(
+              shooterAttributes
+                .wristShotAccuracy
+            ) || 50
+          ) * 0.65 +
+          (
+            Number(
+              shooterAttributes
+                .offensiveAwareness
+            ) || 50
+          ) * 0.20 +
+          (
+            Number(
+              shooterAttributes
+                .handEye
+            ) || 50
+          ) * 0.15
+        )
+      );
+
+    const shotPower =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            shooterAttributes
+              .wristShotPower
+          ) || 50
+        )
+      );
+
+    const blockingAbility =
+      blockerPlayer
+        ? Math.max(
+            25,
+            Math.min(
+              99,
+              (
+                Number(
+                  blockerAttributes
+                    .shotBlocking
+                ) || 50
+              ) * 0.70 +
+              (
+                Number(
+                  blockerAttributes
+                    .defensiveAwareness
+                ) || 50
+              ) * 0.30
+            )
+          )
+        : 45;
+
+    const goalieAbility =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          (
+            Number(
+              goalieAttributes
+                .positioning
+            ) || 50
+          ) * 0.30 +
+          (
+            Number(
+              goalieAttributes
+                .puckTracking
+            ) || 50
+          ) * 0.25 +
+          (
+            Number(
+              goalieAttributes
+                .reflexes
+            ) || 50
+          ) * 0.25 +
+          (
+            Number(
+              goalieAttributes
+                .reboundControl
+            ) || 50
+          ) * 0.20
+        )
+      );
+
+    const pressureLevel =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            flow.pressureLevel
+          ) || 0
+        )
+      );
+
+    /*
+     * Shot quality improves during sustained offensive pressure.
+     */
+    const pressureBonus =
+      pressureLevel * 1.8;
+
+    /*
+     * Resolve block chance first.
+     */
+    const blockChance =
+      Math.max(
+        0.08,
+        Math.min(
+          0.32,
+          0.17 +
+          (
+            blockingAbility - 60
+          ) * 0.002 -
+          (
+            shotPower - 60
+          ) * 0.001 +
+          pressureLevel * 0.005
+        )
+      );
+
+    const blockRoll =
+      Math.random();
+
+    if (
+      blockRoll <
+      blockChance
+    ) {
+      shooter.shots =
+        (
+          Number(
+            shooter.shots
+          ) || 0
+        );
+
+      if (blocker) {
+        blocker.blockedShots =
+          (
+            Number(
+              blocker.blockedShots
+            ) || 0
+          ) + 1;
+      }
+
+      const attackingTeamState =
+        attackingSide === 'home'
+          ? simulation.home
+          : simulation.away;
+
+      const defendingTeamState =
+        defendingSide === 'home'
+          ? simulation.home
+          : simulation.away;
+
+      defendingTeamState
+        .blockedShots =
+        (
+          Number(
+            defendingTeamState
+              .blockedShots
+          ) || 0
+        ) + 1;
+
+      flow.paceContext =
+        Math.random() < 0.45
+          ? 'scramble'
+          : 'normal';
+
+      flow.pressureLevel =
+        Math.min(
+          5,
+          pressureLevel + 1
+        );
+
+      flow.lastEventType =
+        'shot-blocked';
+
+      flow.lastEventSide =
+        attackingSide;
+
+      const event = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'shot-blocked',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining:
+          simulation
+            .clockSecondsRemaining,
+
+        side:
+          attackingSide,
+
+        teamId:
+          attackingTeamState
+            .teamId,
+
+        shooterPlayerId:
+          shooter.playerId,
+
+        blockerPlayerId:
+          blocker?.playerId ||
+          null,
+      };
+
+      simulation.events.push(
+        event
+      );
+
+      return {
+        success: true,
+        reason:
+          'live-game-shot-blocked',
+        outcome:
+          'blocked',
+        event,
+      };
+    }
+
+    /*
+     * Then resolve whether the attempt misses the net.
+     */
+    const missChance =
+      Math.max(
+        0.10,
+        Math.min(
+          0.34,
+          0.25 -
+          (
+            shotAccuracy - 60
+          ) * 0.003 -
+          pressureBonus * 0.002
+        )
+      );
+
+    if (
+      Math.random() <
+      missChance
+    ) {
+      flow.paceContext =
+        'normal';
+
+      flow.pressureLevel =
+        Math.max(
+          0,
+          pressureLevel - 1
+        );
+
+      flow.lastEventType =
+        'shot-missed';
+
+      flow.lastEventSide =
+        attackingSide;
+
+      const event = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'shot-missed',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining:
+          simulation
+            .clockSecondsRemaining,
+
+        side:
+          attackingSide,
+
+        teamId:
+          (
+            attackingSide ===
+            'home'
+              ? simulation.home
+              : simulation.away
+          ).teamId,
+
+        shooterPlayerId:
+          shooter.playerId,
+      };
+
+      simulation.events.push(
+        event
+      );
+
+      return {
+        success: true,
+        reason:
+          'live-game-shot-missed',
+        outcome:
+          'missed',
+        event,
+      };
+    }
+
+    /*
+     * At this point the puck reached the net.
+     * Team and shooter receive an official shot.
+     */
+    const attackingTeamState =
+      attackingSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    attackingTeamState.shots =
+      (
+        Number(
+          attackingTeamState.shots
+        ) || 0
+      ) + 1;
+
+    shooter.shots =
+      (
+        Number(
+          shooter.shots
+        ) || 0
+      ) + 1;
+
+    goalie.shotsAgainst =
+      (
+        Number(
+          goalie.shotsAgainst
+        ) || 0
+      ) + 1;
+
+    /*
+     * Base scoring probability is intentionally modest.
+     * We will calibrate this after whole-game testing.
+     */
+    const finishingAbility =
+      (
+        shotAccuracy * 0.60 +
+        shotPower * 0.20 +
+        (
+          Number(
+            shooterAttributes
+              .offensiveAwareness
+          ) || 50
+        ) * 0.20
+      );
+
+    const scoringChance =
+      Math.max(
+        0.035,
+        Math.min(
+          0.22,
+          0.085 +
+          (
+            finishingAbility -
+            goalieAbility
+          ) * 0.002 +
+          pressureLevel * 0.008
+        )
+      );
+
+    if (
+      Math.random() <
+      scoringChance
+    ) {
+      attackingTeamState.score =
+        (
+          Number(
+            attackingTeamState.score
+          ) || 0
+        ) + 1;
+
+      shooter.goals =
+        (
+          Number(
+            shooter.goals
+          ) || 0
+        ) + 1;
+
+      shooter.points =
+        (
+          Number(
+            shooter.goals
+          ) || 0
+        ) +
+        (
+          Number(
+            shooter.assists
+          ) || 0
+        );
+
+      goalie.goalsAgainst =
+        (
+          Number(
+            goalie.goalsAgainst
+          ) || 0
+        ) + 1;
+
+      flow.stopped = true;
+
+      flow.stoppageReason =
+        'goal';
+
+      flow.paceContext =
+        'after-faceoff';
+
+      flow.zone =
+        'neutral';
+
+      flow.possessionSide =
+        null;
+
+      flow.pressureLevel =
+        0;
+
+      flow.lastEventType =
+        'goal';
+
+      flow.lastEventSide =
+        attackingSide;
+
+      const event = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'goal',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining:
+          simulation
+            .clockSecondsRemaining,
+
+        side:
+          attackingSide,
+
+        teamId:
+          attackingTeamState
+            .teamId,
+
+        scorerPlayerId:
+          shooter.playerId,
+
+        goaliePlayerId:
+          goalie.playerId,
+
+        homeScore:
+          simulation.home.score,
+
+        awayScore:
+          simulation.away.score,
+      };
+
+      simulation.events.push(
+        event
+      );
+
+      simulation.scoringEvents.push(
+        event
+      );
+
+      return {
+        success: true,
+        reason:
+          'live-game-goal-scored',
+        outcome:
+          'goal',
+        event,
+      };
+    }
+
+    /*
+     * Otherwise the goalie makes the save.
+     */
+    goalie.saves =
+      (
+        Number(
+          goalie.saves
+        ) || 0
+      ) + 1;
+
+    const reboundControl =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            goalieAttributes
+              .reboundControl
+          ) || 50
+        )
+      );
+
+    const reboundChance =
+      Math.max(
+        0.12,
+        Math.min(
+          0.42,
+          0.30 -
+          (
+            reboundControl - 60
+          ) * 0.003 +
+          pressureLevel * 0.015
+        )
+      );
+
+    const rebound =
+      Math.random() <
+      reboundChance;
+
+    if (rebound) {
+      flow.paceContext =
+        'rebound';
+
+      flow.zone =
+        'offensive';
+
+      flow.pressureLevel =
+        Math.min(
+          5,
+          pressureLevel + 1
+        );
+    } else {
+      /*
+       * Non-rebound save may either freeze the puck or send play
+       * back into normal flow.
+       */
+      const freezeChance =
+        Math.max(
+          0.25,
+          Math.min(
+            0.65,
+            0.42 +
+            (
+              reboundControl - 60
+            ) * 0.004
+          )
+        );
+
+      if (
+        Math.random() <
+        freezeChance
+      ) {
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'goalie-freeze';
+
+        flow.paceContext =
+          'after-faceoff';
+      } else {
+        flow.paceContext =
+          'normal';
+
+        flow.pressureLevel =
+          Math.max(
+            0,
+            pressureLevel - 1
+          );
+      }
+    }
+
+    flow.lastEventType =
+      'shot-saved';
+
+    flow.lastEventSide =
+      attackingSide;
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'shot-saved',
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      side:
+        attackingSide,
+
+      teamId:
+        attackingTeamState
+          .teamId,
+
+      shooterPlayerId:
+        shooter.playerId,
+
+      goaliePlayerId:
+        goalie.playerId,
+
+      rebound,
+
+      frozen:
+        flow.stopped === true,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+      reason:
+        'live-game-shot-saved',
+      outcome:
+        'saved',
+      rebound,
+      event,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — HIT RESOLUTION
+   * ============================================================
+   */
+  function resolveLiveGameHit(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason: 'invalid-live-game',
+        event: null,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !flow ||
+      flow.stopped === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-not-in-flowing-play',
+        event: null,
+      };
+    }
+
+    const possessionSide =
+      flow.possessionSide;
+
+    if (
+      possessionSide !== 'home' &&
+      possessionSide !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'hit-possession-side-missing',
+        event: null,
+      };
+    }
+
+    const defendingSide =
+      possessionSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const defendingDeployment =
+      defendingSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const attackingDeployment =
+      possessionSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const hitters =
+      Array.isArray(
+        defendingDeployment?.skaters
+      )
+        ? defendingDeployment.skaters
+        : [];
+
+    const puckCarriers =
+      Array.isArray(
+        attackingDeployment?.skaters
+      )
+        ? attackingDeployment.skaters
+        : [];
+
+    if (
+      hitters.length === 0 ||
+      puckCarriers.length === 0
+    ) {
+      return {
+        success: false,
+        reason:
+          'hit-participants-missing',
+        event: null,
+      };
+    }
+
+    const weightedPick =
+      entries => {
+        const totalWeight =
+          entries.reduce(
+            (sum, entry) =>
+              sum + entry.weight,
+            0
+          );
+
+        let roll =
+          Math.random() *
+          totalWeight;
+
+        for (
+          const entry of entries
+        ) {
+          roll -= entry.weight;
+
+          if (roll <= 0) {
+            return entry.player;
+          }
+        }
+
+        return entries[0]
+          ?.player ||
+          null;
+      };
+
+    const hitter =
+      weightedPick(
+        hitters.map(player => {
+          const canonicalPlayer =
+            getPlayerById(
+              player.playerId
+            );
+
+          const attributes =
+            canonicalPlayer
+              ?.attributes ||
+            {};
+
+          const physicalScore =
+            (
+              Number(
+                attributes
+                  .bodyChecking
+              ) || 50
+            ) * 0.55 +
+            (
+              Number(
+                attributes
+                  .strength
+              ) || 50
+            ) * 0.30 +
+            (
+              Number(
+                attributes
+                  .aggression
+              ) || 50
+            ) * 0.15;
+
+          return {
+            player,
+            weight:
+              Math.max(
+                10,
+                physicalScore
+              ),
+          };
+        })
+      );
+
+    const puckCarrier =
+      weightedPick(
+        puckCarriers.map(player => {
+          const canonicalPlayer =
+            getPlayerById(
+              player.playerId
+            );
+
+          const attributes =
+            canonicalPlayer
+              ?.attributes ||
+            {};
+
+          const involvementScore =
+            (
+              Number(
+                attributes
+                  .puckControl
+              ) || 50
+            ) * 0.50 +
+            (
+              Number(
+                attributes
+                  .offensiveAwareness
+              ) || 50
+            ) * 0.30 +
+            (
+              Number(
+                attributes
+                  .balance
+              ) || 50
+            ) * 0.20;
+
+          return {
+            player,
+            weight:
+              Math.max(
+                10,
+                involvementScore
+              ),
+          };
+        })
+      );
+
+    if (
+      !hitter ||
+      !puckCarrier
+    ) {
+      return {
+        success: false,
+        reason:
+          'hit-selection-failed',
+        event: null,
+      };
+    }
+
+    const hitterPlayer =
+      getPlayerById(
+        hitter.playerId
+      );
+
+    const carrierPlayer =
+      getPlayerById(
+        puckCarrier.playerId
+      );
+
+    const hitterAttributes =
+      hitterPlayer
+        ?.attributes ||
+      {};
+
+    const carrierAttributes =
+      carrierPlayer
+        ?.attributes ||
+      {};
+
+    const hitStrength =
+      (
+        Number(
+          hitterAttributes
+            .bodyChecking
+        ) || 50
+      ) * 0.55 +
+      (
+        Number(
+          hitterAttributes
+            .strength
+        ) || 50
+      ) * 0.30 +
+      (
+        Number(
+          hitterAttributes
+            .aggression
+        ) || 50
+      ) * 0.15;
+
+    const carrierResistance =
+      (
+        Number(
+          carrierAttributes
+            .balance
+        ) || 50
+      ) * 0.45 +
+      (
+        Number(
+          carrierAttributes
+            .strength
+        ) || 50
+      ) * 0.30 +
+      (
+        Number(
+          carrierAttributes
+            .puckControl
+        ) || 50
+      ) * 0.25;
+
+    const turnoverChance =
+      Math.max(
+        0.12,
+        Math.min(
+          0.48,
+          0.24 +
+          (
+            hitStrength -
+            carrierResistance
+          ) * 0.004
+        )
+      );
+
+    const possessionChanged =
+      Math.random() <
+      turnoverChance;
+
+    const defendingTeamState =
+      defendingSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    defendingTeamState.hits =
+      (
+        Number(
+          defendingTeamState.hits
+        ) || 0
+      ) + 1;
+
+    hitter.hits =
+      (
+        Number(
+          hitter.hits
+        ) || 0
+      ) + 1;
+
+    if (possessionChanged) {
+      flow.possessionSide =
+        defendingSide;
+
+      flow.zone =
+        flow.zone === 'offensive'
+          ? 'defensive'
+          : flow.zone === 'defensive'
+            ? 'offensive'
+            : 'neutral';
+
+      flow.paceContext =
+        'transition';
+
+      flow.pressureLevel =
+        0;
+    } else {
+      flow.paceContext =
+        flow.zone === 'offensive'
+          ? 'offensive-zone'
+          : 'normal';
+    }
+
+    flow.lastEventType =
+      'hit';
+
+    flow.lastEventSide =
+      defendingSide;
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'hit',
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      side:
+        defendingSide,
+
+      hitterPlayerId:
+        hitter.playerId,
+
+      hitPlayerId:
+        puckCarrier.playerId,
+
+      possessionChanged,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+      reason:
+        'live-game-hit-resolved',
+      possessionChanged,
+      event,
+    };
+  }
+
+
+  /*
+   * ============================================================
+   * LIVE GAME — TURNOVER RESOLUTION
+   * ============================================================
+   *
+   * Resolves giveaways/takeaways and changes possession.
+   */
+  function resolveLiveGameTurnover(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason: 'invalid-live-game',
+        event: null,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !flow ||
+      flow.stopped === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-not-in-flowing-play',
+        event: null,
+      };
+    }
+
+    const possessionSide =
+      flow.possessionSide;
+
+    if (
+      possessionSide !== 'home' &&
+      possessionSide !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'turnover-possession-side-missing',
+        event: null,
+      };
+    }
+
+    const defendingSide =
+      possessionSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const attackingDeployment =
+      possessionSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const defendingDeployment =
+      defendingSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const attackers =
+      Array.isArray(
+        attackingDeployment?.skaters
+      )
+        ? attackingDeployment.skaters
+        : [];
+
+    const defenders =
+      Array.isArray(
+        defendingDeployment?.skaters
+      )
+        ? defendingDeployment.skaters
+        : [];
+
+    if (
+      attackers.length === 0 ||
+      defenders.length === 0
+    ) {
+      return {
+        success: false,
+        reason:
+          'turnover-participants-missing',
+        event: null,
+      };
+    }
+
+    const puckCarrier =
+      attackers[
+        Math.floor(
+          Math.random() *
+          attackers.length
+        )
+      ];
+
+    const defender =
+      defenders[
+        Math.floor(
+          Math.random() *
+          defenders.length
+        )
+      ];
+
+    const carrierPlayer =
+      getPlayerById(
+        puckCarrier.playerId
+      );
+
+    const defenderPlayer =
+      getPlayerById(
+        defender.playerId
+      );
+
+    const carrierAttributes =
+      carrierPlayer
+        ?.attributes ||
+      {};
+
+    const defenderAttributes =
+      defenderPlayer
+        ?.attributes ||
+      {};
+
+    const puckSecurity =
+      (
+        Number(
+          carrierAttributes
+            .puckControl
+        ) || 50
+      ) * 0.50 +
+      (
+        Number(
+          carrierAttributes
+            .passing
+        ) || 50
+      ) * 0.25 +
+      (
+        Number(
+          carrierAttributes
+            .poise
+        ) || 50
+      ) * 0.25;
+
+    const takeawayAbility =
+      (
+        Number(
+          defenderAttributes
+            .stickChecking
+        ) || 50
+      ) * 0.45 +
+      (
+        Number(
+          defenderAttributes
+            .defensiveAwareness
+        ) || 50
+      ) * 0.35 +
+      (
+        Number(
+          defenderAttributes
+            .agility
+        ) || 50
+      ) * 0.20;
+
+    const controlledTakeawayChance =
+      Math.max(
+        0.30,
+        Math.min(
+          0.72,
+          0.48 +
+          (
+            takeawayAbility -
+            puckSecurity
+          ) * 0.004
+        )
+      );
+
+    const creditedTakeaway =
+      Math.random() <
+      controlledTakeawayChance;
+
+    const attackingTeamState =
+      possessionSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    const defendingTeamState =
+      defendingSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    attackingTeamState.giveaways =
+      (
+        Number(
+          attackingTeamState
+            .giveaways
+        ) || 0
+      ) + 1;
+
+    puckCarrier.giveaways =
+      (
+        Number(
+          puckCarrier.giveaways
+        ) || 0
+      ) + 1;
+
+    if (creditedTakeaway) {
+      defendingTeamState.takeaways =
+        (
+          Number(
+            defendingTeamState
+              .takeaways
+          ) || 0
+        ) + 1;
+
+      defender.takeaways =
+        (
+          Number(
+            defender.takeaways
+          ) || 0
+        ) + 1;
+    }
+
+    flow.possessionSide =
+      defendingSide;
+
+    flow.zone =
+      flow.zone === 'offensive'
+        ? 'defensive'
+        : flow.zone === 'defensive'
+          ? 'offensive'
+          : 'neutral';
+
+    flow.paceContext =
+      'transition';
+
+    flow.pressureLevel =
+      0;
+
+    flow.lastEventType =
+      'turnover';
+
+    flow.lastEventSide =
+      defendingSide;
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'turnover',
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      giveawaySide:
+        possessionSide,
+
+      takeawaySide:
+        defendingSide,
+
+      giveawayPlayerId:
+        puckCarrier.playerId,
+
+      takeawayPlayerId:
+        creditedTakeaway
+          ? defender.playerId
+          : null,
+
+      creditedTakeaway,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+      reason:
+        'live-game-turnover-resolved',
+      creditedTakeaway,
+      event,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — PENALTY RESOLUTION
+   * ============================================================
+   */
+  function resolveLiveGamePenalty(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !flow ||
+      flow.stopped === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-not-in-flowing-play',
+        event: null,
+      };
+    }
+
+    const possessionSide =
+      flow.possessionSide;
+
+    const penalizedSide =
+      Math.random() < 0.56
+        ? (
+            possessionSide === 'home'
+              ? 'away'
+              : 'home'
+          )
+        : possessionSide;
+
+    if (
+      penalizedSide !== 'home' &&
+      penalizedSide !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'penalty-side-missing',
+        event: null,
+      };
+    }
+
+    const advantagedSide =
+      penalizedSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const penalizedDeployment =
+      penalizedSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const skaters =
+      Array.isArray(
+        penalizedDeployment?.skaters
+      )
+        ? penalizedDeployment.skaters
+        : [];
+
+    if (skaters.length === 0) {
+      return {
+        success: false,
+        reason:
+          'penalty-participants-missing',
+        event: null,
+      };
+    }
+
+    const penalizedPlayer =
+      skaters[
+        Math.floor(
+          Math.random() *
+          skaters.length
+        )
+      ];
+
+    const canonicalPlayer =
+      getPlayerById(
+        penalizedPlayer.playerId
+      );
+
+    const attributes =
+      canonicalPlayer
+        ?.attributes ||
+      {};
+
+    const aggression =
+      Number(
+        attributes.aggression
+      ) || 50;
+
+    const discipline =
+      Number(
+        attributes.discipline
+      ) || 50;
+
+    const physicalBias =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          (
+            aggression -
+            discipline +
+            50
+          ) / 100
+        )
+      );
+
+    const infractionRoll =
+      Math.random();
+
+    let infraction =
+      'Tripping';
+
+    if (infractionRoll < 0.20) {
+      infraction =
+        'Hooking';
+    } else if (
+      infractionRoll < 0.38
+    ) {
+      infraction =
+        'Holding';
+    } else if (
+      infractionRoll < 0.54
+    ) {
+      infraction =
+        'Interference';
+    } else if (
+      infractionRoll < 0.69
+    ) {
+      infraction =
+        'Slashing';
+    } else if (
+      infractionRoll <
+        0.69 +
+        physicalBias * 0.20
+    ) {
+      infraction =
+        'Roughing';
+    } else if (
+      infractionRoll < 0.92
+    ) {
+      infraction =
+        'Cross-checking';
+    }
+
+    const penaltyMinutes = 2;
+
+    const penalizedTeamState =
+      penalizedSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    const advantagedTeamState =
+      advantagedSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    penalizedTeamState
+      .penaltyMinutes =
+      (
+        Number(
+          penalizedTeamState
+            .penaltyMinutes
+        ) || 0
+      ) +
+      penaltyMinutes;
+
+    penalizedPlayer
+      .penaltyMinutes =
+      (
+        Number(
+          penalizedPlayer
+            .penaltyMinutes
+        ) || 0
+      ) +
+      penaltyMinutes;
+
+    advantagedTeamState
+      .powerPlayOpportunities =
+      (
+        Number(
+          advantagedTeamState
+            .powerPlayOpportunities
+        ) || 0
+      ) + 1;
+
+    const penalty = {
+      id:
+        `penalty-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      penalizedSide,
+
+      advantagedSide,
+
+      playerId:
+        penalizedPlayer.playerId,
+
+      infraction,
+
+      minutes:
+        penaltyMinutes,
+
+      secondsRemaining:
+        penaltyMinutes * 60,
+
+      active: true,
+    };
+
+    simulation.penalties.push(
+      penalty
+    );
+
+    simulation.specialTeams
+      .activePenalties
+      .push(
+        penalty
+      );
+
+    simulation.specialTeams
+      .situation =
+      'power-play';
+
+    simulation.specialTeams
+      .powerPlaySide =
+      advantagedSide;
+
+    simulation.specialTeams
+      .penaltyKillSide =
+      penalizedSide;
+
+    simulation.specialTeams
+      .homeSkaters =
+      penalizedSide === 'home'
+        ? 4
+        : 5;
+
+    simulation.specialTeams
+      .awaySkaters =
+      penalizedSide === 'away'
+        ? 4
+        : 5;
+
+    flow.stopped =
+      true;
+
+    flow.stoppageReason =
+      'penalty';
+
+    flow.paceContext =
+      'after-faceoff';
+
+    flow.possessionSide =
+      null;
+
+    flow.zone =
+      'neutral';
+
+    flow.pressureLevel =
+      0;
+
+    flow.lastEventType =
+      'penalty';
+
+    flow.lastEventSide =
+      penalizedSide;
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'penalty',
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+
+      penalizedSide,
+
+      advantagedSide,
+
+      teamId:
+        penalizedTeamState
+          .teamId,
+
+      playerId:
+        penalizedPlayer.playerId,
+
+      infraction,
+
+      minutes:
+        penaltyMinutes,
+
+      penaltyId:
+        penalty.id,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+      reason:
+        'live-game-penalty-resolved',
+      penalty,
+      event,
+    };
+  }
+
+
+  /*
+   * ============================================================
+   * LIVE GAME — SPECIAL TEAMS CLOCK
+   * ============================================================
+   *
+   * Reduces active penalty time whenever hockey time advances.
+   * Expired minors restore even-strength play.
+   */
+  function advanceLiveGameSpecialTeamsClock(
+    simulation,
+    elapsedSeconds
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+      };
+    }
+
+    const specialTeams =
+      simulation.specialTeams;
+
+    if (
+      !specialTeams ||
+      !Array.isArray(
+        specialTeams.activePenalties
+      )
+    ) {
+      return {
+        success: false,
+        reason:
+          'special-teams-state-missing',
+      };
+    }
+
+    const safeElapsed =
+      Math.max(
+        0,
+        Number(
+          elapsedSeconds
+        ) || 0
+      );
+
+    specialTeams
+      .activePenalties
+      .forEach(
+        penalty => {
+          if (
+            penalty.active !== true
+          ) {
+            return;
+          }
+
+          penalty.secondsRemaining =
+            Math.max(
+              0,
+              (
+                Number(
+                  penalty
+                    .secondsRemaining
+                ) || 0
+              ) -
+              safeElapsed
+            );
+
+          if (
+            penalty.secondsRemaining <= 0
+          ) {
+            penalty.active =
+              false;
+          }
+        }
+      );
+
+    specialTeams
+      .activePenalties =
+      specialTeams
+        .activePenalties
+        .filter(
+          penalty =>
+            penalty.active === true
+        );
+
+    const activePenalty =
+      specialTeams
+        .activePenalties[0] ||
+      null;
+
+    if (!activePenalty) {
+      specialTeams.situation =
+        'even-strength';
+
+      specialTeams.powerPlaySide =
+        null;
+
+      specialTeams.penaltyKillSide =
+        null;
+
+      specialTeams.homeSkaters =
+        5;
+
+      specialTeams.awaySkaters =
+        5;
+    }
+
+    return {
+      success: true,
+
+      reason:
+        activePenalty
+          ? 'penalty-clock-advanced'
+          : 'even-strength-restored',
+
+      activePenalties:
+        specialTeams
+          .activePenalties,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — ONE SIMULATION STEP
+   * ============================================================
+   *
+   * Advances one meaningful slice of hockey.
+   *
+   * This is NOT one minute and NOT one event per minute.
+   * Each step schedules its own amount of hockey time based on
+   * game context, then resolves the next meaningful event.
+   */
+  function advanceLiveGameStep(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    if (
+      simulation.gameComplete === true ||
+      simulation.finalized === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-already-complete',
+        event: null,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !flow ||
+      typeof flow !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-flow-missing',
+        event: null,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * PERIOD START / STOPPAGE
+     * ==========================================================
+     *
+     * Dead puck does not consume hockey clock.
+     * The next action is a faceoff at the same timestamp.
+     */
+    if (flow.stopped === true) {
+      const faceoffZone =
+        flow.stoppageReason ===
+          'goal'
+          ? 'neutral'
+          : flow.zone ||
+            'neutral';
+
+      const faceoffResult =
+        resolveLiveGameFaceoff(
+          simulation,
+          {
+            zone:
+              faceoffZone,
+          }
+        );
+
+      return {
+        success:
+          faceoffResult
+            ?.success === true,
+
+        reason:
+          faceoffResult
+            ?.reason ||
+          'faceoff-resolution-failed',
+
+        elapsedSeconds: 0,
+
+        event:
+          faceoffResult
+            ?.event ||
+          null,
+
+        result:
+          faceoffResult ||
+          null,
+
+        simulation,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * DEPLOYMENT / SHIFT MANAGEMENT
+     * ==========================================================
+     *
+     * Keep the same skaters on the ice for a real stretch rather
+     * than rerolling all five participants every event.
+     *
+     * Normal shifts are roughly 35–55 seconds. We allow some
+     * variance here because event timestamps do not represent
+     * every whistle-free second of a shift.
+     */
+    const deploymentNeedsRefresh =
+      !flow.homeDeployment ||
+      !flow.awayDeployment ||
+      (
+        Number(
+          flow.deploymentAgeSeconds
+        ) || 0
+      ) >=
+        (
+          35 +
+          Math.floor(
+            Math.random() * 21
+          )
+        );
+
+    if (deploymentNeedsRefresh) {
+      const homeDeploymentResult =
+        selectLiveGameEvenStrengthDeployment(
+          simulation,
+          'home'
+        );
+
+      const awayDeploymentResult =
+        selectLiveGameEvenStrengthDeployment(
+          simulation,
+          'away'
+        );
+
+      if (
+        homeDeploymentResult
+          ?.success !== true ||
+        awayDeploymentResult
+          ?.success !== true
+      ) {
+        return {
+          success: false,
+          reason:
+            'live-game-deployment-refresh-failed',
+
+          homeDeploymentResult,
+          awayDeploymentResult,
+
+          event: null,
+        };
+      }
+
+      flow.homeDeployment =
+        homeDeploymentResult
+          .deployment;
+
+      flow.awayDeployment =
+        awayDeploymentResult
+          .deployment;
+
+      flow.deploymentAgeSeconds =
+        0;
+    }
+
+    /*
+     * ==========================================================
+     * SPECIAL TEAMS DEPLOYMENT
+     * ==========================================================
+     *
+     * Once a penalty is active, replace normal deployments with
+     * the actual PP / PK units selected by the coach.
+     */
+    const specialTeams =
+      simulation.specialTeams ||
+      {};
+
+    if (
+      specialTeams.situation ===
+        'power-play' &&
+      specialTeams.powerPlaySide &&
+      specialTeams.penaltyKillSide
+    ) {
+      const powerPlaySide =
+        specialTeams
+          .powerPlaySide;
+
+      const penaltyKillSide =
+        specialTeams
+          .penaltyKillSide;
+
+      const powerPlayDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          powerPlaySide,
+          {
+            situation:
+              'power-play',
+
+            specialTeamsUnit: 1,
+          }
+        );
+
+      const penaltyKillDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          penaltyKillSide,
+          {
+            situation:
+              'penalty-kill',
+
+            specialTeamsUnit: 1,
+          }
+        );
+
+      if (
+        powerPlayDeployment
+          ?.success === true
+      ) {
+        if (
+          powerPlaySide ===
+          'home'
+        ) {
+          flow.homeDeployment =
+            powerPlayDeployment;
+        } else {
+          flow.awayDeployment =
+            powerPlayDeployment;
+        }
+      }
+
+      if (
+        penaltyKillDeployment
+          ?.success === true
+      ) {
+        if (
+          penaltyKillSide ===
+          'home'
+        ) {
+          flow.homeDeployment =
+            penaltyKillDeployment;
+        } else {
+          flow.awayDeployment =
+            penaltyKillDeployment;
+        }
+      }
+    }
+
+    /*
+     * ==========================================================
+     * EVENT TIMING
+     * ==========================================================
+     */
+    const timing =
+      scheduleNextLiveGameEventTime(
+        simulation,
+        {
+          paceContext:
+            flow.paceContext ||
+            'normal',
+        }
+      );
+
+    if (
+      !timing ||
+      timing.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          timing?.reason ||
+          'live-game-event-time-failed',
+        event: null,
+      };
+    }
+
+    const elapsedSeconds =
+      Math.max(
+        0,
+        Number(
+          timing.elapsedSeconds
+        ) || 0
+      );
+
+    simulation
+      .clockSecondsRemaining =
+      timing
+        .nextClockSecondsRemaining;
+
+    flow.deploymentAgeSeconds =
+      (
+        Number(
+          flow.deploymentAgeSeconds
+        ) || 0
+      ) +
+      elapsedSeconds;
+
+    /*
+     * Penalties count down using actual hockey seconds, completely
+     * independent of presentation speed.
+     */
+    advanceLiveGameSpecialTeamsClock(
+      simulation,
+      elapsedSeconds
+    );
+
+    /*
+     * ==========================================================
+     * PERIOD EXPIRATION
+     * ==========================================================
+     */
+    if (
+      simulation
+        .clockSecondsRemaining <= 0
+    ) {
+      const periodEndEvent = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'period-end',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining: 0,
+
+        homeScore:
+          simulation.home.score,
+
+        awayScore:
+          simulation.away.score,
+      };
+
+      simulation.events.push(
+        periodEndEvent
+      );
+
+      /*
+       * Regulation periods 1 and 2 advance normally.
+       */
+      if (
+        simulation.period < 3
+      ) {
+        simulation.period +=
+          1;
+
+        simulation.periodLabel =
+          simulation.period === 2
+            ? '2nd'
+            : '3rd';
+
+        simulation
+          .clockSecondsRemaining =
+          20 * 60;
+
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'period-start';
+
+        flow.possessionSide =
+          null;
+
+        flow.zone =
+          'neutral';
+
+        flow.paceContext =
+          'after-faceoff';
+
+        flow.pressureLevel =
+          0;
+
+        flow.homeDeployment =
+          null;
+
+        flow.awayDeployment =
+          null;
+
+        flow.deploymentAgeSeconds =
+          0;
+      } else {
+        simulation
+          .regulationComplete =
+          true;
+
+        /*
+         * Tied games will later enter overtime.
+         * For now mark only non-tied regulation games complete.
+         */
+        if (
+          Number(
+            simulation.home.score
+          ) !==
+          Number(
+            simulation.away.score
+          )
+        ) {
+          simulation.gameComplete =
+            true;
+
+          simulation.status =
+            'completed';
+        } else {
+          simulation.status =
+            'regulation-tied';
+
+          flow.stopped =
+            true;
+
+          flow.stoppageReason =
+            'regulation-ended-tied';
+        }
+      }
+
+      return {
+        success: true,
+
+        reason:
+          'live-game-period-ended',
+
+        elapsedSeconds,
+
+        event:
+          periodEndEvent,
+
+        simulation,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * SELECT NEXT EVENT
+     * ==========================================================
+     */
+    const selection =
+      selectNextLiveGameEventType(
+        simulation
+      );
+
+    if (
+      !selection ||
+      selection.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          selection?.reason ||
+          'live-game-event-selection-failed',
+        elapsedSeconds,
+        event: null,
+      };
+    }
+
+    let resolution = null;
+
+    switch (
+      selection.eventType
+    ) {
+      case 'shot-attempt':
+        resolution =
+          resolveLiveGameShotAttempt(
+            simulation
+          );
+        break;
+
+      case 'hit':
+        resolution =
+          resolveLiveGameHit(
+            simulation
+          );
+        break;
+
+      case 'turnover':
+        resolution =
+          resolveLiveGameTurnover(
+            simulation
+          );
+        break;
+
+      case 'penalty':
+        resolution =
+          resolveLiveGamePenalty(
+            simulation
+          );
+        break;
+
+      case 'possession-advance':
+        resolution =
+          resolveLiveGamePossessionAdvance(
+            simulation
+          );
+        break;
+
+      /*
+       * A generic stoppage creates a whistle and forces the next
+       * step to resolve a faceoff at the same game-clock time.
+       */
+      case 'stoppage': {
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'general-stoppage';
+
+        flow.paceContext =
+          'after-faceoff';
+
+        flow.pressureLevel =
+          0;
+
+        const event = {
+          id:
+            `live-event-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
+
+          type:
+            'stoppage',
+
+          period:
+            simulation.period,
+
+          clockSecondsRemaining:
+            simulation
+              .clockSecondsRemaining,
+
+          side:
+            flow.possessionSide,
+
+          zone:
+            flow.zone,
+        };
+
+        simulation.events.push(
+          event
+        );
+
+        resolution = {
+          success: true,
+          reason:
+            'live-game-stoppage-resolved',
+          event,
+        };
+
+        break;
+      }
+
+      /*
+       * Quiet play burns clock and changes context without adding
+       * a visible event-feed item.
+       */
+      case 'quiet-play':
+      default:
+        flow.paceContext =
+          'quiet';
+
+        flow.lastEventType =
+          'quiet-play';
+
+        resolution = {
+          success: true,
+          reason:
+            'live-game-quiet-play',
+
+          event: null,
+        };
+
+        break;
+    }
+
+    if (
+      !resolution ||
+      resolution.success !== true
+    ) {
+      return {
+        success: false,
+
+        reason:
+          resolution?.reason ||
+          'live-game-event-resolution-failed',
+
+        elapsedSeconds,
+
+        eventType:
+          selection.eventType,
+
+        event: null,
+
+        resolution:
+          resolution || null,
+      };
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-step-completed',
+
+      elapsedSeconds,
+
+      eventType:
+        selection.eventType,
+
+      event:
+        resolution.event ||
+        null,
+
+      resolution,
+
+      simulation,
+    };
+  }
   
   function applyGameResultToTeamsAndSchedule(
     gameResult
@@ -24055,6 +29043,19 @@ const WorldEngine = (() => {
     getAttributeUpgradeCost,
     canUpgradePlayerAttribute,
     upgradePlayerAttribute,
+    createLiveGameSimulationState,
+    getLiveGameOnIcePlayers,
+    selectLiveGameEvenStrengthDeployment,
+    scheduleNextLiveGameEventTime,
+    selectNextLiveGameEventType,
+    resolveLiveGameFaceoff,
+    resolveLiveGamePossessionAdvance,
+    resolveLiveGameShotAttempt,
+    resolveLiveGameHit,
+    resolveLiveGameTurnover,
+    resolveLiveGamePenalty,
+    advanceLiveGameSpecialTeamsClock,
+    advanceLiveGameStep,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
     repairCompletedGameDevelopment,
