@@ -212,10 +212,95 @@ function renderTrainingOptions() {
       ? trainingCatalog.goalie
       : trainingCatalog.skater;
 
-  if (
-    !Array.isArray(trainingPool) ||
-    trainingPool.length === 0
-  ) {
+  /*
+   * WEEKLY TRAINING SELECTION
+   *
+   * Show a stable random subset of the full Training catalog.
+   * The same Training date always produces the same choices,
+   * even after reloading the save.
+   */
+  const activeTrainingEvent =
+    Array.isArray(
+      WorldEngine.state.schedule
+    )
+      ? WorldEngine.state.schedule.find(
+          event =>
+            String(
+              event?.id ||
+              event?.eventId ||
+              ''
+            ) ===
+            String(
+              activeTrainingEventId ||
+              ''
+            )
+        )
+      : null;
+
+  const trainingDate =
+    activeTrainingEvent?.date ||
+    Game.player.currentDate ||
+    'training';
+
+  const stableTrainingScore =
+    training => {
+      const seedText =
+        `${trainingDate}-${training.trainingKey}`;
+
+      let hash = 0;
+
+      for (
+        let index = 0;
+        index < seedText.length;
+        index += 1
+      ) {
+        hash =
+          (
+            (hash << 5) -
+            hash
+          ) +
+          seedText.charCodeAt(
+            index
+          );
+
+        hash |= 0;
+      }
+
+      return Math.abs(hash);
+    };
+
+  const choiceCount =
+    Math.min(
+      trainingPool.length,
+      4 +
+        (
+          stableTrainingScore({
+            trainingKey:
+              'weekly-choice-count',
+          }) % 3
+        )
+    );
+
+  const weeklyTrainingPool =
+    [...trainingPool]
+      .sort(
+        (firstTraining, secondTraining) =>
+          stableTrainingScore(
+            firstTraining
+          ) -
+          stableTrainingScore(
+            secondTraining
+          )
+      )
+      .slice(
+        0,
+        choiceCount
+      );
+
+    if (
+      !Array.isArray(weeklyTrainingPool) ||
+      weeklyTrainingPool.length === 0
+    ) {
     trainingOptions.innerHTML = `
       <div class="training-empty">
         No training options are available.
@@ -359,8 +444,8 @@ function renderTrainingOptions() {
     };
 
   trainingOptions.innerHTML =
-    trainingPool
-      .map(training => {
+        weeklyTrainingPool
+        .map(training => {
         const attributeMarkup =
           Array.isArray(
             training.attributes
@@ -463,7 +548,7 @@ function renderTrainingOptions() {
           }
 
           const trainingDefinition =
-            trainingPool.find(
+            weeklyTrainingPool.find(
               training =>
                 String(
                   training.trainingKey
@@ -539,9 +624,24 @@ function renderTrainingOptions() {
           refreshCareerUI();
 
           /*
+           * Training is a dedicated presentation screen.
+           * Explicitly dismiss it before opening the reusable
+           * Event Results screen so the two screens can never overlap.
+           */
+          if (trainingScreen) {
+            trainingScreen.classList.remove(
+              'active'
+            );
+
+            trainingScreen.style.display =
+              'none';
+          }
+
+          /*
            * Training now uses the same reusable results
            * presentation as Practice and Recovery.
            */
+
           EventResultsSystem.open(
             {
               ...trainingDefinition,
@@ -573,6 +673,10 @@ let activeTrainingEventId = null;
 function openTrainingScreen(
   eventId
 ) {
+  if (trainingScreen) {
+    trainingScreen.style.display =
+      '';
+  }
   if (
     !trainingScreen ||
     !eventId
@@ -7996,16 +8100,37 @@ function renderScheduleCalendar(year, month) {
     const currentDate =
       Game.player.currentDate || '2026-09-01';
 
-    if (dateKey === currentDate) {
-      cell.classList.add('schedule-day--today');
-    }
-    if (dateKey < currentDate) {
-      cell.classList.add('schedule-day--past');
-    }
-
     const events = scheduleEvents.filter(
       item => item.date === dateKey
     );
+
+    const hasCompletedEvent =
+      events.some(event =>
+        event.isCompleted === true
+      );
+
+    const isPastCalendarDay =
+      dateKey < currentDate ||
+      (
+        dateKey === currentDate &&
+        hasCompletedEvent
+      );
+
+    /*
+     * The current calendar date always keeps its blue outline,
+     * even if today's event has already been completed.
+     */
+    if (dateKey === currentDate) {
+      cell.classList.add(
+        'schedule-day--today'
+      );
+    }
+
+    if (isPastCalendarDay) {
+      cell.classList.add(
+        'schedule-day--past'
+      );
+    }
 
     cell.innerHTML = `
       <span class="schedule-day-number">${day}</span>
@@ -8236,13 +8361,86 @@ function simulateToDate(
     );
 
   /*
+   * CAREER GAME PRESENTATION STOP
+   *
+   * A career-team game is a hard stop during calendar simulation.
+   *
+   * Example:
+   * Current date: Sep 17
+   * Requested:    Sep 20
+   * Career game:  Sep 18
+   *
+   * We advance only through Sep 18, present its Postgame Summary,
+   * and let the player choose to continue farther afterward.
+   *
+   * This prevents later interactive events such as Sunday
+   * Training from being processed before the player has seen
+   * the completed game's presentation.
+   */
+  const nextCareerGame =
+    preSimulationSchedule
+      .filter(event => {
+        if (
+          event?.type !== 'game' ||
+          event?.played === true
+        ) {
+          return false;
+        }
+
+        const eventDate =
+          String(
+            event.date || ''
+          );
+
+        if (
+          !eventDate ||
+          eventDate <= currentDate ||
+          eventDate > targetDate
+        ) {
+          return false;
+        }
+
+        const isCareerTeamGame =
+          careerTeamId &&
+          (
+            String(
+              event.homeTeamId || ''
+            ) ===
+              String(careerTeamId) ||
+            String(
+              event.awayTeamId || ''
+            ) ===
+              String(careerTeamId)
+          );
+
+        return Boolean(
+          isCareerTeamGame
+        );
+      })
+      .sort(
+        (firstGame, secondGame) =>
+          String(
+            firstGame.date || ''
+          ).localeCompare(
+            String(
+              secondGame.date || ''
+            )
+          )
+      )[0] ||
+    null;
+
+  const simulationTargetDate =
+    nextCareerGame?.date ||
+    targetDate;
+
+  /*
    * Time advancement now belongs to the Season Engine.
    * The UI only requests a target date and reacts to
    * the result.
    */
   const result =
     WorldEngine.advanceToDate(
-      targetDate
+      simulationTargetDate
     );
 
   const reachedDate =
@@ -8289,20 +8487,11 @@ function simulateToDate(
         String(blockingEventId)
       ) || null;
 
-    if (
-      blockingScheduleEvent.type ===
-      'training'
-    ) {
-      openTrainingScreen(
-        blockingScheduleEvent.eventId
-      );
-    } else {
-      EventSystem.openEvent(
-        blockingScheduleEvent.eventId,
-        'schedule',
-        blockingScheduleEvent
-      );
-    }
+    EventSystem.openEvent(
+      blockingScheduleEvent.eventId,
+      'schedule',
+      blockingScheduleEvent
+    );
 }
 
 /*

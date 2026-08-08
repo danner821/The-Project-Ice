@@ -12013,4 +12013,54 @@ tr.career-player-highlight .full-stats-player-button {
 
   font-size: 12px;
 }
+
+/* ==========================================================
+   TRAINING SCREEN
+   ========================================================== */
+
+#training-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+#training-screen .screen-content,
+#training-screen .training-content,
+#training-screen .training-options {
+  min-height: 100%;
+}
+
+#training-screen .training-options {
+  padding-bottom: 140px;
+}
+
+/* ==========================================================
+   PAST GAME DAYS — USE NORMAL PAST-DAY CELL
+   ========================================================== */
+
+/*
+ * A completed game day should use the exact same calendar-cell
+ * treatment as every other past day.
+ *
+ * This does NOT touch the colored W/L result pill inside it.
+ */
+.schedule-day--past:has(
+  .schedule-day-event--game
+) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/*
+ * Remove any game-specific glow/background bleeding into the
+ * calendar square while preserving the result pill itself.
+ */
+.schedule-day--past
+.schedule-day-event--game {
+  box-shadow: none;
+}
 /* ═══════════════════════════════════════════════════════════ */

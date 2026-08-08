@@ -721,431 +721,765 @@ const WorldEngine = (() => {
   const HIGH_SCHOOL_TRAINING_TYPES = {
     skater: [
       {
-        trainingKey: 'training-first-step',
-        label: 'First-Step Quickness',
-        shortLabel: 'First Step',
-        icon: '⚡',
-        category: 'Skating',
+        trainingKey:
+          'training-explosive-skating',
+
+        label:
+          'Explosive Skating',
+
+        shortLabel:
+          'Explosive Skating',
+
+        icon:
+          '⚡',
+
+        category:
+          'Skating',
+
         description:
-          'Explosive starts and short-area acceleration work.',
+          'Explosive starts, acceleration work and high-speed skating mechanics.',
+
+        xpBudget: 30,
+
         attributes: [
           'acceleration',
-        ],
-      },
-
-      {
-        trainingKey: 'training-top-speed',
-        label: 'Top-Speed Skating',
-        shortLabel: 'Speed',
-        icon: '💨',
-        category: 'Skating',
-        description:
-          'Straight-line speed and stride efficiency.',
-        attributes: [
           'speed',
-        ],
-      },
-
-      {
-        trainingKey: 'training-edgework',
-        label: 'Edgework & Mobility',
-        shortLabel: 'Edgework',
-        icon: '⛸️',
-        category: 'Skating',
-        description:
-          'Tight turns, lateral movement and edge control.',
-        attributes: [
           'agility',
-        ],
-      },
-
-      {
-        trainingKey: 'training-balance',
-        label: 'Balance Training',
-        shortLabel: 'Balance',
-        icon: '⚖️',
-        category: 'Skating',
-        description:
-          'Puck protection, stability and body control.',
-        attributes: [
           'balance',
         ],
+
+        attributeWeights: {
+          acceleration: 1.35,
+          speed: 1.15,
+          agility: 1.00,
+          balance: 0.75,
+        },
       },
 
       {
-        trainingKey: 'training-conditioning',
-        label: 'Conditioning',
-        shortLabel: 'Conditioning',
-        icon: '🏃',
-        category: 'Skating',
+        trainingKey:
+          'training-edgework-mobility',
+
+        label:
+          'Edgework & Mobility',
+
+        shortLabel:
+          'Edgework',
+
+        icon:
+          '⛸️',
+
+        category:
+          'Skating',
+
         description:
-          'Build game-long skating endurance.',
+          'Tight turns, lateral movement, puck protection and body control.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'agility',
+          'balance',
+          'puckControl',
+          'acceleration',
+        ],
+
+        attributeWeights: {
+          agility: 1.30,
+          balance: 1.10,
+          puckControl: 0.90,
+          acceleration: 0.80,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-conditioning-strength',
+
+        label:
+          'Conditioning & Strength',
+
+        shortLabel:
+          'Conditioning',
+
+        icon:
+          '🏃',
+
+        category:
+          'Physical',
+
+        description:
+          'Build the engine and physical base needed to maintain performance throughout games.',
+
+        xpBudget: 30,
+
         attributes: [
           'endurance',
+          'strength',
+          'durability',
+          'balance',
         ],
+
+        attributeWeights: {
+          endurance: 1.35,
+          strength: 1.05,
+          durability: 0.90,
+          balance: 0.70,
+        },
       },
 
       {
-        trainingKey: 'training-wrist-shot',
-        label: 'Wrist Shot Session',
-        shortLabel: 'Wrist Shot',
-        icon: '🎯',
-        category: 'Shooting',
+        trainingKey:
+          'training-shooting-lab',
+
+        label:
+          'Shooting Lab',
+
+        shortLabel:
+          'Shooting Lab',
+
+        icon:
+          '🎯',
+
+        category:
+          'Shooting',
+
         description:
-          'Repetition focused on release placement and velocity.',
+          'A complete shooting session focused on accuracy, power and repeatable mechanics.',
+
+        xpBudget: 30,
+
         attributes: [
           'wristShotAccuracy',
           'wristShotPower',
-        ],
-      },
-
-      {
-        trainingKey: 'training-slap-shot',
-        label: 'Slap Shot Session',
-        shortLabel: 'Slap Shot',
-        icon: '💥',
-        category: 'Shooting',
-        description:
-          'One-timers and full-power shooting mechanics.',
-        attributes: [
           'slapShotAccuracy',
           'slapShotPower',
         ],
+
+        attributeWeights: {
+          wristShotAccuracy: 1.15,
+          wristShotPower: 1.00,
+          slapShotAccuracy: 0.95,
+          slapShotPower: 0.90,
+        },
       },
 
       {
-        trainingKey: 'training-passing',
-        label: 'Passing Session',
-        shortLabel: 'Passing',
-        icon: '↔️',
-        category: 'Playmaking',
-        description:
-          'Touch passes, saucer passes and quick puck movement.',
-        attributes: [
-          'passing',
-        ],
-      },
+        trainingKey:
+          'training-quick-release',
 
-      {
-        trainingKey: 'training-puck-control',
-        label: 'Puck Control',
-        shortLabel: 'Puck Control',
-        icon: '🏒',
-        category: 'Playmaking',
+        label:
+          'Quick Release',
+
+        shortLabel:
+          'Quick Release',
+
+        icon:
+          '⚡',
+
+        category:
+          'Shooting',
+
         description:
-          'Possession work in traffic and under pressure.',
+          'Quick-touch finishing drills that combine shooting, puck handling and offensive reads.',
+
+        xpBudget: 30,
+
         attributes: [
+          'wristShotAccuracy',
+          'wristShotPower',
+          'handEye',
+          'offensiveAwareness',
           'puckControl',
         ],
+
+        attributeWeights: {
+          wristShotAccuracy: 1.25,
+          wristShotPower: 1.00,
+          handEye: 0.95,
+          offensiveAwareness: 0.90,
+          puckControl: 0.80,
+        },
       },
 
       {
-        trainingKey: 'training-deking',
-        label: 'Deking Session',
-        shortLabel: 'Deking',
-        icon: '🪄',
-        category: 'Playmaking',
-        description:
-          'One-on-one moves and creative puck handling.',
-        attributes: [
-          'deking',
-        ],
-      },
+        trainingKey:
+          'training-one-timer',
 
-      {
-        trainingKey: 'training-hand-eye',
-        label: 'Hand-Eye Drills',
-        shortLabel: 'Hand-Eye',
-        icon: '👁️',
-        category: 'Playmaking',
+        label:
+          'One-Timer Session',
+
+        shortLabel:
+          'One-Timers',
+
+        icon:
+          '💥',
+
+        category:
+          'Shooting',
+
         description:
-          'Deflections, loose pucks and coordination work.',
+          'Work on timing, power and finding shooting lanes for dangerous one-timers.',
+
+        xpBudget: 30,
+
         attributes: [
+          'slapShotPower',
+          'slapShotAccuracy',
           'handEye',
-        ],
-      },
-
-      {
-        trainingKey: 'training-offensive-iq',
-        label: 'Offensive Film Study',
-        shortLabel: 'Offensive IQ',
-        icon: '🧠',
-        category: 'Playmaking',
-        description:
-          'Study spacing, reads and offensive-zone decisions.',
-        attributes: [
           'offensiveAwareness',
         ],
+
+        attributeWeights: {
+          slapShotPower: 1.25,
+          slapShotAccuracy: 1.15,
+          handEye: 0.90,
+          offensiveAwareness: 0.80,
+        },
       },
 
       {
-        trainingKey: 'training-defensive-iq',
-        label: 'Defensive Film Study',
-        shortLabel: 'Defensive IQ',
-        icon: '📋',
-        category: 'Defense',
+        trainingKey:
+          'training-puck-skills',
+
+        label:
+          'Puck Skills',
+
+        shortLabel:
+          'Puck Skills',
+
+        icon:
+          '🏒',
+
+        category:
+          'Playmaking',
+
         description:
-          'Study positioning, coverage and defensive reads.',
+          'Technical puck work designed to improve control, creativity and execution under pressure.',
+
+        xpBudget: 30,
+
         attributes: [
-          'defensiveAwareness',
+          'puckControl',
+          'deking',
+          'passing',
+          'handEye',
         ],
+
+        attributeWeights: {
+          puckControl: 1.25,
+          deking: 1.15,
+          passing: 0.90,
+          handEye: 0.80,
+        },
       },
 
       {
-        trainingKey: 'training-stick-checking',
-        label: 'Stick Checking',
-        shortLabel: 'Stick Check',
-        icon: '🛡️',
-        category: 'Defense',
-        description:
-          'Poke checks, stick lifts and puck separation.',
-        attributes: [
-          'stickChecking',
-        ],
-      },
+        trainingKey:
+          'training-vision-distribution',
 
-      {
-        trainingKey: 'training-shot-blocking',
-        label: 'Shot Blocking',
-        shortLabel: 'Shot Blocking',
-        icon: '🚫',
-        category: 'Defense',
-        description:
-          'Lane reads, positioning and blocking technique.',
-        attributes: [
-          'shotBlocking',
-        ],
-      },
+        label:
+          'Vision & Distribution',
 
-      {
-        trainingKey: 'training-body-checking',
-        label: 'Body Checking',
-        shortLabel: 'Checking',
-        icon: '💢',
-        category: 'Physical',
-        description:
-          'Angling, contact timing and finishing checks.',
-        attributes: [
-          'bodyChecking',
-        ],
-      },
+        shortLabel:
+          'Vision',
 
-      {
-        trainingKey: 'training-strength',
-        label: 'Strength Training',
-        shortLabel: 'Strength',
-        icon: '🏋️',
-        category: 'Physical',
-        description:
-          'Build strength for battles and puck protection.',
-        attributes: [
-          'strength',
-        ],
-      },
+        icon:
+          '👀',
 
-      {
-        trainingKey: 'training-composure',
-        label: 'Pressure & Composure',
-        shortLabel: 'Composure',
-        icon: '🧊',
-        category: 'Hockey IQ',
+        category:
+          'Playmaking',
+
         description:
-          'Situational reps designed to improve decision-making under pressure.',
+          'Read developing plays, move the puck quickly and create opportunities for teammates.',
+
+        xpBudget: 30,
+
         attributes: [
+          'passing',
+          'offensiveAwareness',
+          'puckControl',
           'poise',
         ],
+
+        attributeWeights: {
+          passing: 1.30,
+          offensiveAwareness: 1.15,
+          puckControl: 0.90,
+          poise: 0.75,
+        },
       },
 
       {
-        trainingKey: 'training-discipline',
-        label: 'Discipline & Positioning',
-        shortLabel: 'Discipline',
-        icon: '🎓',
-        category: 'Hockey IQ',
+        trainingKey:
+          'training-defensive-zone',
+
+        label:
+          'Defensive Zone Work',
+
+        shortLabel:
+          'Defensive Zone',
+
+        icon:
+          '🛡️',
+
+        category:
+          'Defense',
+
         description:
-          'Controlled defensive reps focused on staying composed and avoiding unnecessary penalties.',
+          'Positioning, lane control and puck-separation drills inside the defensive zone.',
+
+        xpBudget: 30,
+
         attributes: [
+          'defensiveAwareness',
+          'stickChecking',
+          'shotBlocking',
           'discipline',
         ],
+
+        attributeWeights: {
+          defensiveAwareness: 1.30,
+          stickChecking: 1.10,
+          shotBlocking: 0.95,
+          discipline: 0.75,
+        },
       },
 
       {
-        trainingKey: 'training-durability',
-        label: 'Durability Training',
-        shortLabel: 'Durability',
-        icon: '🦾',
-        category: 'Physical',
+        trainingKey:
+          'training-physical-battles',
+
+        label:
+          'Physical Battle Training',
+
+        shortLabel:
+          'Physical Battles',
+
+        icon:
+          '💪',
+
+        category:
+          'Physical',
+
         description:
-          'Mobility, core stability and body maintenance for handling the grind of a season.',
+          'Board battles, contact work and puck-protection drills built around strength and control.',
+
+        xpBudget: 30,
+
         attributes: [
+          'bodyChecking',
+          'strength',
+          'balance',
           'durability',
         ],
+
+        attributeWeights: {
+          bodyChecking: 1.25,
+          strength: 1.15,
+          balance: 0.90,
+          durability: 0.80,
+        },
       },
 
       {
-        trainingKey: 'training-faceoffs',
-        label: 'Faceoff Work',
-        shortLabel: 'Faceoffs',
-        icon: '⭕',
-        category: 'Specialty',
+        trainingKey:
+          'training-two-way-iq',
+
+        label:
+          'Two-Way Hockey IQ',
+
+        shortLabel:
+          'Two-Way IQ',
+
+        icon:
+          '🧠',
+
+        category:
+          'Hockey IQ',
+
         description:
-          'Timing, leverage and technique at the faceoff dot.',
+          'Film and situational work focused on reads, composure and disciplined two-way hockey.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'offensiveAwareness',
+          'defensiveAwareness',
+          'poise',
+          'discipline',
+        ],
+
+        attributeWeights: {
+          offensiveAwareness: 1.05,
+          defensiveAwareness: 1.05,
+          poise: 0.95,
+          discipline: 0.95,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-faceoff-battles',
+
+        label:
+          'Faceoff & Possession Battles',
+
+        shortLabel:
+          'Faceoffs',
+
+        icon:
+          '⭕',
+
+        category:
+          'Specialty',
+
+        description:
+          'Faceoff technique, leverage and immediate possession battles after the draw.',
+
+        xpBudget: 30,
+
         attributes: [
           'faceoffs',
+          'strength',
+          'balance',
+          'discipline',
         ],
+
+        attributeWeights: {
+          faceoffs: 1.40,
+          strength: 1.00,
+          balance: 0.85,
+          discipline: 0.70,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-net-front',
+
+        label:
+          'Net-Front Training',
+
+        shortLabel:
+          'Net Front',
+
+        icon:
+          '🥅',
+
+        category:
+          'Offense',
+
+        description:
+          'Battle for position, find loose pucks and finish chances around the crease.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'handEye',
+          'strength',
+          'balance',
+          'offensiveAwareness',
+          'wristShotAccuracy',
+        ],
+
+        attributeWeights: {
+          handEye: 1.20,
+          strength: 1.00,
+          balance: 0.85,
+          offensiveAwareness: 1.10,
+          wristShotAccuracy: 0.90,
+        },
       },
     ],
 
     goalie: [
       {
-        trainingKey: 'training-goalie-reflexes',
-        label: 'Reaction Drills',
-        shortLabel: 'Reflexes',
-        icon: '⚡',
-        category: 'Athleticism',
+        trainingKey:
+          'training-goalie-athleticism',
+
+        label:
+          'Goalie Athleticism',
+
+        shortLabel:
+          'Athleticism',
+
+        icon:
+          '⚡',
+
+        category:
+          'Athleticism',
+
         description:
-          'Rapid-fire reaction drills focused on making instinctive saves.',
+          'Explosive movement and recovery drills designed to improve raw crease athleticism.',
+
+        xpBudget: 30,
+
         attributes: [
           'reflexes',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-mobility',
-        label: 'Crease Mobility',
-        shortLabel: 'Mobility',
-        icon: '⛸️',
-        category: 'Athleticism',
-        description:
-          'Edgework and movement drills for faster movement around the crease.',
-        attributes: [
           'agility',
           'lateralMovement',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-recovery',
-        label: 'Recovery Drills',
-        shortLabel: 'Recovery',
-        icon: '🔄',
-        category: 'Athleticism',
-        description:
-          'Second-save situations focused on recovering quickly after the initial stop.',
-        attributes: [
           'recoverySpeed',
         ],
+
+        attributeWeights: {
+          reflexes: 1.15,
+          agility: 1.05,
+          lateralMovement: 1.15,
+          recoverySpeed: 0.90,
+        },
       },
 
       {
-        trainingKey: 'training-goalie-positioning',
-        label: 'Positioning & Angles',
-        shortLabel: 'Positioning',
-        icon: '📐',
-        category: 'Technique',
+        trainingKey:
+          'training-goalie-positioning',
+
+        label:
+          'Tracking & Positioning',
+
+        shortLabel:
+          'Positioning',
+
+        icon:
+          '📐',
+
+        category:
+          'Positioning',
+
         description:
-          'Crease positioning and angle management against controlled shooting sequences.',
+          'Read shooters, manage angles and maintain strong positioning through developing plays.',
+
+        xpBudget: 30,
+
         attributes: [
           'positioning',
           'angles',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-rebounds',
-        label: 'Rebound Control',
-        shortLabel: 'Rebounds',
-        icon: '🧱',
-        category: 'Technique',
-        description:
-          'Direct rebounds away from dangerous areas and control second chances.',
-        attributes: [
-          'reboundControl',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-glove',
-        label: 'Glove Training',
-        shortLabel: 'Glove',
-        icon: '🥎',
-        category: 'Technique',
-        description:
-          'High and low glove-side save repetitions.',
-        attributes: [
-          'gloveHigh',
-          'gloveLow',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-blocker',
-        label: 'Blocker Training',
-        shortLabel: 'Blocker',
-        icon: '🛡️',
-        category: 'Technique',
-        description:
-          'High and low blocker-side reaction and placement drills.',
-        attributes: [
-          'blockerHigh',
-          'blockerLow',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-low-coverage',
-        label: 'Low-Net Coverage',
-        shortLabel: 'Five Hole',
-        icon: '🥅',
-        category: 'Technique',
-        description:
-          'Butterfly timing, stick placement and sealing the lower net.',
-        attributes: [
-          'fiveHole',
-          'stickControl',
-        ],
-      },
-
-      {
-        trainingKey: 'training-goalie-tracking',
-        label: 'Puck Tracking',
-        shortLabel: 'Tracking',
-        icon: '👁️',
-        category: 'Mental',
-        description:
-          'Track shots through traffic and read developing plays.',
-        attributes: [
           'puckTracking',
           'anticipation',
         ],
+
+        attributeWeights: {
+          positioning: 1.25,
+          angles: 1.10,
+          puckTracking: 1.05,
+          anticipation: 0.85,
+        },
       },
 
       {
-        trainingKey: 'training-goalie-composure',
-        label: 'Mental Preparation',
-        shortLabel: 'Composure',
-        icon: '🧠',
-        category: 'Mental',
+        trainingKey:
+          'training-goalie-rebound-control',
+
+        label:
+          'Rebound & Recovery',
+
+        shortLabel:
+          'Rebounds',
+
+        icon:
+          '🧱',
+
+        category:
+          'Control',
+
         description:
-          'Pressure situations and film study focused on staying composed and dependable.',
+          'Control first saves and recover efficiently for dangerous second-chance opportunities.',
+
+        xpBudget: 30,
+
         attributes: [
+          'reboundControl',
+          'recoverySpeed',
+          'positioning',
+          'puckTracking',
+        ],
+
+        attributeWeights: {
+          reboundControl: 1.35,
+          recoverySpeed: 1.00,
+          positioning: 0.95,
+          puckTracking: 0.80,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-goalie-glove-technique',
+
+        label:
+          'Glove-Side Technique',
+
+        shortLabel:
+          'Glove',
+
+        icon:
+          '🧤',
+
+        category:
+          'Save Technique',
+
+        description:
+          'High and low glove-side save repetitions with reaction and tracking work.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'gloveHigh',
+          'gloveLow',
+          'reflexes',
+          'puckTracking',
+        ],
+
+        attributeWeights: {
+          gloveHigh: 1.20,
+          gloveLow: 1.20,
+          reflexes: 0.95,
+          puckTracking: 0.80,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-goalie-blocker-technique',
+
+        label:
+          'Blocker-Side Technique',
+
+        shortLabel:
+          'Blocker',
+
+        icon:
+          '🛡️',
+
+        category:
+          'Save Technique',
+
+        description:
+          'Blocker placement, reaction work and controlled redirects to safe areas.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'blockerHigh',
+          'blockerLow',
+          'reflexes',
+          'reboundControl',
+        ],
+
+        attributeWeights: {
+          blockerHigh: 1.20,
+          blockerLow: 1.20,
+          reflexes: 0.90,
+          reboundControl: 0.85,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-goalie-low-net',
+
+        label:
+          'Low-Net Coverage',
+
+        shortLabel:
+          'Low Net',
+
+        icon:
+          '🥅',
+
+        category:
+          'Save Technique',
+
+        description:
+          'Butterfly timing, stick placement and lower-net coverage through traffic.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'fiveHole',
+          'stickControl',
+          'lateralMovement',
+          'positioning',
+        ],
+
+        attributeWeights: {
+          fiveHole: 1.25,
+          stickControl: 1.15,
+          lateralMovement: 0.90,
+          positioning: 0.85,
+        },
+      },
+
+      {
+        trainingKey:
+          'training-goalie-mental',
+
+        label:
+          'Mental Preparation',
+
+        shortLabel:
+          'Mental',
+
+        icon:
+          '🧠',
+
+        category:
+          'Mental',
+
+        description:
+          'Pressure situations and film work designed to improve anticipation and consistency.',
+
+        xpBudget: 30,
+
+        attributes: [
+          'anticipation',
           'composure',
           'consistency',
+          'puckTracking',
         ],
+
+        attributeWeights: {
+          anticipation: 1.10,
+          composure: 1.15,
+          consistency: 1.05,
+          puckTracking: 0.80,
+        },
       },
 
       {
-        trainingKey: 'training-goalie-puck-play',
-        label: 'Puck-Playing Session',
-        shortLabel: 'Puck Play',
-        icon: '🏒',
-        category: 'Puck Playing',
+        trainingKey:
+          'training-goalie-puck-play',
+
+        label:
+          'Puck-Playing Session',
+
+        shortLabel:
+          'Puck Play',
+
+        icon:
+          '🏒',
+
+        category:
+          'Puck Playing',
+
         description:
-          'Handle dump-ins, make outlet passes and move the puck under pressure.',
+          'Handle dump-ins, make outlet passes and remain composed while moving the puck.',
+
+        xpBudget: 30,
+
         attributes: [
           'puckHandling',
           'goaliePassing',
+          'composure',
+          'anticipation',
         ],
+
+        attributeWeights: {
+          puckHandling: 1.30,
+          goaliePassing: 1.25,
+          composure: 0.80,
+          anticipation: 0.70,
+        },
       },
     ],
   };
@@ -9425,13 +9759,11 @@ const WorldEngine = (() => {
     
   }
 
-  function completeTrainingEvent(
-    eventId,
-    trainingKey,
-    {
-      save = true,
-    } = {}
-  ) {
+    function completeTrainingEvent(
+      eventId,
+      trainingKey,
+      options = {}
+    ) {
     const canonicalEvent =
       (_state.schedule || [])
         .find(event =>
@@ -9472,9 +9804,12 @@ const WorldEngine = (() => {
       };
     }
 
-    const careerPlayer =
-      _state.player ||
-      null;
+      const careerPlayer =
+        getPlayerById(
+          _state.player?.playerId ||
+          _state.player?.id ||
+          'career-player'
+        );
 
     if (!careerPlayer) {
       return {
@@ -9537,54 +9872,191 @@ const WorldEngine = (() => {
     }
 
     /*
-     * Weekly Training is deliberately more targeted than
-     * Practice, but still modest compared with game-earned XP.
+     * WEEKLY TRAINING XP
      *
-     * One-attribute sessions give a stronger focused reward.
-     * Multi-attribute sessions spread the reward across the
-     * selected skill group.
+     * Training uses one total XP budget that is distributed
+     * across 3–5 related attributes.
+     *
+     * Each Training definition may provide:
+     *
+     * xpBudget:
+     *   Total XP earned from completing the session.
+     *
+     * attributeWeights:
+     *   Relative importance of each affected attribute.
+     *
+     * Example:
+     *
+     * attributeWeights: {
+     *   acceleration: 1.35,
+     *   speed: 1.15,
+     *   agility: 1.00,
+     *   balance: 0.75,
+     * }
+     *
+     * If weights are not supplied, XP is distributed evenly.
      */
-    const xpPerAttribute =
-      attributeKeys.length === 1
-        ? 18
-        : attributeKeys.length === 2
-          ? 12
-          : 9;
+    const totalXP =
+      Math.max(
+        1,
+        Math.round(
+          Number(
+            selectedTraining.xpBudget
+          ) || 30
+        )
+      );
+
+    const configuredWeights =
+      selectedTraining
+        .attributeWeights &&
+      typeof selectedTraining
+        .attributeWeights === 'object'
+        ? selectedTraining
+            .attributeWeights
+        : {};
+
+    const normalizedWeights = {};
+
+    attributeKeys.forEach(
+      attributeKey => {
+        normalizedWeights[
+          attributeKey
+        ] =
+          Math.max(
+            0.01,
+            Number(
+              configuredWeights[
+                attributeKey
+              ]
+            ) || 1
+          );
+      }
+    );
+
+    const totalWeight =
+      Object.values(
+        normalizedWeights
+      ).reduce(
+        (sum, weight) =>
+          sum + weight,
+        0
+      );
 
     const attributeXP = {};
 
     attributeKeys.forEach(
       attributeKey => {
+        const weight =
+          normalizedWeights[
+            attributeKey
+          ];
+
         attributeXP[
           attributeKey
         ] =
-          xpPerAttribute;
+          Math.max(
+            1,
+            Math.round(
+              totalXP *
+              (
+                weight /
+                totalWeight
+              )
+            )
+          );
       }
     );
 
-    const totalXP =
-      attributeKeys.length *
-      xpPerAttribute;
-
-    const xpResult =
-      addPlayerAttributeXP(
-        careerPlayer,
-        attributeXP,
-        {
-          source:
-            'weekly-training',
-        }
+    /*
+     * Rounding the individual rewards can cause the distributed
+     * total to differ slightly from the intended Training budget.
+     * Correct that difference on the primary attribute.
+     */
+    const distributedXP =
+      Object.values(
+        attributeXP
+      ).reduce(
+        (sum, amount) =>
+          sum +
+          (
+            Number(amount) || 0
+          ),
+        0
       );
 
+    const distributionDifference =
+      totalXP -
+      distributedXP;
+
     if (
-      !xpResult ||
-      xpResult.success !== true
+      attributeKeys.length > 0 &&
+      distributionDifference !== 0
     ) {
+      const primaryAttribute =
+        attributeKeys[0];
+
+      attributeXP[
+        primaryAttribute
+      ] =
+        Math.max(
+          1,
+          (
+            Number(
+              attributeXP[
+                primaryAttribute
+              ]
+            ) || 0
+          ) +
+          distributionDifference
+        );
+    }
+
+    const result =
+      createEmptyEventResult();
+
+    result.success = true;
+    result.resolved = true;
+
+    result.type =
+      EVENT_TYPES.TRAINING;
+
+    result.eventId =
+      canonicalEvent.id;
+
+    result.date =
+      canonicalEvent.date;
+
+    result.event =
+      canonicalEvent;
+
+    result.reason =
+      'training-completed';
+
+    result.xp = {
+      ...result.xp,
+
+      total:
+        totalXP,
+
+      general:
+        totalXP,
+
+      attributes: {
+        ...attributeXP,
+      },
+    };
+
+    const applied =
+      applyEventResult(
+        careerPlayer,
+        result
+      );
+
+    if (!applied) {
       return {
         success: false,
         reason:
-          'training-xp-application-failed',
-        xpResult,
+          'training-result-not-applied',
       };
     }
 
@@ -9610,21 +10082,33 @@ const WorldEngine = (() => {
         ...attributeKeys,
       ],
 
-      xpPerAttribute,
+      attributeXP: {
+        ...attributeXP,
+      },
 
       totalXP,
     };
 
-    if (save) {
-      saveState();
-    }
+      if (options.save !== false) {
+        save();
+      }
 
     return {
       success: true,
+      completed: true,
+
+      eventId:
+        canonicalEvent.id,
+
+      date:
+        canonicalEvent.date,
+
+      trainingKey:
+        selectedTraining
+          .trainingKey,
 
       result: {
-        type:
-          EVENT_TYPES.TRAINING,
+        ...result,
 
         trainingKey:
           selectedTraining
@@ -9635,18 +10119,12 @@ const WorldEngine = (() => {
 
         category:
           selectedTraining.category,
-
-        xp: {
-          total:
-            totalXP,
-
-          attributes:
-            attributeXP,
-        },
       },
 
       event:
         canonicalEvent,
+
+      applied,
     };
   }
 
