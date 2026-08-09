@@ -21019,6 +21019,604 @@ const WorldEngine = (() => {
       simulation,
     };
   }
+
+  /*
+   * ============================================================
+   * LIVE GAME — FULL REGULATION DIAGNOSTIC
+   * ============================================================
+   *
+   * Runs one real scheduled game completely IN MEMORY.
+   *
+   * Nothing is saved.
+   * Nothing is applied to standings.
+   * No permanent player statistics are changed.
+   *
+   * This exists only so we can evaluate the hockey math before
+   * connecting the live simulator to the actual career UI.
+   */
+  function runLiveGameSimulationDiagnostic(
+    gameId = null,
+    options = {}
+  ) {
+    const schedule =
+      Array.isArray(
+        _state.schedule
+      )
+        ? _state.schedule
+        : [];
+
+    /*
+     * Use a requested game when supplied.
+     * Otherwise use the first unplayed scheduled game.
+     */
+    const scheduledGame =
+      (
+        gameId
+          ? schedule.find(event =>
+              String(
+                event.gameId ||
+                event.eventId ||
+                event.id ||
+                ''
+              ) ===
+              String(gameId)
+            )
+          : schedule.find(event =>
+              event?.type === 'game' &&
+              event?.played !== true &&
+              event?.completed !== true
+            )
+      ) ||
+      null;
+
+    if (!scheduledGame) {
+      return {
+        success: false,
+
+        reason:
+          'diagnostic-game-not-found',
+
+        diagnostic: null,
+      };
+    }
+
+    const creation =
+      createLiveGameSimulationState(
+        scheduledGame
+      );
+
+    if (
+      !creation ||
+      creation.success !== true ||
+      !creation.simulation
+    ) {
+      return {
+        success: false,
+
+        reason:
+          creation?.reason ||
+          'diagnostic-live-game-creation-failed',
+
+        diagnostic: null,
+      };
+    }
+
+    const simulation =
+      creation.simulation;
+
+    /*
+     * The regulation diagnostic deliberately stops after
+     * three periods even when tied.
+     *
+     * Overtime is not implemented yet, so continuing a tied
+     * game beyond regulation would be invalid.
+     */
+    const maxSteps =
+      Math.max(
+        100,
+        Number(
+          options.maxSteps
+        ) || 2000
+      );
+
+    const stepTypeCounts = {};
+
+    const failures = [];
+
+    let steps = 0;
+
+    while (
+      simulation
+        .regulationComplete !== true &&
+      steps < maxSteps
+    ) {
+      const step =
+        advanceLiveGameStep(
+          simulation
+        );
+
+      steps += 1;
+
+      if (
+        !step ||
+        step.success !== true
+      ) {
+        failures.push({
+          step:
+            steps,
+
+          reason:
+            step?.reason ||
+            'unknown-step-failure',
+
+          period:
+            simulation.period,
+
+          clockSecondsRemaining:
+            simulation
+              .clockSecondsRemaining,
+        });
+
+        break;
+      }
+
+      const stepType =
+        step.eventType ||
+        step.event?.type ||
+        step.reason ||
+        'unknown';
+
+      stepTypeCounts[
+        stepType
+      ] =
+        (
+          Number(
+            stepTypeCounts[
+              stepType
+            ]
+          ) || 0
+        ) + 1;
+    }
+
+    /*
+     * Count every recorded live event by type.
+     */
+    const eventTypeCounts = {};
+
+    (
+      Array.isArray(
+        simulation.events
+      )
+        ? simulation.events
+        : []
+    ).forEach(event => {
+      const type =
+        event?.type ||
+        'unknown';
+
+      eventTypeCounts[
+        type
+      ] =
+        (
+          Number(
+            eventTypeCounts[
+              type
+            ]
+          ) || 0
+        ) + 1;
+    });
+
+    const home =
+      simulation.home;
+
+    const away =
+      simulation.away;
+
+    /*
+     * Shot attempts include:
+     *
+     * blocked
+     * missed
+     * saved
+     * goals
+     *
+     * Official SOG remain simulation.home/away.shots.
+     */
+    const shotAttempts =
+      (
+        Number(
+          eventTypeCounts[
+            'shot-blocked'
+          ]
+        ) || 0
+      ) +
+      (
+        Number(
+          eventTypeCounts[
+            'shot-missed'
+          ]
+        ) || 0
+      ) +
+      (
+        Number(
+          eventTypeCounts[
+            'shot-saved'
+          ]
+        ) || 0
+      ) +
+      (
+        Number(
+          eventTypeCounts.goal
+        ) || 0
+      );
+
+    const visibleEvents =
+      (
+        Array.isArray(
+          simulation.events
+        )
+          ? simulation.events
+          : []
+      ).filter(event =>
+        ![
+          'possession-advance',
+        ].includes(
+          event?.type
+        )
+      );
+
+    /*
+     * Produce a compact readable timeline of the first events.
+     * This lets us inspect whether timestamps cluster naturally.
+     */
+    const formatClock =
+      seconds => {
+        const safeSeconds =
+          Math.max(
+            0,
+            Number(seconds) || 0
+          );
+
+        const minutes =
+          Math.floor(
+            safeSeconds / 60
+          );
+
+        const remainingSeconds =
+          safeSeconds % 60;
+
+        return (
+          `${minutes}:` +
+          String(
+            remainingSeconds
+          ).padStart(
+            2,
+            '0'
+          )
+        );
+      };
+
+    const timelineSample =
+      visibleEvents
+        .slice(
+          0,
+          40
+        )
+        .map(event => ({
+          period:
+            event.period,
+
+          clock:
+            formatClock(
+              event
+                .clockSecondsRemaining
+            ),
+
+          type:
+            event.type,
+
+          side:
+            event.side ||
+            event.winnerSide ||
+            event.penalizedSide ||
+            null,
+        }));
+
+    const diagnostic = {
+      gameId:
+        simulation.gameId,
+
+      date:
+        simulation.date,
+
+      teams: {
+        home: {
+          teamId:
+            home.teamId,
+
+          abbreviation:
+            home.abbreviation,
+        },
+
+        away: {
+          teamId:
+            away.teamId,
+
+          abbreviation:
+            away.abbreviation,
+        },
+      },
+
+      completedRegulation:
+        simulation
+          .regulationComplete === true,
+
+      gameComplete:
+        simulation
+          .gameComplete === true,
+
+      tiedAfterRegulation:
+        simulation
+          .regulationComplete === true &&
+        Number(home.score) ===
+          Number(away.score),
+
+      steps,
+
+      hitStepLimit:
+        steps >= maxSteps,
+
+      failures,
+
+      finalScore: {
+        home:
+          Number(
+            home.score
+          ) || 0,
+
+        away:
+          Number(
+            away.score
+          ) || 0,
+      },
+
+      teamStats: {
+        home: {
+          shots:
+            Number(
+              home.shots
+            ) || 0,
+
+          hits:
+            Number(
+              home.hits
+            ) || 0,
+
+          blockedShots:
+            Number(
+              home.blockedShots
+            ) || 0,
+
+          giveaways:
+            Number(
+              home.giveaways
+            ) || 0,
+
+          takeaways:
+            Number(
+              home.takeaways
+            ) || 0,
+
+          penaltyMinutes:
+            Number(
+              home.penaltyMinutes
+            ) || 0,
+
+          powerPlayOpportunities:
+            Number(
+              home
+                .powerPlayOpportunities
+            ) || 0,
+
+          powerPlayGoals:
+            Number(
+              home.powerPlayGoals
+            ) || 0,
+
+          faceoffWins:
+            Number(
+              home.faceoffWins
+            ) || 0,
+        },
+
+        away: {
+          shots:
+            Number(
+              away.shots
+            ) || 0,
+
+          hits:
+            Number(
+              away.hits
+            ) || 0,
+
+          blockedShots:
+            Number(
+              away.blockedShots
+            ) || 0,
+
+          giveaways:
+            Number(
+              away.giveaways
+            ) || 0,
+
+          takeaways:
+            Number(
+              away.takeaways
+            ) || 0,
+
+          penaltyMinutes:
+            Number(
+              away.penaltyMinutes
+            ) || 0,
+
+          powerPlayOpportunities:
+            Number(
+              away
+                .powerPlayOpportunities
+            ) || 0,
+
+          powerPlayGoals:
+            Number(
+              away.powerPlayGoals
+            ) || 0,
+
+          faceoffWins:
+            Number(
+              away.faceoffWins
+            ) || 0,
+        },
+      },
+
+      totals: {
+        goals:
+          (
+            Number(
+              home.score
+            ) || 0
+          ) +
+          (
+            Number(
+              away.score
+            ) || 0
+          ),
+
+        shotsOnGoal:
+          (
+            Number(
+              home.shots
+            ) || 0
+          ) +
+          (
+            Number(
+              away.shots
+            ) || 0
+          ),
+
+        shotAttempts,
+
+        hits:
+          (
+            Number(
+              home.hits
+            ) || 0
+          ) +
+          (
+            Number(
+              away.hits
+            ) || 0
+          ),
+
+        giveaways:
+          (
+            Number(
+              home.giveaways
+            ) || 0
+          ) +
+          (
+            Number(
+              away.giveaways
+            ) || 0
+          ),
+
+        takeaways:
+          (
+            Number(
+              home.takeaways
+            ) || 0
+          ) +
+          (
+            Number(
+              away.takeaways
+            ) || 0
+          ),
+
+        penaltyMinutes:
+          (
+            Number(
+              home.penaltyMinutes
+            ) || 0
+          ) +
+          (
+            Number(
+              away.penaltyMinutes
+            ) || 0
+          ),
+
+        faceoffs:
+          (
+            Number(
+              home.faceoffWins
+            ) || 0
+          ) +
+          (
+            Number(
+              away.faceoffWins
+            ) || 0
+          ),
+
+        recordedEvents:
+          Array.isArray(
+            simulation.events
+          )
+            ? simulation
+                .events.length
+            : 0,
+      },
+
+      eventTypeCounts,
+
+      stepTypeCounts,
+
+      timelineSample,
+    };
+
+    /*
+     * Useful when running through a browser/Replit console,
+     * while still returning the full result for a future dev UI.
+     */
+    console.log(
+      '[Project Ice] Live Game Diagnostic',
+      diagnostic
+    );
+
+    console.table(
+      diagnostic.teamStats
+    );
+
+    console.table(
+      timelineSample
+    );
+
+    return {
+      success:
+        failures.length === 0 &&
+        simulation
+          .regulationComplete === true,
+
+      reason:
+        failures.length > 0
+          ? 'diagnostic-step-failed'
+          : simulation
+              .regulationComplete === true
+            ? 'diagnostic-regulation-completed'
+            : 'diagnostic-regulation-incomplete',
+
+      diagnostic,
+
+      simulation,
+    };
+  }
   
   function applyGameResultToTeamsAndSchedule(
     gameResult
@@ -29056,6 +29654,7 @@ const WorldEngine = (() => {
     resolveLiveGamePenalty,
     advanceLiveGameSpecialTeamsClock,
     advanceLiveGameStep,
+    runLiveGameSimulationDiagnostic,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
     repairCompletedGameDevelopment,

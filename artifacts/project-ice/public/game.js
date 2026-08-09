@@ -94,11 +94,410 @@ const coachResultsScreen = document.getElementById('coach-results-screen');
 const skatingEvalScreen    = document.getElementById('skating-eval-screen');
 const skatingResultsScreen = document.getElementById('skating-results-screen');
 
+
+/*
+ * ============================================================
+ * DEV — LIVE GAME DIAGNOSTIC
+ * ============================================================
+ */
+function runLiveGameDiagnosticFromUI() {
+  const result =
+    WorldEngine
+      .runLiveGameSimulationDiagnostic();
+
+  if (
+    !result ||
+    result.success !== true
+  ) {
+    console.error(
+      '[Project Ice] Live game diagnostic failed:',
+      result
+    );
+
+    alert(
+      `Live game diagnostic failed: ${
+        result?.reason ||
+        'unknown-error'
+      }`
+    );
+
+    return;
+  }
+
+  const diagnostic =
+    result.diagnostic;
+
+  const home =
+    diagnostic
+      .teams
+      .home
+      .abbreviation ||
+    diagnostic
+      .teams
+      .home
+      .teamId;
+
+  const away =
+    diagnostic
+      .teams
+      .away
+      .abbreviation ||
+    diagnostic
+      .teams
+      .away
+      .teamId;
+
+  const homeStats =
+    diagnostic
+      .teamStats
+      .home;
+
+  const awayStats =
+    diagnostic
+      .teamStats
+      .away;
+
+  alert(
+    [
+      'LIVE GAME DIAGNOSTIC',
+      '',
+      `${away} ${diagnostic.finalScore.away} - ${diagnostic.finalScore.home} ${home}`,
+      '',
+      `Shots: ${awayStats.shots} - ${homeStats.shots}`,
+      `Hits: ${awayStats.hits} - ${homeStats.hits}`,
+      `Blocks: ${awayStats.blockedShots} - ${homeStats.blockedShots}`,
+      `Giveaways: ${awayStats.giveaways} - ${homeStats.giveaways}`,
+      `Takeaways: ${awayStats.takeaways} - ${homeStats.takeaways}`,
+      `PIM: ${awayStats.penaltyMinutes} - ${homeStats.penaltyMinutes}`,
+      `Faceoffs: ${awayStats.faceoffWins} - ${homeStats.faceoffWins}`,
+      '',
+      `Steps: ${diagnostic.steps}`,
+      `Recorded events: ${diagnostic.totals.recordedEvents}`,
+      `Regulation complete: ${diagnostic.completedRegulation}`,
+      `Tied after regulation: ${diagnostic.tiedAfterRegulation}`,
+    ].join('\n')
+  );
+}
+
+function runLiveGameCalibrationFromUI() {
+  const SAMPLE_SIZE = 20;
+
+  const totals = {
+    homeGoals: 0,
+    awayGoals: 0,
+    homeShots: 0,
+    awayShots: 0,
+    homeHits: 0,
+    awayHits: 0,
+    homeBlocks: 0,
+    awayBlocks: 0,
+    homeGiveaways: 0,
+    awayGiveaways: 0,
+    homeTakeaways: 0,
+    awayTakeaways: 0,
+    homePIM: 0,
+    awayPIM: 0,
+    homeFaceoffs: 0,
+    awayFaceoffs: 0,
+    events: 0,
+    steps: 0,
+    tiesAfterRegulation: 0,
+  };
+
+  const ranges = {
+    goals: [],
+    shots: [],
+    hits: [],
+    blocks: [],
+    giveaways: [],
+    takeaways: [],
+    pim: [],
+    faceoffs: [],
+    events: [],
+  };
+
+  let completed = 0;
+
+  for (let i = 0; i < SAMPLE_SIZE; i += 1) {
+    const result =
+      WorldEngine.runLiveGameSimulationDiagnostic();
+
+    if (
+      !result ||
+      result.success !== true ||
+      !result.diagnostic
+    ) {
+      console.error(
+        `[Calibration] Game ${i + 1} failed:`,
+        result
+      );
+
+      continue;
+    }
+
+    const d = result.diagnostic;
+    const home = d.teamStats.home;
+    const away = d.teamStats.away;
+
+    completed += 1;
+
+    totals.homeGoals += d.finalScore.home;
+    totals.awayGoals += d.finalScore.away;
+
+    totals.homeShots += home.shots;
+    totals.awayShots += away.shots;
+
+    totals.homeHits += home.hits;
+    totals.awayHits += away.hits;
+
+    totals.homeBlocks += home.blockedShots;
+    totals.awayBlocks += away.blockedShots;
+
+    totals.homeGiveaways += home.giveaways;
+    totals.awayGiveaways += away.giveaways;
+
+    totals.homeTakeaways += home.takeaways;
+    totals.awayTakeaways += away.takeaways;
+
+    totals.homePIM += home.penaltyMinutes;
+    totals.awayPIM += away.penaltyMinutes;
+
+    totals.homeFaceoffs += home.faceoffWins;
+    totals.awayFaceoffs += away.faceoffWins;
+
+    totals.events += d.totals.recordedEvents;
+    totals.steps += d.steps;
+
+    if (d.tiedAfterRegulation) {
+      totals.tiesAfterRegulation += 1;
+    }
+
+    ranges.goals.push(
+      d.finalScore.home +
+      d.finalScore.away
+    );
+
+    ranges.shots.push(
+      home.shots +
+      away.shots
+    );
+
+    ranges.hits.push(
+      home.hits +
+      away.hits
+    );
+
+    ranges.blocks.push(
+      home.blockedShots +
+      away.blockedShots
+    );
+
+    ranges.giveaways.push(
+      home.giveaways +
+      away.giveaways
+    );
+
+    ranges.takeaways.push(
+      home.takeaways +
+      away.takeaways
+    );
+
+    ranges.pim.push(
+      home.penaltyMinutes +
+      away.penaltyMinutes
+    );
+
+    ranges.faceoffs.push(
+      home.faceoffWins +
+      away.faceoffWins
+    );
+
+    ranges.events.push(
+      d.totals.recordedEvents
+    );
+  }
+
+  if (completed === 0) {
+    alert(
+      'Calibration failed: no games completed.'
+    );
+
+    return;
+  }
+
+  const avg = value =>
+    (value / completed).toFixed(1);
+
+  const range = values => {
+    if (!values.length) {
+      return 'N/A';
+    }
+
+    return (
+      `${Math.min(...values)}–` +
+      `${Math.max(...values)}`
+    );
+  };
+
+  alert(
+    [
+      '20-GAME SIM CALIBRATION',
+      '',
+      `Completed: ${completed}/${SAMPLE_SIZE}`,
+      '',
+      'AVERAGE PER TEAM',
+
+      `Goals: ${avg(
+        (
+          totals.homeGoals +
+          totals.awayGoals
+        ) / 2
+      )}`,
+
+      `Shots: ${avg(
+        (
+          totals.homeShots +
+          totals.awayShots
+        ) / 2
+      )}`,
+
+      `Hits: ${avg(
+        (
+          totals.homeHits +
+          totals.awayHits
+        ) / 2
+      )}`,
+
+      `Blocks: ${avg(
+        (
+          totals.homeBlocks +
+          totals.awayBlocks
+        ) / 2
+      )}`,
+
+      `Giveaways: ${avg(
+        (
+          totals.homeGiveaways +
+          totals.awayGiveaways
+        ) / 2
+      )}`,
+
+      `Takeaways: ${avg(
+        (
+          totals.homeTakeaways +
+          totals.awayTakeaways
+        ) / 2
+      )}`,
+
+      `PIM: ${avg(
+        (
+          totals.homePIM +
+          totals.awayPIM
+        ) / 2
+      )}`,
+
+      `Faceoff Wins: ${avg(
+        (
+          totals.homeFaceoffs +
+          totals.awayFaceoffs
+        ) / 2
+      )}`,
+
+      '',
+      'GAME RANGES',
+      `Total Goals: ${range(ranges.goals)}`,
+      `Total Shots: ${range(ranges.shots)}`,
+      `Total Hits: ${range(ranges.hits)}`,
+      `Total Blocks: ${range(ranges.blocks)}`,
+      `Total Giveaways: ${range(
+        ranges.giveaways
+      )}`,
+      `Total Takeaways: ${range(
+        ranges.takeaways
+      )}`,
+      `Total PIM: ${range(ranges.pim)}`,
+      `Total Faceoffs: ${range(
+        ranges.faceoffs
+      )}`,
+      '',
+      `Avg Recorded Events: ${avg(
+        totals.events
+      )}`,
+      `Avg Simulation Steps: ${avg(
+        totals.steps
+      )}`,
+      `Regulation Ties: ${
+        totals.tiesAfterRegulation
+      }/${completed}`,
+    ].join('\n')
+  );
+}
+window.runLiveGameDiagnostic =
+  runLiveGameDiagnosticFromUI;
+
+function ensureHubLiveGameDiagnosticButton() {
+  const existingButton =
+    document.getElementById(
+      'hub-live-game-diagnostic'
+    );
+
+  if (existingButton) {
+    return;
+  }
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+  button.id =
+    'hub-live-game-diagnostic';
+
+  button.type =
+    'button';
+
+  button.textContent =
+    '🧪 Run Live Game Diagnostic';
+
+  button.style.cssText = `
+    position: fixed;
+    right: 18px;
+    bottom: 92px;
+    z-index: 9999;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(97, 161, 255, 0.7);
+    background: rgba(10, 31, 67, 0.96);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  `;
+
+  button.addEventListener(
+    'click',
+    () => {
+      runLiveGameCalibrationFromUI();
+    }
+  );
+
+  document.body.appendChild(
+    button
+  );
+}
+
+
 // ── Button references ───────────────────────────────────────
 const btnNewCareer = document.getElementById('btn-new-career');
 const btnContinue = document.getElementById('btn-continue');
 // ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
 const btnDevHub       = document.getElementById('btn-dev-hub');
+
+const btnLiveGameDiagnostic =
+  document.getElementById(
+    'btn-live-game-diagnostic'
+  );
+
 const devShortcutHint = document.getElementById('dev-shortcut-hint');
 // ─────────────────────────────────────────────────────────────────────────────
 const btnBackTitle = document.getElementById('btn-back-title');
@@ -1625,6 +2024,185 @@ function syncCareerPlayerWithWorld() {
   return canonicalPlayer;
 }
 
+/*
+ * ============================================================
+ * CAREER LOAD — SCHEDULE MIGRATION
+ * ============================================================
+ *
+ * Older saves may contain only the original game schedule.
+ * Newer builds also require Practice, Recovery, Training,
+ * meetings, etc.
+ *
+ * Rebuild the canonical season schedule, then preserve all
+ * existing completion/results data from the saved world.
+ */
+function ensureCareerScheduleEventsOnLoad() {
+  const existingSchedule =
+    Array.isArray(
+      WorldEngine.state.schedule
+    )
+      ? WorldEngine.state.schedule
+      : [];
+
+  const hasCareerEvents =
+    existingSchedule.some(event =>
+      [
+        'practice',
+        'recovery',
+        'training',
+      ].includes(
+        String(
+          event?.type || ''
+        ).toLowerCase()
+      )
+    );
+
+  /*
+   * Current saves that already contain the expanded schedule
+   * need no migration.
+   */
+  if (hasCareerEvents) {
+    return false;
+  }
+
+  const rebuiltSchedule =
+    WorldEngine
+      .createHighSchoolCareerSchedule(
+        WorldEngine.state.teams
+      );
+
+  if (
+    !Array.isArray(rebuiltSchedule) ||
+    rebuiltSchedule.length === 0
+  ) {
+    console.error(
+      '[Career Load] Could not rebuild canonical schedule.'
+    );
+
+    return false;
+  }
+
+  /*
+   * Match an old event to its regenerated counterpart.
+   *
+   * Prefer permanent IDs. Fall back to date/type/team matchup
+   * for older game records whose identifiers may differ.
+   */
+  const findExistingEvent =
+    newEvent => {
+      const newIds = [
+        newEvent?.eventId,
+        newEvent?.gameId,
+        newEvent?.id,
+      ]
+        .filter(Boolean)
+        .map(String);
+
+      const byId =
+        existingSchedule.find(
+          existingEvent => {
+            const existingIds = [
+              existingEvent?.eventId,
+              existingEvent?.gameId,
+              existingEvent?.id,
+            ]
+              .filter(Boolean)
+              .map(String);
+
+            return newIds.some(id =>
+              existingIds.includes(id)
+            );
+          }
+        );
+
+      if (byId) {
+        return byId;
+      }
+
+      return (
+        existingSchedule.find(
+          existingEvent =>
+            String(
+              existingEvent?.date || ''
+            ) ===
+              String(
+                newEvent?.date || ''
+              ) &&
+            String(
+              existingEvent?.type || ''
+            ) ===
+              String(
+                newEvent?.type || ''
+              ) &&
+            String(
+              existingEvent?.homeTeamId ||
+              ''
+            ) ===
+              String(
+                newEvent?.homeTeamId ||
+                ''
+              ) &&
+            String(
+              existingEvent?.awayTeamId ||
+              ''
+            ) ===
+              String(
+                newEvent?.awayTeamId ||
+                ''
+              )
+        ) ||
+        null
+      );
+    };
+
+  WorldEngine.state.schedule =
+    rebuiltSchedule.map(
+      newEvent => {
+        const existingEvent =
+          findExistingEvent(
+            newEvent
+          );
+
+        if (!existingEvent) {
+          return newEvent;
+        }
+
+        /*
+         * Keep the regenerated event definition, but preserve
+         * all saved progress/results from the old record.
+         */
+        return {
+          ...newEvent,
+          ...existingEvent,
+
+          /*
+           * Preserve canonical identity fields from the new
+           * schedule when the old save did not contain them.
+           */
+          eventId:
+            existingEvent.eventId ||
+            newEvent.eventId,
+
+          gameId:
+            existingEvent.gameId ||
+            newEvent.gameId,
+
+          id:
+            existingEvent.id ||
+            newEvent.id,
+        };
+      }
+    );
+
+  WorldEngine.save();
+
+  console.log(
+    '[Career Load] Expanded schedule migrated successfully.'
+  );
+
+  return true;
+}
+
 function loadCareerPreview() {
   try {
     
@@ -1647,11 +2225,22 @@ function loadCareerPreview() {
 
     syncCareerPlayerWithWorld();
 
+    /*
+     * Make normal Continue Career use the same complete
+     * season architecture as a newly initialized career.
+     */
+    ensureCareerScheduleEventsOnLoad();
+
+    refreshScheduleEvents();
+
     // ── Route based on career stage ───────────────────────────
     // 'hub' stage → tryouts are done; skip the intro sequence.
     if (Game.player.stage === 'hub') {
         refreshCareerUI();
         showScreen('hub');
+
+        ensureHubLiveGameDiagnosticButton();
+
         return;
     }
 
@@ -1841,6 +2430,16 @@ btnDevHub.addEventListener('click', () => {
     console.error('[DEV] Skip to Hub failed:', err);
   }
 });
+
+if (btnLiveGameDiagnostic) {
+  btnLiveGameDiagnostic
+    .addEventListener(
+      'click',
+      () => {
+        runLiveGameDiagnosticFromUI();
+      }
+    );
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 btnBackTitle.addEventListener('click', () => {
