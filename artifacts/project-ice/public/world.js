@@ -17435,13 +17435,13 @@ const WorldEngine = (() => {
      * whole-game calibration.
      */
     const weights = {
-      'shot-attempt': 24,
+      'shot-attempt': 31,
       hit: 15,
-      turnover: 17,
+      turnover: 8,
       penalty: 4,
       stoppage: 7,
-      'possession-advance': 17,
-      'quiet-play': 16,
+      'possession-advance': 20,
+      'quiet-play': 15,
     };
 
     /*
@@ -17469,7 +17469,7 @@ const WorldEngine = (() => {
         pressureLevel * 2;
 
       weights.turnover +=
-        pressureLevel * 0.7;
+        pressureLevel * 0.25;
     }
 
     /*
@@ -17484,7 +17484,7 @@ const WorldEngine = (() => {
         12;
 
       weights.turnover +=
-        5;
+        2;
 
       weights['possession-advance'] +=
         9;
@@ -17506,7 +17506,7 @@ const WorldEngine = (() => {
         14;
 
       weights.turnover +=
-        6;
+        2;
 
       weights['possession-advance'] +=
         10;
@@ -17548,7 +17548,7 @@ const WorldEngine = (() => {
         12;
 
       weights.turnover +=
-        5;
+        2;
 
       weights['quiet-play'] -=
         10;
@@ -17566,7 +17566,7 @@ const WorldEngine = (() => {
         9;
 
       weights.turnover +=
-        6;
+        2;
 
       weights['possession-advance'] +=
         6;
@@ -18727,17 +18727,17 @@ const WorldEngine = (() => {
      */
     const blockChance =
       Math.max(
-        0.08,
+        0.16,
         Math.min(
-          0.32,
-          0.17 +
+          0.42,
+          0.26 +
           (
             blockingAbility - 60
-          ) * 0.002 -
+          ) * 0.0025 -
           (
             shotPower - 60
-          ) * 0.001 +
-          pressureLevel * 0.005
+          ) * 0.0008 +
+          pressureLevel * 0.004
         )
       );
 
@@ -18973,10 +18973,10 @@ const WorldEngine = (() => {
 
     const scoringChance =
       Math.max(
-        0.035,
+        0.045,
         Math.min(
-          0.22,
-          0.085 +
+          0.24,
+          0.102 +
           (
             finishingAbility -
             goalieAbility
