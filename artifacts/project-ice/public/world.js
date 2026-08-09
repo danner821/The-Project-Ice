@@ -17435,13 +17435,13 @@ const WorldEngine = (() => {
      * whole-game calibration.
      */
     const weights = {
-      'shot-attempt': 31,
-      hit: 15,
+      'shot-attempt': 38,
+      hit: 14,
       turnover: 8,
       penalty: 4,
-      stoppage: 7,
-      'possession-advance': 20,
-      'quiet-play': 15,
+      stoppage: 6,
+      'possession-advance': 19,
+      'quiet-play': 11,
     };
 
     /*
@@ -17453,7 +17453,7 @@ const WorldEngine = (() => {
      */
     if (zone === 'offensive') {
       weights['shot-attempt'] +=
-        9;
+        13;
 
       weights['possession-advance'] +=
         3;
@@ -17563,7 +17563,7 @@ const WorldEngine = (() => {
      */
     if (paceContext === 'transition') {
       weights['shot-attempt'] +=
-        9;
+        12;
 
       weights.turnover +=
         2;
@@ -18973,10 +18973,10 @@ const WorldEngine = (() => {
 
     const scoringChance =
       Math.max(
-        0.045,
+        0.05,
         Math.min(
-          0.24,
-          0.102 +
+          0.25,
+          0.112 +
           (
             finishingAbility -
             goalieAbility
