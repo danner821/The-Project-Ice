@@ -16638,12 +16638,65 @@ const WorldEngine = (() => {
       };
     }
 
-    const skaters =
+    const allSkaters =
       Array.isArray(
         teamState.skaters
       )
         ? teamState.skaters
         : [];
+
+    /*
+     * ==========================================================
+     * PENALTY-BOX EXCLUSION
+     * ==========================================================
+     *
+     * Any player currently serving an active penalty is ineligible
+     * for every on-ice deployment until that penalty expires.
+     *
+     * This applies automatically to:
+     *   even strength
+     *   reduced even strength
+     *   power play
+     *   penalty kill
+     *   overtime
+     */
+    const activePenaltyPlayerIds =
+      new Set(
+        (
+          Array.isArray(
+            simulation.specialTeams
+              ?.activePenalties
+          )
+            ? simulation.specialTeams
+                .activePenalties
+            : []
+        )
+          .filter(
+            penalty =>
+              penalty &&
+              penalty.active === true &&
+              Number(
+                penalty.secondsRemaining
+              ) > 0 &&
+              penalty.playerId
+          )
+          .map(
+            penalty =>
+              String(
+                penalty.playerId
+              )
+          )
+      );
+
+    const skaters =
+      allSkaters.filter(
+        player =>
+          !activePenaltyPlayerIds.has(
+            String(
+              player.playerId || ''
+            )
+          )
+      );
 
     const starter =
       Array.isArray(
@@ -16685,18 +16738,49 @@ const WorldEngine = (() => {
         )
       );
 
-    const specialTeamsUnit =
-      Math.max(
-        1,
-        Math.min(
-          2,
-          Number(
-            options.specialTeamsUnit
-          ) || 1
-        )
-      );
+      const specialTeamsUnit =
+        Math.max(
+          1,
+          Math.min(
+            2,
+            Number(
+              options.specialTeamsUnit
+            ) || 1
+          )
+        );
 
-    const findSkaterById =
+      /*
+       * Optional manpower target.
+       *
+       * Normal calls can omit this completely.
+       * Special-teams deployment can request:
+       *
+       * PP:
+       *   5 skaters
+       *   4 skaters for 4-on-3 OT
+       *
+       * PK:
+       *   4 skaters
+       *   3 skaters for 5-on-3 / 4-on-3
+       */
+      const requestedSkaterCount =
+        Number.isFinite(
+          Number(
+            options.skaterCount
+          )
+        )
+          ? Math.max(
+              3,
+              Math.min(
+                5,
+                Number(
+                  options.skaterCount
+                )
+              )
+            )
+          : null;
+
+      const findSkaterById =
       playerId =>
         skaters.find(player =>
           String(
@@ -16739,10 +16823,87 @@ const WorldEngine = (() => {
           ) === defensePair
         );
 
-      deployedSkaters = [
-        ...forwards,
-        ...defensemen,
-      ];
+      /*
+       * Normal even strength:
+       *   5 skaters = 3F + 2D
+       *
+       * Reduced even strength from overlapping penalties:
+       *   4 skaters = 2F + 2D
+       *   3 skaters = 2F + 1D
+       *
+       * For reduced situations, favor the stronger players from the
+       * forward line / defense pair already selected for this shift.
+       */
+      const sortedForwards =
+        [...forwards]
+          .sort(
+            (
+              firstPlayer,
+              secondPlayer
+            ) =>
+              (
+                Number(
+                  secondPlayer.overall
+                ) || 50
+              ) -
+              (
+                Number(
+                  firstPlayer.overall
+                ) || 50
+              )
+          );
+
+      const sortedDefensemen =
+        [...defensemen]
+          .sort(
+            (
+              firstPlayer,
+              secondPlayer
+            ) =>
+              (
+                Number(
+                  secondPlayer.overall
+                ) || 50
+              ) -
+              (
+                Number(
+                  firstPlayer.overall
+                ) || 50
+              )
+          );
+
+      if (
+        requestedSkaterCount === 4
+      ) {
+        deployedSkaters = [
+          ...sortedForwards.slice(
+            0,
+            2
+          ),
+          ...sortedDefensemen.slice(
+            0,
+            2
+          ),
+        ];
+      } else if (
+        requestedSkaterCount === 3
+      ) {
+        deployedSkaters = [
+          ...sortedForwards.slice(
+            0,
+            2
+          ),
+          ...sortedDefensemen.slice(
+            0,
+            1
+          ),
+        ];
+      } else {
+        deployedSkaters = [
+          ...forwards,
+          ...defensemen,
+        ];
+      }
     }
 
     /*
@@ -16770,7 +16931,7 @@ const WorldEngine = (() => {
         powerPlayUnit?.slots ||
         {};
 
-      deployedSkaters =
+      const fullPowerPlayUnit =
         [
           slots.leftFlank,
           slots.bumper,
@@ -16782,6 +16943,49 @@ const WorldEngine = (() => {
             findSkaterById
           )
           .filter(Boolean);
+
+      /*
+       * 4-on-3:
+       * keep three primary skill forwards plus the quarterback.
+       *
+       * Full 5-on-4 / 5-on-3:
+       * use the complete PP unit.
+       */
+      if (
+        requestedSkaterCount === 4
+      ) {
+        deployedSkaters =
+          [
+            slots.leftFlank,
+            slots.bumper,
+            slots.rightFlank,
+            slots.quarterback,
+          ]
+            .map(
+              findSkaterById
+            )
+            .filter(Boolean);
+      } else if (
+        requestedSkaterCount === 3
+      ) {
+        /*
+         * Defensive fallback only; normal PP rules should not request
+         * three attacking skaters.
+         */
+        deployedSkaters =
+          [
+            slots.leftFlank,
+            slots.bumper,
+            slots.quarterback,
+          ]
+            .map(
+              findSkaterById
+            )
+            .filter(Boolean);
+      } else {
+        deployedSkaters =
+          fullPowerPlayUnit;
+      }
     }
 
     /*
@@ -16808,7 +17012,7 @@ const WorldEngine = (() => {
         penaltyKillUnit?.slots ||
         {};
 
-      deployedSkaters =
+      const fullPenaltyKillUnit =
         [
           slots.forward1,
           slots.forward2,
@@ -16819,6 +17023,127 @@ const WorldEngine = (() => {
             findSkaterById
           )
           .filter(Boolean);
+
+      /*
+       * Three-man PK:
+       * one forward + two defensemen.
+       *
+       * This is used for both:
+       *   regulation 5-on-3
+       *   overtime 4-on-3 / 5-on-3
+       */
+      if (
+        requestedSkaterCount === 3
+      ) {
+        deployedSkaters =
+          [
+            slots.forward1,
+            slots.defense1,
+            slots.defense2,
+          ]
+            .map(
+              findSkaterById
+            )
+            .filter(Boolean);
+      } else {
+        deployedSkaters =
+          fullPenaltyKillUnit;
+      }
+    }
+
+    /*
+     * ==========================================================
+     * ELIGIBLE DEPLOYMENT FALLBACK
+     * ==========================================================
+     *
+     * A saved line or special-teams unit can contain a player who
+     * is currently serving a penalty.
+     *
+     * Keep every eligible player from the coach-selected unit, then
+     * fill only the missing spots from the best eligible remaining
+     * skaters.
+     *
+     * This prevents situations such as a three-man PK accidentally
+     * deploying only two players because one PK1 member is in the
+     * penalty box.
+     */
+    const targetSkaterCount =
+      requestedSkaterCount !== null
+        ? requestedSkaterCount
+        : (
+            situation ===
+              'penalty-kill'
+              ? 4
+              : 5
+          );
+
+    const deployedPlayerIds =
+      new Set(
+        deployedSkaters
+          .filter(Boolean)
+          .map(
+            player =>
+              String(
+                player.playerId
+              )
+          )
+      );
+
+    if (
+      deployedSkaters.length <
+      targetSkaterCount
+    ) {
+      const fallbackCandidates =
+        skaters
+          .filter(
+            player =>
+              player &&
+              !deployedPlayerIds.has(
+                String(
+                  player.playerId
+                )
+              )
+          )
+          .sort(
+            (
+              firstPlayer,
+              secondPlayer
+            ) =>
+              (
+                Number(
+                  secondPlayer.overall
+                ) || 50
+              ) -
+              (
+                Number(
+                  firstPlayer.overall
+                ) || 50
+              )
+          );
+
+      const missingSkaters =
+        targetSkaterCount -
+        deployedSkaters.length;
+
+      const replacements =
+        fallbackCandidates.slice(
+          0,
+          missingSkaters
+        );
+
+      deployedSkaters.push(
+        ...replacements
+      );
+
+      replacements.forEach(
+        player => {
+          deployedPlayerIds.add(
+            String(
+              player.playerId
+            )
+          );
+        }
+      );
     }
 
     /*
@@ -18822,6 +19147,291 @@ const WorldEngine = (() => {
 
   /*
    * ============================================================
+   * LIVE GAME — POSSESSION MATCHUP PROFILE
+   * ============================================================
+   *
+   * Builds an attribute-driven comparison between the team with
+   * possession and the defending team currently on the ice.
+   *
+   * This helper does not change game state.
+   * It only calculates the ratings used by possession outcomes.
+   */
+  function getLiveGamePossessionMatchup(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object' ||
+      !simulation.flow
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-possession-matchup-state',
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    const possessionSide =
+      flow.possessionSide;
+
+    if (
+      possessionSide !== 'home' &&
+      possessionSide !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'possession-side-missing',
+      };
+    }
+
+    const defendingSide =
+      possessionSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const possessingDeployment =
+      possessionSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const defendingDeployment =
+      defendingSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const possessingSkaters =
+      Array.isArray(
+        possessingDeployment
+          ?.skaters
+      )
+        ? possessingDeployment.skaters
+        : [];
+
+    const defendingSkaters =
+      Array.isArray(
+        defendingDeployment
+          ?.skaters
+      )
+        ? defendingDeployment.skaters
+        : [];
+
+    if (
+      possessingSkaters.length === 0 ||
+      defendingSkaters.length === 0
+    ) {
+      return {
+        success: false,
+        reason:
+          'possession-matchup-players-missing',
+      };
+    }
+
+    const average =
+      values => {
+        const safeValues =
+          values.filter(
+            value =>
+              Number.isFinite(
+                Number(value)
+              )
+          );
+
+        if (
+          safeValues.length === 0
+        ) {
+          return 50;
+        }
+
+        return (
+          safeValues.reduce(
+            (sum, value) =>
+              sum +
+              Number(value),
+            0
+          ) /
+          safeValues.length
+        );
+      };
+
+    const getAttributes =
+      player => {
+        const canonicalPlayer =
+          getPlayerById(
+            player?.playerId
+          );
+
+        return (
+          canonicalPlayer
+            ?.attributes ||
+          {}
+        );
+      };
+
+    /*
+     * Offensive possession quality.
+     *
+     * Passing and puck control matter most, while awareness,
+     * skating and poise help the unit move through traffic and
+     * maintain structure.
+     */
+    const possessionRatings =
+      possessingSkaters.map(
+        player => {
+          const attributes =
+            getAttributes(
+              player
+            );
+
+          return (
+            (
+              Number(
+                attributes.passing
+              ) || 50
+            ) * 0.28 +
+            (
+              Number(
+                attributes
+                  .puckControl
+              ) || 50
+            ) * 0.27 +
+            (
+              Number(
+                attributes
+                  .offensiveAwareness
+              ) || 50
+            ) * 0.18 +
+            (
+              Number(
+                attributes.speed
+              ) || 50
+            ) * 0.10 +
+            (
+              Number(
+                attributes
+                  .acceleration
+              ) || 50
+            ) * 0.07 +
+            (
+              Number(
+                attributes.poise
+              ) || 50
+            ) * 0.10
+          );
+        }
+      );
+
+    /*
+     * Defensive disruption quality.
+     *
+     * Awareness and stick checking drive most defensive control,
+     * with skating and physical ability helping defenders close
+     * space and end possessions.
+     */
+    const defensiveRatings =
+      defendingSkaters.map(
+        player => {
+          const attributes =
+            getAttributes(
+              player
+            );
+
+          return (
+            (
+              Number(
+                attributes
+                  .defensiveAwareness
+              ) || 50
+            ) * 0.30 +
+            (
+              Number(
+                attributes
+                  .stickChecking
+              ) || 50
+            ) * 0.25 +
+            (
+              Number(
+                attributes.agility
+              ) || 50
+            ) * 0.12 +
+            (
+              Number(
+                attributes.speed
+              ) || 50
+            ) * 0.10 +
+            (
+              Number(
+                attributes.strength
+              ) || 50
+            ) * 0.08 +
+            (
+              Number(
+                attributes
+                  .bodyChecking
+              ) || 50
+            ) * 0.07 +
+            (
+              Number(
+                attributes.poise
+              ) || 50
+            ) * 0.08
+          );
+        }
+      );
+
+    const possessionRating =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          average(
+            possessionRatings
+          )
+        )
+      );
+
+    const defensiveRating =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          average(
+            defensiveRatings
+          )
+        )
+      );
+
+    const advantage =
+      possessionRating -
+      defensiveRating;
+
+    return {
+      success: true,
+
+      reason:
+        'possession-matchup-created',
+
+      possessionSide,
+      defendingSide,
+
+      possessionRating,
+      defensiveRating,
+
+      advantage,
+
+      possessingSkaterCount:
+        possessingSkaters.length,
+
+      defendingSkaterCount:
+        defendingSkaters.length,
+    };
+  }
+
+  /*
+   * ============================================================
    * LIVE GAME — POSSESSION / ZONE ADVANCE
    * ============================================================
    *
@@ -18997,6 +19607,37 @@ const WorldEngine = (() => {
       flow.zone ||
       'neutral';
 
+    /*
+     * Compare the actual skaters currently on the ice.
+     *
+     * Positive advantage:
+     *   possessing unit is stronger
+     *
+     * Negative advantage:
+     *   defending unit is stronger
+     *
+     * Clamp the matchup so even extreme talent gaps cannot make
+     * possession outcomes automatic.
+     */
+    const possessionMatchup =
+      getLiveGamePossessionMatchup(
+        simulation
+      );
+
+    const possessionAdvantage =
+      possessionMatchup?.success === true
+        ? Math.max(
+            -25,
+            Math.min(
+              25,
+              Number(
+                possessionMatchup
+                  .advantage
+              ) || 0
+            )
+          )
+        : 0;
+
     let nextZone =
       currentZone;
 
@@ -19020,13 +19661,44 @@ const WorldEngine = (() => {
       currentZone ===
       'defensive'
     ) {
+      /*
+       * Base:
+       * 68% clean breakout
+       * 18% remain trapped
+       * 14% dangerous turnover
+       *
+       * Better puck-moving units improve the clean breakout rate.
+       * Better defending/forechecking units force more failed exits.
+       */
+      const cleanBreakoutChance =
+        Math.max(
+          0.48,
+          Math.min(
+            0.82,
+            0.68 +
+            possessionAdvantage *
+              0.005
+          )
+        );
+
+      const dangerousTurnoverChance =
+        Math.max(
+          0.07,
+          Math.min(
+            0.24,
+            0.14 -
+            possessionAdvantage *
+              0.0025
+          )
+        );
+
       const roll =
         Math.random();
 
-      if (roll < 0.68) {
-        /*
-         * Successful breakout.
-         */
+      if (
+        roll <
+        cleanBreakoutChance
+      ) {
         nextZone =
           'neutral';
 
@@ -19036,11 +19708,10 @@ const WorldEngine = (() => {
         outcome =
           'successful-breakout';
       } else if (
-        roll < 0.86
+        roll <
+        1 -
+        dangerousTurnoverChance
       ) {
-        /*
-         * Team keeps the puck but remains trapped.
-         */
         nextZone =
           'defensive';
 
@@ -19050,12 +19721,6 @@ const WorldEngine = (() => {
         outcome =
           'breakout-delayed';
       } else {
-        /*
-         * Turnover deep in the zone.
-         *
-         * From the new possessing team's perspective,
-         * the puck is immediately in its offensive zone.
-         */
         nextPossessionSide =
           defendingSide;
 
@@ -19081,13 +19746,57 @@ const WorldEngine = (() => {
       currentZone ===
       'neutral'
     ) {
+      /*
+       * Base:
+       * 52% clean entry
+       * 20% retain neutral-zone possession
+       * 16% turnover
+       * 12% forced regroup
+       *
+       * This is one of the most important places for skill
+       * differentiation. Passing, puck control, awareness and
+       * skating now directly compete against defensive structure.
+       */
+      const cleanEntryChance =
+        Math.max(
+          0.34,
+          Math.min(
+            0.70,
+            0.52 +
+            possessionAdvantage *
+              0.006
+          )
+        );
+
+      const turnoverChance =
+        Math.max(
+          0.08,
+          Math.min(
+            0.28,
+            0.16 -
+            possessionAdvantage *
+              0.003
+          )
+        );
+
+      const regroupChance =
+        Math.max(
+          0.06,
+          Math.min(
+            0.22,
+            0.12 -
+            possessionAdvantage *
+              0.002
+          )
+        );
+
       const roll =
         Math.random();
 
-      if (roll < 0.52) {
-        /*
-         * Clean offensive-zone entry.
-         */
+      if (
+        roll <
+        cleanEntryChance
+      ) {
         nextZone =
           'offensive';
 
@@ -19097,11 +19806,11 @@ const WorldEngine = (() => {
         outcome =
           'successful-zone-entry';
       } else if (
-        roll < 0.72
+        roll <
+        1 -
+        turnoverChance -
+        regroupChance
       ) {
-        /*
-         * Possession maintained in neutral ice.
-         */
         nextZone =
           'neutral';
 
@@ -19111,11 +19820,10 @@ const WorldEngine = (() => {
         outcome =
           'neutral-zone-possession';
       } else if (
-        roll < 0.88
+        roll <
+        1 -
+        regroupChance
       ) {
-        /*
-         * Possession changes in the neutral zone.
-         */
         nextPossessionSide =
           defendingSide;
 
@@ -19128,9 +19836,6 @@ const WorldEngine = (() => {
         outcome =
           'neutral-zone-turnover';
       } else {
-        /*
-         * Possessing team is forced backward.
-         */
         nextZone =
           'defensive';
 
@@ -19153,13 +19858,44 @@ const WorldEngine = (() => {
       currentZone ===
       'offensive'
     ) {
+      /*
+       * Base:
+       * 60% sustained pressure
+       * 20% cleared but possession retained
+       * 20% defending team wins the puck
+       *
+       * Strong attacking units stay in the zone longer.
+       * Strong defensive units end possessions more often.
+       */
+      const sustainedPressureChance =
+        Math.max(
+          0.40,
+          Math.min(
+            0.76,
+            0.60 +
+            possessionAdvantage *
+              0.005
+          )
+        );
+
+      const defensiveRecoveryChance =
+        Math.max(
+          0.10,
+          Math.min(
+            0.34,
+            0.20 -
+            possessionAdvantage *
+              0.004
+          )
+        );
+
       const roll =
         Math.random();
 
-      if (roll < 0.60) {
-        /*
-         * Offensive pressure continues.
-         */
+      if (
+        roll <
+        sustainedPressureChance
+      ) {
         nextZone =
           'offensive';
 
@@ -19179,12 +19915,10 @@ const WorldEngine = (() => {
             ) + 1
           );
       } else if (
-        roll < 0.80
+        roll <
+        1 -
+        defensiveRecoveryChance
       ) {
-        /*
-         * Defense clears the puck but attacking team may
-         * still retain possession in neutral ice.
-         */
         nextZone =
           'neutral';
 
@@ -19204,12 +19938,6 @@ const WorldEngine = (() => {
             ) - 2
           );
       } else {
-        /*
-         * Defending team gains clean possession.
-         *
-         * From their perspective they now own the puck in
-         * their defensive zone and must break out.
-         */
         nextPossessionSide =
           defendingSide;
 
@@ -21065,7 +21793,8 @@ const WorldEngine = (() => {
     ) {
       return {
         success: false,
-        reason: 'invalid-live-game',
+        reason:
+          'invalid-live-game',
         event: null,
       };
     }
@@ -21117,14 +21846,16 @@ const WorldEngine = (() => {
 
     const attackers =
       Array.isArray(
-        attackingDeployment?.skaters
+        attackingDeployment
+          ?.skaters
       )
         ? attackingDeployment.skaters
         : [];
 
     const defenders =
       Array.isArray(
-        defendingDeployment?.skaters
+        defendingDeployment
+          ?.skaters
       )
         ? defendingDeployment.skaters
         : [];
@@ -21141,21 +21872,178 @@ const WorldEngine = (() => {
       };
     }
 
-    const puckCarrier =
-      attackers[
-        Math.floor(
+    /*
+     * ==========================================================
+     * WEIGHTED PARTICIPANT SELECTION
+     * ==========================================================
+     *
+     * Skilled puck handlers naturally touch the puck more often,
+     * so they should also appear in contested-possession events
+     * more often without automatically becoming turnover-prone.
+     */
+    const weightedPick =
+      entries => {
+        const totalWeight =
+          entries.reduce(
+            (sum, entry) =>
+              sum +
+              Math.max(
+                0,
+                Number(
+                  entry.weight
+                ) || 0
+              ),
+            0
+          );
+
+        if (totalWeight <= 0) {
+          return (
+            entries[0]?.player ||
+            null
+          );
+        }
+
+        let roll =
           Math.random() *
-          attackers.length
+          totalWeight;
+
+        for (
+          const entry of entries
+        ) {
+          roll -=
+            Math.max(
+              0,
+              Number(
+                entry.weight
+              ) || 0
+            );
+
+          if (roll <= 0) {
+            return entry.player;
+          }
+        }
+
+        return (
+          entries[
+            entries.length - 1
+          ]?.player ||
+          null
+        );
+      };
+
+    const puckCarrier =
+      weightedPick(
+        attackers.map(
+          player => {
+            const canonicalPlayer =
+              getPlayerById(
+                player.playerId
+              );
+
+            const attributes =
+              canonicalPlayer
+                ?.attributes ||
+              {};
+
+            const involvement =
+              (
+                Number(
+                  attributes
+                    .puckControl
+                ) || 50
+              ) * 0.40 +
+              (
+                Number(
+                  attributes.passing
+                ) || 50
+              ) * 0.25 +
+              (
+                Number(
+                  attributes
+                    .offensiveAwareness
+                ) || 50
+              ) * 0.20 +
+              (
+                Number(
+                  attributes.poise
+                ) || 50
+              ) * 0.15;
+
+            return {
+              player,
+
+              weight:
+                Math.max(
+                  10,
+                  involvement
+                ),
+            };
+          }
         )
-      ];
+      );
 
     const defender =
-      defenders[
-        Math.floor(
-          Math.random() *
-          defenders.length
+      weightedPick(
+        defenders.map(
+          player => {
+            const canonicalPlayer =
+              getPlayerById(
+                player.playerId
+              );
+
+            const attributes =
+              canonicalPlayer
+                ?.attributes ||
+              {};
+
+            const disruption =
+              (
+                Number(
+                  attributes
+                    .stickChecking
+                ) || 50
+              ) * 0.40 +
+              (
+                Number(
+                  attributes
+                    .defensiveAwareness
+                ) || 50
+              ) * 0.35 +
+              (
+                Number(
+                  attributes.agility
+                ) || 50
+              ) * 0.15 +
+              (
+                Number(
+                  attributes.speed
+                ) || 50
+              ) * 0.10;
+
+            return {
+              player,
+
+              weight:
+                Math.max(
+                  10,
+                  disruption
+                ),
+            };
+          }
         )
-      ];
+      );
+
+    if (
+      !puckCarrier ||
+      !defender
+    ) {
+      return {
+        success: false,
+        reason:
+          'turnover-selection-failed',
+        event: null,
+      };
+    }
 
     const carrierPlayer =
       getPlayerById(
@@ -21177,62 +22065,230 @@ const WorldEngine = (() => {
         ?.attributes ||
       {};
 
+    /*
+     * ==========================================================
+     * PUCK SECURITY
+     * ==========================================================
+     *
+     * Puck Control is the largest component.
+     * Passing and Poise protect against poor decisions.
+     * Balance helps the carrier survive physical pressure.
+     */
     const puckSecurity =
       (
         Number(
           carrierAttributes
             .puckControl
         ) || 50
-      ) * 0.50 +
+      ) * 0.42 +
       (
         Number(
-          carrierAttributes
-            .passing
+          carrierAttributes.passing
         ) || 50
-      ) * 0.25 +
+      ) * 0.22 +
       (
         Number(
-          carrierAttributes
-            .poise
+          carrierAttributes.poise
         ) || 50
-      ) * 0.25;
+      ) * 0.20 +
+      (
+        Number(
+          carrierAttributes.balance
+        ) || 50
+      ) * 0.16;
 
-    const takeawayAbility =
+    /*
+     * ==========================================================
+     * DEFENSIVE DISRUPTION
+     * ==========================================================
+     */
+    const defensiveDisruption =
       (
         Number(
           defenderAttributes
             .stickChecking
         ) || 50
-      ) * 0.45 +
+      ) * 0.40 +
       (
         Number(
           defenderAttributes
             .defensiveAwareness
         ) || 50
-      ) * 0.35 +
+      ) * 0.32 +
       (
         Number(
-          defenderAttributes
-            .agility
+          defenderAttributes.agility
         ) || 50
-      ) * 0.20;
+      ) * 0.15 +
+      (
+        Number(
+          defenderAttributes.speed
+        ) || 50
+      ) * 0.08 +
+      (
+        Number(
+          defenderAttributes.strength
+        ) || 50
+      ) * 0.05;
 
-    const controlledTakeawayChance =
+    const disruptionAdvantage =
+      defensiveDisruption -
+      puckSecurity;
+
+    /*
+     * A selected turnover event represents genuine defensive
+     * pressure, but the offensive player is NOT guaranteed to
+     * lose possession.
+     *
+     * Equal players:
+     * approximately 60% possession-loss chance.
+     *
+     * Strong puck carrier:
+     * substantially more likely to survive the pressure.
+     *
+     * Strong defender:
+     * substantially more likely to force the turnover.
+     */
+    const possessionLossChance =
       Math.max(
-        0.30,
+        0.28,
         Math.min(
-          0.72,
-          0.48 +
-          (
-            takeawayAbility -
-            puckSecurity
-          ) * 0.004
+          0.84,
+          0.60 +
+          disruptionAdvantage *
+            0.007
+        )
+      );
+
+    const possessionLost =
+      Math.random() <
+      possessionLossChance;
+
+    /*
+     * ==========================================================
+     * POSSESSION RETAINED
+     * ==========================================================
+     */
+    if (!possessionLost) {
+      flow.paceContext =
+        flow.zone ===
+          'offensive'
+          ? 'offensive-zone'
+          : 'normal';
+
+      /*
+       * Escaping pressure can preserve or slightly strengthen an
+       * offensive possession, but never creates huge free pressure.
+       */
+      if (
+        flow.zone ===
+        'offensive'
+      ) {
+        flow.pressureLevel =
+          Math.min(
+            5,
+            (
+              Number(
+                flow.pressureLevel
+              ) || 0
+            ) + 0.5
+          );
+      }
+
+      flow.lastEventType =
+        'turnover-avoided';
+
+      flow.lastEventSide =
+        possessionSide;
+
+      recordLiveGamePossessionTouch(
+        simulation,
+        possessionSide,
+        puckCarrier.playerId,
+        'turnover-avoided'
+      );
+
+      const event = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'turnover-avoided',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining:
+          simulation
+            .clockSecondsRemaining,
+
+        side:
+          possessionSide,
+
+        playerId:
+          puckCarrier.playerId,
+
+        defenderPlayerId:
+          defender.playerId,
+
+        puckSecurity,
+
+        defensiveDisruption,
+
+        possessionLossChance,
+
+        possessionChanged:
+          false,
+      };
+
+      simulation.events.push(
+        event
+      );
+
+      return {
+        success: true,
+
+        reason:
+          'live-game-turnover-avoided',
+
+        possessionChanged:
+          false,
+
+        creditedTakeaway:
+          false,
+
+        event,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * POSSESSION LOST
+     * ==========================================================
+     *
+     * A lost puck can be:
+     *
+     * - a clean defensive takeaway
+     * - a forced/unforced giveaway without individual takeaway
+     *
+     * Defensive skill determines which one is more likely.
+     */
+    const cleanTakeawayChance =
+      Math.max(
+        0.28,
+        Math.min(
+          0.82,
+          0.52 +
+          disruptionAdvantage *
+            0.006
         )
       );
 
     const creditedTakeaway =
       Math.random() <
-      controlledTakeawayChance;
+      cleanTakeawayChance;
 
     const attackingTeamState =
       possessionSide === 'home'
@@ -21280,9 +22336,11 @@ const WorldEngine = (() => {
       defendingSide;
 
     flow.zone =
-      flow.zone === 'offensive'
+      flow.zone ===
+        'offensive'
         ? 'defensive'
-        : flow.zone === 'defensive'
+        : flow.zone ===
+            'defensive'
           ? 'offensive'
           : 'neutral';
 
@@ -21292,8 +22350,13 @@ const WorldEngine = (() => {
     flow.pressureLevel =
       0;
 
+    flow.recentPossessionTouches =
+      [];
+
     flow.lastEventType =
-      'turnover';
+      creditedTakeaway
+        ? 'takeaway'
+        : 'giveaway';
 
     flow.lastEventSide =
       defendingSide;
@@ -21329,6 +22392,17 @@ const WorldEngine = (() => {
           : null,
 
       creditedTakeaway,
+
+      puckSecurity,
+
+      defensiveDisruption,
+
+      possessionLossChance,
+
+      cleanTakeawayChance,
+
+      possessionChanged:
+        true,
     };
 
     simulation.events.push(
@@ -21337,10 +22411,315 @@ const WorldEngine = (() => {
 
     return {
       success: true,
+
       reason:
-        'live-game-turnover-resolved',
+        creditedTakeaway
+          ? 'live-game-clean-takeaway'
+          : 'live-game-giveaway',
+
+      possessionChanged:
+        true,
+
       creditedTakeaway,
+
       event,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — MANPOWER STATE
+   * ============================================================
+   *
+   * Rebuilds the current manpower situation from every active
+   * penalty rather than assuming every penalty creates 5-on-4.
+   *
+   * Regulation:
+   *   even differential      -> 5v5
+   *   one extra minor        -> 5v4
+   *   two+ extra minors      -> 5v3
+   *
+   * Overtime:
+   *   even differential      -> 3v3
+   *   one extra minor        -> 4v3
+   *   two+ extra minors      -> 5v3
+   *
+   * Coincidental/equal active penalties cancel for manpower
+   * purposes while still remaining in the penalty list.
+   */
+  function refreshLiveGameManpowerState(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+      };
+    }
+
+    if (
+      !simulation.specialTeams ||
+      typeof simulation.specialTeams !==
+        'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'special-teams-state-missing',
+      };
+    }
+
+    const specialTeams =
+      simulation.specialTeams;
+
+    const activePenalties =
+      Array.isArray(
+        specialTeams.activePenalties
+      )
+        ? specialTeams.activePenalties
+            .filter(
+              penalty =>
+                penalty &&
+                penalty.active === true &&
+                Number(
+                  penalty.secondsRemaining
+                ) > 0
+            )
+        : [];
+
+    specialTeams.activePenalties =
+      activePenalties;
+
+    /*
+     * Penalties explicitly marked coincidental do not create
+     * a manpower disadvantage.
+     *
+     * Normal overlapping minors DO.
+     */
+    const manpowerPenalties =
+      activePenalties.filter(
+        penalty =>
+          penalty.coincidental !==
+          true
+      );
+
+    const homePenaltyCount =
+      manpowerPenalties.filter(
+        penalty =>
+          penalty.penalizedSide ===
+          'home'
+      ).length;
+
+    const awayPenaltyCount =
+      manpowerPenalties.filter(
+        penalty =>
+          penalty.penalizedSide ===
+          'away'
+      ).length;
+
+    const isOvertime =
+      simulation.period === 4;
+
+    let homeSkaters =
+      isOvertime
+        ? 3
+        : 5;
+
+    let awaySkaters =
+      isOvertime
+        ? 3
+        : 5;
+
+    /*
+     * ==========================================================
+     * REGULATION
+     * ==========================================================
+     *
+     * Reduce each team's skater count independently.
+     *
+     * Examples:
+     *
+     * 1 home penalty, 0 away:
+     *   4v5
+     *
+     * 2 home penalties, 0 away:
+     *   3v5
+     *
+     * 1 home penalty, 1 away:
+     *   4v4
+     *
+     * 2 home penalties, 1 away:
+     *   3v4
+     *
+     * Never go below three skaters.
+     */
+    if (!isOvertime) {
+      homeSkaters =
+        Math.max(
+          3,
+          5 -
+          homePenaltyCount
+        );
+
+      awaySkaters =
+        Math.max(
+          3,
+          5 -
+          awayPenaltyCount
+        );
+    }
+
+    /*
+     * ==========================================================
+     * OVERTIME
+     * ==========================================================
+     *
+     * NHL-style 3-on-3 overtime penalties add skaters to the
+     * advantaged team rather than reducing the penalized team
+     * below three.
+     *
+     * Examples:
+     *
+     * no penalties:
+     *   3v3
+     *
+     * home has one extra penalty:
+     *   3v4
+     *
+     * home has two extra penalties:
+     *   3v5
+     *
+     * one active non-coincidental minor each:
+     *   3v3
+     *
+     * The penalty counts still remain active and continue timing.
+     */
+    if (isOvertime) {
+      const penaltyDifferential =
+        homePenaltyCount -
+        awayPenaltyCount;
+
+      if (
+        penaltyDifferential > 0
+      ) {
+        homeSkaters =
+          3;
+
+        awaySkaters =
+          Math.min(
+            5,
+            3 +
+            penaltyDifferential
+          );
+      } else if (
+        penaltyDifferential < 0
+      ) {
+        homeSkaters =
+          Math.min(
+            5,
+            3 +
+            Math.abs(
+              penaltyDifferential
+            )
+          );
+
+        awaySkaters =
+          3;
+      }
+    }
+
+    let situation =
+      'even-strength';
+
+    let powerPlaySide =
+      null;
+
+    let penaltyKillSide =
+      null;
+
+    if (
+      homeSkaters >
+      awaySkaters
+    ) {
+      situation =
+        'power-play';
+
+      powerPlaySide =
+        'home';
+
+      penaltyKillSide =
+        'away';
+    } else if (
+      awaySkaters >
+      homeSkaters
+    ) {
+      situation =
+        'power-play';
+
+      powerPlaySide =
+        'away';
+
+      penaltyKillSide =
+        'home';
+    }
+
+    specialTeams.situation =
+      situation;
+
+    specialTeams.powerPlaySide =
+      powerPlaySide;
+
+    specialTeams.penaltyKillSide =
+      penaltyKillSide;
+
+    specialTeams.homeSkaters =
+      homeSkaters;
+
+    specialTeams.awaySkaters =
+      awaySkaters;
+
+    specialTeams.homeActivePenaltyCount =
+      homePenaltyCount;
+
+    specialTeams.awayActivePenaltyCount =
+      awayPenaltyCount;
+
+    specialTeams.penaltyDifferential =
+      homePenaltyCount -
+      awayPenaltyCount;
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-manpower-refreshed',
+
+      situation,
+
+      powerPlaySide,
+      penaltyKillSide,
+
+      homeSkaters,
+      awaySkaters,
+
+      homePenaltyCount,
+      awayPenaltyCount,
+
+      penaltyDifferential:
+        homePenaltyCount -
+        awayPenaltyCount,
+
+      activePenaltyCount:
+        activePenalties.length,
+
+      manpowerPenaltyCount:
+        manpowerPenalties.length,
+
+      isOvertime,
     };
   }
 
@@ -21429,35 +22808,152 @@ const WorldEngine = (() => {
       };
     }
 
-    const penalizedPlayer =
-      skaters[
-        Math.floor(
-          Math.random() *
-          skaters.length
-        )
-      ];
+    /*
+     * ==========================================================
+     * PENALIZED PLAYER SELECTION
+     * ==========================================================
+     *
+     * Players with high Aggression and low Discipline are more
+     * likely to take penalties.
+     *
+     * Disciplined players can still take penalties occasionally,
+     * but reckless players should accumulate noticeably more over
+     * a full season.
+     */
+    const penaltyCandidates =
+      skaters.map(
+        player => {
+          const canonicalPlayer =
+            getPlayerById(
+              player.playerId
+            );
 
-    const canonicalPlayer =
-      getPlayerById(
-        penalizedPlayer.playerId
+          const attributes =
+            canonicalPlayer
+              ?.attributes ||
+            {};
+
+          const aggression =
+            Math.max(
+              25,
+              Math.min(
+                99,
+                Number(
+                  attributes.aggression
+                ) || 50
+              )
+            );
+
+          const discipline =
+            Math.max(
+              25,
+              Math.min(
+                99,
+                Number(
+                  attributes.discipline
+                ) || 50
+              )
+            );
+
+          /*
+           * Baseline keeps every player eligible.
+           *
+           * Examples:
+           *
+           * 90 aggression / 45 discipline
+           * → substantially elevated penalty weight
+           *
+           * 45 aggression / 90 discipline
+           * → much lower penalty weight
+           */
+          const penaltyTendency =
+            Math.max(
+              8,
+              50 +
+              (
+                aggression -
+                discipline
+              ) * 0.85
+            );
+
+          return {
+            player,
+            aggression,
+            discipline,
+            weight:
+              penaltyTendency,
+          };
+        }
       );
 
-    const attributes =
-      canonicalPlayer
-        ?.attributes ||
-      {};
+    const totalPenaltyWeight =
+      penaltyCandidates.reduce(
+        (
+          total,
+          candidate
+        ) =>
+          total +
+          candidate.weight,
+        0
+      );
 
-    const aggression =
-      Number(
-        attributes.aggression
-      ) || 50;
+    let penaltyRoll =
+      Math.random() *
+      totalPenaltyWeight;
 
-    const discipline =
-      Number(
-        attributes.discipline
-      ) || 50;
+    let selectedPenaltyCandidate =
+      penaltyCandidates[0] ||
+      null;
 
-    const physicalBias =
+    for (
+      const candidate of
+      penaltyCandidates
+    ) {
+      penaltyRoll -=
+        candidate.weight;
+
+      if (
+        penaltyRoll <= 0
+      ) {
+        selectedPenaltyCandidate =
+          candidate;
+
+        break;
+      }
+    }
+
+    const penalizedPlayer =
+      selectedPenaltyCandidate
+        ?.player ||
+      skaters[0];
+
+    const selectedAggression =
+      selectedPenaltyCandidate
+        ?.aggression ??
+      50;
+
+    const selectedDiscipline =
+      selectedPenaltyCandidate
+        ?.discipline ??
+      50;
+
+      const canonicalPlayer =
+        getPlayerById(
+          penalizedPlayer.playerId
+        );
+
+      const attributes =
+        canonicalPlayer
+          ?.attributes ||
+        {};
+
+      const aggression =
+        selectedAggression;
+
+      const discipline =
+        selectedDiscipline;
+
+      const physicalBias =
       Math.max(
         0,
         Math.min(
@@ -21590,29 +23086,49 @@ const WorldEngine = (() => {
         penalty
       );
 
-    simulation.specialTeams
-      .situation =
-      'power-play';
+    /*
+     * Recalculate manpower from EVERY currently active penalty.
+     *
+     * This correctly handles:
+     *
+     * regulation:
+     *   5v5
+     *   5v4
+     *   5v3
+     *
+     * overtime:
+     *   3v3
+     *   4v3
+     *   5v3
+     *
+     * as well as equal/coincidental penalty counts.
+     */
+    const manpowerRefresh =
+      refreshLiveGameManpowerState(
+        simulation
+      );
 
-    simulation.specialTeams
-      .powerPlaySide =
-      advantagedSide;
+    if (
+      !manpowerRefresh ||
+      manpowerRefresh.success !== true
+    ) {
+      /*
+       * The penalty itself has already been recorded, so this should
+       * be treated as a simulation failure rather than silently
+       * continuing with incorrect manpower.
+       */
+      return {
+        success: false,
 
-    simulation.specialTeams
-      .penaltyKillSide =
-      penalizedSide;
+        reason:
+          manpowerRefresh?.reason ||
+          'penalty-manpower-refresh-failed',
 
-    simulation.specialTeams
-      .homeSkaters =
-      penalizedSide === 'home'
-        ? 4
-        : 5;
+        penalty,
 
-    simulation.specialTeams
-      .awaySkaters =
-      penalizedSide === 'away'
-        ? 4
-        : 5;
+        event: null,
+      };
+    }
 
     flow.stopped =
       true;
@@ -21775,39 +23291,44 @@ const WorldEngine = (() => {
             penalty.active === true
         );
 
-    const activePenalty =
-      specialTeams
-        .activePenalties[0] ||
-      null;
+    const manpowerRefresh =
+      refreshLiveGameManpowerState(
+        simulation
+      );
 
-    if (!activePenalty) {
-      specialTeams.situation =
-        'even-strength';
+    if (
+      !manpowerRefresh ||
+      manpowerRefresh.success !== true
+    ) {
+      return {
+        success: false,
 
-      specialTeams.powerPlaySide =
-        null;
+        reason:
+          manpowerRefresh?.reason ||
+          'special-teams-manpower-refresh-failed',
 
-      specialTeams.penaltyKillSide =
-        null;
-
-      specialTeams.homeSkaters =
-        5;
-
-      specialTeams.awaySkaters =
-        5;
+        activePenalties:
+          specialTeams
+            .activePenalties,
+      };
     }
 
     return {
       success: true,
 
       reason:
-        activePenalty
+        specialTeams
+          .activePenalties
+          .length > 0
           ? 'penalty-clock-advanced'
           : 'even-strength-restored',
 
       activePenalties:
         specialTeams
           .activePenalties,
+
+      manpower:
+        manpowerRefresh,
     };
   }
 
@@ -22046,85 +23567,253 @@ const WorldEngine = (() => {
 
     /*
      * ==========================================================
-     * SPECIAL TEAMS DEPLOYMENT
+     * MANPOWER-AWARE DEPLOYMENT
      * ==========================================================
      *
-     * Once a penalty is active, replace normal deployments with
-     * the actual PP / PK units selected by the coach.
+     * The authoritative manpower counts live in:
+     *
+     *   specialTeams.homeSkaters
+     *   specialTeams.awaySkaters
+     *
+     * This turns those state values into the actual players on
+     * the ice.
+     *
+     * Supported regulation states:
+     *   5v5
+     *   5v4
+     *   5v3
+     *   4v4
+     *   4v3
+     *   3v3
+     *
+     * Supported overtime states:
+     *   3v3
+     *   4v3
+     *   5v3
      */
     const specialTeams =
       simulation.specialTeams ||
       {};
 
-    if (
-      specialTeams.situation ===
-        'power-play' &&
-      specialTeams.powerPlaySide &&
-      specialTeams.penaltyKillSide
-    ) {
-      const powerPlaySide =
-        specialTeams
-          .powerPlaySide;
+    const homeSkaterCount =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            specialTeams.homeSkaters
+          ) ||
+          (
+            isOvertime
+              ? 3
+              : 5
+          )
+        )
+      );
 
-      const penaltyKillSide =
-        specialTeams
-          .penaltyKillSide;
+    const awaySkaterCount =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            specialTeams.awaySkaters
+          ) ||
+          (
+            isOvertime
+              ? 3
+              : 5
+          )
+        )
+      );
 
-      const powerPlayDeployment =
+    const homeHasAdvantage =
+      homeSkaterCount >
+      awaySkaterCount;
+
+    const awayHasAdvantage =
+      awaySkaterCount >
+      homeSkaterCount;
+
+    /*
+     * ========================================================
+     * HOME DEPLOYMENT
+     * ========================================================
+     */
+    let homeManpowerDeployment =
+      null;
+
+    if (homeHasAdvantage) {
+      /*
+       * Home team owns the power play.
+       */
+      homeManpowerDeployment =
         getLiveGameOnIcePlayers(
           simulation,
-          powerPlaySide,
+          'home',
           {
             situation:
               'power-play',
 
             specialTeamsUnit: 1,
+
+            skaterCount:
+              homeSkaterCount,
           }
         );
-
-      const penaltyKillDeployment =
+    } else if (awayHasAdvantage) {
+      /*
+       * Home team is killing the penalty.
+       */
+      homeManpowerDeployment =
         getLiveGameOnIcePlayers(
           simulation,
-          penaltyKillSide,
+          'home',
           {
             situation:
               'penalty-kill',
 
             specialTeamsUnit: 1,
+
+            skaterCount:
+              homeSkaterCount,
           }
         );
+    } else if (
+      !isOvertime &&
+      homeSkaterCount < 5
+    ) {
+      /*
+       * Reduced even-strength regulation hockey:
+       *
+       * 4v4
+       * 3v3
+       *
+       * Preserve the line/pair already selected for this shift.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'even-strength',
 
-      if (
-        powerPlayDeployment
-          ?.success === true
-      ) {
-        if (
-          powerPlaySide ===
-          'home'
-        ) {
-          flow.homeDeployment =
-            powerPlayDeployment;
-        } else {
-          flow.awayDeployment =
-            powerPlayDeployment;
-        }
-      }
+            forwardLine:
+              flow.homeDeployment
+                ?.forwardLine ||
+              1,
 
-      if (
-        penaltyKillDeployment
-          ?.success === true
-      ) {
-        if (
-          penaltyKillSide ===
-          'home'
-        ) {
-          flow.homeDeployment =
-            penaltyKillDeployment;
-        } else {
-          flow.awayDeployment =
-            penaltyKillDeployment;
-        }
-      }
+            defensePair:
+              flow.homeDeployment
+                ?.defensePair ||
+              1,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    }
+
+    /*
+     * ========================================================
+     * AWAY DEPLOYMENT
+     * ========================================================
+     */
+    let awayManpowerDeployment =
+      null;
+
+    if (awayHasAdvantage) {
+      /*
+       * Away team owns the power play.
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'power-play',
+
+            specialTeamsUnit: 1,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    } else if (homeHasAdvantage) {
+      /*
+       * Away team is killing the penalty.
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'penalty-kill',
+
+            specialTeamsUnit: 1,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    } else if (
+      !isOvertime &&
+      awaySkaterCount < 5
+    ) {
+      /*
+       * Reduced even-strength regulation hockey:
+       *
+       * 4v4
+       * 3v3
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'even-strength',
+
+            forwardLine:
+              flow.awayDeployment
+                ?.forwardLine ||
+              1,
+
+            defensePair:
+              flow.awayDeployment
+                ?.defensePair ||
+              1,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    }
+
+    /*
+     * Only replace the normal shift deployment when a manpower
+     * resolver actually produced a valid deployment.
+     *
+     * Ordinary 5v5 regulation and ordinary 3v3 overtime continue
+     * using the deployments selected earlier in this step.
+     */
+    if (
+      homeManpowerDeployment
+        ?.success === true
+    ) {
+      flow.homeDeployment =
+        homeManpowerDeployment;
+    }
+
+    if (
+      awayManpowerDeployment
+        ?.success === true
+    ) {
+      flow.awayDeployment =
+        awayManpowerDeployment;
     }
 
     /*
@@ -23542,12 +25231,20 @@ const WorldEngine = (() => {
                 ? 1
                 : 0;
 
+            /*
+             * Shootout goals are part of the official team score but are
+             * not goals against for the goalie.
+             *
+             * A goalie who allows zero actual goals through regulation/OT
+             * therefore keeps the shutout even if their team loses a
+             * 0-0 game in the shootout.
+             */
             goalieLine.shutout =
               played &&
               (
-                side === 'home'
-                  ? awayScore
-                  : homeScore
+                Number(
+                  goalieLine.goalsAgainst
+                ) || 0
               ) === 0;
           }
         );
