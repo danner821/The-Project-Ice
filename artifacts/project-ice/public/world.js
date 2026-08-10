@@ -20033,7 +20033,7 @@ const WorldEngine = (() => {
         0.05,
         Math.min(
           0.25,
-          0.112 +
+          0.102 +
           (
             finishingAbility -
             goalieAbility
