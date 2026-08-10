@@ -22799,6 +22799,51 @@ const WorldEngine = (() => {
     }
 
     /*
+     * ==========================================================
+     * FINAL RESULT VALIDATION
+     * ==========================================================
+     *
+     * A diagnostic game is not considered fully successful merely
+     * because the hockey simulation reached gameComplete.
+     *
+     * It must also convert and finalize into the exact canonical
+     * gameResult contract used by the permanent career systems.
+     */
+    let finalization = null;
+
+    if (
+      simulation.gameComplete === true &&
+      failures.length === 0
+    ) {
+      finalization =
+        finalizeLiveGameSimulation(
+          simulation
+        );
+
+      if (
+        !finalization ||
+        finalization.success !== true ||
+        !finalization.gameResult
+      ) {
+        failures.push({
+          step:
+            steps,
+
+          reason:
+            finalization?.reason ||
+            'live-game-finalization-failed',
+
+          period:
+            simulation.period,
+
+          clockSecondsRemaining:
+            simulation
+              .clockSecondsRemaining,
+        });
+      }
+    }
+
+    /*
      * Count every recorded live event by type.
      */
     const eventTypeCounts = {};
@@ -22971,11 +23016,28 @@ const WorldEngine = (() => {
         simulation
           .regulationComplete === true,
 
-      gameComplete:
-        simulation
-          .gameComplete === true,
+        gameComplete:
+          simulation
+            .gameComplete === true,
 
-      wentToOvertime:
+        canonicalResultCreated:
+          Boolean(
+            finalization &&
+            finalization.success === true &&
+            finalization.gameResult
+          ),
+
+        finalized:
+          simulation.finalized === true,
+
+        finalizedGameResult:
+          finalization?.gameResult
+            ? structuredClone(
+                finalization.gameResult
+              )
+            : null,
+
+        wentToOvertime:
         simulation
           .wentToOvertime === true,
 
@@ -23248,19 +23310,636 @@ const WorldEngine = (() => {
       success:
         failures.length === 0 &&
         simulation
-          .gameComplete === true,
+          .gameComplete === true &&
+        finalization
+          ?.success === true &&
+        Boolean(
+          finalization
+            ?.gameResult
+        ),
 
       reason:
         failures.length > 0
           ? 'diagnostic-step-failed'
           : simulation
-              .gameComplete === true
-            ? 'diagnostic-game-completed'
-            : 'diagnostic-game-incomplete',
+              .gameComplete !== true
+            ? 'diagnostic-game-incomplete'
+            : finalization
+                ?.success !== true ||
+              !finalization
+                ?.gameResult
+              ? 'diagnostic-finalization-failed'
+              : 'diagnostic-game-and-result-completed',
 
       diagnostic,
 
+      finalization,
+
       simulation,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — FINAL GAME RESULT CONVERSION
+   * ============================================================
+   *
+   * Converts a completed live-game simulation into the canonical
+   * Project Ice gameResult contract already consumed by:
+   *
+   * - standings
+   * - schedule results
+   * - skater season stats
+   * - goalie season stats
+   * - postgame summaries
+   * - career-player progression
+   *
+   * This function does NOT permanently apply anything.
+   * It only builds the final result package.
+   */
+  function createGameResultFromLiveSimulation(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game-simulation',
+        gameResult: null,
+      };
+    }
+
+    if (
+      simulation.gameComplete !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-not-complete',
+        gameResult: null,
+      };
+    }
+
+    const home =
+      simulation.home;
+
+    const away =
+      simulation.away;
+
+    if (
+      !home ||
+      !away ||
+      !home.teamId ||
+      !away.teamId
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-team-state-missing',
+        gameResult: null,
+      };
+    }
+
+    const homeScore =
+      Math.max(
+        0,
+        Number(home.score) || 0
+      );
+
+    const awayScore =
+      Math.max(
+        0,
+        Number(away.score) || 0
+      );
+
+    if (
+      homeScore === awayScore
+    ) {
+      return {
+        success: false,
+        reason:
+          'completed-live-game-still-tied',
+        gameResult: null,
+      };
+    }
+
+    const winnerSide =
+      simulation.winnerSide ||
+      (
+        homeScore > awayScore
+          ? 'home'
+          : 'away'
+      );
+
+    const loserSide =
+      winnerSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const winnerTeamId =
+      winnerSide === 'home'
+        ? home.teamId
+        : away.teamId;
+
+    const loserTeamId =
+      loserSide === 'home'
+        ? home.teamId
+        : away.teamId;
+
+    /*
+     * Live skater lines already contain the exact stats accumulated
+     * during the simulation. Clone them so the permanent result does
+     * not share mutable references with the live simulation.
+     */
+    const homeSkaters =
+      Array.isArray(home.skaters)
+        ? structuredClone(
+            home.skaters
+          )
+        : [];
+
+    const awaySkaters =
+      Array.isArray(away.skaters)
+        ? structuredClone(
+            away.skaters
+          )
+        : [];
+
+    const normalizeGoalieLines =
+      (
+        goalieLines,
+        side
+      ) => {
+        const lines =
+          Array.isArray(goalieLines)
+            ? structuredClone(
+                goalieLines
+              )
+            : [];
+
+        const teamWon =
+          winnerSide === side;
+
+        const teamLost =
+          loserSide === side;
+
+        lines.forEach(
+          goalieLine => {
+            if (!goalieLine) {
+              return;
+            }
+
+            const played =
+              (
+                Number(
+                  goalieLine
+                    .timeOnIceSeconds
+                ) || 0
+              ) > 0 ||
+              goalieLine.started === true;
+
+            goalieLine.gamesPlayed =
+              played
+                ? 1
+                : 0;
+
+            /*
+             * Existing permanent goalie application expects minutes,
+             * while the live engine tracks exact TOI seconds.
+             */
+            goalieLine.minutesPlayed =
+              Math.max(
+                0,
+                Number(
+                  goalieLine
+                    .timeOnIceSeconds
+                ) || 0
+              ) / 60;
+
+            goalieLine.wins =
+              played &&
+              teamWon
+                ? 1
+                : 0;
+
+            goalieLine.losses =
+              played &&
+              teamLost &&
+              simulation
+                .wentToOvertime !== true
+                ? 1
+                : 0;
+
+            goalieLine
+              .overtimeLosses =
+              played &&
+              teamLost &&
+              simulation
+                .wentToOvertime === true
+                ? 1
+                : 0;
+
+            goalieLine.shutout =
+              played &&
+              (
+                side === 'home'
+                  ? awayScore
+                  : homeScore
+              ) === 0;
+          }
+        );
+
+        return lines;
+      };
+
+    const homeGoalies =
+      normalizeGoalieLines(
+        home.goalies,
+        'home'
+      );
+
+    const awayGoalies =
+      normalizeGoalieLines(
+        away.goalies,
+        'away'
+      );
+
+    /*
+     * Any dressed skater in the live roster participated in the game
+     * contract. The permanent stat layer uses gamesPlayed when
+     * calculating performance/progression.
+     */
+    [
+      ...homeSkaters,
+      ...awaySkaters,
+    ].forEach(
+      skaterLine => {
+        if (!skaterLine) {
+          return;
+        }
+
+        skaterLine.gamesPlayed =
+          skaterLine.dressed === false
+            ? 0
+            : 1;
+      }
+    );
+
+    const scoringPlays =
+      Array.isArray(
+        simulation.scoringEvents
+      )
+        ? structuredClone(
+            simulation.scoringEvents
+          )
+        : [];
+
+    const penalties =
+      Array.isArray(
+        simulation.penaltyEvents
+      )
+        ? structuredClone(
+            simulation.penaltyEvents
+          )
+        : [];
+
+    const playByPlay =
+      Array.isArray(
+        simulation.events
+      )
+        ? structuredClone(
+            simulation.events
+          )
+        : [];
+
+    const gameResult = {
+      gameId:
+        simulation.gameId ||
+        null,
+
+      eventId:
+        simulation.gameId ||
+        null,
+
+      date:
+        simulation.date ||
+        null,
+
+      homeTeamId:
+        home.teamId,
+
+      awayTeamId:
+        away.teamId,
+
+      completed: true,
+
+      status:
+        'completed',
+
+      winnerTeamId,
+
+      loserTeamId,
+
+      resultType:
+        simulation.resultType ||
+        (
+          simulation
+            .wentToShootout === true
+            ? 'shootout'
+            : simulation
+                .wentToOvertime === true
+              ? 'overtime'
+              : 'regulation'
+        ),
+
+      wentToOvertime:
+        simulation
+          .wentToOvertime === true,
+
+      wentToShootout:
+        simulation
+          .wentToShootout === true,
+
+      home: {
+        teamId:
+          home.teamId,
+
+        abbreviation:
+          home.abbreviation ||
+          null,
+
+        score:
+          homeScore,
+
+        shots:
+          Number(
+            home.shots
+          ) || 0,
+
+        hits:
+          Number(
+            home.hits
+          ) || 0,
+
+        blockedShots:
+          Number(
+            home.blockedShots
+          ) || 0,
+
+        giveaways:
+          Number(
+            home.giveaways
+          ) || 0,
+
+        takeaways:
+          Number(
+            home.takeaways
+          ) || 0,
+
+        penaltyMinutes:
+          Number(
+            home.penaltyMinutes
+          ) || 0,
+
+        powerPlayOpportunities:
+          Number(
+            home
+              .powerPlayOpportunities
+          ) || 0,
+
+        powerPlayGoals:
+          Number(
+            home.powerPlayGoals
+          ) || 0,
+
+        faceoffWins:
+          Number(
+            home.faceoffWins
+          ) || 0,
+
+        skaters:
+          homeSkaters,
+
+        goalies:
+          homeGoalies,
+      },
+
+      away: {
+        teamId:
+          away.teamId,
+
+        abbreviation:
+          away.abbreviation ||
+          null,
+
+        score:
+          awayScore,
+
+        shots:
+          Number(
+            away.shots
+          ) || 0,
+
+        hits:
+          Number(
+            away.hits
+          ) || 0,
+
+        blockedShots:
+          Number(
+            away.blockedShots
+          ) || 0,
+
+        giveaways:
+          Number(
+            away.giveaways
+          ) || 0,
+
+        takeaways:
+          Number(
+            away.takeaways
+          ) || 0,
+
+        penaltyMinutes:
+          Number(
+            away.penaltyMinutes
+          ) || 0,
+
+        powerPlayOpportunities:
+          Number(
+            away
+              .powerPlayOpportunities
+          ) || 0,
+
+        powerPlayGoals:
+          Number(
+            away.powerPlayGoals
+          ) || 0,
+
+        faceoffWins:
+          Number(
+            away.faceoffWins
+          ) || 0,
+
+        skaters:
+          awaySkaters,
+
+        goalies:
+          awayGoalies,
+      },
+
+      scoringPlays,
+
+      penalties,
+
+      playByPlay,
+
+      shootout:
+        simulation.shootout
+          ? structuredClone(
+              simulation.shootout
+            )
+          : null,
+
+      threeStars: [],
+
+      context: {
+        ...(
+          simulation.context ||
+          {}
+        ),
+      },
+
+      metadata: {
+        simulatedAt:
+          new Date().toISOString(),
+
+        simulationVersion:
+          'live-game-v1',
+      },
+    };
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-result-created',
+
+      gameResult,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — FINALIZATION
+   * ============================================================
+   *
+   * Converts a completed live simulation into its permanent
+   * canonical gameResult exactly once.
+   *
+   * This still does NOT write standings, season stats or the
+   * schedule. It only freezes the finished simulation result.
+   */
+  function finalizeLiveGameSimulation(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        finalized: false,
+        reason:
+          'invalid-live-game-simulation',
+        gameResult: null,
+      };
+    }
+
+    /*
+     * Idempotency guard.
+     *
+     * If this game was already finalized, return the previously
+     * frozen result instead of rebuilding it.
+     */
+    if (
+      simulation.finalized === true &&
+      simulation.finalizedGameResult
+    ) {
+      return {
+        success: true,
+        finalized: false,
+        reason:
+          'live-game-already-finalized',
+
+        gameResult:
+          structuredClone(
+            simulation
+              .finalizedGameResult
+          ),
+      };
+    }
+
+    if (
+      simulation.gameComplete !== true
+    ) {
+      return {
+        success: false,
+        finalized: false,
+        reason:
+          'live-game-not-complete',
+        gameResult: null,
+      };
+    }
+
+    const conversion =
+      createGameResultFromLiveSimulation(
+        simulation
+      );
+
+    if (
+      !conversion ||
+      conversion.success !== true ||
+      !conversion.gameResult
+    ) {
+      return {
+        success: false,
+        finalized: false,
+        reason:
+          conversion?.reason ||
+          'live-game-result-conversion-failed',
+        gameResult: null,
+      };
+    }
+
+    /*
+     * Freeze a detached copy onto the simulation.
+     *
+     * Anything that happens to the returned object afterward
+     * cannot mutate the saved final live-game result.
+     */
+    simulation.finalizedGameResult =
+      structuredClone(
+        conversion.gameResult
+      );
+
+    simulation.finalized =
+      true;
+
+    return {
+      success: true,
+      finalized: true,
+      reason:
+        'live-game-finalized',
+
+      gameResult:
+        structuredClone(
+          simulation
+            .finalizedGameResult
+        ),
     };
   }
   

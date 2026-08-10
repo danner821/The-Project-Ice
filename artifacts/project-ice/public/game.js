@@ -218,6 +218,8 @@ function runLiveGameCalibrationFromUI() {
 
   let completed = 0;
 
+  let canonicalResultsCreated = 0;
+
   const failedGames = [];
 
   for (let i = 0; i < SAMPLE_SIZE; i += 1) {
@@ -318,6 +320,15 @@ function runLiveGameCalibrationFromUI() {
     const away = d.teamStats.away;
 
     completed += 1;
+
+    if (
+      result.diagnostic
+        ?.canonicalResultCreated === true &&
+      result.diagnostic
+        ?.finalized === true
+    ) {
+      canonicalResultsCreated += 1;
+    }
 
     totals.homeGoals += d.finalScore.home;
     totals.awayGoals += d.finalScore.away;
@@ -422,6 +433,7 @@ function runLiveGameCalibrationFromUI() {
       '100-GAME SIM CALIBRATION',
       '',
       `Completed: ${completed}/${SAMPLE_SIZE}`,
+      `Canonical Results: ${canonicalResultsCreated}/${SAMPLE_SIZE}`,
       '',
       'AVERAGE PER TEAM',
 
