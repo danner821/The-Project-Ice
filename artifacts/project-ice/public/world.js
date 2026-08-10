@@ -26883,13 +26883,65 @@ const WorldEngine = (() => {
       };
     }
 
+    /*
+     * ==========================================================
+     * REQUESTED MATCHUP OVERRIDE
+     * ==========================================================
+     *
+     * By default this diagnostic still tests the strongest valid
+     * team against the weakest valid team.
+     *
+     * Gradient diagnostics can instead supply two specific team IDs
+     * while reusing this exact same simulation/testing pipeline.
+     */
+    const requestedStrongTeamId =
+      options.strongTeamId ||
+      null;
+
+    const requestedWeakTeamId =
+      options.weakTeamId ||
+      null;
+
     const strongTeam =
-      rankedTeams[0];
+      requestedStrongTeamId
+        ? rankedTeams.find(
+            entry =>
+              String(
+                entry.teamId
+              ) ===
+              String(
+                requestedStrongTeamId
+              )
+          ) ||
+          null
+        : rankedTeams[0];
 
     const weakTeam =
-      rankedTeams[
-        rankedTeams.length - 1
-      ];
+      requestedWeakTeamId
+        ? rankedTeams.find(
+            entry =>
+              String(
+                entry.teamId
+              ) ===
+              String(
+                requestedWeakTeamId
+              )
+          ) ||
+          null
+        : rankedTeams[
+            rankedTeams.length - 1
+          ];
+
+    if (
+      !strongTeam ||
+      !weakTeam
+    ) {
+      return {
+        success: false,
+        reason:
+          'requested-competitive-diagnostic-team-not-found',
+      };
+    }
 
     if (
       String(
@@ -27483,6 +27535,443 @@ const WorldEngine = (() => {
         failedGames > 0
           ? 'competitive-diagnostic-had-failures'
           : 'competitive-diagnostic-completed',
+
+      report,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — STRENGTH GRADIENT DIAGNOSTIC
+   * ============================================================
+   *
+   * Tests the entire league talent curve rather than only the
+   * strongest team against the weakest team.
+   *
+   * With eight valid teams this produces:
+   *
+   * #1 vs #8
+   * #2 vs #7
+   * #3 vs #6
+   * #4 vs #5
+   *
+   * Every matchup reuses the canonical competitive-balance
+   * diagnostic, including alternating home ice.
+   */
+  function runLiveGameStrengthGradientDiagnostic(
+    options = {}
+  ) {
+    const teams =
+      Array.isArray(
+        _state.teams
+      )
+        ? _state.teams
+        : [];
+
+    const gamesPerMatchup =
+      Math.max(
+        50,
+        Math.min(
+          500,
+          Number(
+            options.gamesPerMatchup
+          ) || 150
+        )
+      );
+
+    /*
+     * Use the exact same diagnostic-quality philosophy as the
+     * competitive-balance test.
+     *
+     * This ranking ONLY chooses matchups.
+     * It does not affect simulation outcomes.
+     */
+    const getTeamQuality =
+      team => {
+        const roster =
+          Array.isArray(
+            team?.roster
+          )
+            ? team.roster
+            : [];
+
+        const activePlayers =
+          roster.filter(
+            player =>
+              player &&
+              (
+                player.lineupStatus ===
+                  'active' ||
+                Boolean(
+                  player.lineupAssignment
+                )
+              )
+          );
+
+        const skaters =
+          activePlayers.filter(
+            player =>
+              normalizeAttributePosition(
+                player.position
+              ) !== 'G'
+          );
+
+        const goalies =
+          activePlayers.filter(
+            player =>
+              normalizeAttributePosition(
+                player.position
+              ) === 'G'
+          );
+
+        if (
+          skaters.length < 10 ||
+          goalies.length === 0
+        ) {
+          return null;
+        }
+
+        const average =
+          entries =>
+            entries.length > 0
+              ? entries.reduce(
+                  (
+                    total,
+                    player
+                  ) =>
+                    total +
+                    (
+                      Number(
+                        player.overall
+                      ) || 50
+                    ),
+                  0
+                ) /
+                entries.length
+              : 50;
+
+        const skaterAverage =
+          average(
+            skaters
+          );
+
+        const goalieAverage =
+          average(
+            goalies.slice(
+              0,
+              2
+            )
+          );
+
+        return {
+          teamId:
+            team.teamId,
+
+          abbreviation:
+            team.abbreviation ||
+            team.teamName ||
+            team.schoolName ||
+            team.teamId,
+
+          quality:
+            skaterAverage *
+              0.78 +
+            goalieAverage *
+              0.22,
+        };
+      };
+
+    const rankedTeams =
+      teams
+        .map(
+          getTeamQuality
+        )
+        .filter(Boolean)
+        .sort(
+          (
+            firstTeam,
+            secondTeam
+          ) =>
+            secondTeam.quality -
+            firstTeam.quality
+        );
+
+    if (
+      rankedTeams.length < 4
+    ) {
+      return {
+        success: false,
+        reason:
+          'not-enough-teams-for-strength-gradient',
+        report: null,
+      };
+    }
+
+    /*
+     * Pair strongest with weakest, second strongest with second
+     * weakest, etc.
+     */
+    const matchupCount =
+      Math.floor(
+        rankedTeams.length / 2
+      );
+
+    const matchups = [];
+
+    let totalCompletedGames = 0;
+    let totalFailedGames = 0;
+
+    for (
+      let index = 0;
+      index < matchupCount;
+      index += 1
+    ) {
+      const higherTeam =
+        rankedTeams[index];
+
+      const lowerTeam =
+        rankedTeams[
+          rankedTeams.length -
+          1 -
+          index
+        ];
+
+      if (
+        !higherTeam ||
+        !lowerTeam ||
+        String(
+          higherTeam.teamId
+        ) ===
+        String(
+          lowerTeam.teamId
+        )
+      ) {
+        continue;
+      }
+
+      const result =
+        runLiveGameCompetitiveBalanceDiagnostic({
+          sampleSize:
+            gamesPerMatchup,
+
+          strongTeamId:
+            higherTeam.teamId,
+
+          weakTeamId:
+            lowerTeam.teamId,
+
+          maxSteps:
+            Number(
+              options.maxSteps
+            ) || 4000,
+        });
+
+      if (
+        !result ||
+        !result.report
+      ) {
+        matchups.push({
+          matchup:
+            index + 1,
+
+          success: false,
+
+          reason:
+            result?.reason ||
+            'gradient-matchup-failed',
+
+          higherTeam:
+            higherTeam.abbreviation,
+
+          lowerTeam:
+            lowerTeam.abbreviation,
+        });
+
+        continue;
+      }
+
+      const report =
+        result.report;
+
+      totalCompletedGames +=
+        Number(
+          report.completedGames
+        ) || 0;
+
+      totalFailedGames +=
+        Number(
+          report.failedGames
+        ) || 0;
+
+      matchups.push({
+        matchup:
+          index + 1,
+
+        success:
+          result.success === true,
+
+        higherRank:
+          index + 1,
+
+        lowerRank:
+          rankedTeams.length -
+          index,
+
+        higherTeam:
+          report
+            .strongTeam
+            .abbreviation,
+
+        lowerTeam:
+          report
+            .weakTeam
+            .abbreviation,
+
+        higherQuality:
+          report
+            .strongTeam
+            .diagnosticQuality,
+
+        lowerQuality:
+          report
+            .weakTeam
+            .diagnosticQuality,
+
+        qualityGap:
+          Number(
+            (
+              report
+                .strongTeam
+                .diagnosticQuality -
+              report
+                .weakTeam
+                .diagnosticQuality
+            ).toFixed(2)
+          ),
+
+        higherWinRate:
+          report
+            .strongTeam
+            .winRate,
+
+        lowerWinRate:
+          report
+            .weakTeam
+            .winRate,
+
+        higherGoalsPerGame:
+          report
+            .strongTeam
+            .goalsPerGame,
+
+        lowerGoalsPerGame:
+          report
+            .weakTeam
+            .goalsPerGame,
+
+        goalDifferentialPerGame:
+          report
+            .goalDifferentialPerGame,
+
+        higherShotsPerGame:
+          report
+            .strongTeam
+            .shotsPerGame,
+
+        lowerShotsPerGame:
+          report
+            .weakTeam
+            .shotsPerGame,
+
+        shotDifferentialPerGame:
+          report
+            .shotDifferentialPerGame,
+
+        higherPowerPlayPercentage:
+          report
+            .strongTeam
+            .powerPlayPercentage,
+
+        lowerPowerPlayPercentage:
+          report
+            .weakTeam
+            .powerPlayPercentage,
+
+        overtimeRate:
+          report.overtimeRate,
+
+        shootoutRate:
+          report.shootoutRate,
+
+        completedGames:
+          report.completedGames,
+
+        failedGames:
+          report.failedGames,
+      });
+    }
+
+    const successfulMatchups =
+      matchups.filter(
+        matchup =>
+          matchup.success === true
+      );
+
+    const report = {
+      gamesPerMatchup,
+
+      matchupCount:
+        matchups.length,
+
+      successfulMatchups:
+        successfulMatchups.length,
+
+      totalCompletedGames,
+
+      totalFailedGames,
+
+      rankings:
+        rankedTeams.map(
+          (
+            team,
+            index
+          ) => ({
+            rank:
+              index + 1,
+
+            abbreviation:
+              team.abbreviation,
+
+            quality:
+              Number(
+                team.quality.toFixed(
+                  2
+                )
+              ),
+          })
+        ),
+
+      matchups,
+    };
+
+    console.log(
+      '[Project Ice] Strength Gradient Diagnostic',
+      report
+    );
+
+    return {
+      success:
+        successfulMatchups.length ===
+          matchups.length &&
+        totalFailedGames === 0,
+
+      reason:
+        totalFailedGames > 0
+          ? 'strength-gradient-had-failures'
+          : successfulMatchups.length !==
+              matchups.length
+            ? 'strength-gradient-matchup-failed'
+            : 'strength-gradient-completed',
 
       report,
     };
@@ -36140,6 +36629,7 @@ const WorldEngine = (() => {
     advanceLiveGameStep,
     runLiveGameSimulationDiagnostic,
     runLiveGameCompetitiveBalanceDiagnostic,
+    runLiveGameStrengthGradientDiagnostic,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
     repairCompletedGameDevelopment,

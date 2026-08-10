@@ -740,10 +740,143 @@ function ensureHubLiveGameDiagnosticButton() {
       }
     );
 
-    document.body.appendChild(
-      competitiveButton
+document.body.appendChild(
+  competitiveButton
+);
+}
+
+/*
+* ============================================================
+* DEV — STRENGTH GRADIENT DIAGNOSTIC BUTTON
+* ============================================================
+*/
+const existingGradientButton =
+document.getElementById(
+  'hub-strength-gradient-diagnostic'
+);
+
+if (!existingGradientButton) {
+const gradientButton =
+  document.createElement(
+    'button'
+  );
+
+gradientButton.id =
+  'hub-strength-gradient-diagnostic';
+
+gradientButton.type =
+  'button';
+
+gradientButton.textContent =
+  '📈 Strength Gradient Test';
+
+gradientButton.style.cssText = `
+  position: fixed;
+  right: 18px;
+  bottom: 204px;
+  z-index: 9999;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 227, 168, 0.75);
+  background: rgba(12, 54, 35, 0.96);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+`;
+
+gradientButton.addEventListener(
+  'click',
+  () => {
+    gradientButton.disabled =
+      true;
+
+    const originalText =
+      gradientButton.textContent;
+
+    gradientButton.textContent =
+      '📈 Running 600 Games...';
+
+    setTimeout(
+      () => {
+        const result =
+          WorldEngine
+            .runLiveGameStrengthGradientDiagnostic({
+              gamesPerMatchup: 150,
+            });
+
+        gradientButton.disabled =
+          false;
+
+        gradientButton.textContent =
+          originalText;
+
+        if (
+          !result ||
+          result.success !== true ||
+          !result.report
+        ) {
+          console.error(
+            '[Project Ice] Strength gradient diagnostic failed:',
+            result
+          );
+
+          alert(
+            `Strength gradient diagnostic failed: ${
+              result?.reason ||
+              'unknown-error'
+            }`
+          );
+
+          return;
+        }
+
+        const report =
+          result.report;
+
+        const matchupLines =
+          report.matchups.map(
+            matchup => [
+              `#${matchup.higherRank} ${matchup.higherTeam} vs #${matchup.lowerRank} ${matchup.lowerTeam}`,
+              `Quality: ${matchup.higherQuality} - ${matchup.lowerQuality}`,
+              `Gap: ${matchup.qualityGap}`,
+              `Win Rate: ${matchup.higherWinRate}% - ${matchup.lowerWinRate}%`,
+              `Goals/Game: ${matchup.higherGoalsPerGame} - ${matchup.lowerGoalsPerGame}`,
+              `Shots/Game: ${matchup.higherShotsPerGame} - ${matchup.lowerShotsPerGame}`,
+              `Goal Diff/Game: ${matchup.goalDifferentialPerGame}`,
+              `Shot Diff/Game: ${matchup.shotDifferentialPerGame}`,
+              `PP%: ${matchup.higherPowerPlayPercentage}% - ${matchup.lowerPowerPlayPercentage}%`,
+              `OT: ${matchup.overtimeRate}%`,
+              `SO: ${matchup.shootoutRate}%`,
+            ].join('\n')
+          );
+
+        alert(
+          [
+            'STRENGTH GRADIENT TEST',
+            '',
+            `Games Per Matchup: ${report.gamesPerMatchup}`,
+            `Completed: ${report.totalCompletedGames}`,
+            `Failed: ${report.totalFailedGames}`,
+            '',
+            ...matchupLines.flatMap(
+              line => [
+                line,
+                '',
+              ]
+            ),
+          ].join('\n')
+        );
+      },
+      50
     );
   }
+);
+
+document.body.appendChild(
+  gradientButton
+);
+}
 }
 
 
