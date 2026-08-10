@@ -17807,7 +17807,7 @@ const WorldEngine = (() => {
             ) * 0.20 +
             (
               Number(
-                attributes.poise
+                attributes.composure
               ) || 50
             ) * 0.15
           )
@@ -18714,6 +18714,115 @@ const WorldEngine = (() => {
     }
 
     /*
+     * ==========================================================
+     * POWER-PLAY EVENT PRESSURE
+     * ==========================================================
+     *
+     * Once the PP has established possession, its actual personnel,
+     * the opposing PK personnel, and the manpower advantage influence
+     * how frequently dangerous offensive events develop.
+     *
+     * We increase shot/possession pressure rather than directly
+     * increasing goal probability.
+     *
+     * That keeps goaltending and individual finishing responsible
+     * for whether the chance actually becomes a goal.
+     */
+    const specialTeamsMatchup =
+      getLiveGameSpecialTeamsMatchup(
+        simulation
+      );
+
+    if (
+      specialTeamsMatchup?.success === true &&
+      flow.possessionSide ===
+        specialTeamsMatchup.powerPlaySide
+    ) {
+      const specialTeamsAdvantage =
+        Math.max(
+          -20,
+          Math.min(
+            30,
+            Number(
+              specialTeamsMatchup
+                .totalAdvantage
+            ) || 0
+          )
+        );
+
+      /*
+       * Average 5-on-4:
+       * meaningful increase in shot creation.
+       *
+       * Elite PP / poor PK:
+       * larger increase.
+       *
+       * Weak PP / elite PK:
+       * advantage can be substantially suppressed.
+       */
+      const shotWeightBonus =
+        Math.max(
+          4,
+          Math.min(
+            22,
+            8 +
+            specialTeamsAdvantage *
+              0.40
+          )
+        );
+
+      const possessionWeightBonus =
+        Math.max(
+          2,
+          Math.min(
+            12,
+            4 +
+            specialTeamsAdvantage *
+              0.20
+          )
+        );
+
+      weights['shot-attempt'] +=
+        shotWeightBonus;
+
+      weights['possession-advance'] +=
+        possessionWeightBonus;
+
+      /*
+       * Power plays generally spend less established-zone time in
+       * low-event hockey than ordinary even-strength possessions.
+       */
+      weights['quiet-play'] -=
+        Math.max(
+          2,
+          Math.min(
+            8,
+            3 +
+            specialTeamsAdvantage *
+              0.10
+          )
+        );
+
+      /*
+       * Two-man advantages should feel substantially more dangerous
+       * without turning every event into a shot.
+       */
+      if (
+        specialTeamsMatchup
+          .manpowerAdvantage >= 2
+      ) {
+        weights['shot-attempt'] +=
+          7;
+
+        weights['possession-advance'] +=
+          3;
+
+        weights['quiet-play'] -=
+          3;
+      }
+    }
+
+    /*
      * Normalize impossible negative weights.
      */
     Object.keys(
@@ -19147,6 +19256,351 @@ const WorldEngine = (() => {
 
   /*
    * ============================================================
+   * LIVE GAME — SPECIAL TEAMS MATCHUP PROFILE
+   * ============================================================
+   *
+   * Evaluates the actual PP and PK players currently deployed.
+   *
+   * This is intentionally attribute-driven rather than using a
+   * generic team-strength modifier.
+   *
+   * Power-play quality emphasizes:
+   * - puck movement
+   * - offensive awareness
+   * - puck control
+   * - shooting threat
+   *
+   * Penalty-kill quality emphasizes:
+   * - defensive awareness
+   * - stick checking
+   * - skating
+   * - shot blocking
+   *
+   * Manpower advantage is handled separately so having an extra
+   * skater matters even when the two units have similar ratings.
+   */
+  function getLiveGameSpecialTeamsMatchup(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object' ||
+      !simulation.flow ||
+      !simulation.specialTeams
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-special-teams-matchup-state',
+      };
+    }
+
+    const specialTeams =
+      simulation.specialTeams;
+
+    if (
+      specialTeams.situation !==
+        'power-play' ||
+      (
+        specialTeams.powerPlaySide !==
+          'home' &&
+        specialTeams.powerPlaySide !==
+          'away'
+      )
+    ) {
+      return {
+        success: false,
+        reason:
+          'no-active-power-play',
+      };
+    }
+
+    const powerPlaySide =
+      specialTeams.powerPlaySide;
+
+    const penaltyKillSide =
+      specialTeams.penaltyKillSide;
+
+    const powerPlayDeployment =
+      powerPlaySide === 'home'
+        ? simulation.flow
+            .homeDeployment
+        : simulation.flow
+            .awayDeployment;
+
+    const penaltyKillDeployment =
+      penaltyKillSide === 'home'
+        ? simulation.flow
+            .homeDeployment
+        : simulation.flow
+            .awayDeployment;
+
+    const powerPlaySkaters =
+      Array.isArray(
+        powerPlayDeployment
+          ?.skaters
+      )
+        ? powerPlayDeployment.skaters
+        : [];
+
+    const penaltyKillSkaters =
+      Array.isArray(
+        penaltyKillDeployment
+          ?.skaters
+      )
+        ? penaltyKillDeployment.skaters
+        : [];
+
+    if (
+      powerPlaySkaters.length === 0 ||
+      penaltyKillSkaters.length === 0
+    ) {
+      return {
+        success: false,
+        reason:
+          'special-teams-players-missing',
+      };
+    }
+
+    const average =
+      values => {
+        if (
+          !Array.isArray(values) ||
+          values.length === 0
+        ) {
+          return 50;
+        }
+
+        return (
+          values.reduce(
+            (sum, value) =>
+              sum +
+              (
+                Number(value) ||
+                50
+              ),
+            0
+          ) /
+          values.length
+        );
+      };
+
+    const getAttributes =
+      player =>
+        getPlayerById(
+          player?.playerId
+        )?.attributes ||
+        {};
+
+    /*
+     * ==========================================================
+     * POWER-PLAY QUALITY
+     * ==========================================================
+     */
+    const powerPlayRatings =
+      powerPlaySkaters.map(
+        player => {
+          const attributes =
+            getAttributes(
+              player
+            );
+
+          const shotThreat =
+            (
+              (
+                Number(
+                  attributes
+                    .wristShotAccuracy
+                ) || 50
+              ) +
+              (
+                Number(
+                  attributes
+                    .slapShotAccuracy
+                ) || 50
+              )
+            ) / 2;
+
+          return (
+            (
+              Number(
+                attributes.passing
+              ) || 50
+            ) * 0.27 +
+            (
+              Number(
+                attributes
+                  .offensiveAwareness
+              ) || 50
+            ) * 0.23 +
+            (
+              Number(
+                attributes
+                  .puckControl
+              ) || 50
+            ) * 0.20 +
+            shotThreat * 0.18 +
+            (
+              Number(
+                attributes.poise
+              ) || 50
+            ) * 0.12
+          );
+        }
+      );
+
+    /*
+     * ==========================================================
+     * PENALTY-KILL QUALITY
+     * ==========================================================
+     */
+    const penaltyKillRatings =
+      penaltyKillSkaters.map(
+        player => {
+          const attributes =
+            getAttributes(
+              player
+            );
+
+          return (
+            (
+              Number(
+                attributes
+                  .defensiveAwareness
+              ) || 50
+            ) * 0.30 +
+            (
+              Number(
+                attributes
+                  .stickChecking
+              ) || 50
+            ) * 0.24 +
+            (
+              Number(
+                attributes
+                  .shotBlocking
+              ) || 50
+            ) * 0.18 +
+            (
+              Number(
+                attributes.agility
+              ) || 50
+            ) * 0.10 +
+            (
+              Number(
+                attributes.speed
+              ) || 50
+            ) * 0.10 +
+            (
+              Number(
+                attributes.poise
+              ) || 50
+            ) * 0.08
+          );
+        }
+      );
+
+    const powerPlayRating =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          average(
+            powerPlayRatings
+          )
+        )
+      );
+
+    const penaltyKillRating =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          average(
+            penaltyKillRatings
+          )
+        )
+      );
+
+    /*
+     * Attribute advantage before accounting for the actual
+     * numerical manpower edge.
+     */
+    const skillAdvantage =
+      powerPlayRating -
+      penaltyKillRating;
+
+    const powerPlaySkaterCount =
+      powerPlaySide === 'home'
+        ? Number(
+            specialTeams
+              .homeSkaters
+          ) || 5
+        : Number(
+            specialTeams
+              .awaySkaters
+          ) || 5;
+
+    const penaltyKillSkaterCount =
+      penaltyKillSide === 'home'
+        ? Number(
+            specialTeams
+              .homeSkaters
+          ) || 4
+        : Number(
+            specialTeams
+              .awaySkaters
+          ) || 4;
+
+    const manpowerAdvantage =
+      Math.max(
+        0,
+        powerPlaySkaterCount -
+        penaltyKillSkaterCount
+      );
+
+    /*
+     * One extra skater should matter substantially.
+     * A two-man advantage should be even more dangerous without
+     * making scoring or zone possession automatic.
+     */
+    const manpowerBonus =
+      manpowerAdvantage === 1
+        ? 9
+        : manpowerAdvantage >= 2
+          ? 16
+          : 0;
+
+    const totalAdvantage =
+      skillAdvantage +
+      manpowerBonus;
+
+    return {
+      success: true,
+
+      reason:
+        'special-teams-matchup-created',
+
+      powerPlaySide,
+      penaltyKillSide,
+
+      powerPlayRating,
+      penaltyKillRating,
+
+      skillAdvantage,
+
+      manpowerAdvantage,
+      manpowerBonus,
+
+      totalAdvantage,
+
+      powerPlaySkaterCount,
+      penaltyKillSkaterCount,
+    };
+  }
+
+  /*
+   * ============================================================
    * LIVE GAME — POSSESSION MATCHUP PROFILE
    * ============================================================
    *
@@ -19404,23 +19858,77 @@ const WorldEngine = (() => {
         )
       );
 
-    const advantage =
-      possessionRating -
-      defensiveRating;
+      /*
+       * Base even-strength attribute matchup.
+       */
+      const baseAdvantage =
+        possessionRating -
+        defensiveRating;
 
-    return {
-      success: true,
+      /*
+       * ==========================================================
+       * POWER-PLAY POSSESSION MODIFIER
+       * ==========================================================
+       *
+       * When the team with possession owns the active power play,
+       * blend in the dedicated PP-vs-PK matchup.
+       *
+       * This means:
+       *
+       * - elite PP units enter and sustain the zone better
+       * - elite PK units can meaningfully suppress that advantage
+       * - the extra skater matters without becoming an automatic win
+       *
+       * We deliberately do NOT invert this when the PK gains the puck.
+       * PK possession will get dedicated clearance logic separately.
+       */
+      let specialTeamsAdjustment =
+        0;
 
-      reason:
-        'possession-matchup-created',
+      const specialTeamsMatchup =
+        getLiveGameSpecialTeamsMatchup(
+          simulation
+        );
 
-      possessionSide,
-      defendingSide,
+      if (
+        specialTeamsMatchup?.success === true &&
+        specialTeamsMatchup.powerPlaySide ===
+          possessionSide
+      ) {
+        specialTeamsAdjustment =
+          Math.max(
+            -12,
+            Math.min(
+              18,
+              Number(
+                specialTeamsMatchup
+                  .totalAdvantage
+              ) * 0.55
+            )
+          );
+      }
 
-      possessionRating,
-      defensiveRating,
+      const advantage =
+        baseAdvantage +
+        specialTeamsAdjustment;
 
-      advantage,
+      return {
+        success: true,
+
+        reason:
+          'possession-matchup-created',
+
+        possessionSide,
+        defendingSide,
+
+        possessionRating,
+        defensiveRating,
+
+        baseAdvantage,
+
+        specialTeamsAdjustment,
+
+        advantage,
 
       possessingSkaterCount:
         possessingSkaters.length,
@@ -19638,6 +20146,27 @@ const WorldEngine = (() => {
           )
         : 0;
 
+    /*
+     * ==========================================================
+     * PENALTY-KILL CLEARANCE CONTEXT
+     * ==========================================================
+     *
+     * When the shorthanded team gains the puck in its defensive
+     * zone, its primary objective is often to clear the puck and
+     * force the PP to restart from deep in its own end.
+     */
+    const specialTeamsMatchup =
+      getLiveGameSpecialTeamsMatchup(
+        simulation
+      );
+
+    const isPenaltyKillPossession =
+      specialTeamsMatchup
+        ?.success === true &&
+      specialTeamsMatchup
+        .penaltyKillSide ===
+        possessionSide;
+
     let nextZone =
       currentZone;
 
@@ -19661,6 +20190,141 @@ const WorldEngine = (() => {
       currentZone ===
       'defensive'
     ) {
+      /*
+       * ========================================================
+       * PENALTY-KILL CLEAR
+       * ========================================================
+       *
+       * Successful clear:
+       *
+       * PK sends the puck the length of the ice.
+       * PP retrieves it in its own defensive zone and must rebuild.
+       *
+       * Better PK units clear more effectively.
+       * Better PP units and a two-man advantage make clearing harder.
+       */
+      if (
+        isPenaltyKillPossession
+      ) {
+        const pkClearChance =
+          Math.max(
+            0.34,
+            Math.min(
+              0.78,
+              0.58 -
+              (
+                Number(
+                  specialTeamsMatchup
+                    .totalAdvantage
+                ) || 0
+              ) * 0.0045
+            )
+          );
+
+        if (
+          Math.random() <
+          pkClearChance
+        ) {
+          nextPossessionSide =
+            defendingSide;
+
+          /*
+           * Possession has changed to the PP team.
+           *
+           * From the PP team's perspective, it is now retrieving the
+           * cleared puck in its own defensive zone.
+           */
+          nextZone =
+            'defensive';
+
+          paceContext =
+            'quiet';
+
+          outcome =
+            'penalty-kill-clear';
+
+          flow.pressureLevel =
+            0;
+
+          flow.recentPossessionTouches =
+            [];
+
+          flow.possessionSide =
+            nextPossessionSide;
+
+          flow.zone =
+            nextZone;
+
+          flow.paceContext =
+            paceContext;
+
+          flow.lastEventType =
+            'penalty-kill-clear';
+
+          flow.lastEventSide =
+            possessionSide;
+
+          const event = {
+            id:
+              `live-event-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`,
+
+            type:
+              'penalty-kill-clear',
+
+            period:
+              simulation.period,
+
+            clockSecondsRemaining:
+              simulation
+                .clockSecondsRemaining,
+
+            clearingSide:
+              possessionSide,
+
+            powerPlaySide:
+              defendingSide,
+
+            possessionChanged:
+              true,
+
+            clearChance:
+              pkClearChance,
+
+            penaltyKillRating:
+              specialTeamsMatchup
+                .penaltyKillRating,
+
+            powerPlayRating:
+              specialTeamsMatchup
+                .powerPlayRating,
+          };
+
+          simulation.events.push(
+            event
+          );
+
+          return {
+            success: true,
+
+            reason:
+              'live-game-penalty-kill-clear',
+
+            event,
+
+            possessionSide:
+              nextPossessionSide,
+
+            zone:
+              nextZone,
+
+            outcome,
+
+            paceContext,
+          };
+        }
+      }
       /*
        * Base:
        * 68% clean breakout
@@ -20150,6 +20814,510 @@ const WorldEngine = (() => {
 
   /*
    * ============================================================
+   * LIVE GAME — GOALIE SAVE PROFILE
+   * ============================================================
+   *
+   * Builds an attribute-driven profile for the goalie currently
+   * facing a live shot.
+   *
+   * Overall is deliberately NOT used as a hidden save modifier.
+   * A goalie succeeds because the goalie attributes that make up
+   * his game are actually strong.
+   *
+   * Shot-location-specific ratings such as glove / blocker /
+   * five-hole will be layered in when shot types and locations
+   * are added.
+   */
+  function getLiveGameGoalieSaveProfile(
+    goalieLine
+  ) {
+    if (
+      !goalieLine ||
+      !goalieLine.playerId
+    ) {
+      return {
+        success: false,
+        reason:
+          'goalie-line-missing',
+      };
+    }
+
+    const canonicalGoalie =
+      getPlayerById(
+        goalieLine.playerId
+      );
+
+    if (!canonicalGoalie) {
+      return {
+        success: false,
+        reason:
+          'canonical-goalie-missing',
+      };
+    }
+
+    const attributes =
+      canonicalGoalie
+        .attributes ||
+      {};
+
+    const clampRating =
+      value =>
+        Math.max(
+          25,
+          Math.min(
+            99,
+            Number(value) || 50
+          )
+        );
+
+    const reflexes =
+      clampRating(
+        attributes.reflexes
+      );
+
+    const puckTracking =
+      clampRating(
+        attributes.puckTracking
+      );
+
+    const positioning =
+      clampRating(
+        attributes.positioning
+      );
+
+    const lateralMovement =
+      clampRating(
+        attributes.lateralMovement
+      );
+
+    const anticipation =
+      clampRating(
+        attributes.anticipation
+      );
+
+    const composure =
+      clampRating(
+        attributes.composure
+      );
+
+    const consistency =
+      clampRating(
+        attributes.consistency
+      );
+
+    const reboundControl =
+      clampRating(
+        attributes.reboundControl
+      );
+
+    /*
+     * ==========================================================
+     * CORE SAVE ABILITY
+     * ==========================================================
+     *
+     * Reflexes and tracking matter most on ordinary live shots.
+     * Positioning keeps the goalie structurally sound.
+     * Lateral movement matters when play moves across the ice.
+     * Anticipation and composure represent reading the attack.
+     * Consistency adds a smaller stabilizing component.
+     */
+    const saveAbility =
+      reflexes * 0.22 +
+      puckTracking * 0.20 +
+      positioning * 0.18 +
+      lateralMovement * 0.13 +
+      anticipation * 0.11 +
+      composure * 0.09 +
+      consistency * 0.07;
+
+    /*
+     * Rebound prevention deserves its own rating because making
+     * the initial save and controlling the rebound are different
+     * goalie skills.
+     */
+    const reboundAbility =
+      reboundControl * 0.55 +
+      positioning * 0.15 +
+      puckTracking * 0.12 +
+      composure * 0.10 +
+      reflexes * 0.08;
+
+    /*
+     * Scramble ability becomes especially useful following rebounds
+     * or chaotic net-front sequences.
+     */
+    const scrambleAbility =
+      reflexes * 0.28 +
+      lateralMovement * 0.22 +
+      puckTracking * 0.18 +
+      composure * 0.14 +
+      anticipation * 0.10 +
+      positioning * 0.08;
+
+    return {
+      success: true,
+
+      reason:
+        'goalie-save-profile-created',
+
+      playerId:
+        goalieLine.playerId,
+
+      saveAbility:
+        Math.max(
+          25,
+          Math.min(
+            99,
+            saveAbility
+          )
+        ),
+
+      reboundAbility:
+        Math.max(
+          25,
+          Math.min(
+            99,
+            reboundAbility
+          )
+        ),
+
+      scrambleAbility:
+        Math.max(
+          25,
+          Math.min(
+            99,
+            scrambleAbility
+          )
+        ),
+
+      attributes: {
+        reflexes,
+        puckTracking,
+        positioning,
+        lateralMovement,
+        anticipation,
+        composure,
+        consistency,
+        reboundControl,
+      },
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — SHOT TYPE SELECTION
+   * ============================================================
+   *
+   * Chooses the type of shot created by the current possession.
+   *
+   * This does NOT resolve whether the shot is blocked, missed,
+   * saved or scored. It only determines what kind of chance the
+   * attacking player is attempting.
+   */
+  function selectLiveGameShotType(
+    simulation,
+    shooter
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object' ||
+      !simulation.flow ||
+      !shooter
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-shot-type-selection',
+        shotType: null,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    const canonicalShooter =
+      getPlayerById(
+        shooter.playerId
+      );
+
+    const attributes =
+      canonicalShooter
+        ?.attributes ||
+      {};
+
+    const wristAccuracy =
+      Number(
+        attributes
+          .wristShotAccuracy
+      ) || 50;
+
+    const slapAccuracy =
+      Number(
+        attributes
+          .slapShotAccuracy
+      ) || 50;
+
+    const slapPower =
+      Number(
+        attributes
+          .slapShotPower
+      ) || 50;
+
+    const handEye =
+      Number(
+        attributes.handEye
+      ) || 50;
+
+    const puckControl =
+      Number(
+        attributes.puckControl
+      ) || 50;
+
+    const offensiveAwareness =
+      Number(
+        attributes
+          .offensiveAwareness
+      ) || 50;
+
+    const paceContext =
+      flow.paceContext ||
+      'normal';
+
+    const zone =
+      flow.zone ||
+      'neutral';
+
+    /*
+     * Base shot-type weights.
+     *
+     * These are intentionally broad starting values and will be
+     * calibrated after we validate player-type differentiation.
+     */
+    const weights = {
+      wrist: 44,
+      snap: 22,
+      slap: 13,
+      'one-timer': 8,
+      deflection: 5,
+      rebound: 5,
+      breakaway: 3,
+    };
+
+    /*
+     * Rebound context should strongly favor immediate follow-up
+     * chances rather than ordinary perimeter shots.
+     */
+    if (
+      paceContext ===
+      'rebound'
+    ) {
+      weights.rebound +=
+        34;
+
+      weights.deflection +=
+        8;
+
+      weights.wrist -=
+        15;
+
+      weights.snap -=
+        8;
+
+      weights.slap -=
+        8;
+    }
+
+    /*
+     * Net-front scramble:
+     * more tips, rebounds and quick-release shots.
+     */
+    if (
+      paceContext ===
+      'scramble'
+    ) {
+      weights.rebound +=
+        18;
+
+      weights.deflection +=
+        15;
+
+      weights.snap +=
+        6;
+
+      weights.slap -=
+        7;
+    }
+
+    /*
+     * Transition hockey creates more rush / quick-release chances.
+     */
+    if (
+      paceContext ===
+      'transition'
+    ) {
+      weights.snap +=
+        7;
+
+      weights.breakaway +=
+        5;
+
+      weights.slap -=
+        3;
+    }
+
+    /*
+     * Established offensive-zone possession creates more point
+     * shots and cross-ice setup opportunities.
+     */
+    if (
+      zone === 'offensive' &&
+      (
+        paceContext ===
+          'offensive-zone' ||
+        (
+          Number(
+            flow.pressureLevel
+          ) || 0
+        ) >= 2
+      )
+    ) {
+      weights.slap +=
+        5;
+
+      weights['one-timer'] +=
+        6;
+
+      weights.deflection +=
+        3;
+    }
+
+    /*
+     * Shooter skill can influence what chances they tend to create.
+     *
+     * This is NOT an archetype bonus. It comes directly from the
+     * player's actual attributes.
+     */
+    weights.slap +=
+      Math.max(
+        0,
+        (
+          slapPower +
+          slapAccuracy
+        ) / 2 -
+        65
+      ) * 0.12;
+
+    weights.deflection +=
+      Math.max(
+        0,
+        handEye - 65
+      ) * 0.10;
+
+    weights['one-timer'] +=
+      Math.max(
+        0,
+        (
+          offensiveAwareness +
+          wristAccuracy
+        ) / 2 -
+        68
+      ) * 0.10;
+
+    weights.breakaway +=
+      Math.max(
+        0,
+        (
+          puckControl +
+          offensiveAwareness
+        ) / 2 -
+        72
+      ) * 0.07;
+
+    Object.keys(
+      weights
+    ).forEach(
+      shotType => {
+        weights[shotType] =
+          Math.max(
+            0,
+            Number(
+              weights[shotType]
+            ) || 0
+          );
+      }
+    );
+
+    const entries =
+      Object.entries(
+        weights
+      )
+        .filter(
+          ([, weight]) =>
+            weight > 0
+        );
+
+    const totalWeight =
+      entries.reduce(
+        (
+          total,
+          [, weight]
+        ) =>
+          total + weight,
+        0
+      );
+
+    if (
+      totalWeight <= 0
+    ) {
+      return {
+        success: true,
+        reason:
+          'shot-type-defaulted',
+        shotType:
+          'wrist',
+        weights,
+      };
+    }
+
+    let roll =
+      Math.random() *
+      totalWeight;
+
+    let shotType =
+      entries[0][0];
+
+    for (
+      const [
+        candidateType,
+        weight,
+      ] of entries
+    ) {
+      roll -= weight;
+
+      if (
+        roll <= 0
+      ) {
+        shotType =
+          candidateType;
+
+        break;
+      }
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'shot-type-selected',
+
+      shotType,
+
+      weights,
+    };
+  }
+
+  /*
+   * ============================================================
    * LIVE GAME — SHOT ATTEMPT RESOLUTION
    * ============================================================
    *
@@ -20398,41 +21566,248 @@ const WorldEngine = (() => {
         ?.attributes ||
       {};
 
-    const shotAccuracy =
+    const shotTypeSelection =
+      selectLiveGameShotType(
+        simulation,
+        shooter
+      );
+
+    if (
+      !shotTypeSelection ||
+      shotTypeSelection.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          shotTypeSelection?.reason ||
+          'shot-type-selection-failed',
+        event: null,
+      };
+    }
+
+    const shotType =
+      shotTypeSelection.shotType ||
+      'wrist';
+
+    /*
+     * ==========================================================
+     * SHOT-TYPE ATTRIBUTE PROFILE
+     * ==========================================================
+     *
+     * Different shot types emphasize different skills.
+     * Overall is never used as a hidden finishing modifier.
+     */
+    const wristAccuracy =
+      Number(
+        shooterAttributes
+          .wristShotAccuracy
+      ) || 50;
+
+    const wristPower =
+      Number(
+        shooterAttributes
+          .wristShotPower
+      ) || 50;
+
+    const slapAccuracy =
+      Number(
+        shooterAttributes
+          .slapShotAccuracy
+      ) || 50;
+
+    const slapPower =
+      Number(
+        shooterAttributes
+          .slapShotPower
+      ) || 50;
+
+    const handEye =
+      Number(
+        shooterAttributes.handEye
+      ) || 50;
+
+    const puckControl =
+      Number(
+        shooterAttributes
+          .puckControl
+      ) || 50;
+
+    const deking =
+      Number(
+        shooterAttributes.deking
+      ) || 50;
+
+    const offensiveAwareness =
+      Number(
+        shooterAttributes
+          .offensiveAwareness
+      ) || 50;
+
+    let shotAccuracy =
+      wristAccuracy;
+
+    let shotPower =
+      wristPower;
+
+    let finishingAbility =
+      (
+        wristAccuracy * 0.58 +
+        wristPower * 0.17 +
+        offensiveAwareness *
+          0.25
+      );
+
+    switch (shotType) {
+      case 'snap':
+        shotAccuracy =
+          wristAccuracy * 0.72 +
+          puckControl * 0.18 +
+          offensiveAwareness *
+            0.10;
+
+        shotPower =
+          wristPower * 0.82 +
+          slapPower * 0.18;
+
+        finishingAbility =
+          shotAccuracy * 0.55 +
+          shotPower * 0.18 +
+          offensiveAwareness *
+            0.27;
+        break;
+
+      case 'slap':
+        shotAccuracy =
+          slapAccuracy;
+
+        shotPower =
+          slapPower;
+
+        finishingAbility =
+          slapAccuracy * 0.46 +
+          slapPower * 0.34 +
+          offensiveAwareness *
+            0.20;
+        break;
+
+      case 'one-timer':
+        shotAccuracy =
+          (
+            wristAccuracy *
+              0.38 +
+            slapAccuracy *
+              0.32 +
+            offensiveAwareness *
+              0.20 +
+            handEye *
+              0.10
+          );
+
+        shotPower =
+          wristPower * 0.35 +
+          slapPower * 0.65;
+
+        finishingAbility =
+          shotAccuracy * 0.48 +
+          shotPower * 0.27 +
+          offensiveAwareness *
+            0.15 +
+          handEye * 0.10;
+        break;
+
+      case 'deflection':
+        shotAccuracy =
+          handEye * 0.52 +
+          offensiveAwareness *
+            0.30 +
+          wristAccuracy * 0.18;
+
+        shotPower =
+          48 +
+          handEye * 0.30;
+
+        finishingAbility =
+          handEye * 0.48 +
+          offensiveAwareness *
+            0.32 +
+          wristAccuracy * 0.20;
+        break;
+
+      case 'rebound':
+        shotAccuracy =
+          wristAccuracy * 0.34 +
+          handEye * 0.30 +
+          offensiveAwareness *
+            0.24 +
+          puckControl * 0.12;
+
+        shotPower =
+          wristPower * 0.60 +
+          handEye * 0.20 +
+          puckControl * 0.20;
+
+        finishingAbility =
+          shotAccuracy * 0.44 +
+          offensiveAwareness *
+            0.26 +
+          handEye * 0.20 +
+          puckControl * 0.10;
+        break;
+
+      case 'breakaway':
+        shotAccuracy =
+          wristAccuracy * 0.32 +
+          deking * 0.30 +
+          puckControl * 0.22 +
+          offensiveAwareness *
+            0.16;
+
+        shotPower =
+          wristPower * 0.65 +
+          puckControl * 0.20 +
+          deking * 0.15;
+
+        finishingAbility =
+          deking * 0.30 +
+          puckControl * 0.25 +
+          wristAccuracy * 0.23 +
+          offensiveAwareness *
+            0.22;
+        break;
+
+      case 'wrist':
+      default:
+        break;
+    }
+
+    /*
+     * Keep all derived ratings inside the same scale as the rest
+     * of the simulation.
+     */
+    shotAccuracy =
       Math.max(
         25,
         Math.min(
           99,
-          (
-            Number(
-              shooterAttributes
-                .wristShotAccuracy
-            ) || 50
-          ) * 0.65 +
-          (
-            Number(
-              shooterAttributes
-                .offensiveAwareness
-            ) || 50
-          ) * 0.20 +
-          (
-            Number(
-              shooterAttributes
-                .handEye
-            ) || 50
-          ) * 0.15
+          shotAccuracy
         )
       );
 
-    const shotPower =
+    shotPower =
       Math.max(
         25,
         Math.min(
           99,
-          Number(
-            shooterAttributes
-              .wristShotPower
-          ) || 50
+          shotPower
+        )
+      );
+
+    finishingAbility =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          finishingAbility
         )
       );
 
@@ -20458,35 +21833,138 @@ const WorldEngine = (() => {
           )
         : 45;
 
-    const goalieAbility =
+    const goalieProfile =
+      getLiveGameGoalieSaveProfile(
+        goalie
+      );
+
+    if (
+      !goalieProfile ||
+      goalieProfile.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          goalieProfile?.reason ||
+          'goalie-save-profile-failed',
+        event: null,
+      };
+    }
+
+    /*
+     * Normal shots primarily use the standard save profile.
+     *
+     * Rebounds and scramble sequences are more chaotic, so the
+     * goalie's scramble ability matters substantially more.
+     */
+    /*
+     * ==========================================================
+     * SHOT-TYPE GOALIE RESPONSE
+     * ==========================================================
+     *
+     * Different chances stress different goalie skills.
+     */
+    let goalieAbility =
+      goalieProfile
+        .saveAbility;
+
+    switch (shotType) {
+      case 'one-timer':
+        goalieAbility =
+          goalieProfile
+            .saveAbility * 0.40 +
+          goalieProfile
+            .scrambleAbility * 0.35 +
+          goalieProfile
+            .attributes
+            .lateralMovement * 0.25;
+        break;
+
+      case 'deflection':
+        goalieAbility =
+          goalieProfile
+            .saveAbility * 0.34 +
+          goalieProfile
+            .scrambleAbility * 0.36 +
+          goalieProfile
+            .attributes
+            .puckTracking * 0.30;
+        break;
+
+      case 'rebound':
+        goalieAbility =
+          goalieProfile
+            .scrambleAbility * 0.50 +
+          goalieProfile
+            .reboundAbility * 0.30 +
+          goalieProfile
+            .attributes
+            .reflexes * 0.20;
+        break;
+
+      case 'breakaway':
+        goalieAbility =
+          goalieProfile
+            .attributes
+            .anticipation * 0.27 +
+          goalieProfile
+            .attributes
+            .composure * 0.24 +
+          goalieProfile
+            .attributes
+            .reflexes * 0.20 +
+          goalieProfile
+            .attributes
+            .lateralMovement * 0.17 +
+          goalieProfile
+            .attributes
+            .positioning * 0.12;
+        break;
+
+      case 'slap':
+        goalieAbility =
+          goalieProfile
+            .attributes
+            .puckTracking * 0.27 +
+          goalieProfile
+            .attributes
+            .positioning * 0.25 +
+          goalieProfile
+            .attributes
+            .reflexes * 0.23 +
+          goalieProfile
+            .saveAbility * 0.25;
+        break;
+
+      case 'snap':
+        goalieAbility =
+          goalieProfile
+            .attributes
+            .reflexes * 0.29 +
+          goalieProfile
+            .attributes
+            .positioning * 0.23 +
+          goalieProfile
+            .attributes
+            .puckTracking * 0.22 +
+          goalieProfile
+            .saveAbility * 0.26;
+        break;
+
+      case 'wrist':
+      default:
+        goalieAbility =
+          goalieProfile
+            .saveAbility;
+        break;
+    }
+
+    goalieAbility =
       Math.max(
         25,
         Math.min(
           99,
-          (
-            Number(
-              goalieAttributes
-                .positioning
-            ) || 50
-          ) * 0.30 +
-          (
-            Number(
-              goalieAttributes
-                .puckTracking
-            ) || 50
-          ) * 0.25 +
-          (
-            Number(
-              goalieAttributes
-                .reflexes
-            ) || 50
-          ) * 0.25 +
-          (
-            Number(
-              goalieAttributes
-                .reboundControl
-            ) || 50
-          ) * 0.20
+          goalieAbility
         )
       );
 
@@ -20608,10 +22086,12 @@ const WorldEngine = (() => {
           attackingTeamState
             .teamId,
 
-        shooterPlayerId:
-          shooter.playerId,
+          shooterPlayerId:
+            shooter.playerId,
 
-        blockerPlayerId:
+          shotType,
+
+          blockerPlayerId:
           blocker?.playerId ||
           null,
       };
@@ -20694,6 +22174,8 @@ const WorldEngine = (() => {
 
         shooterPlayerId:
           shooter.playerId,
+        
+        shotType,
       };
 
       simulation.events.push(
@@ -20744,17 +22226,6 @@ const WorldEngine = (() => {
      * Base scoring probability is intentionally modest.
      * We will calibrate this after whole-game testing.
      */
-    const finishingAbility =
-      (
-        shotAccuracy * 0.60 +
-        shotPower * 0.20 +
-        (
-          Number(
-            shooterAttributes
-              .offensiveAwareness
-          ) || 50
-        ) * 0.20
-      );
 
     const scoringChance =
       Math.max(
@@ -20849,44 +22320,46 @@ const WorldEngine = (() => {
                 );
             }
 
-            const remainingPenalty =
-              specialTeams.activePenalties[0] ||
-              null;
+            /*
+             * Recalculate manpower from every penalty that remains active.
+             *
+             * This is the authoritative path for restoring manpower after
+             * a power-play goal.
+             *
+             * Examples:
+             *
+             * 5v4 + PPG
+             *   -> expired minor removed
+             *   -> 5v5
+             *
+             * 5v3 + PPG
+             *   -> one minor removed
+             *   -> remaining minor produces 5v4
+             *
+             * 4v3 + PPG
+             *   -> manpower is rebuilt from whatever penalties remain
+             *
+             * We deliberately do not hardcode 5v5 / 5v4 here because the
+             * correct state depends on the complete active-penalty stack.
+             */
+            const manpowerRefresh =
+              refreshLiveGameManpowerState(
+                simulation
+              );
 
-            if (!remainingPenalty) {
-              specialTeams.situation =
-                'even-strength';
+            if (
+              !manpowerRefresh ||
+              manpowerRefresh.success !== true
+            ) {
+              return {
+                success: false,
 
-              specialTeams.powerPlaySide =
-                null;
+                reason:
+                  manpowerRefresh?.reason ||
+                  'power-play-goal-manpower-refresh-failed',
 
-              specialTeams.penaltyKillSide =
-                null;
-
-              specialTeams.homeSkaters =
-                5;
-
-              specialTeams.awaySkaters =
-                5;
-            } else {
-              specialTeams.situation =
-                'power-play';
-
-              specialTeams.powerPlaySide =
-                remainingPenalty.advantagedSide;
-
-              specialTeams.penaltyKillSide =
-                remainingPenalty.penalizedSide;
-
-              specialTeams.homeSkaters =
-                remainingPenalty.penalizedSide === 'home'
-                  ? 4
-                  : 5;
-
-              specialTeams.awaySkaters =
-                remainingPenalty.penalizedSide === 'away'
-                  ? 4
-                  : 5;
+                event: null,
+              };
             }
           }
 
@@ -21188,10 +22661,12 @@ const WorldEngine = (() => {
           attackingTeamState
             .teamId,
 
-        scorerPlayerId:
-          shooter.playerId,
+          scorerPlayerId:
+            shooter.playerId,
 
-        primaryAssistPlayerId:
+          shotType,
+
+          primaryAssistPlayerId:
           primaryAssistPlayer
             ?.playerId ||
           null,
@@ -21255,16 +22730,8 @@ const WorldEngine = (() => {
       ) + 1;
 
     const reboundControl =
-      Math.max(
-        25,
-        Math.min(
-          99,
-          Number(
-            goalieAttributes
-              .reboundControl
-          ) || 50
-        )
-      );
+      goalieProfile
+        .reboundAbility;
 
     const reboundChance =
       Math.max(
@@ -21365,10 +22832,12 @@ const WorldEngine = (() => {
         attackingTeamState
           .teamId,
 
-      shooterPlayerId:
-        shooter.playerId,
+        shooterPlayerId:
+          shooter.playerId,
 
-      goaliePlayerId:
+        shotType,
+
+        goaliePlayerId:
         goalie.playerId,
 
       rebound,
@@ -23036,14 +24505,58 @@ const WorldEngine = (() => {
       ) +
       penaltyMinutes;
 
-    advantagedTeamState
-      .powerPlayOpportunities =
-      (
-        Number(
-          advantagedTeamState
-            .powerPlayOpportunities
-        ) || 0
-      ) + 1;
+    /*
+     * Remember the manpower advantage BEFORE this new penalty.
+     *
+     * We will only award a new PP opportunity if this penalty
+     * actually creates or increases a numerical advantage.
+     */
+    const previousHomeSkaters =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            simulation.specialTeams
+              ?.homeSkaters
+          ) ||
+          (
+            simulation.period === 4
+              ? 3
+              : 5
+          )
+        )
+      );
+
+    const previousAwaySkaters =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            simulation.specialTeams
+              ?.awaySkaters
+          ) ||
+          (
+            simulation.period === 4
+              ? 3
+              : 5
+          )
+        )
+      );
+
+    const previousAdvantageSize =
+      advantagedSide === 'home'
+        ? Math.max(
+            0,
+            previousHomeSkaters -
+            previousAwaySkaters
+          )
+        : Math.max(
+            0,
+            previousAwaySkaters -
+            previousHomeSkaters
+          );
 
     const penalty = {
       id:
@@ -23128,6 +24641,55 @@ const WorldEngine = (() => {
 
         event: null,
       };
+    }
+
+    /*
+     * ==========================================================
+     * POWER-PLAY OPPORTUNITY ACCOUNTING
+     * ==========================================================
+     *
+     * Only count a new opportunity when this penalty creates or
+     * increases the opponent's manpower advantage.
+     *
+     * Examples:
+     *
+     * 5v5 -> 5v4
+     *   +1 PP opportunity
+     *
+     * 5v4 -> 5v3
+     *   +1 PP opportunity
+     *
+     * 5v4 -> 4v4 because the PP team takes a penalty
+     *   no new PP opportunity
+     *
+     * 4v4 -> 4v3
+     *   +1 PP opportunity
+     */
+    const newAdvantageSize =
+      advantagedSide === 'home'
+        ? Math.max(
+            0,
+            manpowerRefresh.homeSkaters -
+            manpowerRefresh.awaySkaters
+          )
+        : Math.max(
+            0,
+            manpowerRefresh.awaySkaters -
+            manpowerRefresh.homeSkaters
+          );
+
+    if (
+      newAdvantageSize >
+      previousAdvantageSize
+    ) {
+      advantagedTeamState
+        .powerPlayOpportunities =
+        (
+          Number(
+            advantagedTeamState
+              .powerPlayOpportunities
+          ) || 0
+        ) + 1;
     }
 
     flow.stopped =
@@ -24063,6 +25625,41 @@ const WorldEngine = (() => {
 
           simulation.wentToOvertime =
             true;
+
+          /*
+           * Reinterpret any penalties carrying over from regulation
+           * using overtime manpower rules.
+           *
+           * Regulation 5v4 becomes OT 4v3.
+           * Regulation 5v3 becomes OT 5v3.
+           * No active penalties remains ordinary 3v3.
+           */
+          const overtimeManpowerRefresh =
+            refreshLiveGameManpowerState(
+              simulation
+            );
+
+          if (
+            !overtimeManpowerRefresh ||
+            overtimeManpowerRefresh
+              .success !== true
+          ) {
+            return {
+              success: false,
+
+              reason:
+                overtimeManpowerRefresh
+                  ?.reason ||
+                'overtime-manpower-refresh-failed',
+
+              elapsedSeconds,
+
+              event:
+                periodEndEvent,
+
+              simulation,
+            };
+          }
 
           flow.stopped =
             true;
