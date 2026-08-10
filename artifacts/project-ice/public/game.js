@@ -268,7 +268,7 @@ function runLiveGameCalibrationFromUI() {
     totals.events += d.totals.recordedEvents;
     totals.steps += d.steps;
 
-    if (d.tiedAfterRegulation) {
+    if (d.wentToOvertime) {
       totals.tiesAfterRegulation += 1;
     }
 

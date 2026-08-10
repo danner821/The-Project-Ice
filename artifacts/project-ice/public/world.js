@@ -17093,6 +17093,738 @@ const WorldEngine = (() => {
 
   /*
    * ============================================================
+   * LIVE GAME — OVERTIME DEPLOYMENT
+   * ============================================================
+   *
+   * Selects a 3-on-3 group:
+   * two forwards
+   * one defenseman
+   * one goalie
+   */
+  function selectLiveGameOvertimeDeployment(
+    simulation,
+    side
+  ) {
+    if (
+      !simulation ||
+      (
+        side !== 'home' &&
+        side !== 'away'
+      )
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-overtime-deployment-input',
+        deployment: null,
+      };
+    }
+
+    const teamState =
+      side === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    const skaters =
+      Array.isArray(
+        teamState?.skaters
+      )
+        ? teamState.skaters
+        : [];
+
+    const goalies =
+      Array.isArray(
+        teamState?.goalies
+      )
+        ? teamState.goalies
+        : [];
+
+    const forwards =
+      skaters
+        .filter(player =>
+          ['C', 'LW', 'RW', 'F'].includes(
+            normalizeAttributePosition(
+              getPlayerById(
+                player.playerId
+              )?.position ||
+              player.position
+            )
+          )
+        )
+        .sort(
+          (
+            firstPlayer,
+            secondPlayer
+          ) =>
+            (
+              Number(
+                secondPlayer.overall
+              ) || 50
+            ) -
+            (
+              Number(
+                firstPlayer.overall
+              ) || 50
+            )
+        );
+
+    const defensemen =
+      skaters
+        .filter(player =>
+          normalizeAttributePosition(
+            getPlayerById(
+              player.playerId
+            )?.position ||
+            player.position
+          ) === 'D'
+        )
+        .sort(
+          (
+            firstPlayer,
+            secondPlayer
+          ) =>
+            (
+              Number(
+                secondPlayer.overall
+              ) || 50
+            ) -
+            (
+              Number(
+                firstPlayer.overall
+              ) || 50
+            )
+        );
+
+    const selectedForwards =
+      forwards.slice(
+        0,
+        2
+      );
+
+    const selectedDefenseman =
+      defensemen[0] ||
+      null;
+
+    const goalie =
+      goalies.find(
+        goalieLine =>
+          goalieLine.started === true
+      ) ||
+      goalies[0] ||
+      null;
+
+    const overtimeSkaters = [
+      ...selectedForwards,
+      selectedDefenseman,
+    ].filter(Boolean);
+
+    if (
+      overtimeSkaters.length < 3 ||
+      !goalie
+    ) {
+      return {
+        success: false,
+        reason:
+          'overtime-deployment-participants-missing',
+        deployment: null,
+      };
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'overtime-deployment-selected',
+
+      side,
+
+      deployment: {
+        success: true,
+        situation:
+          'overtime',
+
+        skaters:
+          overtimeSkaters,
+
+        goalie,
+      },
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — SHOOTOUT RESOLUTION
+   * ============================================================
+   *
+   * Three-round shootout followed by sudden death if tied.
+   *
+   * Shootout goals do NOT count toward normal player goals,
+   * shots, goalie saves, or goals against.
+   *
+   * The winning team receives one additional goal in the official
+   * final game score.
+   */
+  function resolveLiveGameShootout(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    if (
+      simulation.status !==
+        'shootout-pending'
+    ) {
+      return {
+        success: false,
+        reason:
+          'shootout-not-pending',
+        event: null,
+      };
+    }
+
+    const getShootoutParticipants =
+      side => {
+        const teamState =
+          side === 'home'
+            ? simulation.home
+            : simulation.away;
+
+        const skaters =
+          Array.isArray(
+            teamState?.skaters
+          )
+            ? teamState.skaters
+            : [];
+
+        const goalies =
+          Array.isArray(
+            teamState?.goalies
+          )
+            ? teamState.goalies
+            : [];
+
+        const shooterPool =
+          skaters
+            .map(player => {
+              const canonicalPlayer =
+                getPlayerById(
+                  player.playerId
+                );
+
+              const attributes =
+                canonicalPlayer
+                  ?.attributes ||
+                {};
+
+              const shootoutRating =
+                (
+                  Number(
+                    attributes
+                      .wristShotAccuracy
+                  ) || 50
+                ) * 0.35 +
+                (
+                  Number(
+                    attributes
+                      .puckControl
+                  ) || 50
+                ) * 0.25 +
+                (
+                  Number(
+                    attributes
+                      .deking
+                  ) || 50
+                ) * 0.20 +
+                (
+                  Number(
+                    attributes
+                      .offensiveAwareness
+                  ) || 50
+                ) * 0.20;
+
+              return {
+                player,
+                shootoutRating,
+              };
+            })
+            .sort(
+              (
+                firstEntry,
+                secondEntry
+              ) =>
+                secondEntry
+                  .shootoutRating -
+                firstEntry
+                  .shootoutRating
+            );
+
+        const goalie =
+          goalies.find(
+            goalieLine =>
+              goalieLine.started === true
+          ) ||
+          goalies[0] ||
+          null;
+
+        return {
+          teamState,
+          shooterPool,
+          goalie,
+        };
+      };
+
+    const homeParticipants =
+      getShootoutParticipants(
+        'home'
+      );
+
+    const awayParticipants =
+      getShootoutParticipants(
+        'away'
+      );
+
+    if (
+      homeParticipants
+        .shooterPool.length === 0 ||
+      awayParticipants
+        .shooterPool.length === 0 ||
+      !homeParticipants.goalie ||
+      !awayParticipants.goalie
+    ) {
+      return {
+        success: false,
+        reason:
+          'shootout-participants-missing',
+        event: null,
+      };
+    }
+
+    const getGoalieShootoutRating =
+      goalieLine => {
+        const canonicalGoalie =
+          getPlayerById(
+            goalieLine.playerId
+          );
+
+        const attributes =
+          canonicalGoalie
+            ?.attributes ||
+          {};
+
+        return Math.max(
+          25,
+          Math.min(
+            99,
+            (
+              Number(
+                attributes.reflexes
+              ) || 50
+            ) * 0.35 +
+            (
+              Number(
+                attributes
+                  .puckTracking
+              ) || 50
+            ) * 0.30 +
+            (
+              Number(
+                attributes.positioning
+              ) || 50
+            ) * 0.20 +
+            (
+              Number(
+                attributes.poise
+              ) || 50
+            ) * 0.15
+          )
+        );
+      };
+
+    const resolveAttempt =
+      (
+        shootingSide,
+        shooterEntry,
+        opposingGoalie
+      ) => {
+        const goalieRating =
+          getGoalieShootoutRating(
+            opposingGoalie
+          );
+
+        const shooterRating =
+          Math.max(
+            25,
+            Math.min(
+              99,
+              Number(
+                shooterEntry
+                  .shootoutRating
+              ) || 50
+            )
+          );
+
+        /*
+         * Keep individual attempt conversion in a realistic
+         * shootout range while still allowing elite shooters
+         * and goalies to matter.
+         */
+        const scoringChance =
+          Math.max(
+            0.20,
+            Math.min(
+              0.48,
+              0.33 +
+              (
+                shooterRating -
+                goalieRating
+              ) * 0.003
+            )
+          );
+
+        return {
+          side:
+            shootingSide,
+
+          shooterPlayerId:
+            shooterEntry
+              .player
+              .playerId,
+
+          goaliePlayerId:
+            opposingGoalie
+              .playerId,
+
+          scored:
+            Math.random() <
+            scoringChance,
+        };
+      };
+
+    const attempts = [];
+
+    let homeShootoutGoals = 0;
+    let awayShootoutGoals = 0;
+
+    let homeAttempts = 0;
+    let awayAttempts = 0;
+
+    /*
+     * ==========================================================
+     * INITIAL THREE ROUNDS
+     * ==========================================================
+     */
+    for (
+      let round = 0;
+      round < 3;
+      round += 1
+    ) {
+      const homeShooter =
+        homeParticipants
+          .shooterPool[
+            round %
+            homeParticipants
+              .shooterPool.length
+          ];
+
+      const awayShooter =
+        awayParticipants
+          .shooterPool[
+            round %
+            awayParticipants
+              .shooterPool.length
+          ];
+
+      const homeAttempt =
+        resolveAttempt(
+          'home',
+          homeShooter,
+          awayParticipants.goalie
+        );
+
+      homeAttempts += 1;
+
+      if (homeAttempt.scored) {
+        homeShootoutGoals += 1;
+      }
+
+      attempts.push({
+        ...homeAttempt,
+        round:
+          round + 1,
+      });
+
+      /*
+       * Early clinch check after the home attempt.
+       */
+      const awayRemaining =
+        3 - awayAttempts;
+
+      if (
+        homeShootoutGoals >
+        awayShootoutGoals +
+          awayRemaining
+      ) {
+        break;
+      }
+
+      const awayAttempt =
+        resolveAttempt(
+          'away',
+          awayShooter,
+          homeParticipants.goalie
+        );
+
+      awayAttempts += 1;
+
+      if (awayAttempt.scored) {
+        awayShootoutGoals += 1;
+      }
+
+      attempts.push({
+        ...awayAttempt,
+        round:
+          round + 1,
+      });
+
+      const homeRemaining =
+        3 - homeAttempts;
+
+      if (
+        awayShootoutGoals >
+        homeShootoutGoals +
+          homeRemaining
+      ) {
+        break;
+      }
+    }
+
+    /*
+     * ==========================================================
+     * SUDDEN DEATH
+     * ==========================================================
+     */
+    let suddenDeathRound =
+      4;
+
+    let safetyRounds =
+      0;
+
+    while (
+      homeShootoutGoals ===
+        awayShootoutGoals &&
+      safetyRounds < 20
+    ) {
+      const homeShooter =
+        homeParticipants
+          .shooterPool[
+            (
+              suddenDeathRound - 1
+            ) %
+            homeParticipants
+              .shooterPool.length
+          ];
+
+      const awayShooter =
+        awayParticipants
+          .shooterPool[
+            (
+              suddenDeathRound - 1
+            ) %
+            awayParticipants
+              .shooterPool.length
+          ];
+
+      const homeAttempt =
+        resolveAttempt(
+          'home',
+          homeShooter,
+          awayParticipants.goalie
+        );
+
+      homeAttempts += 1;
+
+      if (homeAttempt.scored) {
+        homeShootoutGoals += 1;
+      }
+
+      attempts.push({
+        ...homeAttempt,
+        round:
+          suddenDeathRound,
+        suddenDeath: true,
+      });
+
+      const awayAttempt =
+        resolveAttempt(
+          'away',
+          awayShooter,
+          homeParticipants.goalie
+        );
+
+      awayAttempts += 1;
+
+      if (awayAttempt.scored) {
+        awayShootoutGoals += 1;
+      }
+
+      attempts.push({
+        ...awayAttempt,
+        round:
+          suddenDeathRound,
+        suddenDeath: true,
+      });
+
+      if (
+        homeAttempt.scored !==
+        awayAttempt.scored
+      ) {
+        break;
+      }
+
+      suddenDeathRound += 1;
+      safetyRounds += 1;
+    }
+
+    /*
+     * Extremely unlikely fallback so a pathological random run
+     * can never leave the game unresolved.
+     */
+    if (
+      homeShootoutGoals ===
+        awayShootoutGoals
+    ) {
+      if (Math.random() < 0.5) {
+        homeShootoutGoals += 1;
+      } else {
+        awayShootoutGoals += 1;
+      }
+    }
+
+    const winnerSide =
+      homeShootoutGoals >
+      awayShootoutGoals
+        ? 'home'
+        : 'away';
+
+    const loserSide =
+      winnerSide === 'home'
+        ? 'away'
+        : 'home';
+
+    const winningTeamState =
+      winnerSide === 'home'
+        ? simulation.home
+        : simulation.away;
+
+    /*
+     * Official final-score convention:
+     * shootout winner receives one additional team goal.
+     */
+    winningTeamState.score =
+      (
+        Number(
+          winningTeamState.score
+        ) || 0
+      ) + 1;
+
+    simulation
+      .shootoutComplete =
+      true;
+
+    simulation.gameComplete =
+      true;
+
+    simulation.status =
+      'completed';
+
+    simulation.resultType =
+      'shootout';
+
+    simulation.wentToShootout =
+      true;
+
+    simulation.winnerSide =
+      winnerSide;
+
+    simulation.loserSide =
+      loserSide;
+
+    simulation.shootout = {
+      homeGoals:
+        homeShootoutGoals,
+
+      awayGoals:
+        awayShootoutGoals,
+
+      homeAttempts,
+
+      awayAttempts,
+
+      attempts,
+    };
+
+    const event = {
+      id:
+        `live-event-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'shootout-complete',
+
+      period:
+        5,
+
+      clockSecondsRemaining:
+        0,
+
+      winnerSide,
+
+      loserSide,
+
+      homeShootoutGoals,
+
+      awayShootoutGoals,
+
+      homeScore:
+        simulation.home.score,
+
+      awayScore:
+        simulation.away.score,
+    };
+
+    simulation.events.push(
+      event
+    );
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-shootout-resolved',
+
+      winnerSide,
+
+      loserSide,
+
+      event,
+
+      shootout:
+        simulation.shootout,
+    };
+  }
+
+  /*
+   * ============================================================
    * LIVE GAME — EVENT TIME SCHEDULER
    * ============================================================
    *
@@ -17869,6 +18601,55 @@ const WorldEngine = (() => {
             .faceoffWins
         ) || 0
       ) + 1;
+
+    /*
+     * ==========================================================
+     * INDIVIDUAL FACEOFF STATS
+     * ==========================================================
+     *
+     * Credit the actual centers who took the draw.
+     */
+    const winningCenter =
+      winnerSide === 'home'
+        ? homeCenter
+        : awayCenter;
+
+    const losingCenter =
+      loserSide === 'home'
+        ? homeCenter
+        : awayCenter;
+
+    if (winningCenter) {
+      winningCenter.faceoffWins =
+        (
+          Number(
+            winningCenter.faceoffWins
+          ) || 0
+        ) + 1;
+
+      winningCenter.faceoffAttempts =
+        (
+          Number(
+            winningCenter.faceoffAttempts
+          ) || 0
+        ) + 1;
+    }
+
+    if (losingCenter) {
+      losingCenter.faceoffLosses =
+        (
+          Number(
+            losingCenter.faceoffLosses
+          ) || 0
+        ) + 1;
+
+      losingCenter.faceoffAttempts =
+        (
+          Number(
+            losingCenter.faceoffAttempts
+          ) || 0
+        ) + 1;
+    }
 
     const requestedZone =
       options.zone ||
@@ -19324,6 +20105,52 @@ const WorldEngine = (() => {
             }
           }
 
+          /*
+           * ==========================================================
+           * PLUS / MINUS
+           * ==========================================================
+           *
+           * Even-strength goals:
+           *   scoring skaters on ice     +1
+           *   defending skaters on ice   -1
+           *
+           * Shorthanded goals use the same rule.
+           *
+           * Power-play goals do NOT affect plus/minus.
+           * Goalies never receive plus/minus.
+           */
+          if (!powerPlayGoal) {
+            attackingSkaters.forEach(
+              player => {
+                if (!player) {
+                  return;
+                }
+
+                player.plusMinus =
+                  (
+                    Number(
+                      player.plusMinus
+                    ) || 0
+                  ) + 1;
+              }
+            );
+
+            defendingSkaters.forEach(
+              player => {
+                if (!player) {
+                  return;
+                }
+
+                player.plusMinus =
+                  (
+                    Number(
+                      player.plusMinus
+                    ) || 0
+                  ) - 1;
+              }
+            );
+          }
+
           shooter.goals =
           (
             Number(
@@ -19524,6 +20351,35 @@ const WorldEngine = (() => {
       flow.lastEventSide =
         attackingSide;
 
+      /*
+       * Overtime is sudden death.
+       *
+       * Any goal scored in period 4 immediately completes the game.
+       */
+      const overtimeWinningGoal =
+        simulation.period === 4;
+
+      if (overtimeWinningGoal) {
+        simulation
+          .overtimeComplete =
+          true;
+
+        simulation.gameComplete =
+          true;
+
+        simulation.status =
+          'completed';
+
+        simulation.resultType =
+          'overtime';
+
+        simulation.winnerSide =
+          attackingSide;
+
+        simulation.loserSide =
+          defendingSide;
+      }
+
       const event = {
         id:
           `live-event-${Date.now()}-${Math.random()
@@ -19563,9 +20419,15 @@ const WorldEngine = (() => {
           goaliePlayerId:
             goalie.playerId,
 
-          powerPlayGoal,
+            powerPlayGoal,
 
-          homeScore:
+            overtimeGoal:
+              overtimeWinningGoal,
+
+            gameWinningGoal:
+              overtimeWinningGoal,
+
+            homeScore:
           simulation.home.score,
 
         awayScore:
@@ -20930,6 +21792,44 @@ const WorldEngine = (() => {
       };
     }
 
+    /*
+     * A tied game that has completed overtime resolves its
+     * shootout before any more hockey-clock steps are attempted.
+     */
+    if (
+      simulation.status ===
+      'shootout-pending'
+    ) {
+      const shootoutResult =
+        resolveLiveGameShootout(
+          simulation
+        );
+
+      return {
+        success:
+          shootoutResult
+            ?.success === true,
+
+        reason:
+          shootoutResult
+            ?.reason ||
+          'shootout-resolution-failed',
+
+        elapsedSeconds: 0,
+
+        event:
+          shootoutResult
+            ?.event ||
+          null,
+
+        result:
+          shootoutResult ||
+          null,
+
+        simulation,
+      };
+    }
+
     const flow =
       simulation.flow;
 
@@ -21007,6 +21907,18 @@ const WorldEngine = (() => {
      * variance here because event timestamps do not represent
      * every whistle-free second of a shift.
      */
+
+    /*
+     * ==========================================================
+     * OVERTIME DEPLOYMENT
+     * ==========================================================
+     *
+     * Period 4 uses 3-on-3 hockey:
+     * two forwards + one defenseman + goalie.
+     */
+    const isOvertime =
+      simulation.period === 4;
+    
     const deploymentNeedsRefresh =
       !flow.homeDeployment ||
       !flow.awayDeployment ||
@@ -21022,18 +21934,28 @@ const WorldEngine = (() => {
           )
         );
 
-    if (deploymentNeedsRefresh) {
-      const homeDeploymentResult =
-        selectLiveGameEvenStrengthDeployment(
-          simulation,
-          'home'
-        );
+      if (deploymentNeedsRefresh) {
+        const homeDeploymentResult =
+          isOvertime
+            ? selectLiveGameOvertimeDeployment(
+                simulation,
+                'home'
+              )
+            : selectLiveGameEvenStrengthDeployment(
+                simulation,
+                'home'
+              );
 
-      const awayDeploymentResult =
-        selectLiveGameEvenStrengthDeployment(
-          simulation,
-          'away'
-        );
+        const awayDeploymentResult =
+          isOvertime
+            ? selectLiveGameOvertimeDeployment(
+                simulation,
+                'away'
+              )
+            : selectLiveGameEvenStrengthDeployment(
+                simulation,
+                'away'
+              );
 
       if (
         homeDeploymentResult
@@ -21198,6 +22120,69 @@ const WorldEngine = (() => {
       elapsedSeconds;
 
     /*
+     * ==========================================================
+     * TIME ON ICE
+     * ==========================================================
+     *
+     * Credit every currently deployed player for the actual
+     * elapsed hockey seconds from this simulation step.
+     */
+    const addTOIToDeployment =
+      deployment => {
+        if (
+          !deployment ||
+          typeof deployment !== 'object'
+        ) {
+          return;
+        }
+
+        const skaters =
+          Array.isArray(
+            deployment.skaters
+          )
+            ? deployment.skaters
+            : [];
+
+        skaters.forEach(
+          player => {
+            if (!player) {
+              return;
+            }
+
+            player.timeOnIceSeconds =
+              (
+                Number(
+                  player.timeOnIceSeconds
+                ) || 0
+              ) +
+              elapsedSeconds;
+          }
+        );
+
+        const goalie =
+          deployment.goalie ||
+          null;
+
+        if (goalie) {
+          goalie.timeOnIceSeconds =
+            (
+              Number(
+                goalie.timeOnIceSeconds
+              ) || 0
+            ) +
+            elapsedSeconds;
+        }
+      };
+
+    addTOIToDeployment(
+      flow.homeDeployment
+    );
+
+    addTOIToDeployment(
+      flow.awayDeployment
+    );
+
+    /*
      * Penalties count down using actual hockey seconds, completely
      * independent of presentation speed.
      */
@@ -21284,14 +22269,15 @@ const WorldEngine = (() => {
 
         flow.deploymentAgeSeconds =
           0;
-      } else {
+      } else if (
+        simulation.period === 3
+      ) {
         simulation
           .regulationComplete =
           true;
 
         /*
-         * Tied games will later enter overtime.
-         * For now mark only non-tied regulation games complete.
+         * A decisive regulation result ends immediately.
          */
         if (
           Number(
@@ -21307,15 +22293,94 @@ const WorldEngine = (() => {
           simulation.status =
             'completed';
         } else {
+          /*
+           * ======================================================
+           * LIVE OVERTIME INITIALIZATION
+           * ======================================================
+           *
+           * Regulation tie → 5-minute sudden-death overtime.
+           *
+           * Overtime uses period 4 and a fresh center-ice faceoff.
+           */
+          simulation.period =
+            4;
+
+          simulation.periodLabel =
+            'OT';
+
+          simulation
+            .clockSecondsRemaining =
+            5 * 60;
+
           simulation.status =
-            'regulation-tied';
+            'overtime';
+
+          simulation.wentToOvertime =
+            true;
 
           flow.stopped =
             true;
 
           flow.stoppageReason =
-            'regulation-ended-tied';
+            'overtime-start';
+
+          flow.possessionSide =
+            null;
+
+          flow.zone =
+            'neutral';
+
+          flow.paceContext =
+            'after-faceoff';
+
+          flow.pressureLevel =
+            0;
+
+          flow.homeDeployment =
+            null;
+
+          flow.awayDeployment =
+            null;
+
+          flow.deploymentAgeSeconds =
+            0;
+
+          flow.recentPossessionTouches =
+            [];
         }
+      } else if (
+        simulation.period === 4
+      ) {
+        /*
+         * If overtime reaches 0:00 without a goal, the game remains
+         * tied and moves to the shootout state.
+         *
+         * We will build the actual shootout resolver next.
+         */
+        simulation
+          .overtimeComplete =
+          true;
+
+        simulation.status =
+          'shootout-pending';
+
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'overtime-ended-tied';
+
+        flow.possessionSide =
+          null;
+
+        flow.zone =
+          'neutral';
+
+        flow.pressureLevel =
+          0;
+
+        flow.recentPossessionTouches =
+          [];
       }
 
       return {
@@ -21614,7 +22679,7 @@ const WorldEngine = (() => {
         100,
         Number(
           options.maxSteps
-        ) || 2000
+        ) || 3000
       );
 
     const stepTypeCounts = {};
@@ -21623,11 +22688,11 @@ const WorldEngine = (() => {
 
     let steps = 0;
 
-    while (
-      simulation
-        .regulationComplete !== true &&
-      steps < maxSteps
-    ) {
+      while (
+        simulation
+          .gameComplete !== true &&
+        steps < maxSteps
+      ) {
       const step =
         advanceLiveGameStep(
           simulation
@@ -21853,11 +22918,37 @@ const WorldEngine = (() => {
         simulation
           .gameComplete === true,
 
-      tiedAfterRegulation:
+      wentToOvertime:
         simulation
-          .regulationComplete === true &&
-        Number(home.score) ===
-          Number(away.score),
+          .wentToOvertime === true,
+
+      wentToShootout:
+        simulation
+          .wentToShootout === true,
+
+      resultType:
+        simulation.resultType ||
+        (
+          simulation
+            .wentToShootout === true
+            ? 'shootout'
+            : simulation
+                .wentToOvertime === true
+              ? 'overtime'
+              : 'regulation'
+        ),
+
+      winnerSide:
+        simulation.winnerSide ||
+        (
+          Number(home.score) >
+          Number(away.score)
+            ? 'home'
+            : Number(away.score) >
+                Number(home.score)
+              ? 'away'
+              : null
+        ),
 
       steps,
 
@@ -22100,15 +23191,15 @@ const WorldEngine = (() => {
       success:
         failures.length === 0 &&
         simulation
-          .regulationComplete === true,
+          .gameComplete === true,
 
       reason:
         failures.length > 0
           ? 'diagnostic-step-failed'
           : simulation
-              .regulationComplete === true
-            ? 'diagnostic-regulation-completed'
-            : 'diagnostic-regulation-incomplete',
+              .gameComplete === true
+            ? 'diagnostic-game-completed'
+            : 'diagnostic-game-incomplete',
 
       diagnostic,
 
@@ -30142,6 +31233,8 @@ const WorldEngine = (() => {
     createLiveGameSimulationState,
     getLiveGameOnIcePlayers,
     selectLiveGameEvenStrengthDeployment,
+    selectLiveGameOvertimeDeployment,
+    resolveLiveGameShootout,
     scheduleNextLiveGameEventTime,
     selectNextLiveGameEventType,
     resolveLiveGameFaceoff,
