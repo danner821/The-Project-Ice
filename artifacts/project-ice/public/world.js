@@ -25979,7 +25979,49 @@ const WorldEngine = (() => {
      * Use a requested game when supplied.
      * Otherwise use the first unplayed scheduled game.
      */
+    /*
+     * ==========================================================
+     * DIAGNOSTIC MATCHUP SOURCE
+     * ==========================================================
+     *
+     * Normal diagnostic:
+     *   use an existing scheduled career game.
+     *
+     * Controlled diagnostic:
+     *   options.scheduledGame can provide a temporary matchup
+     *   entirely in memory.
+     *
+     * This lets competitive-balance tests repeatedly simulate
+     * specific teams without modifying the real career schedule.
+     */
+    const providedDiagnosticGame =
+      options.scheduledGame &&
+      typeof options.scheduledGame ===
+        'object'
+        ? {
+            ...options.scheduledGame,
+
+            gameId:
+              options.scheduledGame
+                .gameId ||
+              `diagnostic-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`,
+
+            eventId:
+              options.scheduledGame
+                .eventId ||
+              options.scheduledGame
+                .gameId ||
+              null,
+
+            type:
+              'game',
+          }
+        : null;
+
     const scheduledGame =
+      providedDiagnosticGame ||
       (
         gameId
           ? schedule.find(event =>
@@ -26646,6 +26688,803 @@ const WorldEngine = (() => {
       finalization,
 
       simulation,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — COMPETITIVE BALANCE DIAGNOSTIC
+   * ============================================================
+   *
+   * Repeatedly simulates a strong team against a weak team using
+   * the real live engine.
+   *
+   * Nothing is saved.
+   * Nothing is applied to standings.
+   * Nothing permanent is changed.
+   *
+   * Home ice alternates every game so roster strength is the main
+   * variable being tested.
+   */
+  function runLiveGameCompetitiveBalanceDiagnostic(
+    options = {}
+  ) {
+    const teams =
+      Array.isArray(
+        _state.teams
+      )
+        ? _state.teams
+        : [];
+
+    if (teams.length < 2) {
+      return {
+        success: false,
+        reason:
+          'not-enough-teams-for-competitive-diagnostic',
+      };
+    }
+
+    const sampleSize =
+      Math.max(
+        20,
+        Math.min(
+          1000,
+          Number(
+            options.sampleSize
+          ) || 300
+        )
+      );
+
+    /*
+     * ==========================================================
+     * TEAM QUALITY ESTIMATE
+     * ==========================================================
+     *
+     * This is used ONLY to choose which two real teams to test.
+     *
+     * The games themselves do NOT use this number.
+     * The real live engine still uses actual players, attributes,
+     * deployments, goalies, PP/PK units, etc.
+     */
+    const getTeamDiagnosticQuality =
+      team => {
+        const roster =
+          Array.isArray(
+            team?.roster
+          )
+            ? team.roster
+            : [];
+
+        const activePlayers =
+          roster.filter(
+            player =>
+              player &&
+              (
+                player.lineupStatus ===
+                  'active' ||
+                Boolean(
+                  player.lineupAssignment
+                )
+              )
+          );
+
+        if (
+          activePlayers.length === 0
+        ) {
+          return null;
+        }
+
+        const skaters =
+          activePlayers.filter(
+            player =>
+              normalizeAttributePosition(
+                player.position
+              ) !== 'G'
+          );
+
+        const goalies =
+          activePlayers.filter(
+            player =>
+              normalizeAttributePosition(
+                player.position
+              ) === 'G'
+          );
+
+        if (
+          skaters.length < 10 ||
+          goalies.length === 0
+        ) {
+          return null;
+        }
+
+        const average =
+          entries =>
+            entries.length > 0
+              ? entries.reduce(
+                  (
+                    total,
+                    player
+                  ) =>
+                    total +
+                    (
+                      Number(
+                        player.overall
+                      ) || 50
+                    ),
+                  0
+                ) /
+                entries.length
+              : 50;
+
+        const skaterAverage =
+          average(
+            skaters
+          );
+
+        const goalieAverage =
+          average(
+            goalies.slice(
+              0,
+              2
+            )
+          );
+
+        /*
+         * Skater depth matters most, but goaltending gets enough
+         * weight to keep an elite/poor starter from being ignored.
+         */
+        const quality =
+          skaterAverage *
+            0.78 +
+          goalieAverage *
+            0.22;
+
+        return {
+          team,
+          teamId:
+            team.teamId,
+
+          abbreviation:
+            team.abbreviation ||
+            team.teamName ||
+            team.schoolName ||
+            team.teamId,
+
+          skaterAverage,
+
+          goalieAverage,
+
+          quality,
+        };
+      };
+
+    const rankedTeams =
+      teams
+        .map(
+          getTeamDiagnosticQuality
+        )
+        .filter(Boolean)
+        .sort(
+          (
+            firstTeam,
+            secondTeam
+          ) =>
+            secondTeam.quality -
+            firstTeam.quality
+        );
+
+    if (
+      rankedTeams.length < 2
+    ) {
+      return {
+        success: false,
+        reason:
+          'not-enough-valid-teams-for-competitive-diagnostic',
+      };
+    }
+
+    const strongTeam =
+      rankedTeams[0];
+
+    const weakTeam =
+      rankedTeams[
+        rankedTeams.length - 1
+      ];
+
+    if (
+      String(
+        strongTeam.teamId
+      ) ===
+      String(
+        weakTeam.teamId
+      )
+    ) {
+      return {
+        success: false,
+        reason:
+          'competitive-diagnostic-teams-identical',
+      };
+    }
+
+    let completedGames = 0;
+    let failedGames = 0;
+
+    let strongWins = 0;
+    let weakWins = 0;
+
+    let strongRegulationWins = 0;
+    let weakRegulationWins = 0;
+
+    let overtimeGames = 0;
+    let shootoutGames = 0;
+
+    let strongGoals = 0;
+    let weakGoals = 0;
+
+    let strongShots = 0;
+    let weakShots = 0;
+
+    let strongPowerPlayOpportunities =
+      0;
+
+    let weakPowerPlayOpportunities =
+      0;
+
+    let strongPowerPlayGoals =
+      0;
+
+    let weakPowerPlayGoals =
+      0;
+
+    let strongHomeGames = 0;
+    let weakHomeGames = 0;
+
+    let strongHomeWins = 0;
+    let weakHomeWins = 0;
+
+    const failures = [];
+
+    for (
+      let index = 0;
+      index < sampleSize;
+      index += 1
+    ) {
+      /*
+       * Alternate home ice every game.
+       */
+      const strongIsHome =
+        index % 2 === 0;
+
+      const homeTeamId =
+        strongIsHome
+          ? strongTeam.teamId
+          : weakTeam.teamId;
+
+      const awayTeamId =
+        strongIsHome
+          ? weakTeam.teamId
+          : strongTeam.teamId;
+
+      const diagnostic =
+        runLiveGameSimulationDiagnostic(
+          null,
+          {
+            scheduledGame: {
+              gameId:
+                `competitive-${Date.now()}-${index}-${Math.random()
+                  .toString(36)
+                  .slice(2, 8)}`,
+
+              eventId:
+                `competitive-${index}`,
+
+              date:
+                _state.season
+                  ?.currentDate ||
+                _state.player
+                  ?.currentDate ||
+                null,
+
+              homeTeamId,
+
+              awayTeamId,
+            },
+
+            maxSteps:
+              Number(
+                options.maxSteps
+              ) || 4000,
+          }
+        );
+
+      if (
+        !diagnostic ||
+        diagnostic.success !== true ||
+        !diagnostic.diagnostic ||
+        !diagnostic.finalization
+          ?.gameResult
+      ) {
+        failedGames += 1;
+
+        failures.push({
+          index,
+
+          reason:
+            diagnostic?.reason ||
+            diagnostic
+              ?.diagnostic
+              ?.failures?.[0]
+              ?.reason ||
+            'competitive-game-failed',
+        });
+
+        continue;
+      }
+
+      completedGames += 1;
+
+      const result =
+        diagnostic
+          .finalization
+          .gameResult;
+
+      const strongResult =
+        String(
+          result.homeTeamId
+        ) ===
+        String(
+          strongTeam.teamId
+        )
+          ? result.home
+          : result.away;
+
+      const weakResult =
+        String(
+          result.homeTeamId
+        ) ===
+        String(
+          weakTeam.teamId
+        )
+          ? result.home
+          : result.away;
+
+      const strongWon =
+        String(
+          result.winnerTeamId
+        ) ===
+        String(
+          strongTeam.teamId
+        );
+
+      if (strongWon) {
+        strongWins += 1;
+      } else {
+        weakWins += 1;
+      }
+
+      if (
+        result.resultType ===
+        'regulation'
+      ) {
+        if (strongWon) {
+          strongRegulationWins +=
+            1;
+        } else {
+          weakRegulationWins +=
+            1;
+        }
+      }
+
+      if (
+        result.wentToOvertime ===
+        true
+      ) {
+        overtimeGames += 1;
+      }
+
+      if (
+        result.wentToShootout ===
+        true
+      ) {
+        shootoutGames += 1;
+      }
+
+      strongGoals +=
+        Number(
+          strongResult.score
+        ) || 0;
+
+      weakGoals +=
+        Number(
+          weakResult.score
+        ) || 0;
+
+      strongShots +=
+        Number(
+          strongResult.shots
+        ) || 0;
+
+      weakShots +=
+        Number(
+          weakResult.shots
+        ) || 0;
+
+      strongPowerPlayOpportunities +=
+        Number(
+          strongResult
+            .powerPlayOpportunities
+        ) || 0;
+
+      weakPowerPlayOpportunities +=
+        Number(
+          weakResult
+            .powerPlayOpportunities
+        ) || 0;
+
+      strongPowerPlayGoals +=
+        Number(
+          strongResult
+            .powerPlayGoals
+        ) || 0;
+
+      weakPowerPlayGoals +=
+        Number(
+          weakResult
+            .powerPlayGoals
+        ) || 0;
+
+      if (strongIsHome) {
+        strongHomeGames += 1;
+
+        if (strongWon) {
+          strongHomeWins += 1;
+        }
+      } else {
+        weakHomeGames += 1;
+
+        if (!strongWon) {
+          weakHomeWins += 1;
+        }
+      }
+    }
+
+    const safeCompleted =
+      Math.max(
+        1,
+        completedGames
+      );
+
+    const strongWinRate =
+      strongWins /
+      safeCompleted;
+
+    const weakWinRate =
+      weakWins /
+      safeCompleted;
+
+    const strongPowerPlayPercentage =
+      strongPowerPlayOpportunities >
+      0
+        ? strongPowerPlayGoals /
+          strongPowerPlayOpportunities
+        : 0;
+
+    const weakPowerPlayPercentage =
+      weakPowerPlayOpportunities >
+      0
+        ? weakPowerPlayGoals /
+          weakPowerPlayOpportunities
+        : 0;
+
+    const report = {
+      sampleSize,
+
+      completedGames,
+      failedGames,
+
+      strongTeam: {
+        teamId:
+          strongTeam.teamId,
+
+        abbreviation:
+          strongTeam.abbreviation,
+
+        diagnosticQuality:
+          Number(
+            strongTeam.quality
+              .toFixed(2)
+          ),
+
+        skaterAverage:
+          Number(
+            strongTeam
+              .skaterAverage
+              .toFixed(2)
+          ),
+
+        goalieAverage:
+          Number(
+            strongTeam
+              .goalieAverage
+              .toFixed(2)
+          ),
+
+        wins:
+          strongWins,
+
+        winRate:
+          Number(
+            (
+              strongWinRate *
+              100
+            ).toFixed(1)
+          ),
+
+        regulationWins:
+          strongRegulationWins,
+
+        goalsPerGame:
+          Number(
+            (
+              strongGoals /
+              safeCompleted
+            ).toFixed(2)
+          ),
+
+        shotsPerGame:
+          Number(
+            (
+              strongShots /
+              safeCompleted
+            ).toFixed(2)
+          ),
+
+        powerPlayOpportunitiesPerGame:
+          Number(
+            (
+              strongPowerPlayOpportunities /
+              safeCompleted
+            ).toFixed(2)
+          ),
+
+        powerPlayPercentage:
+          Number(
+            (
+              strongPowerPlayPercentage *
+              100
+            ).toFixed(1)
+          ),
+
+        homeWinRate:
+          strongHomeGames > 0
+            ? Number(
+                (
+                  (
+                    strongHomeWins /
+                    strongHomeGames
+                  ) *
+                  100
+                ).toFixed(1)
+              )
+            : 0,
+      },
+
+      weakTeam: {
+        teamId:
+          weakTeam.teamId,
+
+        abbreviation:
+          weakTeam.abbreviation,
+
+        diagnosticQuality:
+          Number(
+            weakTeam.quality
+              .toFixed(2)
+          ),
+
+        skaterAverage:
+          Number(
+            weakTeam
+              .skaterAverage
+              .toFixed(2)
+          ),
+
+        goalieAverage:
+          Number(
+            weakTeam
+              .goalieAverage
+              .toFixed(2)
+          ),
+
+        wins:
+          weakWins,
+
+        winRate:
+          Number(
+            (
+              weakWinRate *
+              100
+            ).toFixed(1)
+          ),
+
+        regulationWins:
+          weakRegulationWins,
+
+        goalsPerGame:
+          Number(
+            (
+              weakGoals /
+              safeCompleted
+            ).toFixed(2)
+          ),
+
+        shotsPerGame:
+          Number(
+            (
+              weakShots /
+              safeCompleted
+            ).toFixed(2)
+          ),
+
+        powerPlayOpportunitiesPerGame:
+          Number(
+            (
+              weakPowerPlayOpportunities /
+              safeCompleted
+            ).toFixed(2)
+          ),
+
+        powerPlayPercentage:
+          Number(
+            (
+              weakPowerPlayPercentage *
+              100
+            ).toFixed(1)
+          ),
+
+        homeWinRate:
+          weakHomeGames > 0
+            ? Number(
+                (
+                  (
+                    weakHomeWins /
+                    weakHomeGames
+                  ) *
+                  100
+                ).toFixed(1)
+              )
+            : 0,
+      },
+
+      overtimeRate:
+        Number(
+          (
+            overtimeGames /
+            safeCompleted *
+            100
+          ).toFixed(1)
+        ),
+
+      shootoutRate:
+        Number(
+          (
+            shootoutGames /
+            safeCompleted *
+            100
+          ).toFixed(1)
+        ),
+
+      goalDifferentialPerGame:
+        Number(
+          (
+            (
+              strongGoals -
+              weakGoals
+            ) /
+            safeCompleted
+          ).toFixed(2)
+        ),
+
+      shotDifferentialPerGame:
+        Number(
+          (
+            (
+              strongShots -
+              weakShots
+            ) /
+            safeCompleted
+          ).toFixed(2)
+        ),
+
+      failures:
+        failures.slice(
+          0,
+          20
+        ),
+    };
+
+    console.log(
+      '[Project Ice] Competitive Balance Diagnostic',
+      report
+    );
+
+    console.table({
+      Strong: {
+        Team:
+          report
+            .strongTeam
+            .abbreviation,
+
+        Quality:
+          report
+            .strongTeam
+            .diagnosticQuality,
+
+        'Win %':
+          report
+            .strongTeam
+            .winRate,
+
+        'Goals/Game':
+          report
+            .strongTeam
+            .goalsPerGame,
+
+        'Shots/Game':
+          report
+            .strongTeam
+            .shotsPerGame,
+
+        'PP %':
+          report
+            .strongTeam
+            .powerPlayPercentage,
+      },
+
+      Weak: {
+        Team:
+          report
+            .weakTeam
+            .abbreviation,
+
+        Quality:
+          report
+            .weakTeam
+            .diagnosticQuality,
+
+        'Win %':
+          report
+            .weakTeam
+            .winRate,
+
+        'Goals/Game':
+          report
+            .weakTeam
+            .goalsPerGame,
+
+        'Shots/Game':
+          report
+            .weakTeam
+            .shotsPerGame,
+
+        'PP %':
+          report
+            .weakTeam
+            .powerPlayPercentage,
+      },
+    });
+
+    return {
+      success:
+        completedGames > 0 &&
+        failedGames === 0,
+
+      reason:
+        failedGames > 0
+          ? 'competitive-diagnostic-had-failures'
+          : 'competitive-diagnostic-completed',
+
+      report,
     };
   }
 
@@ -35300,6 +36139,7 @@ const WorldEngine = (() => {
     advanceLiveGameSpecialTeamsClock,
     advanceLiveGameStep,
     runLiveGameSimulationDiagnostic,
+    runLiveGameCompetitiveBalanceDiagnostic,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
     repairCompletedGameDevelopment,

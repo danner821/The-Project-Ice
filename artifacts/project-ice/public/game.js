@@ -598,6 +598,152 @@ function ensureHubLiveGameDiagnosticButton() {
   document.body.appendChild(
     button
   );
+
+  /*
+   * ============================================================
+   * DEV — COMPETITIVE BALANCE DIAGNOSTIC BUTTON
+   * ============================================================
+   */
+  const existingCompetitiveButton =
+    document.getElementById(
+      'hub-competitive-balance-diagnostic'
+    );
+
+  if (!existingCompetitiveButton) {
+    const competitiveButton =
+      document.createElement(
+        'button'
+      );
+
+    competitiveButton.id =
+      'hub-competitive-balance-diagnostic';
+
+    competitiveButton.type =
+      'button';
+
+    competitiveButton.textContent =
+      '⚖️ Competitive Balance Test';
+
+    competitiveButton.style.cssText = `
+      position: fixed;
+      right: 18px;
+      bottom: 148px;
+      z-index: 9999;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 197, 97, 0.75);
+      background: rgba(57, 39, 10, 0.96);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    `;
+
+    competitiveButton.addEventListener(
+      'click',
+      () => {
+        competitiveButton.disabled =
+          true;
+
+        const originalText =
+          competitiveButton.textContent;
+
+        competitiveButton.textContent =
+          '⚖️ Running 300 Games...';
+
+        setTimeout(
+          () => {
+            const result =
+              WorldEngine
+                .runLiveGameCompetitiveBalanceDiagnostic({
+                  sampleSize: 300,
+                });
+
+            competitiveButton.disabled =
+              false;
+
+            competitiveButton.textContent =
+              originalText;
+
+            if (
+              !result ||
+              result.success !== true ||
+              !result.report
+            ) {
+              console.error(
+                '[Project Ice] Competitive balance diagnostic failed:',
+                result
+              );
+
+              alert(
+                `Competitive balance diagnostic failed: ${
+                  result?.reason ||
+                  'unknown-error'
+                }`
+              );
+
+              return;
+            }
+
+            const report =
+              result.report;
+
+            const strong =
+              report.strongTeam;
+
+            const weak =
+              report.weakTeam;
+
+            alert(
+              [
+                'COMPETITIVE BALANCE TEST',
+                '',
+                `Completed: ${report.completedGames}/${report.sampleSize}`,
+                `Failed: ${report.failedGames}`,
+                '',
+                'TEAM QUALITY',
+                `${strong.abbreviation}: ${strong.diagnosticQuality}`,
+                `${weak.abbreviation}: ${weak.diagnosticQuality}`,
+                '',
+                'WIN RATE',
+                `${strong.abbreviation}: ${strong.winRate}%`,
+                `${weak.abbreviation}: ${weak.winRate}%`,
+                '',
+                'GOALS / GAME',
+                `${strong.abbreviation}: ${strong.goalsPerGame}`,
+                `${weak.abbreviation}: ${weak.goalsPerGame}`,
+                '',
+                'SHOTS / GAME',
+                `${strong.abbreviation}: ${strong.shotsPerGame}`,
+                `${weak.abbreviation}: ${weak.shotsPerGame}`,
+                '',
+                'POWER PLAY',
+                `${strong.abbreviation}: ${strong.powerPlayPercentage}%`,
+                `${weak.abbreviation}: ${weak.powerPlayPercentage}%`,
+                '',
+                'GAME FLOW',
+                `OT Rate: ${report.overtimeRate}%`,
+                `Shootout Rate: ${report.shootoutRate}%`,
+                '',
+                'DIFFERENTIALS',
+                `Goal Differential/Game: ${report.goalDifferentialPerGame}`,
+                `Shot Differential/Game: ${report.shotDifferentialPerGame}`,
+                '',
+                'HOME SPLITS',
+                `${strong.abbreviation}: ${strong.homeWinRate}% at home`,
+                `${weak.abbreviation}: ${weak.homeWinRate}% at home`,
+              ].join('\n')
+            );
+          },
+          50
+        );
+      }
+    );
+
+    document.body.appendChild(
+      competitiveButton
+    );
+  }
 }
 
 
