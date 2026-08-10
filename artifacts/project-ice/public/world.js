@@ -19908,11 +19908,33 @@ const WorldEngine = (() => {
           );
       }
 
-      const advantage =
-        baseAdvantage +
-        specialTeamsAdjustment;
+        /*
+         * ==========================================================
+         * HOME-ICE INFLUENCE
+         * ==========================================================
+         *
+         * Home ice provides a very small contextual edge in puck
+         * management and territorial play.
+         *
+         * It does NOT:
+         * - boost shooting percentage
+         * - weaken the away goalie
+         * - override player attributes
+         * - guarantee the home team wins more individual battles
+         *
+         * Better players remain overwhelmingly more important.
+         */
+        const homeIceAdjustment =
+          possessionSide === 'home'
+            ? 1.25
+            : -1.25;
 
-      return {
+        const advantage =
+          baseAdvantage +
+          specialTeamsAdjustment +
+          homeIceAdjustment;
+
+        return {
         success: true,
 
         reason:
@@ -19926,9 +19948,11 @@ const WorldEngine = (() => {
 
         baseAdvantage,
 
-        specialTeamsAdjustment,
+          specialTeamsAdjustment,
 
-        advantage,
+          homeIceAdjustment,
+
+          advantage,
 
       possessingSkaterCount:
         possessingSkaters.length,
