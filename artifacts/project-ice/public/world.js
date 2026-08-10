@@ -17141,58 +17141,98 @@ const WorldEngine = (() => {
 
     const forwards =
       skaters
-        .filter(player =>
-          ['C', 'LW', 'RW', 'F'].includes(
-            normalizeAttributePosition(
-              getPlayerById(
-                player.playerId
-              )?.position ||
-              player.position
-            )
-          )
+        .filter(
+          player =>
+            player
+              ?.lineupAssignment
+              ?.unit === 'forward'
         )
         .sort(
           (
             firstPlayer,
             secondPlayer
-          ) =>
-            (
-              Number(
-                secondPlayer.overall
-              ) || 50
-            ) -
-            (
-              Number(
-                firstPlayer.overall
-              ) || 50
-            )
+          ) => {
+            const firstCanonical =
+              getPlayerById(
+                firstPlayer.playerId
+              );
+
+            const secondCanonical =
+              getPlayerById(
+                secondPlayer.playerId
+              );
+
+            return (
+              (
+                Number(
+                  secondCanonical
+                    ?.overall
+                ) ||
+                Number(
+                  secondPlayer.overall
+                ) ||
+                50
+              ) -
+              (
+                Number(
+                  firstCanonical
+                    ?.overall
+                ) ||
+                Number(
+                  firstPlayer.overall
+                ) ||
+                50
+              )
+            );
+          }
         );
 
     const defensemen =
       skaters
-        .filter(player =>
-          normalizeAttributePosition(
-            getPlayerById(
-              player.playerId
-            )?.position ||
-            player.position
-          ) === 'D'
+        .filter(
+          player =>
+            player
+              ?.lineupAssignment
+              ?.unit === 'defense'
         )
         .sort(
           (
             firstPlayer,
             secondPlayer
-          ) =>
-            (
-              Number(
-                secondPlayer.overall
-              ) || 50
-            ) -
-            (
-              Number(
-                firstPlayer.overall
-              ) || 50
-            )
+          ) => {
+            const firstCanonical =
+              getPlayerById(
+                firstPlayer.playerId
+              );
+
+            const secondCanonical =
+              getPlayerById(
+                secondPlayer.playerId
+              );
+
+            return (
+              (
+                Number(
+                  secondCanonical
+                    ?.overall
+                ) ||
+                Number(
+                  secondPlayer.overall
+                ) ||
+                50
+              ) -
+              (
+                Number(
+                  firstCanonical
+                    ?.overall
+                ) ||
+                Number(
+                  firstPlayer.overall
+                ) ||
+                50
+              )
+            );
+          }
         );
 
     const selectedForwards =
@@ -18462,21 +18502,38 @@ const WorldEngine = (() => {
       };
     }
 
+    const isOvertime =
+      simulation.period === 4;
+
     const homeDeployment =
       simulation.flow
         ?.homeDeployment ||
-      selectLiveGameEvenStrengthDeployment(
-        simulation,
-        'home'
+      (
+        isOvertime
+          ? selectLiveGameOvertimeDeployment(
+              simulation,
+              'home'
+            )
+          : selectLiveGameEvenStrengthDeployment(
+              simulation,
+              'home'
+            )
       )?.deployment ||
       null;
 
     const awayDeployment =
       simulation.flow
         ?.awayDeployment ||
-      selectLiveGameEvenStrengthDeployment(
-        simulation,
-        'away'
+      (
+        isOvertime
+          ? selectLiveGameOvertimeDeployment(
+              simulation,
+              'away'
+            )
+          : selectLiveGameEvenStrengthDeployment(
+              simulation,
+              'away'
+            )
       )?.deployment ||
       null;
 

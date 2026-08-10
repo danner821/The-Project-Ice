@@ -180,7 +180,7 @@ function runLiveGameDiagnosticFromUI() {
 }
 
 function runLiveGameCalibrationFromUI() {
-  const SAMPLE_SIZE = 20;
+  const SAMPLE_SIZE = 100;
 
   const totals = {
     homeGoals: 0,
@@ -218,6 +218,8 @@ function runLiveGameCalibrationFromUI() {
 
   let completed = 0;
 
+  const failedGames = [];
+
   for (let i = 0; i < SAMPLE_SIZE; i += 1) {
     const result =
       WorldEngine.runLiveGameSimulationDiagnostic();
@@ -227,6 +229,82 @@ function runLiveGameCalibrationFromUI() {
       result.success !== true ||
       !result.diagnostic
     ) {
+      const d =
+        result?.diagnostic ||
+        null;
+
+      const sim =
+        result?.simulation ||
+        null;
+
+      const lastFailure =
+        Array.isArray(
+          d?.failures
+        ) &&
+        d.failures.length > 0
+          ? d.failures[
+              d.failures.length - 1
+            ]
+          : null;
+
+      failedGames.push({
+        gameNumber:
+          i + 1,
+
+        reason:
+          lastFailure?.reason ||
+          result?.reason ||
+          'unknown-failure',
+
+        period:
+          lastFailure?.period ??
+          sim?.period ??
+          'N/A',
+
+        clock:
+          lastFailure
+            ?.clockSecondsRemaining ??
+          sim?.clockSecondsRemaining ??
+          'N/A',
+
+        status:
+          sim?.status ||
+          'N/A',
+
+        gameComplete:
+          sim?.gameComplete === true,
+
+        regulationComplete:
+          sim?.regulationComplete === true,
+
+        wentToOvertime:
+          sim?.wentToOvertime === true,
+
+        wentToShootout:
+          sim?.wentToShootout === true,
+
+        stoppageReason:
+          sim?.flow
+            ?.stoppageReason ||
+          'none',
+
+        steps:
+          d?.steps ??
+          'N/A',
+
+        hitStepLimit:
+          d?.hitStepLimit === true,
+
+        score:
+          d?.finalScore
+            ? `${d.finalScore.home}-${d.finalScore.away}`
+            : `${
+                sim?.home?.score ?? '?'
+              }-${
+                sim?.away?.score ?? '?'
+              }`,
+      });
+
       console.error(
         `[Calibration] Game ${i + 1} failed:`,
         result
@@ -341,7 +419,7 @@ function runLiveGameCalibrationFromUI() {
 
   alert(
     [
-      '20-GAME SIM CALIBRATION',
+      '100-GAME SIM CALIBRATION',
       '',
       `Completed: ${completed}/${SAMPLE_SIZE}`,
       '',
@@ -426,9 +504,33 @@ function runLiveGameCalibrationFromUI() {
       `Avg Simulation Steps: ${avg(
         totals.steps
       )}`,
-      `Regulation Ties: ${
-        totals.tiesAfterRegulation
-      }/${completed}`,
+    `Regulation Ties: ${
+      totals.tiesAfterRegulation
+    }/${completed}`,
+
+    '',
+
+    failedGames.length > 0
+      ? `FAILED GAMES: ${failedGames.length}`
+      : 'FAILED GAMES: 0',
+
+    ...failedGames.map(
+      failure => [
+        '',
+        `Game ${failure.gameNumber}`,
+        `Reason: ${failure.reason}`,
+        `Period: ${failure.period}`,
+        `Clock: ${failure.clock}`,
+        `Status: ${failure.status}`,
+        `Score: ${failure.score}`,
+        `Steps: ${failure.steps}`,
+        `Hit Step Limit: ${failure.hitStepLimit}`,
+        `Regulation Complete: ${failure.regulationComplete}`,
+        `Went To OT: ${failure.wentToOvertime}`,
+        `Went To SO: ${failure.wentToShootout}`,
+        `Stoppage: ${failure.stoppageReason}`,
+      ].join('\n')
+    ),
     ].join('\n')
   );
 }
