@@ -16525,6 +16525,15 @@ const WorldEngine = (() => {
         awayDeployment: null,
 
         deploymentAgeSeconds: 0,
+
+        /*
+         * Tracks the most recent actual puck touches during the
+         * current uninterrupted team possession.
+         *
+         * Goal assist attribution will read from this history rather
+         * than randomly selecting teammates.
+         */
+        recentPossessionTouches: [],
       },
 
       /*
@@ -17991,6 +18000,96 @@ const WorldEngine = (() => {
    * It can also produce failed entries, possession changes,
    * and transition opportunities for the other team.
    */
+
+  /*
+   * ============================================================
+   * LIVE GAME — POSSESSION TOUCH HISTORY
+   * ============================================================
+   *
+   * Records actual player involvement during the current
+   * possession so goals can later award assists from recent
+   * puck contributors.
+   */
+  function recordLiveGamePossessionTouch(
+    simulation,
+    side,
+    playerId,
+    touchType = 'possession'
+  ) {
+    if (
+      !simulation ||
+      !simulation.flow ||
+      !playerId ||
+      (
+        side !== 'home' &&
+        side !== 'away'
+      )
+    ) {
+      return false;
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !Array.isArray(
+        flow.recentPossessionTouches
+      )
+    ) {
+      flow.recentPossessionTouches = [];
+    }
+
+    /*
+     * If possession has changed teams, the previous team's touch
+     * history cannot contribute assists to the new possession.
+     */
+    const existingSide =
+      flow.recentPossessionTouches[
+        flow.recentPossessionTouches.length - 1
+      ]?.side ||
+      null;
+
+    if (
+      existingSide &&
+      existingSide !== side
+    ) {
+      flow.recentPossessionTouches = [];
+    }
+
+    const touch = {
+      playerId,
+      side,
+      touchType,
+
+      period:
+        simulation.period,
+
+      clockSecondsRemaining:
+        simulation
+          .clockSecondsRemaining,
+    };
+
+    flow.recentPossessionTouches.push(
+      touch
+    );
+
+    /*
+     * We only need a short rolling window.
+     * This is enough to reconstruct the last several meaningful
+     * puck contributors without carrying an entire game's history.
+     */
+    if (
+      flow.recentPossessionTouches
+        .length > 8
+    ) {
+      flow.recentPossessionTouches =
+        flow.recentPossessionTouches
+          .slice(-8);
+    }
+
+    return true;
+  }
+  
   function resolveLiveGamePossessionAdvance(
     simulation
   ) {
@@ -18043,6 +18142,18 @@ const WorldEngine = (() => {
       possessionSide === 'home'
         ? 'away'
         : 'home';
+
+    const possessingDeployment =
+      possessionSide === 'home'
+        ? flow.homeDeployment
+        : flow.awayDeployment;
+
+    const possessingSkaters =
+      Array.isArray(
+        possessingDeployment?.skaters
+      )
+        ? possessingDeployment.skaters
+        : [];
 
     const currentZone =
       flow.zone ||
@@ -18298,13 +18409,116 @@ const WorldEngine = (() => {
     flow.paceContext =
       paceContext;
 
-    flow.lastEventType =
-      'possession-advance';
+      flow.lastEventType =
+        'possession-advance';
 
-    flow.lastEventSide =
-      nextPossessionSide;
+      flow.lastEventSide =
+        nextPossessionSide;
 
-    const event = {
+      /*
+       * A possession-advance represents an actual carry/pass/setup.
+       * Give that action to one of the currently deployed puck
+       * handlers so future assists have real possession history.
+       */
+      let possessionPlayer =
+        null;
+
+      if (
+        nextPossessionSide ===
+          possessionSide &&
+        possessingSkaters.length > 0
+      ) {
+        const weightedSkaters =
+          possessingSkaters.map(
+            player => {
+              const canonicalPlayer =
+                getPlayerById(
+                  player.playerId
+                );
+
+              const attributes =
+                canonicalPlayer
+                  ?.attributes ||
+                {};
+
+              const involvementWeight =
+                (
+                  Number(
+                    attributes.passing
+                  ) || 50
+                ) * 0.40 +
+                (
+                  Number(
+                    attributes.puckControl
+                  ) || 50
+                ) * 0.35 +
+                (
+                  Number(
+                    attributes
+                      .offensiveAwareness
+                  ) || 50
+                ) * 0.25;
+
+              return {
+                player,
+                weight:
+                  Math.max(
+                    10,
+                    involvementWeight
+                  ),
+              };
+            }
+          );
+
+        const totalWeight =
+          weightedSkaters.reduce(
+            (sum, entry) =>
+              sum + entry.weight,
+            0
+          );
+
+        let roll =
+          Math.random() *
+          totalWeight;
+
+        for (
+          const entry of
+          weightedSkaters
+        ) {
+          roll -= entry.weight;
+
+          if (roll <= 0) {
+            possessionPlayer =
+              entry.player;
+
+            break;
+          }
+        }
+
+        possessionPlayer =
+          possessionPlayer ||
+          weightedSkaters[0]
+            ?.player ||
+          null;
+
+        if (possessionPlayer) {
+          recordLiveGamePossessionTouch(
+            simulation,
+            possessionSide,
+            possessionPlayer.playerId,
+            outcome
+          );
+        }
+      } else {
+        /*
+         * Possession changed during this advance.
+         * Clear the old attacking sequence; the new team starts fresh.
+         */
+        flow.recentPossessionTouches =
+          [];
+      }
+
+      const event = {
       id:
         `live-event-${Date.now()}-${Math.random()
           .toString(36)
@@ -18334,9 +18548,14 @@ const WorldEngine = (() => {
 
       outcome,
 
-      possessionChanged:
-        nextPossessionSide !==
-        possessionSide,
+        possessionChanged:
+          nextPossessionSide !==
+          possessionSide,
+
+        playerId:
+          possessionPlayer
+            ?.playerId ||
+          null,
     };
 
     simulation.events.push(
@@ -18989,33 +19208,293 @@ const WorldEngine = (() => {
       Math.random() <
       scoringChance
     ) {
-      attackingTeamState.score =
-        (
-          Number(
-            attackingTeamState.score
-          ) || 0
-        ) + 1;
+          attackingTeamState.score =
+            (
+              Number(
+                attackingTeamState.score
+              ) || 0
+            ) + 1;
 
-      shooter.goals =
-        (
-          Number(
-            shooter.goals
-          ) || 0
-        ) + 1;
+          /*
+           * ==========================================================
+           * POWER-PLAY GOAL RESOLUTION
+           * ==========================================================
+           *
+           * If the attacking team scores while it owns the active
+           * power play, credit the PPG and expire one standard minor
+           * against the defending team.
+           */
+          let powerPlayGoal =
+            false;
 
-      shooter.points =
-        (
-          Number(
-            shooter.goals
-          ) || 0
-        ) +
-        (
-          Number(
-            shooter.assists
-          ) || 0
-        );
+          const specialTeams =
+            simulation.specialTeams &&
+            typeof simulation.specialTeams === 'object'
+              ? simulation.specialTeams
+              : null;
 
-      goalie.goalsAgainst =
+          if (
+            specialTeams &&
+            specialTeams.situation === 'power-play' &&
+            specialTeams.powerPlaySide === attackingSide &&
+            specialTeams.penaltyKillSide === defendingSide
+          ) {
+            powerPlayGoal =
+              true;
+
+            attackingTeamState.powerPlayGoals =
+              (
+                Number(
+                  attackingTeamState.powerPlayGoals
+                ) || 0
+              ) + 1;
+
+            const activePenalties =
+              Array.isArray(
+                specialTeams.activePenalties
+              )
+                ? specialTeams.activePenalties
+                : [];
+
+            const expiringPenalty =
+              activePenalties.find(
+                penalty =>
+                  penalty &&
+                  penalty.active === true &&
+                  penalty.penalizedSide === defendingSide &&
+                  Number(
+                    penalty.minutes
+                  ) === 2
+              ) ||
+              null;
+
+            if (expiringPenalty) {
+              expiringPenalty.active =
+                false;
+
+              expiringPenalty.secondsRemaining =
+                0;
+
+              specialTeams.activePenalties =
+                activePenalties.filter(
+                  penalty =>
+                    penalty &&
+                    penalty.active === true
+                );
+            }
+
+            const remainingPenalty =
+              specialTeams.activePenalties[0] ||
+              null;
+
+            if (!remainingPenalty) {
+              specialTeams.situation =
+                'even-strength';
+
+              specialTeams.powerPlaySide =
+                null;
+
+              specialTeams.penaltyKillSide =
+                null;
+
+              specialTeams.homeSkaters =
+                5;
+
+              specialTeams.awaySkaters =
+                5;
+            } else {
+              specialTeams.situation =
+                'power-play';
+
+              specialTeams.powerPlaySide =
+                remainingPenalty.advantagedSide;
+
+              specialTeams.penaltyKillSide =
+                remainingPenalty.penalizedSide;
+
+              specialTeams.homeSkaters =
+                remainingPenalty.penalizedSide === 'home'
+                  ? 4
+                  : 5;
+
+              specialTeams.awaySkaters =
+                remainingPenalty.penalizedSide === 'away'
+                  ? 4
+                  : 5;
+            }
+          }
+
+          shooter.goals =
+          (
+            Number(
+              shooter.goals
+            ) || 0
+          ) + 1;
+
+        /*
+         * ==========================================================
+         * ASSIST ATTRIBUTION
+         * ==========================================================
+         *
+         * Use recent uninterrupted possession history rather than
+         * randomly selecting teammates.
+         *
+         * Most goals receive one or two assists, but unassisted goals
+         * remain possible.
+         */
+        const recentTouches =
+          Array.isArray(
+            flow.recentPossessionTouches
+          )
+            ? flow.recentPossessionTouches
+            : [];
+
+        const assistCandidates = [];
+
+        for (
+          let index =
+            recentTouches.length - 1;
+          index >= 0;
+          index -= 1
+        ) {
+          const touch =
+            recentTouches[index];
+
+          if (
+            !touch ||
+            touch.side !== attackingSide ||
+            !touch.playerId ||
+            String(
+              touch.playerId
+            ) ===
+              String(
+                shooter.playerId
+              )
+          ) {
+            continue;
+          }
+
+          if (
+            assistCandidates.some(
+              candidate =>
+                String(
+                  candidate.playerId
+                ) ===
+                String(
+                  touch.playerId
+                )
+            )
+          ) {
+            continue;
+          }
+
+          assistCandidates.push(
+            touch
+          );
+
+          if (
+            assistCandidates.length >= 2
+          ) {
+            break;
+          }
+        }
+
+        /*
+         * Hockey goals are usually assisted, but not always.
+         *
+         * The most recent valid possession contributor is the primary
+         * assist candidate. The next unique contributor is secondary.
+         */
+        let primaryAssist =
+          null;
+
+        let secondaryAssist =
+          null;
+
+        if (
+          assistCandidates.length > 0 &&
+          Math.random() < 0.91
+        ) {
+          primaryAssist =
+            assistCandidates[0];
+        }
+
+        if (
+          primaryAssist &&
+          assistCandidates.length > 1 &&
+          Math.random() < 0.74
+        ) {
+          secondaryAssist =
+            assistCandidates[1];
+        }
+
+        const creditAssist =
+          assistTouch => {
+            if (!assistTouch) {
+              return null;
+            }
+
+            const assistPlayer =
+              attackingSkaters.find(
+                player =>
+                  String(
+                    player.playerId
+                  ) ===
+                  String(
+                    assistTouch.playerId
+                  )
+              ) ||
+              null;
+
+            if (!assistPlayer) {
+              return null;
+            }
+
+            assistPlayer.assists =
+              (
+                Number(
+                  assistPlayer.assists
+                ) || 0
+              ) + 1;
+
+            assistPlayer.points =
+              (
+                Number(
+                  assistPlayer.goals
+                ) || 0
+              ) +
+              (
+                Number(
+                  assistPlayer.assists
+                ) || 0
+              );
+
+            return assistPlayer;
+          };
+
+        const primaryAssistPlayer =
+          creditAssist(
+            primaryAssist
+          );
+
+        const secondaryAssistPlayer =
+          creditAssist(
+            secondaryAssist
+          );
+
+        shooter.points =
+          (
+            Number(
+              shooter.goals
+            ) || 0
+          ) +
+          (
+            Number(
+              shooter.assists
+            ) || 0
+          );
+
+        goalie.goalsAgainst =
         (
           Number(
             goalie.goalsAgainst
@@ -19071,10 +19550,22 @@ const WorldEngine = (() => {
         scorerPlayerId:
           shooter.playerId,
 
-        goaliePlayerId:
-          goalie.playerId,
+        primaryAssistPlayerId:
+          primaryAssistPlayer
+            ?.playerId ||
+          null,
 
-        homeScore:
+        secondaryAssistPlayerId:
+          secondaryAssistPlayer
+            ?.playerId ||
+          null,
+
+          goaliePlayerId:
+            goalie.playerId,
+
+          powerPlayGoal,
+
+          homeScore:
           simulation.home.score,
 
         awayScore:
@@ -19088,6 +19579,13 @@ const WorldEngine = (() => {
       simulation.scoringEvents.push(
         event
       );
+
+      /*
+       * A goal ends the current possession sequence.
+       * The next possession begins after the center-ice faceoff.
+       */
+      flow.recentPossessionTouches =
+        [];
 
       return {
         success: true,
