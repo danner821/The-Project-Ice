@@ -877,6 +877,130 @@ document.body.appendChild(
   gradientButton
 );
 }
+
+/*
+* ============================================================
+* DEV — TEAM SIMULATION PROFILES BUTTON
+* ============================================================
+*/
+const existingProfilesButton =
+document.getElementById(
+  'hub-team-simulation-profiles'
+);
+
+if (!existingProfilesButton) {
+const profilesButton =
+  document.createElement(
+    'button'
+  );
+
+profilesButton.id =
+  'hub-team-simulation-profiles';
+
+profilesButton.type =
+  'button';
+
+profilesButton.textContent =
+  '🔬 Team Sim Profiles';
+
+profilesButton.style.cssText = `
+  position: fixed;
+  right: 18px;
+  bottom: 260px;
+  z-index: 9999;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(184, 138, 255, 0.75);
+  background: rgba(42, 21, 70, 0.96);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+`;
+
+profilesButton.addEventListener(
+  'click',
+  () => {
+    const teams =
+      Array.isArray(
+        WorldEngine.state?.teams
+      )
+        ? WorldEngine.state.teams
+        : [];
+
+    const profiles =
+      teams
+        .map(
+          team =>
+            WorldEngine
+              .getLiveGameTeamSimulationProfile(
+                team.teamId
+              )
+        )
+        .filter(
+          result =>
+            result?.success === true &&
+            result.profile
+        )
+        .map(
+          result =>
+            result.profile
+        )
+        .sort(
+          (
+            firstTeam,
+            secondTeam
+          ) =>
+            secondTeam.overallQuality -
+            firstTeam.overallQuality
+        );
+
+    if (
+      profiles.length === 0
+    ) {
+      alert(
+        'No valid team simulation profiles were available.'
+      );
+
+      return;
+    }
+
+    const profileLines =
+      profiles.map(
+        (
+          profile,
+          index
+        ) => [
+          `#${index + 1} ${profile.abbreviation}`,
+          `Overall Quality: ${profile.overallQuality}`,
+          `Skater OVR: ${profile.skaterOverall}`,
+          `Starter G OVR: ${profile.starterGoalieOverall}`,
+          `Possession: ${profile.possessionOffense}`,
+          `Defense: ${profile.defensiveDisruption}`,
+          `Finishing: ${profile.finishing}`,
+          `Goalie Save: ${profile.goalieSaveAbility}`,
+          `Goalie Rebound: ${profile.goalieReboundAbility}`,
+          `Goalie Scramble: ${profile.goalieScrambleAbility}`,
+          `PP: ${profile.powerPlayQuality}`,
+          `PK: ${profile.penaltyKillQuality}`,
+          '',
+        ].join('\n')
+      );
+
+    alert(
+      [
+        'TEAM SIMULATION PROFILES',
+        '',
+        ...profileLines,
+      ].join('\n')
+    );
+  }
+);
+
+document.body.appendChild(
+  profilesButton
+);
+}
 }
 
 

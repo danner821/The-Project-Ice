@@ -27979,6 +27979,690 @@ const WorldEngine = (() => {
 
   /*
    * ============================================================
+   * LIVE GAME — TEAM SIMULATION PROFILE
+   * ============================================================
+   *
+   * Read-only diagnostic.
+   *
+   * Summarizes a real team's roster through the same types of
+   * attributes the live-game resolver actually cares about.
+   *
+   * This does NOT affect simulation outcomes.
+   */
+  function getLiveGameTeamSimulationProfile(
+    teamId
+  ) {
+    const team =
+      getTeamById(
+        teamId
+      );
+
+    if (!team) {
+      return {
+        success: false,
+        reason:
+          'team-simulation-profile-team-not-found',
+        profile: null,
+      };
+    }
+
+    const roster =
+      Array.isArray(
+        team.roster
+      )
+        ? team.roster
+        : [];
+
+    const activePlayers =
+      roster.filter(
+        player =>
+          player &&
+          player.injured !== true &&
+          player.lineupStatus !==
+            'unavailable' &&
+          (
+            player.lineupStatus ===
+              'active' ||
+            Boolean(
+              player.lineupAssignment
+            )
+          )
+      );
+
+    const skaters =
+      activePlayers.filter(
+        player =>
+          normalizeAttributePosition(
+            player.position
+          ) !== 'G'
+      );
+
+    const goalies =
+      activePlayers.filter(
+        player =>
+          normalizeAttributePosition(
+            player.position
+          ) === 'G'
+      );
+
+    if (
+      skaters.length === 0 ||
+      goalies.length === 0
+    ) {
+      return {
+        success: false,
+        reason:
+          'team-simulation-profile-roster-incomplete',
+        profile: null,
+      };
+    }
+
+    const clamp =
+      value =>
+        Math.max(
+          25,
+          Math.min(
+            99,
+            Number(value) || 50
+          )
+        );
+
+    const average =
+      values => {
+        const safeValues =
+          values.filter(
+            value =>
+              Number.isFinite(
+                Number(value)
+              )
+          );
+
+        if (
+          safeValues.length === 0
+        ) {
+          return 50;
+        }
+
+        return (
+          safeValues.reduce(
+            (
+              total,
+              value
+            ) =>
+              total +
+              Number(value),
+            0
+          ) /
+          safeValues.length
+        );
+      };
+
+    const getAttributes =
+      player =>
+        player?.attributes ||
+        {};
+
+    /*
+     * ==========================================================
+     * SIMPLE OVERALL QUALITY
+     * ==========================================================
+     *
+     * Same broad ranking concept used by the competitive diagnostic.
+     * This is included only so we can compare it against the much
+     * richer simulation-facing categories below.
+     */
+    const skaterOverall =
+      average(
+        skaters.map(
+          player =>
+            Number(
+              player.overall
+            ) || 50
+        )
+      );
+
+    const sortedGoalies =
+      [...goalies].sort(
+        (
+          firstGoalie,
+          secondGoalie
+        ) =>
+          (
+            Number(
+              secondGoalie.overall
+            ) || 50
+          ) -
+          (
+            Number(
+              firstGoalie.overall
+            ) || 50
+          )
+      );
+
+    /*
+     * Prefer the actual starter assignment when available.
+     * Otherwise use the highest-rated active goalie.
+     */
+    const starterGoalie =
+      goalies.find(
+        goalie =>
+          goalie.rosterSlot ===
+            'G1' ||
+          goalie
+            .lineupAssignment
+            ?.rosterSlot ===
+            'G1' ||
+          goalie
+            .lineupAssignment
+            ?.line === 1
+      ) ||
+      sortedGoalies[0] ||
+      null;
+
+    const goalieOverall =
+      starterGoalie
+        ? Number(
+            starterGoalie.overall
+          ) || 50
+        : 50;
+
+    const overallQuality =
+      skaterOverall *
+        0.78 +
+      goalieOverall *
+        0.22;
+
+    /*
+     * ==========================================================
+     * EVEN-STRENGTH POSSESSION OFFENSE
+     * ==========================================================
+     *
+     * Mirrors the offensive attribute blend used by
+     * getLiveGamePossessionMatchup().
+     */
+    const possessionOffense =
+      average(
+        skaters.map(
+          player => {
+            const attributes =
+              getAttributes(
+                player
+              );
+
+            return (
+              clamp(
+                attributes.passing
+              ) * 0.28 +
+              clamp(
+                attributes.puckControl
+              ) * 0.27 +
+              clamp(
+                attributes
+                  .offensiveAwareness
+              ) * 0.18 +
+              clamp(
+                attributes.speed
+              ) * 0.10 +
+              clamp(
+                attributes.acceleration
+              ) * 0.07 +
+              clamp(
+                attributes.poise
+              ) * 0.10
+            );
+          }
+        )
+      );
+
+    /*
+     * ==========================================================
+     * EVEN-STRENGTH DEFENSIVE DISRUPTION
+     * ==========================================================
+     *
+     * Mirrors the defensive attribute blend used by
+     * getLiveGamePossessionMatchup().
+     */
+    const defensiveDisruption =
+      average(
+        skaters.map(
+          player => {
+            const attributes =
+              getAttributes(
+                player
+              );
+
+            return (
+              clamp(
+                attributes
+                  .defensiveAwareness
+              ) * 0.30 +
+              clamp(
+                attributes
+                  .stickChecking
+              ) * 0.25 +
+              clamp(
+                attributes.agility
+              ) * 0.12 +
+              clamp(
+                attributes.speed
+              ) * 0.10 +
+              clamp(
+                attributes.strength
+              ) * 0.08 +
+              clamp(
+                attributes
+                  .bodyChecking
+              ) * 0.07 +
+              clamp(
+                attributes.poise
+              ) * 0.08
+            );
+          }
+        )
+      );
+
+    /*
+     * ==========================================================
+     * SHOOTING / FINISHING PROFILE
+     * ==========================================================
+     *
+     * Broad snapshot of the attributes feeding shooter selection,
+     * shot types and finishing.
+     *
+     * This is intentionally diagnostic only — the actual resolver
+     * still calculates every real shot individually.
+     */
+    const finishing =
+      average(
+        skaters.map(
+          player => {
+            const attributes =
+              getAttributes(
+                player
+              );
+
+            return (
+              clamp(
+                attributes
+                  .wristShotAccuracy
+              ) * 0.27 +
+              clamp(
+                attributes
+                  .wristShotPower
+              ) * 0.10 +
+              clamp(
+                attributes
+                  .slapShotAccuracy
+              ) * 0.13 +
+              clamp(
+                attributes
+                  .slapShotPower
+              ) * 0.10 +
+              clamp(
+                attributes
+                  .offensiveAwareness
+              ) * 0.18 +
+              clamp(
+                attributes.handEye
+              ) * 0.08 +
+              clamp(
+                attributes.puckControl
+              ) * 0.08 +
+              clamp(
+                attributes.deking
+              ) * 0.06
+            );
+          }
+        )
+      );
+
+    /*
+     * ==========================================================
+     * STARTING GOALIE PROFILE
+     * ==========================================================
+     */
+    let goalieSaveAbility =
+      50;
+
+    let goalieReboundAbility =
+      50;
+
+    let goalieScrambleAbility =
+      50;
+
+    if (starterGoalie) {
+      const goalieProfile =
+        getLiveGameGoalieSaveProfile({
+          playerId:
+            starterGoalie.playerId ||
+            starterGoalie.id,
+        });
+
+      if (
+        goalieProfile?.success ===
+        true
+      ) {
+        goalieSaveAbility =
+          goalieProfile
+            .saveAbility;
+
+        goalieReboundAbility =
+          goalieProfile
+            .reboundAbility;
+
+        goalieScrambleAbility =
+          goalieProfile
+            .scrambleAbility;
+      }
+    }
+
+    /*
+     * ==========================================================
+     * SPECIAL-TEAMS PLAYER COLLECTION
+     * ==========================================================
+     */
+    const getUnitPlayers =
+      units => {
+        const entries = [];
+
+        (
+          Array.isArray(units)
+            ? units.slice(0, 2)
+            : []
+        ).forEach(
+          (
+            unit,
+            unitIndex
+          ) => {
+            const slots =
+              unit?.slots &&
+              typeof unit.slots ===
+                'object'
+                ? Object.values(
+                    unit.slots
+                  )
+                : [];
+
+            slots.forEach(
+              playerId => {
+                if (!playerId) {
+                  return;
+                }
+
+                const player =
+                  getPlayerById(
+                    playerId
+                  );
+
+                if (!player) {
+                  return;
+                }
+
+                /*
+                 * Unit 1 receives modestly more diagnostic weight
+                 * because it receives the more important deployment.
+                 */
+                entries.push({
+                  player,
+                  weight:
+                    unitIndex === 0
+                      ? 1.25
+                      : 0.85,
+                });
+              }
+            );
+          }
+        );
+
+        return entries;
+      };
+
+    const weightedAverage =
+      (
+        entries,
+        ratingFunction
+      ) => {
+        if (
+          !Array.isArray(entries) ||
+          entries.length === 0
+        ) {
+          return 50;
+        }
+
+        let weightedTotal =
+          0;
+
+        let totalWeight =
+          0;
+
+        entries.forEach(
+          entry => {
+            const weight =
+              Math.max(
+                0,
+                Number(
+                  entry.weight
+                ) || 0
+              );
+
+            if (weight <= 0) {
+              return;
+            }
+
+            weightedTotal +=
+              ratingFunction(
+                entry.player
+              ) *
+              weight;
+
+            totalWeight +=
+              weight;
+          }
+        );
+
+        return totalWeight > 0
+          ? weightedTotal /
+            totalWeight
+          : 50;
+      };
+
+    const powerPlayPlayers =
+      getUnitPlayers(
+        team
+          .specialTeams
+          ?.powerPlay
+      );
+
+    const penaltyKillPlayers =
+      getUnitPlayers(
+        team
+          .specialTeams
+          ?.penaltyKill
+      );
+
+    /*
+     * Mirrors the actual PP attribute blend used by
+     * getLiveGameSpecialTeamsMatchup().
+     */
+    const powerPlayQuality =
+      weightedAverage(
+        powerPlayPlayers,
+        player => {
+          const attributes =
+            getAttributes(
+              player
+            );
+
+          const shotThreat =
+            (
+              clamp(
+                attributes
+                  .wristShotAccuracy
+              ) +
+              clamp(
+                attributes
+                  .slapShotAccuracy
+              )
+            ) /
+            2;
+
+          return (
+            clamp(
+              attributes.passing
+            ) * 0.27 +
+            clamp(
+              attributes
+                .offensiveAwareness
+            ) * 0.23 +
+            clamp(
+              attributes.puckControl
+            ) * 0.20 +
+            shotThreat *
+              0.18 +
+            clamp(
+              attributes.poise
+            ) * 0.12
+          );
+        }
+      );
+
+    /*
+     * Mirrors the actual PK attribute blend used by
+     * getLiveGameSpecialTeamsMatchup().
+     */
+    const penaltyKillQuality =
+      weightedAverage(
+        penaltyKillPlayers,
+        player => {
+          const attributes =
+            getAttributes(
+              player
+            );
+
+          return (
+            clamp(
+              attributes
+                .defensiveAwareness
+            ) * 0.30 +
+            clamp(
+              attributes
+                .stickChecking
+            ) * 0.24 +
+            clamp(
+              attributes
+                .shotBlocking
+            ) * 0.18 +
+            clamp(
+              attributes.agility
+            ) * 0.10 +
+            clamp(
+              attributes.speed
+            ) * 0.10 +
+            clamp(
+              attributes.poise
+            ) * 0.08
+          );
+        }
+      );
+
+    const round =
+      value =>
+        Number(
+          (
+            Number(value) || 0
+          ).toFixed(2)
+        );
+
+    const profile = {
+      teamId:
+        team.teamId,
+
+      abbreviation:
+        team.abbreviation ||
+        team.teamName ||
+        team.schoolName ||
+        team.teamId,
+
+      overallQuality:
+        round(
+          overallQuality
+        ),
+
+      skaterOverall:
+        round(
+          skaterOverall
+        ),
+
+      starterGoalieOverall:
+        round(
+          goalieOverall
+        ),
+
+      possessionOffense:
+        round(
+          possessionOffense
+        ),
+
+      defensiveDisruption:
+        round(
+          defensiveDisruption
+        ),
+
+      finishing:
+        round(
+          finishing
+        ),
+
+      goalieSaveAbility:
+        round(
+          goalieSaveAbility
+        ),
+
+      goalieReboundAbility:
+        round(
+          goalieReboundAbility
+        ),
+
+      goalieScrambleAbility:
+        round(
+          goalieScrambleAbility
+        ),
+
+      powerPlayQuality:
+        round(
+          powerPlayQuality
+        ),
+
+      penaltyKillQuality:
+        round(
+          penaltyKillQuality
+        ),
+
+      starterGoalieId:
+        starterGoalie
+          ?.playerId ||
+        starterGoalie?.id ||
+        null,
+
+      activeSkaters:
+        skaters.length,
+
+      activeGoalies:
+        goalies.length,
+    };
+
+    return {
+      success: true,
+
+      reason:
+        'team-simulation-profile-created',
+
+      profile,
+    };
+  }
+
+  /*
+   * ============================================================
    * LIVE GAME — FINAL GAME RESULT CONVERSION
    * ============================================================
    *
@@ -36630,6 +37314,7 @@ const WorldEngine = (() => {
     runLiveGameSimulationDiagnostic,
     runLiveGameCompetitiveBalanceDiagnostic,
     runLiveGameStrengthGradientDiagnostic,
+    getLiveGameTeamSimulationProfile,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
     repairCompletedGameDevelopment,
