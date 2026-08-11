@@ -1001,6 +1001,166 @@ document.body.appendChild(
   profilesButton
 );
 }
+
+/*
+* ============================================================
+* DEV — ATTRIBUTE ISOLATION TEST BUTTON
+* ============================================================
+*/
+const existingIsolationButton =
+document.getElementById(
+  'hub-attribute-isolation-test'
+);
+
+if (!existingIsolationButton) {
+const isolationButton =
+  document.createElement(
+    'button'
+  );
+
+isolationButton.id =
+  'hub-attribute-isolation-test';
+
+isolationButton.type =
+  'button';
+
+isolationButton.textContent =
+  '🧬 Attribute Isolation Test';
+
+isolationButton.style.cssText = `
+  position: fixed;
+  right: 18px;
+  bottom: 310px;
+  z-index: 9999;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 122, 196, 0.78);
+  background: rgba(74, 22, 58, 0.96);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+`;
+
+isolationButton.addEventListener(
+  'click',
+  () => {
+    isolationButton.disabled =
+      true;
+
+    const originalText =
+      isolationButton.textContent;
+
+    isolationButton.textContent =
+      '🧬 Running...';
+
+    try {
+      const diagnostic =
+        WorldEngine
+          .runLiveGameAttributeIsolationDiagnostic({
+            gamesPerTest: 400,
+            boost: 8,
+          });
+
+      const report =
+        diagnostic?.report;
+
+      if (!report) {
+        alert(
+          `Attribute Isolation Test failed.\n\nReason: ${
+            diagnostic?.reason ||
+            'unknown'
+          }`
+        );
+
+        return;
+      }
+
+      const resultLines =
+        report.results.map(
+          result => {
+            if (
+              result?.success !==
+              true
+            ) {
+              return [
+                result.label,
+                'FAILED',
+                `Reason: ${
+                  result.reason ||
+                  'unknown'
+                }`,
+                '',
+              ].join('\n');
+            }
+
+            return [
+              result.label,
+              `Win Rate: ${Number(
+                result.testTeamWinRate
+              ).toFixed(1)}%`,
+              `Goals/Game: ${Number(
+                result.testGoalsPerGame
+              ).toFixed(2)}`,
+              `Shots/Game: ${Number(
+                result.testShotsPerGame
+              ).toFixed(2)}`,
+              `PP: ${Number(
+                result.testPowerPlayPercentage
+              ).toFixed(1)}%`,
+              `Goal Diff/Game: ${Number(
+                result.goalDifferentialPerGame
+              ).toFixed(2)}`,
+              `Shot Diff/Game: ${Number(
+                result.shotDifferentialPerGame
+              ).toFixed(2)}`,
+              '',
+            ].join('\n');
+          }
+        );
+
+      alert(
+        [
+          'ATTRIBUTE ISOLATION TEST',
+          '',
+          `${report.testTeam.abbreviation} vs ${report.controlTeam.abbreviation}`,
+          `Boost: +${report.boost}`,
+          `Games Per Test: ${report.gamesPerTest}`,
+          `Completed Tests: ${report.completedTests}/${report.totalTests}`,
+          '',
+          ...resultLines,
+        ].join('\n')
+      );
+    } catch (error) {
+      console.error(
+        '[Project Ice] Attribute Isolation Test failed',
+        error
+      );
+
+      alert(
+        [
+          'ATTRIBUTE ISOLATION TEST',
+          '',
+          'The diagnostic encountered an error.',
+          '',
+          error?.message ||
+            String(error),
+        ].join('\n')
+      );
+    } finally {
+      isolationButton.disabled =
+        false;
+
+      isolationButton.textContent =
+        originalText;
+    }
+  }
+);
+
+document.body.appendChild(
+  isolationButton
+);
+}
 }
 
 

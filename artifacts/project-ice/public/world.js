@@ -28663,6 +28663,756 @@ const WorldEngine = (() => {
 
   /*
    * ============================================================
+   * LIVE GAME — DIAGNOSTIC ATTRIBUTE OVERRIDE
+   * ============================================================
+   *
+   * DEV / DIAGNOSTIC ONLY.
+   *
+   * Temporarily adjusts selected player attributes for controlled
+   * simulation testing.
+   *
+   * Every original value is snapshotted so it can be restored
+   * exactly after the diagnostic finishes.
+   *
+   * This helper must NEVER be used for normal career progression.
+   */
+  function applyLiveGameDiagnosticAttributeOverride(
+    players,
+    attributeNames,
+    adjustment
+  ) {
+    if (
+      !Array.isArray(players) ||
+      !Array.isArray(attributeNames)
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-diagnostic-attribute-override',
+        snapshots: [],
+      };
+    }
+
+    const safeAdjustment =
+      Number(adjustment) || 0;
+
+    const snapshots = [];
+
+    players.forEach(
+      player => {
+        if (!player) {
+          return;
+        }
+
+        const canonicalPlayer =
+          getPlayerById(
+            player.playerId ||
+            player.id
+          );
+
+        if (!canonicalPlayer) {
+          return;
+        }
+
+        if (
+          !canonicalPlayer.attributes ||
+          typeof canonicalPlayer.attributes !==
+            'object'
+        ) {
+          canonicalPlayer.attributes = {};
+        }
+
+        attributeNames.forEach(
+          attributeName => {
+            if (!attributeName) {
+              return;
+            }
+
+            const hadOwnValue =
+              Object.prototype
+                .hasOwnProperty.call(
+                  canonicalPlayer.attributes,
+                  attributeName
+                );
+
+            const originalValue =
+              canonicalPlayer
+                .attributes[
+                  attributeName
+                ];
+
+            snapshots.push({
+              player:
+                canonicalPlayer,
+
+              attributeName,
+
+              hadOwnValue,
+
+              originalValue,
+            });
+
+            const currentValue =
+              Number(
+                originalValue
+              ) || 50;
+
+            canonicalPlayer
+              .attributes[
+                attributeName
+              ] =
+              Math.max(
+                25,
+                Math.min(
+                  99,
+                  currentValue +
+                  safeAdjustment
+                )
+              );
+          }
+        );
+      }
+    );
+
+    return {
+      success: true,
+
+      reason:
+        'diagnostic-attribute-override-applied',
+
+      snapshots,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — RESTORE DIAGNOSTIC ATTRIBUTE OVERRIDE
+   * ============================================================
+   */
+  function restoreLiveGameDiagnosticAttributeOverride(
+    snapshots
+  ) {
+    if (!Array.isArray(snapshots)) {
+      return false;
+    }
+
+    /*
+     * Restore in reverse order in case the same attribute was ever
+     * touched more than once during a future diagnostic.
+     */
+    [...snapshots]
+      .reverse()
+      .forEach(
+        snapshot => {
+          const player =
+            snapshot?.player;
+
+          const attributeName =
+            snapshot
+              ?.attributeName;
+
+          if (
+            !player ||
+            !attributeName ||
+            !player.attributes
+          ) {
+            return;
+          }
+
+          if (
+            snapshot.hadOwnValue
+          ) {
+            player.attributes[
+              attributeName
+            ] =
+              snapshot
+                .originalValue;
+          } else {
+            delete player
+              .attributes[
+                attributeName
+              ];
+          }
+        }
+      );
+
+    return true;
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — ATTRIBUTE ISOLATION DIAGNOSTIC
+   * ============================================================
+   *
+   * Runs controlled tests where one hockey skill family is boosted
+   * while everything else stays unchanged.
+   *
+   * All temporary attribute changes are restored with try/finally.
+   */
+  function runLiveGameAttributeIsolationDiagnostic(
+    options = {}
+  ) {
+    const teams =
+      Array.isArray(
+        _state.teams
+      )
+        ? _state.teams
+        : [];
+
+    const gamesPerTest =
+      Math.max(
+        50,
+        Math.min(
+          400,
+          Number(
+            options.gamesPerTest
+          ) || 150
+        )
+      );
+
+    const validProfiles =
+      teams
+        .map(
+          team => {
+            const result =
+              getLiveGameTeamSimulationProfile(
+                team.teamId
+              );
+
+            return result?.success === true
+              ? {
+                  team,
+                  profile:
+                    result.profile,
+                }
+              : null;
+          }
+        )
+        .filter(Boolean)
+        .sort(
+          (
+            first,
+            second
+          ) =>
+            first.profile.overallQuality -
+            second.profile.overallQuality
+        );
+
+    if (
+      validProfiles.length < 2
+    ) {
+      return {
+        success: false,
+        reason:
+          'not-enough-valid-teams-for-attribute-isolation',
+        report: null,
+      };
+    }
+
+    /*
+     * Pick two teams near the middle of the league so the baseline
+     * matchup is reasonably competitive.
+     */
+    const middleIndex =
+      Math.floor(
+        validProfiles.length / 2
+      );
+
+    const testTeamEntry =
+      validProfiles[
+        Math.max(
+          0,
+          middleIndex - 1
+        )
+      ];
+
+    const controlTeamEntry =
+      validProfiles[
+        Math.min(
+          validProfiles.length - 1,
+          middleIndex
+        )
+      ];
+
+    const testTeam =
+      testTeamEntry.team;
+
+    const controlTeam =
+      controlTeamEntry.team;
+
+    const getActiveSkaters =
+      team =>
+        (
+          Array.isArray(
+            team?.roster
+          )
+            ? team.roster
+            : []
+        ).filter(
+          player =>
+            player &&
+            player.injured !== true &&
+            player.lineupStatus !==
+              'unavailable' &&
+            (
+              player.lineupStatus ===
+                'active' ||
+              Boolean(
+                player.lineupAssignment
+              )
+            ) &&
+            normalizeAttributePosition(
+              player.position
+            ) !== 'G'
+        );
+
+    const getActiveGoalies =
+      team =>
+        (
+          Array.isArray(
+            team?.roster
+          )
+            ? team.roster
+            : []
+        ).filter(
+          player =>
+            player &&
+            player.injured !== true &&
+            player.lineupStatus !==
+              'unavailable' &&
+            (
+              player.lineupStatus ===
+                'active' ||
+              Boolean(
+                player.lineupAssignment
+              )
+            ) &&
+            normalizeAttributePosition(
+              player.position
+            ) === 'G'
+        );
+
+    const testSkaters =
+      getActiveSkaters(
+        testTeam
+      );
+
+    const testGoalies =
+      getActiveGoalies(
+        testTeam
+      );
+
+    if (
+      testSkaters.length === 0 ||
+      testGoalies.length === 0
+    ) {
+      return {
+        success: false,
+        reason:
+          'attribute-isolation-test-roster-incomplete',
+        report: null,
+      };
+    }
+
+    const boost =
+      Math.max(
+        1,
+        Math.min(
+          15,
+          Number(
+            options.boost
+          ) || 8
+        )
+      );
+
+    /*
+     * Every test uses the SAME two teams.
+     *
+     * Only the listed attributes change.
+     */
+    const tests = [
+      {
+        key:
+          'baseline',
+
+        label:
+          'Baseline',
+
+        players: [],
+
+        attributes: [],
+      },
+
+      {
+        key:
+          'shooting',
+
+        label:
+          'Shooting +8',
+
+        players:
+          testSkaters,
+
+        attributes: [
+          'wristShotAccuracy',
+          'wristShotPower',
+          'slapShotAccuracy',
+          'slapShotPower',
+          'handEye',
+        ],
+      },
+
+      {
+        key:
+          'possession',
+
+        label:
+          'Possession +8',
+
+        players:
+          testSkaters,
+
+        attributes: [
+          'passing',
+          'puckControl',
+          'offensiveAwareness',
+          'speed',
+          'acceleration',
+          'poise',
+        ],
+      },
+
+      {
+        key:
+          'defense',
+
+        label:
+          'Defense +8',
+
+        players:
+          testSkaters,
+
+        attributes: [
+          'defensiveAwareness',
+          'stickChecking',
+          'shotBlocking',
+          'agility',
+          'strength',
+          'bodyChecking',
+          'poise',
+        ],
+      },
+
+      {
+        key:
+          'goalie',
+
+        label:
+          'Goalie +8',
+
+        players:
+          testGoalies,
+
+        attributes: [
+          'positioning',
+          'reflexes',
+          'puckTracking',
+          'reboundControl',
+          'lateralMovement',
+          'anticipation',
+          'composure',
+        ],
+      },
+
+      {
+        key:
+          'broad',
+
+        label:
+          'Broad Roster +8',
+
+        players: [
+          ...testSkaters,
+          ...testGoalies,
+        ],
+
+        attributes: [
+          'passing',
+          'puckControl',
+          'offensiveAwareness',
+          'speed',
+          'acceleration',
+          'poise',
+
+          'wristShotAccuracy',
+          'wristShotPower',
+          'slapShotAccuracy',
+          'slapShotPower',
+          'handEye',
+          'deking',
+
+          'defensiveAwareness',
+          'stickChecking',
+          'shotBlocking',
+          'agility',
+          'strength',
+          'bodyChecking',
+
+          'positioning',
+          'reflexes',
+          'puckTracking',
+          'reboundControl',
+          'lateralMovement',
+          'anticipation',
+          'composure',
+        ],
+      },
+    ];
+
+    const results = [];
+
+    for (
+      const test of tests
+    ) {
+      let snapshots = [];
+
+      try {
+        if (
+          test.attributes.length > 0
+        ) {
+          const override =
+            applyLiveGameDiagnosticAttributeOverride(
+              test.players,
+              test.attributes,
+              boost
+            );
+
+          if (
+            override?.success !== true
+          ) {
+            results.push({
+              key:
+                test.key,
+
+              label:
+                test.label,
+
+              success: false,
+
+              reason:
+                override?.reason ||
+                'attribute-override-failed',
+            });
+
+            continue;
+          }
+
+          snapshots =
+            override.snapshots;
+        }
+
+        const beforeProfile =
+          getLiveGameTeamSimulationProfile(
+            testTeam.teamId
+          );
+
+        const diagnostic =
+          runLiveGameCompetitiveBalanceDiagnostic({
+            sampleSize:
+              gamesPerTest,
+
+            strongTeamId:
+              testTeam.teamId,
+
+            weakTeamId:
+              controlTeam.teamId,
+          });
+
+        if (
+          !diagnostic ||
+          !diagnostic.report
+        ) {
+          results.push({
+            key:
+              test.key,
+
+            label:
+              test.label,
+
+            success: false,
+
+            reason:
+              diagnostic?.reason ||
+              'attribute-isolation-simulation-failed',
+          });
+
+          continue;
+        }
+
+        const report =
+          diagnostic.report;
+
+        const testResult =
+          String(
+            report
+              .strongTeam
+              .teamId
+          ) ===
+          String(
+            testTeam.teamId
+          )
+            ? report.strongTeam
+            : report.weakTeam;
+
+        const controlResult =
+          String(
+            report
+              .strongTeam
+              .teamId
+          ) ===
+          String(
+            controlTeam.teamId
+          )
+            ? report.strongTeam
+            : report.weakTeam;
+
+        results.push({
+          key:
+            test.key,
+
+          label:
+            test.label,
+
+          success:
+            diagnostic.success ===
+            true,
+
+          profile:
+            beforeProfile
+              ?.profile ||
+            null,
+
+          testTeamWinRate:
+            testResult.winRate,
+
+          controlTeamWinRate:
+            controlResult.winRate,
+
+          testGoalsPerGame:
+            testResult.goalsPerGame,
+
+          controlGoalsPerGame:
+            controlResult.goalsPerGame,
+
+          testShotsPerGame:
+            testResult.shotsPerGame,
+
+          controlShotsPerGame:
+            controlResult.shotsPerGame,
+
+          testPowerPlayPercentage:
+            testResult
+              .powerPlayPercentage,
+
+          controlPowerPlayPercentage:
+            controlResult
+              .powerPlayPercentage,
+
+          goalDifferentialPerGame:
+            report
+              .goalDifferentialPerGame,
+
+          shotDifferentialPerGame:
+            report
+              .shotDifferentialPerGame,
+
+          overtimeRate:
+            report.overtimeRate,
+
+          shootoutRate:
+            report.shootoutRate,
+
+          completedGames:
+            report.completedGames,
+
+          failedGames:
+            report.failedGames,
+        });
+      } finally {
+        if (
+          snapshots.length > 0
+        ) {
+          restoreLiveGameDiagnosticAttributeOverride(
+            snapshots
+          );
+        }
+      }
+    }
+
+    const successfulResults =
+      results.filter(
+        result =>
+          result.success === true
+      );
+
+    const report = {
+      gamesPerTest,
+
+      boost,
+
+      testTeam: {
+        teamId:
+          testTeam.teamId,
+
+        abbreviation:
+          testTeam.abbreviation ||
+          testTeam.teamName ||
+          testTeam.schoolName ||
+          testTeam.teamId,
+      },
+
+      controlTeam: {
+        teamId:
+          controlTeam.teamId,
+
+        abbreviation:
+          controlTeam.abbreviation ||
+          controlTeam.teamName ||
+          controlTeam.schoolName ||
+          controlTeam.teamId,
+      },
+
+      completedTests:
+        successfulResults.length,
+
+      totalTests:
+        tests.length,
+
+      results,
+    };
+
+    console.log(
+      '[Project Ice] Attribute Isolation Diagnostic',
+      report
+    );
+
+    return {
+      success:
+        successfulResults.length ===
+        tests.length,
+
+      reason:
+        successfulResults.length ===
+        tests.length
+          ? 'attribute-isolation-completed'
+          : 'attribute-isolation-had-failures',
+
+      report,
+    };
+  }
+
+  /*
+   * ============================================================
    * LIVE GAME — FINAL GAME RESULT CONVERSION
    * ============================================================
    *
@@ -37315,6 +38065,7 @@ const WorldEngine = (() => {
     runLiveGameCompetitiveBalanceDiagnostic,
     runLiveGameStrengthGradientDiagnostic,
     getLiveGameTeamSimulationProfile,
+    runLiveGameAttributeIsolationDiagnostic,
     createCareerAttributesFromTryouts,
     upsertCareerPlayer,
     repairCompletedGameDevelopment,
