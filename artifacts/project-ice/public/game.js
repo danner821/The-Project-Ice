@@ -16315,6 +16315,12 @@ let liveGamePlaybackSpeed =
 let liveGamePlaybackPaused =
   true;
 
+let liveGameCareerPlayerId =
+  null;
+
+let liveGameCareerTOISeconds =
+  0;
+
 /*
  * ============================================================
  * ROADMAP 6 — OPEN LIVE GAME
@@ -16446,28 +16452,75 @@ function openLiveGame(
     Game.player ||
     {};
 
+  /*
+   * Locate the career player from the actual world roster.
+   *
+   * Do not depend exclusively on state.player.teamId because
+   * the roster copy is the authoritative in-season player.
+   */
+  const worldTeams =
+    Array.isArray(
+      WorldEngine.state
+        ?.teams
+    )
+      ? WorldEngine.state
+          .teams
+      : [];
+
+  let careerTeam =
+    null;
+
+  let careerRosterPlayer =
+    null;
+
+  for (
+    const team of worldTeams
+  ) {
+    const roster =
+      Array.isArray(
+        team?.roster
+      )
+        ? team.roster
+        : [];
+
+    const foundPlayer =
+      roster.find(
+        player =>
+          player
+            ?.isCareerPlayer ===
+          true
+      ) ||
+      null;
+
+    if (foundPlayer) {
+      careerTeam =
+        team;
+
+      careerRosterPlayer =
+        foundPlayer;
+
+      break;
+    }
+  }
+
   const careerTeamId =
+    careerTeam?.teamId ||
     careerPlayer.teamId ||
     null;
 
-  const careerTeam =
-    careerTeamId
-      ? WorldEngine.getTeamById(
-          careerTeamId
-        )
-      : null;
+  liveGameCareerPlayerId =
+    careerRosterPlayer
+      ?.playerId ||
+    careerRosterPlayer
+      ?.id ||
+    careerPlayer
+      ?.playerId ||
+    careerPlayer
+      ?.id ||
+    null;
 
-  const careerRosterPlayer =
-    Array.isArray(
-      careerTeam?.roster
-    )
-      ? careerTeam.roster.find(
-          player =>
-            player
-              ?.isCareerPlayer ===
-            true
-        ) || null
-      : null;
+  liveGameCareerTOISeconds =
+    0;
 
   const playerName =
     [
@@ -16682,6 +16735,8 @@ function openLiveGame(
         scheduledGame.eventId ||
         ''
       );
+
+  renderLiveCareerPlayerStrip();
 
   showScreen(
     'live-game'
@@ -17155,9 +17210,442 @@ function getLivePresentationEventText(
     };
 }
 
+/*
+ * ============================================================
+ * ROADMAP 6 — CAREER PLAYER LIVE STATE
+ * ============================================================
+ */
+
+function getLiveCareerPlayerContext() {
+  if (
+    !activeLiveGame ||
+    !liveGameCareerPlayerId
+  ) {
+    return null;
+  }
+
+  const identity =
+    getLivePresentationPlayer(
+      liveGameCareerPlayerId
+    );
+
+  const canonicalPlayer =
+    identity?.player ||
+    null;
+
+  /*
+   * The persistent roster and live simulator can expose the
+   * same player through playerId or id depending on which
+   * object layer we're looking at.
+   *
+   * Match against every stable ID we have, then use name as a
+   * final safety fallback for the career player.
+   */
+  const targetIds =
+    new Set(
+      [
+        liveGameCareerPlayerId,
+
+        canonicalPlayer
+          ?.playerId,
+
+        canonicalPlayer
+          ?.id,
+      ]
+        .filter(
+          value =>
+            value !== null &&
+            value !== undefined &&
+            String(value).length > 0
+        )
+        .map(
+          value =>
+            String(value)
+        )
+    );
+
+  const normalizeName =
+    value =>
+      String(value || '')
+        .trim()
+        .toLowerCase();
+
+  const targetName =
+    normalizeName(
+      identity?.name
+    );
+
+  const playerMatches =
+    player => {
+      if (!player) {
+        return false;
+      }
+
+      const candidateIds =
+        [
+          player.playerId,
+          player.id,
+        ]
+          .filter(
+            value =>
+              value !== null &&
+              value !== undefined
+          )
+          .map(
+            value =>
+              String(value)
+          );
+
+      if (
+        candidateIds.some(
+          id =>
+            targetIds.has(id)
+        )
+      ) {
+        return true;
+      }
+
+      const candidateName =
+        normalizeName(
+          player.name ||
+          [
+            player.firstName,
+            player.lastName,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
+
+      return (
+        targetName &&
+        candidateName ===
+          targetName
+      );
+    };
+
+  /*
+   * Live-team player collections have evolved during the
+   * resolver build. Search every supported collection rather
+   * than assuming only teamState.skaters exists.
+   */
+  const collectTeamPlayers =
+    teamState => {
+      const collections =
+        [
+          teamState?.skaters,
+          teamState?.players,
+          teamState?.roster,
+        ];
+
+      return collections
+        .filter(
+          Array.isArray
+        )
+        .flat();
+    };
+
+  const homePlayers =
+    collectTeamPlayers(
+      activeLiveGame.home
+    );
+
+  const awayPlayers =
+    collectTeamPlayers(
+      activeLiveGame.away
+    );
+
+  let liveSkater =
+    homePlayers.find(
+      playerMatches
+    ) ||
+    null;
+
+  let side =
+    liveSkater
+      ? 'home'
+      : null;
+
+  if (!liveSkater) {
+    liveSkater =
+      awayPlayers.find(
+        playerMatches
+      ) ||
+      null;
+
+    if (liveSkater) {
+      side =
+        'away';
+    }
+  }
+
+  /*
+   * The deployment itself definitely contains the players
+   * currently participating in the resolver, so also search it
+   * directly. This is especially useful before/after rotations.
+   */
+  const homeDeployment =
+    activeLiveGame
+      ?.flow
+      ?.homeDeployment ||
+    null;
+
+  const awayDeployment =
+    activeLiveGame
+      ?.flow
+      ?.awayDeployment ||
+    null;
+
+  const homeOnIcePlayer =
+    (
+      Array.isArray(
+        homeDeployment
+          ?.skaters
+      )
+        ? homeDeployment.skaters
+        : []
+    ).find(
+      playerMatches
+    ) ||
+    null;
+
+  const awayOnIcePlayer =
+    (
+      Array.isArray(
+        awayDeployment
+          ?.skaters
+      )
+        ? awayDeployment.skaters
+        : []
+    ).find(
+      playerMatches
+    ) ||
+    null;
+
+  /*
+   * If the team-state collection didn't expose the player but
+   * the current deployment does, the deployment copy is still
+   * a valid canonical live-player object.
+   */
+  if (
+    !liveSkater &&
+    homeOnIcePlayer
+  ) {
+    liveSkater =
+      homeOnIcePlayer;
+
+    side =
+      'home';
+  }
+
+  if (
+    !liveSkater &&
+    awayOnIcePlayer
+  ) {
+    liveSkater =
+      awayOnIcePlayer;
+
+    side =
+      'away';
+  }
+
+  const onIce =
+    Boolean(
+      homeOnIcePlayer ||
+      awayOnIcePlayer
+    );
+
+  const deployment =
+    side === 'home'
+      ? homeDeployment
+      : side === 'away'
+        ? awayDeployment
+        : null;
+
+  const activePenalties =
+    Array.isArray(
+      activeLiveGame
+        ?.specialTeams
+        ?.activePenalties
+    )
+      ? activeLiveGame
+          .specialTeams
+          .activePenalties
+      : [];
+
+  const inPenaltyBox =
+    activePenalties.some(
+      penalty =>
+        penalty?.active ===
+          true &&
+        playerMatches({
+          playerId:
+            penalty.playerId,
+        })
+    );
+
+  return {
+    side,
+    liveSkater,
+    deployment,
+    onIce,
+    inPenaltyBox,
+
+    matched:
+      Boolean(liveSkater),
+
+    matchedFromDeployment:
+      Boolean(
+        homeOnIcePlayer ||
+        awayOnIcePlayer
+      ),
+  };
+}
+
+function renderLiveCareerPlayerStrip() {
+  const context =
+    getLiveCareerPlayerContext();
+
+  const identity =
+    getLivePresentationPlayer(
+      liveGameCareerPlayerId
+    );
+
+  if (!identity) {
+    return;
+  }
+
+  const liveSkater =
+    context?.liveSkater ||
+    {};
+
+  const canonicalPlayer =
+    identity.player ||
+    {};
+
+  const playerName =
+    identity.name ||
+    'Career Player';
+
+  const assignment =
+    canonicalPlayer
+      ?.lineupAssignment ||
+    {};
+
+  let playerRole =
+    identity.position ||
+    '—';
+
+  if (
+    assignment.unit ===
+      'forward' &&
+    assignment.line
+  ) {
+    playerRole =
+      `${
+        identity.position ||
+        'F'
+      } · Line ${
+        assignment.line
+      }`;
+  }
+
+  if (
+    assignment.unit ===
+      'defense' &&
+    assignment.pair
+  ) {
+    playerRole =
+      `${
+        identity.position ||
+        'D'
+      } · Pair ${
+        assignment.pair
+      }`;
+  }
+
+  let status =
+    'BENCH';
+
+  if (
+    context?.inPenaltyBox
+  ) {
+    status =
+      'PENALTY BOX';
+  } else if (
+    context?.onIce
+  ) {
+    status =
+      'ON ICE';
+  }
+
+  document.getElementById(
+    'live-game-player-name'
+  ).textContent =
+    playerName;
+
+  document.getElementById(
+    'live-game-player-role'
+  ).textContent =
+    playerRole;
+
+  document.getElementById(
+    'live-game-player-status'
+  ).textContent =
+    status;
+
+  document.getElementById(
+    'live-game-player-toi'
+  ).textContent =
+    formatLivePresentationClock(
+      liveGameCareerTOISeconds
+    );
+
+  document.getElementById(
+    'live-game-player-goals'
+  ).textContent =
+    String(
+      Number(
+        liveSkater.goals
+      ) || 0
+    );
+
+  document.getElementById(
+    'live-game-player-assists'
+  ).textContent =
+    String(
+      Number(
+        liveSkater.assists
+      ) || 0
+    );
+
+  document.getElementById(
+    'live-game-player-shots'
+  ).textContent =
+    String(
+      Number(
+        liveSkater.shots
+      ) || 0
+    );
+
+  const plusMinus =
+    Number(
+      liveSkater.plusMinus
+    ) || 0;
+
+  document.getElementById(
+    'live-game-player-plusminus'
+  ).textContent =
+    plusMinus > 0
+      ? `+${plusMinus}`
+      : String(
+          plusMinus
+        );
+}
+
 function renderLiveGameState() {
   if (!activeLiveGame) {
     return;
+    renderLiveCareerPlayerStrip();
   }
 
   document.getElementById(
@@ -17768,6 +18256,13 @@ function advanceLiveGamePresentationStep() {
     return;
   }
 
+  const careerContextBefore =
+    getLiveCareerPlayerContext();
+
+  const careerWasOnIce =
+    careerContextBefore
+      ?.onIce === true;
+
   const previousEventCount =
     Array.isArray(
       activeLiveGame.events
@@ -17800,6 +18295,37 @@ function advanceLiveGamePresentationStep() {
   activeLiveGame =
     step.simulation ||
     activeLiveGame;
+
+  const elapsedSeconds =
+    Math.max(
+      0,
+      Number(
+        step.elapsedSeconds
+      ) || 0
+    );
+
+  const careerContextAfter =
+    getLiveCareerPlayerContext();
+
+  const careerIsOnIce =
+    careerContextAfter
+      ?.onIce === true;
+
+  /*
+   * A deployment may be selected or cleared inside the canonical
+   * step itself, so checking both sides of the step prevents us
+   * from losing the first or final segment of a shift.
+   */
+  if (
+    elapsedSeconds > 0 &&
+    (
+      careerWasOnIce ||
+      careerIsOnIce
+    )
+  ) {
+    liveGameCareerTOISeconds +=
+      elapsedSeconds;
+  }
 
   renderLiveGameState();
 
