@@ -16928,10 +16928,18 @@ function getLivePresentationEventText(
       };
     }
 
-    return (
-      `SHOT — ${shooterName}` +
-      `\n${shotType} · Saved`
-    );
+    const shooterLabel =
+      shooter?.jerseyNumber
+        ? `#${shooter.jerseyNumber} ${shooterName}`
+        : shooterName;
+
+    return {
+      primary:
+        `SHOT — ${shooterLabel}`,
+
+      secondary:
+        `${shotType} · Saved`,
+    };
   }
 
   /*
@@ -17059,6 +17067,8 @@ function getLivePresentationEventText(
           ? `on ${hitPlayerLabel}`
           : '',
     };
+
+    }
   }
 
   /*
@@ -17245,6 +17255,12 @@ function appendLiveGameEventToFeed(
   eventElement.className =
     'live-game__timeline-event';
 
+  eventElement.dataset.eventId =
+    String(
+      event.id ||
+      ''
+    );
+
   const period =
     getLivePresentationPeriodLabel(
       event.period ||
@@ -17300,6 +17316,407 @@ function appendLiveGameEventToFeed(
   ) {
     timeline.removeChild(
       timeline.lastElementChild
+    );
+  }
+}
+
+/*
+ * ============================================================
+ * ROADMAP 6 — RINK EVENT MARKERS
+ * ============================================================
+ *
+ * The rink visualizes the same four broadcast event categories
+ * shown in the Game Feed.
+ *
+ * Markers show only the acting player's jersey number.
+ * Clicking one finds and highlights its matching feed event.
+ */
+
+function getLiveGameMarkerPlayerId(
+  event
+) {
+  if (!event) {
+    return null;
+  }
+
+  switch (event.type) {
+    case 'shot':
+    case 'shot-on-goal':
+    case 'shot-saved':
+      return (
+        event.shooterPlayerId ||
+        null
+      );
+
+    case 'goal':
+      return (
+        event.scorerPlayerId ||
+        null
+      );
+
+    case 'hit':
+      return (
+        event.hitterPlayerId ||
+        null
+      );
+
+    case 'penalty':
+      return (
+        event.playerId ||
+        null
+      );
+
+    default:
+      return null;
+  }
+}
+
+function getStableLiveMarkerNumber(
+  value
+) {
+  const text =
+    String(
+      value ||
+      ''
+    );
+
+  let hash = 0;
+
+  for (
+    let index = 0;
+    index < text.length;
+    index += 1
+  ) {
+    hash =
+      (
+        hash * 31 +
+        text.charCodeAt(index)
+      ) >>> 0;
+  }
+
+  return hash;
+}
+
+function getLiveGameMarkerPosition(
+  event
+) {
+  const hash =
+    getStableLiveMarkerNumber(
+      event.id
+    );
+
+  /*
+   * Teams change attacking ends each period.
+   *
+   * This is presentation-level zone placement only.
+   * Exact shot/hit coordinates will eventually come from the
+   * canonical simulation itself.
+   */
+  const oddPeriod =
+    (
+      Number(
+        event.period
+      ) || 1
+    ) % 2 === 1;
+
+  const eventSide =
+    event.side ||
+    event.penalizedSide ||
+    'home';
+
+  let attacksRight =
+    eventSide === 'home';
+
+  if (!oddPeriod) {
+    attacksRight =
+      !attacksRight;
+  }
+
+  const eventType =
+    String(
+      event.type ||
+      ''
+    );
+
+  let xPercent;
+  let yPercent;
+
+  /*
+   * Shots and goals appear inside the attacking zone.
+   */
+  if (
+    eventType === 'shot' ||
+    eventType === 'shot-on-goal' ||
+    eventType === 'shot-saved' ||
+    eventType === 'goal'
+  ) {
+    const attackingX =
+      68 +
+      (
+        hash % 20
+      );
+
+    xPercent =
+      attacksRight
+        ? attackingX
+        : 100 - attackingX;
+
+    yPercent =
+      22 +
+      (
+        (
+          hash >>> 4
+        ) % 56
+      );
+  }
+
+  /*
+   * Hits can happen across more of the ice.
+   */
+  else if (
+    eventType === 'hit'
+  ) {
+    xPercent =
+      18 +
+      (
+        hash % 64
+      );
+
+    yPercent =
+      12 +
+      (
+        (
+          hash >>> 5
+        ) % 76
+      );
+  }
+
+  /*
+   * Penalties are shown near the general area of play.
+   */
+  else {
+    xPercent =
+      24 +
+      (
+        hash % 52
+      );
+
+    yPercent =
+      18 +
+      (
+        (
+          hash >>> 6
+        ) % 64
+      );
+  }
+
+  return {
+    xPercent,
+    yPercent,
+  };
+}
+
+function highlightLiveGameFeedEvent(
+  eventId
+) {
+  if (!eventId) {
+    return;
+  }
+
+  const timeline =
+    document.getElementById(
+      'live-game-timeline'
+    );
+
+  if (!timeline) {
+    return;
+  }
+
+  timeline
+    .querySelectorAll(
+      '.live-game__timeline-event--highlighted'
+    )
+    .forEach(element => {
+      element.classList.remove(
+        'live-game__timeline-event--highlighted'
+      );
+    });
+
+  const matchingEvent =
+    Array
+      .from(
+        timeline.querySelectorAll(
+          '.live-game__timeline-event'
+        )
+      )
+      .find(
+        element =>
+          String(
+            element.dataset
+              .eventId ||
+            ''
+          ) ===
+          String(eventId)
+      );
+
+  if (!matchingEvent) {
+    return;
+  }
+
+  matchingEvent.classList.add(
+    'live-game__timeline-event--highlighted'
+  );
+
+  matchingEvent.scrollIntoView({
+    behavior:
+      'smooth',
+
+    block:
+      'center',
+  });
+
+  window.setTimeout(
+    () => {
+      matchingEvent.classList.remove(
+        'live-game__timeline-event--highlighted'
+      );
+    },
+    2200
+  );
+}
+
+function appendLiveGameMarker(
+  event
+) {
+  if (!event?.id) {
+    return;
+  }
+
+  const rinkEvents =
+    document.getElementById(
+      'live-game-rink-events'
+    );
+
+  if (!rinkEvents) {
+    return;
+  }
+
+  const playerId =
+    getLiveGameMarkerPlayerId(
+      event
+    );
+
+  const player =
+    getLivePresentationPlayer(
+      playerId
+    );
+
+  if (
+    !player ||
+    player.jerseyNumber ===
+      null ||
+    player.jerseyNumber ===
+      undefined
+  ) {
+    return;
+  }
+
+  const position =
+    getLiveGameMarkerPosition(
+      event
+    );
+
+  const marker =
+    document.createElement(
+      'button'
+    );
+
+  marker.type =
+    'button';
+
+  const markerType =
+    String(
+      event.type ||
+      ''
+    );
+
+  let markerClass =
+    'live-game__event-marker';
+
+  if (
+    markerType === 'shot' ||
+    markerType === 'shot-on-goal' ||
+    markerType === 'shot-saved'
+  ) {
+    markerClass +=
+      ' live-game__event-marker--shot';
+  }
+
+  if (
+    markerType === 'goal'
+  ) {
+    markerClass +=
+      ' live-game__event-marker--goal';
+  }
+
+  if (
+    markerType === 'hit'
+  ) {
+    markerClass +=
+      ' live-game__event-marker--hit';
+  }
+
+  if (
+    markerType === 'penalty'
+  ) {
+    markerClass +=
+      ' live-game__event-marker--penalty';
+  }
+
+  marker.className =
+    markerClass;
+
+  marker.dataset.eventId =
+    String(event.id);
+
+  marker.textContent =
+    String(
+      player.jerseyNumber
+    );
+
+  marker.style.left =
+    `${position.xPercent}%`;
+
+  marker.style.top =
+    `${position.yPercent}%`;
+
+  marker.setAttribute(
+    'aria-label',
+    `View ${event.type} by ${player.name}`
+  );
+
+  marker.addEventListener(
+    'click',
+    () => {
+      highlightLiveGameFeedEvent(
+        event.id
+      );
+    }
+  );
+
+  rinkEvents.appendChild(
+    marker
+  );
+
+  /*
+   * Keep only the most recent markers visible.
+   */
+  while (
+    rinkEvents.children.length >
+    10
+  ) {
+    rinkEvents.removeChild(
+      rinkEvents.firstElementChild
     );
   }
 }
@@ -17368,10 +17785,34 @@ function advanceLiveGamePresentationStep() {
     );
 
   newEvents.forEach(
-    event =>
+    event => {
       appendLiveGameEventToFeed(
         event
-      )
+      );
+
+      const visibleMarkerTypes =
+        new Set([
+          'shot',
+          'shot-on-goal',
+          'shot-saved',
+          'goal',
+          'hit',
+          'penalty',
+        ]);
+
+      if (
+        visibleMarkerTypes.has(
+          String(
+            event?.type ||
+            ''
+          )
+        )
+      ) {
+        appendLiveGameMarker(
+          event
+        );
+      }
+    }
   );
 }
 

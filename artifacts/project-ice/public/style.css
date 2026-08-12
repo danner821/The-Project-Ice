@@ -13197,6 +13197,11 @@ tr.career-player-highlight .full-stats-player-button {
   pointer-events: none;
 }
 
+.live-game__rink-events
+.live-game__event-marker {
+  pointer-events: auto;
+}
+
 /* ────────────────────────────────────────────────────────────
    GAME FEED / TIMELINE
    ──────────────────────────────────────────────────────────── */
@@ -13275,6 +13280,8 @@ tr.career-player-highlight .full-stats-player-button {
   min-height: 0;
 
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 
   padding:
     7px 6px 10px;
@@ -13727,6 +13734,161 @@ tr.career-player-highlight .full-stats-player-button {
   animation:
     live-game-marker-pop
     0.26s ease-out both;
+  cursor: pointer;
+
+  padding: 0;
+
+  font-family: inherit;
+}
+
+/* SHOT */
+.live-game__event-marker--shot {
+  border-style: solid;
+
+  box-shadow:
+    0 0 0 4px
+      rgba(
+        255,
+        255,
+        255,
+        0.10
+      ),
+    0 4px 12px
+      rgba(
+        0,
+        0,
+        0,
+        0.32
+      );
+}
+
+/* GOAL */
+.live-game__event-marker--goal {
+  background:
+    linear-gradient(
+      145deg,
+      #8f6414,
+      #d5a62e
+    );
+
+  border:
+    2px solid
+    rgba(
+      255,
+      231,
+      153,
+      0.95
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 0 0 3px
+      rgba(
+        213,
+        166,
+        46,
+        0.30
+      ),
+    0 0 14px
+      rgba(
+        213,
+        166,
+        46,
+        0.65
+      ),
+    0 4px 12px
+      rgba(
+        0,
+        0,
+        0,
+        0.32
+      );
+}
+
+/* HIT */
+.live-game__event-marker--hit {
+  border-style: double;
+
+  box-shadow:
+    0 0 0 3px
+      rgba(
+        255,
+        255,
+        255,
+        0.08
+      ),
+    0 4px 12px
+      rgba(
+        0,
+        0,
+        0,
+        0.32
+      );
+}
+
+/* PENALTY */
+.live-game__event-marker--penalty {
+  border-style: dashed;
+
+  box-shadow:
+    0 0 0 4px
+      rgba(
+        255,
+        255,
+        255,
+        0.08
+      ),
+    0 4px 12px
+      rgba(
+        0,
+        0,
+        0,
+        0.32
+      );
+}
+
+.live-game__event-marker:active {
+  transform:
+    translate(
+      -50%,
+      -50%
+    )
+    scale(0.88);
+}
+
+.live-game__timeline-event--highlighted {
+  border-color:
+    rgba(
+      93,
+      160,
+      255,
+      0.78
+    );
+
+  background:
+    rgba(
+      47,
+      104,
+      201,
+      0.22
+    );
+
+  box-shadow:
+    0 0 0 1px
+      rgba(
+        77,
+        145,
+        255,
+        0.18
+      ),
+    0 0 20px
+      rgba(
+        48,
+        108,
+        220,
+        0.16
+      );
 }
 
 @keyframes
