@@ -22247,21 +22247,97 @@ const WorldEngine = (() => {
       ) + 1;
 
     /*
-     * Base scoring probability is intentionally modest.
-     * We will calibrate this after whole-game testing.
+     * ==========================================================
+     * SHOT SCORING PROBABILITY
+     * ==========================================================
+     *
+     * Even-strength finishing remains driven by:
+     * - shooter finishing ability
+     * - goalie ability
+     * - sustained offensive pressure
+     *
+     * Power-play shots receive a modest chance-quality increase.
+     * This represents the extra passing lane, goalie movement and
+     * open ice created by the manpower advantage.
+     *
+     * Importantly, PP quality still matters:
+     * a strong PP against a weak PK receives a larger benefit than
+     * a weak PP attacking an elite penalty kill.
      */
+    const scoringSpecialTeamsMatchup =
+      getLiveGameSpecialTeamsMatchup(
+        simulation
+      );
+
+    const isPowerPlayShot =
+      scoringSpecialTeamsMatchup
+        ?.success === true &&
+      scoringSpecialTeamsMatchup
+        .powerPlaySide ===
+        attackingSide;
+
+    let powerPlayScoringBonus =
+      0;
+
+    if (isPowerPlayShot) {
+      const specialTeamsAdvantage =
+        Math.max(
+          -15,
+          Math.min(
+            30,
+            Number(
+              scoringSpecialTeamsMatchup
+                .totalAdvantage
+            ) || 0
+          )
+        );
+
+      /*
+       * Typical 5-on-4:
+       * roughly +2.5 to +3.5 percentage points of shot quality.
+       *
+       * Excellent PP vs poor PK:
+       * can push toward roughly +4.5 points.
+       *
+       * Strong PK:
+       * suppresses much of the extra danger.
+       */
+      powerPlayScoringBonus =
+        Math.max(
+          0.015,
+          Math.min(
+            0.045,
+            0.024 +
+            specialTeamsAdvantage *
+              0.0007
+          )
+        );
+
+      /*
+       * A two-man advantage should create an additional bump without
+       * turning 5-on-3 shots into automatic goals.
+       */
+      if (
+        scoringSpecialTeamsMatchup
+          .manpowerAdvantage >= 2
+      ) {
+        powerPlayScoringBonus +=
+          0.008;
+      }
+    }
 
     const scoringChance =
       Math.max(
         0.05,
         Math.min(
-          0.25,
+          0.28,
           0.102 +
           (
             finishingAbility -
             goalieAbility
           ) * 0.002 +
-          pressureLevel * 0.008
+          pressureLevel * 0.008 +
+          powerPlayScoringBonus
         )
       );
 
@@ -25947,6 +26023,241 @@ const WorldEngine = (() => {
       resolution,
 
       simulation,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — RESOLVE TO FINAL CANONICAL RESULT
+   * ============================================================
+   *
+   * Runs one scheduled game completely through the validated
+   * live-game engine and returns the finalized canonical
+   * gameResult.
+   *
+   * IMPORTANT:
+   *
+   * This function does NOT:
+   * - update standings
+   * - update season statistics
+   * - mark the schedule game as played
+   * - apply development
+   * - save world state
+   *
+   * Those responsibilities remain with the existing Season Engine
+   * application layer.
+   *
+   * This function owns only:
+   *
+   * scheduled game
+   *   -> live simulation state
+   *   -> live simulation steps
+   *   -> completed game
+   *   -> canonical gameResult
+   */
+  function resolveLiveGameToFinalResult(
+    scheduledGame,
+    options = {}
+  ) {
+    if (
+      !scheduledGame ||
+      typeof scheduledGame !== 'object'
+    ) {
+      return {
+        success: false,
+
+        reason:
+          'invalid-scheduled-live-game',
+
+        simulation: null,
+
+        gameResult: null,
+
+        steps: 0,
+
+        failures: [],
+      };
+    }
+
+    const creation =
+      createLiveGameSimulationState(
+        scheduledGame
+      );
+
+    if (
+      !creation ||
+      creation.success !== true ||
+      !creation.simulation
+    ) {
+      return {
+        success: false,
+
+        reason:
+          creation?.reason ||
+          'live-game-creation-failed',
+
+        simulation:
+          creation?.simulation ||
+          null,
+
+        gameResult: null,
+
+        steps: 0,
+
+        failures: [],
+      };
+    }
+
+    const simulation =
+      creation.simulation;
+
+    const maxSteps =
+      Math.max(
+        100,
+        Number(
+          options.maxSteps
+        ) || 3000
+      );
+
+    const failures = [];
+
+    let steps = 0;
+
+    while (
+      simulation.gameComplete !== true &&
+      steps < maxSteps
+    ) {
+      const step =
+        advanceLiveGameStep(
+          simulation
+        );
+
+      steps += 1;
+
+      if (
+        !step ||
+        step.success !== true
+      ) {
+        failures.push({
+          step: steps,
+
+          reason:
+            step?.reason ||
+            'unknown-live-game-step-failure',
+
+          period:
+            simulation.period,
+
+          clockSecondsRemaining:
+            simulation
+              .clockSecondsRemaining,
+        });
+
+        break;
+      }
+    }
+
+    /*
+     * Reaching the safety cap without completing the game is a
+     * resolver failure. Never finalize a partial game.
+     */
+    if (
+      simulation.gameComplete !== true &&
+      failures.length === 0
+    ) {
+      failures.push({
+        step: steps,
+
+        reason:
+          'live-game-step-limit-reached',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining:
+          simulation
+            .clockSecondsRemaining,
+      });
+    }
+
+    if (failures.length > 0) {
+      return {
+        success: false,
+
+        reason:
+          failures[
+            failures.length - 1
+          ]?.reason ||
+          'live-game-resolution-failed',
+
+        simulation,
+
+        gameResult: null,
+
+        steps,
+
+        failures,
+      };
+    }
+
+    const finalization =
+      finalizeLiveGameSimulation(
+        simulation
+      );
+
+    if (
+      !finalization ||
+      finalization.success !== true ||
+      !finalization.gameResult
+    ) {
+      return {
+        success: false,
+
+        reason:
+          finalization?.reason ||
+          'live-game-finalization-failed',
+
+        simulation,
+
+        gameResult: null,
+
+        steps,
+
+        failures: [
+          {
+            step: steps,
+
+            reason:
+              finalization?.reason ||
+              'live-game-finalization-failed',
+
+            period:
+              simulation.period,
+
+            clockSecondsRemaining:
+              simulation
+                .clockSecondsRemaining,
+          },
+        ],
+      };
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'live-game-resolved-to-final-result',
+
+      simulation,
+
+      gameResult:
+        structuredClone(
+          finalization.gameResult
+        ),
+
+      steps,
+
+      failures: [],
     };
   }
 
