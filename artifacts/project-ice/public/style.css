@@ -12063,4 +12063,642 @@ tr.career-player-highlight .full-stats-player-button {
 .schedule-day-event--game {
   box-shadow: none;
 }
+
+/* ============================================================
+   ROADMAP 6 — PREGAME MATCHUP
+   EA-style game-night presentation
+   ============================================================ */
+
+#pregame-matchup-screen {
+  background:
+    radial-gradient(
+      ellipse 120% 65% at 50% -5%,
+      rgba(32, 84, 175, 0.42) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 80% 45% at 50% 105%,
+      rgba(16, 48, 110, 0.34) 0%,
+      transparent 65%
+    ),
+    linear-gradient(
+      180deg,
+      #07142f 0%,
+      #040c1c 52%,
+      #020711 100%
+    );
+
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-y: auto;
+
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+#pregame-matchup-screen::before {
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(114, 170, 255, 0.025) 50%,
+      transparent 100%
+    );
+
+  background-size:
+    6px 100%;
+
+  opacity: 0.65;
+}
+
+.pregame-matchup {
+  position: relative;
+  z-index: 1;
+
+  width: 100%;
+  max-width: 520px;
+
+  margin: 0 auto;
+
+  min-height: 100%;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.pregame-matchup__header {
+  text-align: center;
+
+  padding-top: 8px;
+  padding-bottom: 22px;
+}
+
+.pregame-matchup__eyebrow {
+  color: #78adff;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  letter-spacing: 0.22em;
+
+  text-transform: uppercase;
+
+  margin-bottom: 8px;
+}
+
+.pregame-matchup__title {
+  font-size: 25px;
+  font-weight: 900;
+
+  letter-spacing: -0.02em;
+
+  line-height: 1.05;
+}
+
+.pregame-matchup__meta {
+  margin-top: 8px;
+
+  color: rgba(
+    203,
+    221,
+    255,
+    0.64
+  );
+
+  font-size: 12px;
+  font-weight: 600;
+
+  letter-spacing: 0.035em;
+}
+
+/* ── Matchup presentation ── */
+
+.pregame-matchup__teams {
+  position: relative;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    42px
+    minmax(0, 1fr);
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding:
+    22px 8px
+    26px;
+
+  border:
+    1px solid
+    rgba(
+      116,
+      166,
+      255,
+      0.18
+    );
+
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(
+        34,
+        75,
+        145,
+        0.2
+      ),
+      rgba(
+        255,
+        255,
+        255,
+        0.025
+      )
+    );
+
+  box-shadow:
+    0 22px 55px
+      rgba(
+        0,
+        0,
+        0,
+        0.3
+      ),
+    inset 0 1px 0
+      rgba(
+        255,
+        255,
+        255,
+        0.045
+      );
+
+  overflow: hidden;
+}
+
+.pregame-matchup__teams::before {
+  content: '';
+
+  position: absolute;
+
+  top: 0;
+  bottom: 0;
+
+  left: 50%;
+
+  width: 1px;
+
+  background:
+    linear-gradient(
+      180deg,
+      transparent,
+      rgba(
+        135,
+        180,
+        255,
+        0.16
+      ),
+      transparent
+    );
+
+  transform:
+    translateX(-50%);
+}
+
+.pregame-matchup__team {
+  position: relative;
+
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  text-align: center;
+}
+
+.pregame-matchup__team-badge {
+  width: 66px;
+  height: 66px;
+
+  display: grid;
+  place-items: center;
+
+  margin-bottom: 12px;
+
+  border-radius: 50%;
+
+  border:
+    1px solid
+    rgba(
+      149,
+      190,
+      255,
+      0.28
+    );
+
+  background:
+    radial-gradient(
+      circle at 35% 25%,
+      rgba(
+        255,
+        255,
+        255,
+        0.14
+      ),
+      rgba(
+        22,
+        54,
+        112,
+        0.7
+      ) 56%,
+      rgba(
+        7,
+        20,
+        47,
+        0.95
+      )
+    );
+
+  box-shadow:
+    0 0 24px
+      rgba(
+        61,
+        126,
+        241,
+        0.19
+      );
+
+  color: #ffffff;
+
+  font-size: 18px;
+  font-weight: 900;
+
+  letter-spacing: 0.04em;
+}
+
+.pregame-matchup__side-label {
+  margin-bottom: 6px;
+
+  color:
+    rgba(
+      142,
+      180,
+      237,
+      0.52
+    );
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.2em;
+
+  text-transform: uppercase;
+}
+
+.pregame-matchup__team-name {
+  width: 100%;
+
+  min-height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 2px;
+
+  font-size: 16px;
+  font-weight: 900;
+
+  line-height: 1.12;
+
+  letter-spacing: -0.02em;
+}
+
+.pregame-matchup__record {
+  margin-top: 7px;
+
+  color:
+    rgba(
+      190,
+      211,
+      245,
+      0.55
+    );
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── OVR presentation ── */
+
+.pregame-matchup__overall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  margin-top: 19px;
+}
+
+.pregame-matchup__overall-number {
+  font-size: 42px;
+  font-weight: 950;
+
+  line-height: 0.9;
+
+  letter-spacing: -0.055em;
+
+  color: #ffffff;
+
+  text-shadow:
+    0 0 22px
+    rgba(
+      93,
+      152,
+      255,
+      0.23
+    );
+}
+
+.pregame-matchup__overall-label {
+  margin-top: 7px;
+
+  color: #78adff;
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.18em;
+}
+
+/* ── OFF / DEF ── */
+
+.pregame-matchup__ratings {
+  width: 100%;
+
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 6px;
+
+  margin-top: 16px;
+}
+
+.pregame-matchup__rating {
+  padding:
+    8px 5px;
+
+  border:
+    1px solid
+    rgba(
+      117,
+      164,
+      235,
+      0.12
+    );
+
+  border-radius: 10px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.035
+    );
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.pregame-matchup__rating span {
+  color:
+    rgba(
+      152,
+      188,
+      240,
+      0.55
+    );
+
+  font-size: 8px;
+  font-weight: 900;
+
+  letter-spacing: 0.15em;
+}
+
+.pregame-matchup__rating strong {
+  color: #ffffff;
+
+  font-size: 16px;
+  font-weight: 900;
+}
+
+/* ── Center VS badge ── */
+
+.pregame-matchup__versus {
+  position: relative;
+  z-index: 2;
+
+  width: 38px;
+  height: 38px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  border:
+    1px solid
+    rgba(
+      118,
+      173,
+      255,
+      0.28
+    );
+
+  background:
+    #07162f;
+
+  box-shadow:
+    0 0 25px
+      rgba(
+        54,
+        116,
+        224,
+        0.3
+      );
+
+  color:
+    rgba(
+      222,
+      235,
+      255,
+      0.84
+    );
+
+  font-size: 10px;
+  font-weight: 950;
+
+  letter-spacing: 0.08em;
+}
+
+/* ── Venue ── */
+
+.pregame-matchup__venue {
+  display: flex;
+  justify-content: center;
+
+  padding: 15px 10px;
+
+  color:
+    rgba(
+      189,
+      209,
+      240,
+      0.55
+    );
+
+  font-size: 11px;
+  font-weight: 650;
+
+  text-align: center;
+}
+
+/* ── Actions ── */
+
+.pregame-matchup__actions {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 11px;
+
+  margin-top: auto;
+
+  padding:
+    5px 0
+    12px;
+}
+
+.pregame-matchup__actions
+.btn {
+  min-height: 56px;
+}
+
+/*
+ * Sim Game is a REAL active secondary action here.
+ * Override the global disabled-looking btn--secondary style.
+ */
+#btn-pregame-sim {
+  cursor: pointer;
+
+  color:
+    rgba(
+      225,
+      236,
+      255,
+      0.9
+    );
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(
+        255,
+        255,
+        255,
+        0.075
+      ),
+      rgba(
+        255,
+        255,
+        255,
+        0.035
+      )
+    );
+
+  box-shadow:
+    0 0 0 1px
+      rgba(
+        114,
+        159,
+        229,
+        0.22
+      ),
+    inset 0 1px 0
+      rgba(
+        255,
+        255,
+        255,
+        0.055
+      );
+}
+
+#btn-pregame-sim
+.btn__label {
+  text-align: center;
+}
+
+/* Slightly emphasize the main game-night choice. */
+
+#btn-pregame-play {
+  min-height: 60px;
+}
+
+#btn-pregame-play
+.btn__label {
+  text-align: center;
+}
+
+/* Smaller iPhones */
+
+@media (
+  max-height: 720px
+) {
+  .pregame-matchup__header {
+    padding-bottom: 13px;
+  }
+
+  .pregame-matchup__teams {
+    padding-top: 15px;
+    padding-bottom: 17px;
+  }
+
+  .pregame-matchup__team-badge {
+    width: 54px;
+    height: 54px;
+
+    margin-bottom: 8px;
+  }
+
+  .pregame-matchup__overall {
+    margin-top: 12px;
+  }
+
+  .pregame-matchup__overall-number {
+    font-size: 35px;
+  }
+
+  .pregame-matchup__ratings {
+    margin-top: 11px;
+  }
+
+  .pregame-matchup__venue {
+    padding:
+      10px 8px;
+  }
+}
 /* ═══════════════════════════════════════════════════════════ */

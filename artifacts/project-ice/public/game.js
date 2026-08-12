@@ -53,6 +53,10 @@ const fullStatsScreen =
 const prospectsScreen      = document.getElementById('prospects-screen');
 const eventScreen =
   document.getElementById('event-screen');
+const pregameMatchupScreen =
+  document.getElementById(
+    'pregame-matchup-screen'
+  );
 
 const trainingScreen =
   document.getElementById(
@@ -2108,6 +2112,9 @@ function showScreen(screenName) {
   eventScreen.classList.add(
     'screen--hidden'
   );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
 
   eventResultsScreen.classList.add(
     'screen--hidden'
@@ -2194,6 +2201,15 @@ function showScreen(screenName) {
   if (screenName === 'event') {
     eventScreen.classList.remove('screen--hidden');
     // Content already populated by EventSystem.openEvent() before showScreen() is called
+  }
+  if (
+    screenName ===
+    'pregame-matchup'
+  ) {
+    pregameMatchupScreen
+      .classList.remove(
+        'screen--hidden'
+      );
   }
     if (
       screenName ===
@@ -9765,6 +9781,27 @@ function simulateToDate(
         String(blockingEventId)
       ) || null;
 
+    /*
+     * Career games now stop the Season Engine on game day
+     * before being resolved.
+     *
+     * Route that stop directly into the Pregame Matchup instead
+     * of reopening the generic Begin Event screen.
+     */
+    if (
+      result
+        ?.blockingEventResult
+        ?.reason ===
+        'career-game-awaiting-user-choice' &&
+      blockingScheduleEvent
+    ) {
+      openPregameMatchup(
+        blockingScheduleEvent
+      );
+
+      return reachedDate;
+    }
+
     EventSystem.openEvent(
       blockingScheduleEvent.eventId,
       'schedule',
@@ -15927,6 +15964,380 @@ function completeCurrentCareerEvent(
   };
 }
 
+/*
+ * ============================================================
+ * ROADMAP 6 — OPEN PREGAME MATCHUP
+ * ============================================================
+ *
+ * Populates the EA-style matchup presentation from the real
+ * scheduled game and the same team-strength profiles used by
+ * the canonical live-game engine.
+ */
+function openPregameMatchup(
+  eventDefinition
+) {
+  if (
+    !eventDefinition ||
+    eventDefinition.type !== 'game'
+  ) {
+    return false;
+  }
+
+  const schedule =
+    Array.isArray(
+      WorldEngine.state
+        ?.schedule
+    )
+      ? WorldEngine.state
+          .schedule
+      : [];
+
+  const scheduledGame =
+    schedule.find(game => {
+      const scheduledId =
+        game?.id ||
+        game?.gameId ||
+        game?.eventId ||
+        null;
+
+      const eventGameId =
+        eventDefinition
+          ?.gameId ||
+        eventDefinition
+          ?.eventId ||
+        eventDefinition
+          ?.id ||
+        null;
+
+      return (
+        scheduledId &&
+        eventGameId &&
+        String(scheduledId) ===
+          String(eventGameId)
+      );
+    }) || null;
+
+  if (!scheduledGame) {
+    console.error(
+      '[Project Ice] Pregame matchup could not find scheduled game.',
+      eventDefinition
+    );
+
+    return false;
+  }
+
+  const awayTeam =
+    WorldEngine.getTeamById(
+      scheduledGame.awayTeamId
+    );
+
+  const homeTeam =
+    WorldEngine.getTeamById(
+      scheduledGame.homeTeamId
+    );
+
+  if (
+    !awayTeam ||
+    !homeTeam
+  ) {
+    console.error(
+      '[Project Ice] Pregame matchup missing team data.',
+      scheduledGame
+    );
+
+    return false;
+  }
+
+  const awayProfileResult =
+    WorldEngine
+      .getLiveGameTeamSimulationProfile(
+        awayTeam.teamId
+      );
+
+  const homeProfileResult =
+    WorldEngine
+      .getLiveGameTeamSimulationProfile(
+        homeTeam.teamId
+      );
+
+  const awayProfile =
+    awayProfileResult
+      ?.success === true
+      ? awayProfileResult.profile
+      : null;
+
+  const homeProfile =
+    homeProfileResult
+      ?.success === true
+      ? homeProfileResult.profile
+      : null;
+
+  /*
+   * The live-game profile values are already normalized
+   * hockey ratings. Round them for the EA-style presentation.
+   */
+  const rating =
+    value =>
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Math.round(
+            Number(value) || 50
+          )
+        )
+      );
+
+  const teamRecord =
+    team =>
+      `${
+        Number(team?.wins) || 0
+      }-${
+        Number(team?.losses) || 0
+      }-${
+        Number(
+          team?.overtimeLosses
+        ) || 0
+      }`;
+
+  const teamDisplayName =
+    team =>
+      team?.schoolName ||
+      team?.teamName ||
+      team?.abbreviation ||
+      'Team';
+
+  const date =
+    scheduledGame.date ||
+    eventDefinition.date ||
+    null;
+
+  const dateLabel =
+    date
+      ? new Date(
+          `${date}T12:00:00`
+        ).toLocaleDateString(
+          'en-US',
+          {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          }
+        )
+      : 'Game Day';
+
+  const gameType =
+    scheduledGame
+      ?.specialType ||
+    scheduledGame
+      ?.gameType ||
+    eventDefinition
+      ?.details
+      ?.['Game Type'] ||
+    'Regular Season';
+
+  const venue =
+    homeTeam
+      ?.arena
+      ?.name ||
+    eventDefinition
+      ?.details
+      ?.Venue ||
+    'Arena';
+
+  document.getElementById(
+    'pregame-matchup-title'
+  ).textContent =
+    gameType;
+
+  document.getElementById(
+    'pregame-matchup-meta'
+  ).textContent =
+    dateLabel;
+
+  document.getElementById(
+    'pregame-matchup-venue'
+  ).textContent =
+    venue;
+
+  /*
+   * AWAY TEAM
+   */
+  document.getElementById(
+    'pregame-away-badge'
+  ).textContent =
+    awayTeam.abbreviation ||
+    'AWY';
+
+  document.getElementById(
+    'pregame-away-name'
+  ).textContent =
+    teamDisplayName(
+      awayTeam
+    );
+
+  document.getElementById(
+    'pregame-away-record'
+  ).textContent =
+    teamRecord(
+      awayTeam
+    );
+
+  document.getElementById(
+    'pregame-away-overall'
+  ).textContent =
+    rating(
+      awayProfile
+        ?.overallQuality
+    );
+
+  document.getElementById(
+    'pregame-away-offense'
+  ).textContent =
+    rating(
+      awayProfile
+        ?.possessionOffense
+    );
+
+  document.getElementById(
+    'pregame-away-defense'
+  ).textContent =
+    rating(
+      awayProfile
+        ?.defensiveDisruption
+    );
+
+  /*
+   * HOME TEAM
+   */
+  document.getElementById(
+    'pregame-home-badge'
+  ).textContent =
+    homeTeam.abbreviation ||
+    'HME';
+
+  document.getElementById(
+    'pregame-home-name'
+  ).textContent =
+    teamDisplayName(
+      homeTeam
+    );
+
+  document.getElementById(
+    'pregame-home-record'
+  ).textContent =
+    teamRecord(
+      homeTeam
+    );
+
+  document.getElementById(
+    'pregame-home-overall'
+  ).textContent =
+    rating(
+      homeProfile
+        ?.overallQuality
+    );
+
+  document.getElementById(
+    'pregame-home-offense'
+  ).textContent =
+    rating(
+      homeProfile
+        ?.possessionOffense
+    );
+
+  document.getElementById(
+    'pregame-home-defense'
+  ).textContent =
+    rating(
+      homeProfile
+        ?.defensiveDisruption
+    );
+
+  /*
+   * Keep the real scheduled game attached to the screen
+   * so Play Game / Sim Game can use this exact matchup next.
+   */
+  pregameMatchupScreen
+    .dataset.gameId =
+      scheduledGame.id ||
+      scheduledGame.gameId ||
+      scheduledGame.eventId ||
+      '';
+
+  showScreen(
+    'pregame-matchup'
+  );
+
+  return true;
+}
+
+/*
+ * ============================================================
+ * ROADMAP 6 — PREGAME SIM GAME
+ * ============================================================
+ *
+ * The career game is already stopped on game day before any
+ * hockey simulation occurs.
+ *
+ * Sim Game explicitly releases that game back to the canonical
+ * Season Engine, resolves it, persists the result, and then uses
+ * the existing postgame-summary pathway.
+ */
+
+document
+  .getElementById(
+    'btn-pregame-sim'
+  )
+  ?.addEventListener(
+    'click',
+    () => {
+      const gameId =
+        pregameMatchupScreen
+          ?.dataset
+          ?.gameId ||
+        null;
+
+      if (!gameId) {
+        console.error(
+          '[Project Ice] Sim Game is missing its scheduled game ID.'
+        );
+
+        return;
+      }
+
+      /*
+       * Mark this exact career game as approved for immediate
+       * simulation. world.js will consume this flag once and then
+       * return to the normal user-decision behavior for future
+       * career games.
+       */
+      WorldEngine.state
+        .season
+        .careerGameSimApproval =
+          String(gameId);
+
+      const currentDate =
+        WorldEngine.state
+          .season
+          ?.currentDate ||
+        Game.player.currentDate ||
+        null;
+
+      if (!currentDate) {
+        console.error(
+          '[Project Ice] Sim Game could not determine the current date.'
+        );
+
+        return;
+      }
+
+      simulateToDate(
+        currentDate
+      );
+    }
+  );
+
 // Begin Event — complete supported career events or route
 // into an existing dedicated event screen.
 document
@@ -15958,9 +16369,50 @@ document
         return;
       }
 
-      simulateToDate(
-        gameDate
-      );
+      const currentDate =
+        WorldEngine.state
+          .season
+          ?.currentDate ||
+        null;
+
+      /*
+       * If this game is still in the future, preserve the existing
+       * Season Engine advancement path.
+       *
+       * That path processes every intervening date and stops for
+       * player-controlled practices, recovery, training, meetings,
+       * etc. exactly as it did before the pregame screen existed.
+       */
+      if (
+        currentDate &&
+        String(currentDate) <
+          String(gameDate)
+      ) {
+        simulateToDate(
+          gameDate
+        );
+
+        return;
+      }
+
+      /*
+       * We have actually reached game day.
+       *
+       * Do NOT call simulateToDate() again here because that would
+       * allow the scheduled game itself to resolve before the player
+       * gets the Play Game / Sim Game choice.
+       */
+      const openedPregame =
+        openPregameMatchup(
+          def
+        );
+
+      if (!openedPregame) {
+        console.error(
+          '[Project Ice] Unable to open pregame matchup.',
+          def
+        );
+      }
 
       return;
     }

@@ -8299,6 +8299,104 @@ const WorldEngine = (() => {
       return result;
     }
 
+    /*
+     * Pregame Sim Game may explicitly authorize this exact
+     * career game to resolve immediately.
+     */
+    const careerGameId =
+      canonicalGameEvent?.id ||
+      canonicalGameEvent?.eventId ||
+      canonicalGameEvent?.gameId ||
+      event?.id ||
+      event?.eventId ||
+      null;
+
+    const approvedCareerGameId =
+      _state.season
+        ?.careerGameSimApproval ||
+      null;
+
+    const careerGameApprovedForSim =
+      Boolean(
+        isCareerPlayerGame &&
+        careerGameId &&
+        approvedCareerGameId &&
+        String(careerGameId) ===
+          String(
+            approvedCareerGameId
+          )
+      );
+
+    /*
+     * ============================================================
+     * ROADMAP 6 — CAREER GAME USER DECISION POINT
+     * ============================================================
+     *
+     * Background AI games resolve immediately.
+     *
+     * A game involving the career player must stop the Season
+     * Engine on game day BEFORE any hockey simulation occurs.
+     * game.js will then open the Pregame Matchup screen where
+     * the user chooses Play Game or Sim Game.
+     */
+
+
+      if (
+        isCareerPlayerGame &&
+        !careerGameApprovedForSim
+      ) {
+      result.type =
+        EVENT_TYPES.GAME;
+
+      result.eventId =
+        canonicalGameEvent?.id ||
+        canonicalGameEvent?.eventId ||
+        canonicalGameEvent?.gameId ||
+        event?.id ||
+        event?.eventId ||
+        null;
+
+      result.date =
+        canonicalGameEvent?.date ||
+        event?.date ||
+        options?.date ||
+        null;
+
+      result.event =
+        canonicalGameEvent;
+
+      result.success =
+        true;
+
+      result.resolved =
+        false;
+
+      result.stopSimulation =
+        true;
+
+      result.reason =
+        'career-game-awaiting-user-choice';
+
+      result.gameResult =
+        null;
+
+      return result;
+    }
+
+    /*
+     * Sim approval is single-use.
+     *
+     * Clear it before resolution so it cannot leak into another
+     * scheduled career game.
+     */
+    if (
+      careerGameApprovedForSim
+    ) {
+      _state.season
+        .careerGameSimApproval =
+          null;
+    }
+
     const gameResult =
       createEmptyGameResult(
         canonicalGameEvent
