@@ -16473,6 +16473,10 @@ const WorldEngine = (() => {
                 player.id ||
                 null,
 
+              isCareerPlayer:
+                player.isCareerPlayer ===
+                true,
+
               firstName:
                 player.firstName ||
                 '',
@@ -16655,6 +16659,15 @@ const WorldEngine = (() => {
           powerPlayGoals: 0,
 
           faceoffWins: 0,
+
+          careerPlayer:
+            activeSkaters.find(
+              player =>
+                player
+                  ?.isCareerPlayer ===
+                true
+            ) ||
+            null,
 
           skaters:
             activeSkaters,

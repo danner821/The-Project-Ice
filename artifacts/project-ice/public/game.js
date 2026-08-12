@@ -17281,6 +17281,17 @@ function getLiveCareerPlayerContext() {
         return false;
       }
 
+      /*
+       * The career player has an explicit canonical flag.
+       * This is the primary identity check for live deployment.
+       */
+      if (
+        player.isCareerPlayer ===
+        true
+      ) {
+        return true;
+      }
+
       const candidateIds =
         [
           player.playerId,
@@ -17354,16 +17365,49 @@ function getLiveCareerPlayerContext() {
       activeLiveGame.away
     );
 
+  /*
+   * The live engine now exposes the career player explicitly.
+   * Use that canonical reference first.
+   */
+  const homeCareerPlayer =
+    activeLiveGame
+      ?.home
+      ?.careerPlayer ||
+    null;
+
+  const awayCareerPlayer =
+    activeLiveGame
+      ?.away
+      ?.careerPlayer ||
+    null;
+
   let liveSkater =
-    homePlayers.find(
-      playerMatches
-    ) ||
+    homeCareerPlayer ||
+    awayCareerPlayer ||
     null;
 
   let side =
-    liveSkater
+    homeCareerPlayer
       ? 'home'
-      : null;
+      : awayCareerPlayer
+        ? 'away'
+        : null;
+
+  /*
+   * Safety fallback for old saves/live states.
+   */
+  if (!liveSkater) {
+    liveSkater =
+      homePlayers.find(
+        playerMatches
+      ) ||
+      null;
+
+    if (liveSkater) {
+      side =
+        'home';
+    }
+  }
 
   if (!liveSkater) {
     liveSkater =
