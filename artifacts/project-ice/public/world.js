@@ -38372,6 +38372,7 @@ const WorldEngine = (() => {
     resolveLiveGamePenalty,
     advanceLiveGameSpecialTeamsClock,
     advanceLiveGameStep,
+    resolveLiveGameToFinalResult,
     runLiveGameSimulationDiagnostic,
     runLiveGameCompetitiveBalanceDiagnostic,
     runLiveGameStrengthGradientDiagnostic,
