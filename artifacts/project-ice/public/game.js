@@ -9588,9 +9588,20 @@ function simulateToDate(
   Game.player.currentDate =
     currentDate;
 
+  const sameDayCareerGameSim =
+    Boolean(
+      targetDate === currentDate &&
+      WorldEngine.state
+        .season
+        ?.careerGameSimApproval
+    );
+
   if (
     !targetDate ||
-    targetDate <= currentDate
+    (
+      targetDate <= currentDate &&
+      !sameDayCareerGameSim
+    )
   ) {
     return currentDate;
   }
@@ -9734,7 +9745,11 @@ function simulateToDate(
    */
   const result =
     WorldEngine.advanceToDate(
-      simulationTargetDate
+      simulationTargetDate,
+      {
+        processCurrentDate:
+          sameDayCareerGameSim,
+      }
     );
 
   const reachedDate =

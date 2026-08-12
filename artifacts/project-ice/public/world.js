@@ -36364,20 +36364,92 @@ const WorldEngine = (() => {
       };
     }
 
-    if (targetDate <= currentDate) {
+    if (targetDate < currentDate) {
       return {
-        success:
-          targetDate === currentDate,
+        success: false,
 
         currentDate,
         targetDate,
+
         daysAdvanced: 0,
+
         crossedWeeks: [],
+
         dateProcessingResults: [],
+
         reason:
-          targetDate === currentDate
-            ? 'already-current-date'
-            : 'target-before-current-date',
+          'target-before-current-date',
+      };
+    }
+
+    /*
+     * ROADMAP 6 — SAME-DAY CAREER GAME SIM
+     *
+     * Normally advancing to the current date is a no-op.
+     *
+     * Pregame Sim Game is the one exception: the calendar has
+     * already arrived on game day and the career game was held
+     * unresolved while waiting for the user's Play/Sim choice.
+     */
+    if (
+      targetDate === currentDate
+    ) {
+      if (
+        options
+          ?.processCurrentDate !==
+        true
+      ) {
+        return {
+          success: true,
+
+          currentDate,
+          targetDate,
+
+          daysAdvanced: 0,
+
+          crossedWeeks: [],
+
+          dateProcessingResults: [],
+
+          reason:
+            'already-current-date',
+        };
+      }
+
+      const currentDateResult =
+        processSeasonDate(
+          currentDate,
+          options
+        );
+
+      return {
+        success:
+          currentDateResult
+            ?.success !== false,
+
+        currentDate,
+        targetDate,
+
+        daysAdvanced: 0,
+
+        crossedWeeks: [],
+
+        dateProcessingResults: [
+          currentDateResult,
+        ],
+
+        stopSimulation:
+          currentDateResult
+            ?.stopSimulation === true,
+
+        blockingEventResult:
+          currentDateResult
+            ?.stopSimulation === true
+            ? currentDateResult
+            : null,
+
+        reason:
+          'current-date-processed',
       };
     }
 
