@@ -57,6 +57,10 @@ const pregameMatchupScreen =
   document.getElementById(
     'pregame-matchup-screen'
   );
+const liveGameScreen =
+  document.getElementById(
+    'live-game-screen'
+  );
 
 const trainingScreen =
   document.getElementById(
@@ -554,6 +558,7 @@ window.runLiveGameDiagnostic =
   runLiveGameDiagnosticFromUI;
 
 function ensureHubLiveGameDiagnosticButton() {
+  return;
   const existingButton =
     document.getElementById(
       'hub-live-game-diagnostic'
@@ -2115,6 +2120,9 @@ function showScreen(screenName) {
   pregameMatchupScreen.classList.add(
     'screen--hidden'
   );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
 
   eventResultsScreen.classList.add(
     'screen--hidden'
@@ -2207,6 +2215,15 @@ function showScreen(screenName) {
     'pregame-matchup'
   ) {
     pregameMatchupScreen
+      .classList.remove(
+        'screen--hidden'
+      );
+  }
+  if (
+    screenName ===
+    'live-game'
+  ) {
+    liveGameScreen
       .classList.remove(
         'screen--hidden'
       );
@@ -16286,6 +16303,279 @@ function openPregameMatchup(
 
   return true;
 }
+
+/*
+ * ============================================================
+ * ROADMAP 6 — OPEN LIVE GAME
+ * ============================================================
+ *
+ * Populates the static live-game presentation from the exact
+ * scheduled career game selected on the pregame matchup screen.
+ *
+ * No simulation steps are processed yet.
+ */
+function openLiveGame(
+  gameId
+) {
+  const schedule =
+    Array.isArray(
+      WorldEngine.state
+        ?.schedule
+    )
+      ? WorldEngine.state
+          .schedule
+      : [];
+
+  const scheduledGame =
+    schedule.find(game => {
+      const candidateId =
+        game?.id ||
+        game?.gameId ||
+        game?.eventId ||
+        null;
+
+      return (
+        candidateId &&
+        gameId &&
+        String(candidateId) ===
+          String(gameId)
+      );
+    }) || null;
+
+  if (!scheduledGame) {
+    console.error(
+      '[Project Ice] Live Game could not find scheduled game.',
+      gameId
+    );
+
+    return false;
+  }
+
+  const awayTeam =
+    WorldEngine.getTeamById(
+      scheduledGame.awayTeamId
+    );
+
+  const homeTeam =
+    WorldEngine.getTeamById(
+      scheduledGame.homeTeamId
+    );
+
+  if (
+    !awayTeam ||
+    !homeTeam
+  ) {
+    console.error(
+      '[Project Ice] Live Game missing team data.',
+      scheduledGame
+    );
+
+    return false;
+  }
+
+  const careerPlayer =
+    WorldEngine.state.player ||
+    Game.player ||
+    {};
+
+  const careerTeamId =
+    careerPlayer.teamId ||
+    null;
+
+  const careerTeam =
+    careerTeamId
+      ? WorldEngine.getTeamById(
+          careerTeamId
+        )
+      : null;
+
+  const careerRosterPlayer =
+    Array.isArray(
+      careerTeam?.roster
+    )
+      ? careerTeam.roster.find(
+          player =>
+            player
+              ?.isCareerPlayer ===
+            true
+        ) || null
+      : null;
+
+  const playerName =
+    [
+      careerRosterPlayer
+        ?.firstName ||
+        careerPlayer
+          ?.firstName ||
+        '',
+
+      careerRosterPlayer
+        ?.lastName ||
+        careerPlayer
+          ?.lastName ||
+        '',
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    'Career Player';
+
+  const playerPosition =
+    careerRosterPlayer
+      ?.position ||
+    careerPlayer
+      ?.position ||
+    '—';
+
+  const playerRole =
+    careerRosterPlayer
+      ?.lineupAssignment
+      ?.label ||
+    careerRosterPlayer
+      ?.lineupStatus ||
+    playerPosition;
+
+  document.getElementById(
+    'live-game-away-abbr'
+  ).textContent =
+    awayTeam.abbreviation ||
+    'AWY';
+
+  document.getElementById(
+    'live-game-home-abbr'
+  ).textContent =
+    homeTeam.abbreviation ||
+    'HME';
+
+  document.getElementById(
+    'live-game-away-score'
+  ).textContent =
+    '0';
+
+  document.getElementById(
+    'live-game-home-score'
+  ).textContent =
+    '0';
+
+  document.getElementById(
+    'live-game-period'
+  ).textContent =
+    '1ST';
+
+  document.getElementById(
+    'live-game-clock'
+  ).textContent =
+    '20:00';
+
+  document.getElementById(
+    'live-game-strength'
+  ).textContent =
+    '5 ON 5';
+
+  document.getElementById(
+    'live-game-player-name'
+  ).textContent =
+    playerName;
+
+  document.getElementById(
+    'live-game-player-role'
+  ).textContent =
+    playerRole;
+
+  document.getElementById(
+    'live-game-player-status'
+  ).textContent =
+    'BENCH';
+
+  document.getElementById(
+    'live-game-player-toi'
+  ).textContent =
+    '0:00';
+
+  document.getElementById(
+    'live-game-player-goals'
+  ).textContent =
+    '0';
+
+  document.getElementById(
+    'live-game-player-assists'
+  ).textContent =
+    '0';
+
+  document.getElementById(
+    'live-game-player-shots'
+  ).textContent =
+    '0';
+
+  document.getElementById(
+    'live-game-player-plusminus'
+  ).textContent =
+    '0';
+
+  const timeline =
+    document.getElementById(
+      'live-game-timeline'
+    );
+
+  if (timeline) {
+    timeline.innerHTML = `
+      <div class="live-game__timeline-empty">
+        Puck drop coming up.
+      </div>
+    `;
+  }
+
+  const rinkEvents =
+    document.getElementById(
+      'live-game-rink-events'
+    );
+
+  if (rinkEvents) {
+    rinkEvents.innerHTML =
+      '';
+  }
+
+  liveGameScreen
+    .dataset.gameId =
+      String(
+        scheduledGame.id ||
+        scheduledGame.gameId ||
+        scheduledGame.eventId ||
+        ''
+      );
+
+  showScreen(
+    'live-game'
+  );
+
+  return true;
+}
+
+document
+.getElementById(
+  'btn-pregame-play'
+)
+?.addEventListener(
+  'click',
+  () => {
+    const gameId =
+      pregameMatchupScreen
+        ?.dataset
+        ?.gameId ||
+      null;
+
+    if (!gameId) {
+      console.error(
+        '[Project Ice] Play Game is missing its scheduled game ID.'
+      );
+
+      return;
+    }
+
+    openLiveGame(
+      gameId
+    );
+  }
+);
 
 /*
  * ============================================================

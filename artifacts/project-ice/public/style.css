@@ -12701,4 +12701,1077 @@ tr.career-player-highlight .full-stats-player-button {
       10px 8px;
   }
 }
+
+/* ============================================================
+   ROADMAP 6 — LIVE GAME EXPERIENCE
+   Broadcast scoreboard + rink + timeline + player strip
+   ============================================================ */
+
+#live-game-screen {
+  background:
+    radial-gradient(
+      ellipse 120% 55% at 50% -5%,
+      rgba(35, 83, 166, 0.34) 0%,
+      transparent 60%
+    ),
+    linear-gradient(
+      180deg,
+      #061326 0%,
+      #030a16 56%,
+      #02060d 100%
+    );
+
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow: hidden;
+
+  padding-left: 10px;
+  padding-right: 10px;
+
+  padding-top:
+    max(
+      env(safe-area-inset-top, 20px),
+      18px
+    );
+
+  padding-bottom:
+    max(
+      env(safe-area-inset-bottom, 16px),
+      14px
+    );
+}
+
+.live-game {
+  width: 100%;
+  height: 100%;
+
+  max-width: 620px;
+  margin: 0 auto;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+/* ────────────────────────────────────────────────────────────
+   SCOREBOARD
+   ──────────────────────────────────────────────────────────── */
+
+.live-game__scoreboard {
+  flex-shrink: 0;
+
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    112px
+    minmax(0, 1fr);
+
+  align-items: stretch;
+
+  min-height: 72px;
+
+  border:
+    1px solid
+    rgba(124, 170, 236, 0.18);
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(18, 42, 82, 0.96),
+      rgba(7, 21, 43, 0.98)
+    );
+
+  box-shadow:
+    0 10px 28px
+    rgba(0, 0, 0, 0.34);
+
+  overflow: hidden;
+}
+
+.live-game__score-team {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  min-width: 0;
+
+  padding: 0 10px;
+}
+
+.live-game__score-abbr {
+  color:
+    rgba(
+      220,
+      233,
+      255,
+      0.76
+    );
+
+  font-size: 13px;
+  font-weight: 900;
+
+  letter-spacing: 0.08em;
+}
+
+.live-game__score-number {
+  color: #ffffff;
+
+  font-size: 31px;
+  font-weight: 950;
+
+  line-height: 1;
+}
+
+.live-game__clock-block {
+  position: relative;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  border-left:
+    1px solid
+    rgba(125, 170, 236, 0.12);
+
+  border-right:
+    1px solid
+    rgba(125, 170, 236, 0.12);
+
+  background:
+    rgba(
+      1,
+      8,
+      19,
+      0.48
+    );
+}
+
+.live-game__period {
+  color: #79afff;
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.18em;
+}
+
+.live-game__clock {
+  margin-top: 2px;
+
+  color: #ffffff;
+
+  font-variant-numeric:
+    tabular-nums;
+
+  font-size: 23px;
+  font-weight: 950;
+
+  letter-spacing: -0.02em;
+}
+
+.live-game__strength {
+  margin-top: 2px;
+
+  color:
+    rgba(
+      183,
+      207,
+      245,
+      0.52
+    );
+
+  font-size: 8px;
+  font-weight: 850;
+
+  letter-spacing: 0.12em;
+}
+
+/* ────────────────────────────────────────────────────────────
+   MAIN RINK / TIMELINE AREA
+   ──────────────────────────────────────────────────────────── */
+
+.live-game__main {
+  flex: 1;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.live-game__rink-wrap {
+  flex-shrink: 0;
+
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-game__rink {
+  position: relative;
+
+  width: 100%;
+  aspect-ratio: 2 / 1;
+
+  border:
+    2px solid
+    rgba(
+      28,
+      72,
+      114,
+      0.45
+    );
+
+  border-radius: 34px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(
+        244,
+        249,
+        255,
+        0.97
+      ),
+      rgba(
+        215,
+        230,
+        244,
+        0.96
+      )
+    );
+
+  box-shadow:
+    inset 0 0 30px
+      rgba(
+        72,
+        127,
+        175,
+        0.14
+      ),
+    0 14px 35px
+      rgba(
+        0,
+        0,
+        0,
+        0.28
+      );
+
+  overflow: hidden;
+}
+
+/*
+ * Subtle ice texture.
+ */
+.live-game__rink::before {
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 13px,
+      rgba(
+        85,
+        135,
+        175,
+        0.025
+      ) 14px
+    );
+}
+
+/* ── Rink lines ── */
+
+.live-game__rink-line {
+  position: absolute;
+
+  top: 0;
+  bottom: 0;
+
+  width: 2px;
+
+  z-index: 1;
+}
+
+.live-game__rink-line--center {
+  left: 50%;
+
+  background:
+    rgba(
+      196,
+      41,
+      52,
+      0.62
+    );
+
+  transform:
+    translateX(-50%);
+}
+
+.live-game__rink-line--blue {
+  background:
+    rgba(
+      35,
+      92,
+      185,
+      0.58
+    );
+}
+
+.live-game__rink-line--left {
+  left: 31.5%;
+}
+
+.live-game__rink-line--right {
+  right: 31.5%;
+}
+
+/* ── Faceoff circle / dots ── */
+
+.live-game__center-circle {
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  width: 56px;
+  height: 56px;
+
+  border:
+    2px solid
+    rgba(
+      194,
+      37,
+      50,
+      0.5
+    );
+
+  border-radius: 50%;
+
+  transform:
+    translate(
+      -50%,
+      -50%
+    );
+}
+
+.live-game__center-circle::after {
+  content: '';
+
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  width: 6px;
+  height: 6px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(
+      194,
+      37,
+      50,
+      0.78
+    );
+
+  transform:
+    translate(
+      -50%,
+      -50%
+    );
+}
+
+.live-game__faceoff-dot {
+  position: absolute;
+
+  width: 7px;
+  height: 7px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(
+      196,
+      41,
+      52,
+      0.8
+    );
+
+  z-index: 2;
+}
+
+.live-game__faceoff-dot--tl {
+  left: 18%;
+  top: 31%;
+}
+
+.live-game__faceoff-dot--bl {
+  left: 18%;
+  bottom: 31%;
+}
+
+.live-game__faceoff-dot--tr {
+  right: 18%;
+  top: 31%;
+}
+
+.live-game__faceoff-dot--br {
+  right: 18%;
+  bottom: 31%;
+}
+
+/* ── Creases ── */
+
+.live-game__crease {
+  position: absolute;
+
+  top: 50%;
+
+  width: 23px;
+  height: 42px;
+
+  border:
+    2px solid
+    rgba(
+      76,
+      139,
+      206,
+      0.58
+    );
+
+  background:
+    rgba(
+      83,
+      154,
+      221,
+      0.13
+    );
+
+  transform:
+    translateY(-50%);
+}
+
+.live-game__crease--left {
+  left: -2px;
+
+  border-left: none;
+
+  border-radius:
+    0 18px 18px 0;
+}
+
+.live-game__crease--right {
+  right: -2px;
+
+  border-right: none;
+
+  border-radius:
+    18px 0 0 18px;
+}
+
+/*
+ * Dynamic event markers will be injected here later.
+ */
+.live-game__rink-events {
+  position: absolute;
+  inset: 0;
+
+  z-index: 10;
+
+  pointer-events: none;
+}
+
+/* ────────────────────────────────────────────────────────────
+   GAME FEED / TIMELINE
+   ──────────────────────────────────────────────────────────── */
+
+.live-game__timeline-panel {
+  flex: 1;
+  min-height: 120px;
+
+  display: flex;
+  flex-direction: column;
+
+  border:
+    1px solid
+    rgba(
+      118,
+      163,
+      230,
+      0.14
+    );
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(
+        12,
+        28,
+        55,
+        0.94
+      ),
+      rgba(
+        5,
+        15,
+        31,
+        0.96
+      )
+    );
+
+  overflow: hidden;
+}
+
+.live-game__timeline-header {
+  flex-shrink: 0;
+
+  padding:
+    9px 8px;
+
+  border-bottom:
+    1px solid
+    rgba(
+      120,
+      164,
+      230,
+      0.11
+    );
+
+  color:
+    rgba(
+      144,
+      185,
+      246,
+      0.7
+    );
+
+  font-size: 8px;
+  font-weight: 900;
+
+  letter-spacing: 0.17em;
+
+  text-align: center;
+}
+
+.live-game__timeline {
+  flex: 1;
+  min-height: 0;
+
+  overflow-y: auto;
+
+  padding:
+    7px 6px 10px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  scrollbar-width: none;
+}
+
+.live-game__timeline::-webkit-scrollbar {
+  display: none;
+}
+
+.live-game__timeline-empty {
+  margin: auto 0;
+
+  color:
+    rgba(
+      176,
+      198,
+      231,
+      0.4
+    );
+
+  font-size: 9px;
+  font-weight: 650;
+
+  line-height: 1.35;
+
+  text-align: center;
+}
+
+/*
+ * Permanent class for timeline events we'll inject next.
+ */
+.live-game__timeline-event {
+  padding:
+    7px 6px;
+
+  border:
+    1px solid
+    rgba(
+      111,
+      157,
+      224,
+      0.1
+    );
+
+  border-radius: 8px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.03
+    );
+}
+
+.live-game__timeline-time {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #78adff;
+
+  font-size: 7px;
+  font-weight: 900;
+}
+
+.live-game__timeline-text {
+  color:
+    rgba(
+      229,
+      237,
+      250,
+      0.82
+    );
+
+  font-size: 9px;
+  font-weight: 650;
+
+  line-height: 1.3;
+}
+
+/* ────────────────────────────────────────────────────────────
+   CAREER PLAYER STRIP
+   ──────────────────────────────────────────────────────────── */
+
+.live-game__player-strip {
+  flex-shrink: 0;
+
+  padding:
+    10px 11px;
+
+  border:
+    1px solid
+    rgba(
+      116,
+      166,
+      239,
+      0.16
+    );
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(
+        24,
+        57,
+        108,
+        0.38
+      ),
+      rgba(
+        5,
+        16,
+        32,
+        0.9
+      )
+    );
+}
+
+.live-game__player-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.live-game__player-name {
+  color: #ffffff;
+
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.live-game__player-role {
+  margin-top: 2px;
+
+  color:
+    rgba(
+      163,
+      191,
+      233,
+      0.55
+    );
+
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.live-game__player-status {
+  flex-shrink: 0;
+
+  padding:
+    5px 8px;
+
+  border-radius: 999px;
+
+  border:
+    1px solid
+    rgba(
+      118,
+      165,
+      234,
+      0.16
+    );
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.035
+    );
+
+  color:
+    rgba(
+      191,
+      211,
+      241,
+      0.6
+    );
+
+  font-size: 8px;
+  font-weight: 900;
+
+  letter-spacing: 0.1em;
+}
+
+.live-game__player-stats {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      5,
+      minmax(0, 1fr)
+    );
+
+  gap: 5px;
+
+  margin-top: 9px;
+}
+
+.live-game__player-stats > div {
+  padding:
+    6px 3px;
+
+  border-radius: 7px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.025
+    );
+
+  text-align: center;
+}
+
+.live-game__player-stats span {
+  display: block;
+
+  color:
+    rgba(
+      139,
+      177,
+      232,
+      0.48
+    );
+
+  font-size: 7px;
+  font-weight: 900;
+
+  letter-spacing: 0.1em;
+}
+
+.live-game__player-stats strong {
+  display: block;
+
+  margin-top: 2px;
+
+  color: #ffffff;
+
+  font-size: 11px;
+  font-weight: 900;
+}
+
+/* ────────────────────────────────────────────────────────────
+   CONTROLS
+   ──────────────────────────────────────────────────────────── */
+
+.live-game__controls {
+  flex-shrink: 0;
+
+  display: grid;
+  grid-template-columns:
+    82px
+    minmax(0, 1fr);
+
+  gap: 7px;
+}
+
+.live-game__control-button,
+.live-game__speed-button {
+  border:
+    1px solid
+    rgba(
+      111,
+      159,
+      229,
+      0.16
+    );
+
+  border-radius: 9px;
+
+  min-height: 38px;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      0.035
+    );
+
+  color:
+    rgba(
+      219,
+      232,
+      251,
+      0.72
+    );
+
+  font-family: inherit;
+
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.live-game__control-button:active,
+.live-game__speed-button:active {
+  transform:
+    scale(0.97);
+}
+
+.live-game__speed-controls {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      4,
+      minmax(0, 1fr)
+    );
+
+  gap: 5px;
+}
+
+.live-game__speed-button--active {
+  border-color:
+    rgba(
+      85,
+      150,
+      255,
+      0.55
+    );
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(
+        38,
+        93,
+        196,
+        0.72
+      ),
+      rgba(
+        23,
+        57,
+        126,
+        0.74
+      )
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 0 16px
+    rgba(
+      54,
+      112,
+      226,
+      0.18
+    );
+}
+
+/* ────────────────────────────────────────────────────────────
+   DYNAMIC RINK EVENT MARKERS
+   ──────────────────────────────────────────────────────────── */
+
+.live-game__event-marker {
+  position: absolute;
+
+  width: 17px;
+  height: 17px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 50%;
+
+  transform:
+    translate(
+      -50%,
+      -50%
+    );
+
+  background:
+    rgba(
+      10,
+      28,
+      54,
+      0.92
+    );
+
+  border:
+    2px solid
+    rgba(
+      255,
+      255,
+      255,
+      0.9
+    );
+
+  box-shadow:
+    0 0 0 5px
+      rgba(
+        255,
+        255,
+        255,
+        0.1
+      ),
+    0 4px 12px
+      rgba(
+        0,
+        0,
+        0,
+        0.32
+      );
+
+  color: #ffffff;
+
+  font-size: 7px;
+  font-weight: 900;
+
+  animation:
+    live-game-marker-pop
+    0.26s ease-out both;
+}
+
+@keyframes
+live-game-marker-pop {
+  from {
+    opacity: 0;
+
+    transform:
+      translate(
+        -50%,
+        -50%
+      )
+      scale(0.45);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translate(
+        -50%,
+        -50%
+      )
+      scale(1);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   SMALLER PHONES
+   ──────────────────────────────────────────────────────────── */
+
+@media (
+  max-height: 740px
+) {
+  .live-game {
+    gap: 6px;
+  }
+
+  .live-game__scoreboard {
+    min-height: 62px;
+  }
+
+  .live-game__score-number {
+    font-size: 27px;
+  }
+
+  .live-game__clock {
+    font-size: 20px;
+  }
+
+  .live-game__timeline-panel {
+    min-height: 100px;
+  }
+
+  .live-game__player-strip {
+    padding:
+      8px 9px;
+  }
+
+  .live-game__player-stats {
+    margin-top: 6px;
+  }
+
+  .live-game__controls {
+    grid-template-columns:
+      74px
+      minmax(0, 1fr);
+  }
+
+  .live-game__control-button,
+  .live-game__speed-button {
+    min-height: 34px;
+  }
+}
 /* ═══════════════════════════════════════════════════════════ */

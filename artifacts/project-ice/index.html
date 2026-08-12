@@ -2908,6 +2908,248 @@
         </div>
       </section>
 
+      <!-- LIVE GAME EXPERIENCE -->
+      <section
+        id="live-game-screen"
+        class="screen screen--hidden"
+      >
+        <div class="live-game">
+
+          <!-- BROADCAST SCOREBOARD -->
+          <header class="live-game__scoreboard">
+
+            <div class="live-game__score-team">
+              <span
+                id="live-game-away-abbr"
+                class="live-game__score-abbr"
+              >
+                AWY
+              </span>
+
+              <strong
+                id="live-game-away-score"
+                class="live-game__score-number"
+              >
+                0
+              </strong>
+            </div>
+
+            <div class="live-game__clock-block">
+              <span
+                id="live-game-period"
+                class="live-game__period"
+              >
+                1ST
+              </span>
+
+              <strong
+                id="live-game-clock"
+                class="live-game__clock"
+              >
+                20:00
+              </strong>
+
+              <span
+                id="live-game-strength"
+                class="live-game__strength"
+              >
+                5 ON 5
+              </span>
+            </div>
+
+            <div class="live-game__score-team">
+              <strong
+                id="live-game-home-score"
+                class="live-game__score-number"
+              >
+                0
+              </strong>
+
+              <span
+                id="live-game-home-abbr"
+                class="live-game__score-abbr"
+              >
+                HME
+              </span>
+            </div>
+
+          </header>
+
+          <!-- MAIN GAME PRESENTATION -->
+          <div class="live-game__main">
+
+            <!-- RINK -->
+            <div class="live-game__rink-wrap">
+
+              <div
+                id="live-game-rink"
+                class="live-game__rink"
+              >
+                <div class="live-game__rink-line live-game__rink-line--center"></div>
+
+                <div class="live-game__rink-line live-game__rink-line--blue live-game__rink-line--left"></div>
+
+                <div class="live-game__rink-line live-game__rink-line--blue live-game__rink-line--right"></div>
+
+                <div class="live-game__center-circle"></div>
+
+                <div class="live-game__faceoff-dot live-game__faceoff-dot--tl"></div>
+                <div class="live-game__faceoff-dot live-game__faceoff-dot--bl"></div>
+                <div class="live-game__faceoff-dot live-game__faceoff-dot--tr"></div>
+                <div class="live-game__faceoff-dot live-game__faceoff-dot--br"></div>
+
+                <div class="live-game__crease live-game__crease--left"></div>
+                <div class="live-game__crease live-game__crease--right"></div>
+
+                <div
+                  id="live-game-rink-events"
+                  class="live-game__rink-events"
+                ></div>
+              </div>
+
+            </div>
+
+            <!-- EVENT TIMELINE -->
+            <aside class="live-game__timeline-panel">
+
+              <div class="live-game__timeline-header">
+                <span>GAME FEED</span>
+              </div>
+
+              <div
+                id="live-game-timeline"
+                class="live-game__timeline"
+              >
+                <div class="live-game__timeline-empty">
+                  Puck drop coming up.
+                </div>
+              </div>
+
+            </aside>
+
+          </div>
+
+          <!-- CAREER PLAYER STRIP -->
+          <div class="live-game__player-strip">
+
+            <div class="live-game__player-main">
+              <div>
+                <p
+                  id="live-game-player-name"
+                  class="live-game__player-name"
+                >
+                  Career Player
+                </p>
+
+                <p
+                  id="live-game-player-role"
+                  class="live-game__player-role"
+                >
+                  —
+                </p>
+              </div>
+
+              <span
+                id="live-game-player-status"
+                class="live-game__player-status"
+              >
+                BENCH
+              </span>
+            </div>
+
+            <div class="live-game__player-stats">
+
+              <div>
+                <span>TOI</span>
+                <strong id="live-game-player-toi">
+                  0:00
+                </strong>
+              </div>
+
+              <div>
+                <span>G</span>
+                <strong id="live-game-player-goals">
+                  0
+                </strong>
+              </div>
+
+              <div>
+                <span>A</span>
+                <strong id="live-game-player-assists">
+                  0
+                </strong>
+              </div>
+
+              <div>
+                <span>SOG</span>
+                <strong id="live-game-player-shots">
+                  0
+                </strong>
+              </div>
+
+              <div>
+                <span>+/-</span>
+                <strong id="live-game-player-plusminus">
+                  0
+                </strong>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- GAME CONTROLS -->
+          <footer class="live-game__controls">
+
+            <button
+              id="btn-live-game-pause"
+              class="live-game__control-button"
+              type="button"
+            >
+              Pause
+            </button>
+
+            <div class="live-game__speed-controls">
+
+              <button
+                class="live-game__speed-button live-game__speed-button--active"
+                data-live-game-speed="1"
+                type="button"
+              >
+                1×
+              </button>
+
+              <button
+                class="live-game__speed-button"
+                data-live-game-speed="2"
+                type="button"
+              >
+                2×
+              </button>
+
+              <button
+                class="live-game__speed-button"
+                data-live-game-speed="4"
+                type="button"
+              >
+                4×
+              </button>
+
+              <button
+                class="live-game__speed-button"
+                data-live-game-speed="max"
+                type="button"
+              >
+                MAX
+              </button>
+
+            </div>
+
+          </footer>
+
+        </div>
+      </section>
+
       <!-- TRAINING SELECTION SCREEN -->
       <section
         id="training-screen"
