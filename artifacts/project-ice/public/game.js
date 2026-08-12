@@ -17733,18 +17733,24 @@ function renderLiveGameState() {
 
   if (strengthElement) {
     const homeStrength =
-      Number(
-        activeLiveGame
-          ?.home
-          ?.skatersOnIce
-      ) || 5;
+      Math.max(
+        3,
+        Number(
+          activeLiveGame
+            ?.specialTeams
+            ?.homeSkaters
+        ) || 5
+      );
 
     const awayStrength =
-      Number(
-        activeLiveGame
-          ?.away
-          ?.skatersOnIce
-      ) || 5;
+      Math.max(
+        3,
+        Number(
+          activeLiveGame
+            ?.specialTeams
+            ?.awaySkaters
+        ) || 5
+      );
 
     strengthElement.textContent =
       `${awayStrength} ON ${homeStrength}`;
