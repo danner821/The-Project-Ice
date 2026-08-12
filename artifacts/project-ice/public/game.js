@@ -17689,7 +17689,6 @@ function renderLiveCareerPlayerStrip() {
 function renderLiveGameState() {
   if (!activeLiveGame) {
     return;
-    renderLiveCareerPlayerStrip();
   }
 
   document.getElementById(
@@ -17750,6 +17749,8 @@ function renderLiveGameState() {
     strengthElement.textContent =
       `${awayStrength} ON ${homeStrength}`;
   }
+
+  renderLiveCareerPlayerStrip();
 }
 
 function appendLiveGameEventToFeed(
