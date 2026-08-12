@@ -13361,6 +13361,33 @@ tr.career-player-highlight .full-stats-player-button {
   font-weight: 650;
 
   line-height: 1.3;
+  white-space: pre-line;
+}
+
+.live-game__timeline-primary {
+  color: #ffffff;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  line-height: 1.3;
+}
+
+.live-game__timeline-secondary {
+  margin-top: 2px;
+
+  color:
+    rgba(
+      174,
+      190,
+      214,
+      0.58
+    );
+
+  font-size: 9px;
+  font-weight: 600;
+
+  line-height: 1.3;
 }
 
 /* ────────────────────────────────────────────────────────────

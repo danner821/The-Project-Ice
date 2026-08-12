@@ -16304,6 +16304,8 @@ function openPregameMatchup(
   return true;
 }
 
+let activeLiveGame = null;
+
 /*
  * ============================================================
  * ROADMAP 6 — OPEN LIVE GAME
@@ -16372,6 +16374,41 @@ function openLiveGame(
 
     return false;
   }
+
+  /*
+   * ============================================================
+   * ROADMAP 6 — CREATE CANONICAL LIVE GAME STATE
+   * ============================================================
+   *
+   * Play Game now creates the exact same live simulation object
+   * used by the validated canonical resolver.
+   *
+   * Nothing is permanently written yet.
+   */
+  const liveGameCreation =
+    WorldEngine
+      .createLiveGameSimulationState(
+        scheduledGame
+      );
+
+  if (
+    !liveGameCreation ||
+    liveGameCreation
+      .success !== true ||
+    !liveGameCreation
+      .simulation
+  ) {
+    console.error(
+      '[Project Ice] Unable to create live game simulation.',
+      liveGameCreation
+    );
+
+    return false;
+  }
+
+  activeLiveGame =
+    liveGameCreation
+      .simulation;
 
   const careerPlayer =
     WorldEngine.state.player ||
@@ -16446,25 +16483,97 @@ function openLiveGame(
     homeTeam.abbreviation ||
     'HME';
 
+  const formatLiveGameClock =
+    totalSeconds => {
+      const safeSeconds =
+        Math.max(
+          0,
+          Number(
+            totalSeconds
+          ) || 0
+        );
+
+      const minutes =
+        Math.floor(
+          safeSeconds / 60
+        );
+
+      const seconds =
+        safeSeconds % 60;
+
+      return (
+        `${minutes}:` +
+        `${String(
+          seconds
+        ).padStart(
+          2,
+          '0'
+        )}`
+      );
+    };
+
+  const periodLabel =
+    period => {
+      if (period === 1) {
+        return '1ST';
+      }
+
+      if (period === 2) {
+        return '2ND';
+      }
+
+      if (period === 3) {
+        return '3RD';
+      }
+
+      if (period === 4) {
+        return 'OT';
+      }
+
+      if (period >= 5) {
+        return 'SO';
+      }
+
+      return '1ST';
+    };
+
   document.getElementById(
     'live-game-away-score'
   ).textContent =
-    '0';
+    String(
+      activeLiveGame
+        ?.away
+        ?.score ??
+      0
+    );
 
   document.getElementById(
     'live-game-home-score'
   ).textContent =
-    '0';
+    String(
+      activeLiveGame
+        ?.home
+        ?.score ??
+      0
+    );
 
   document.getElementById(
     'live-game-period'
   ).textContent =
-    '1ST';
+    periodLabel(
+      Number(
+        activeLiveGame
+          ?.period
+      ) || 1
+    );
 
   document.getElementById(
     'live-game-clock'
   ).textContent =
-    '20:00';
+    formatLiveGameClock(
+      activeLiveGame
+        ?.clockSecondsRemaining
+    );
 
   document.getElementById(
     'live-game-strength'
@@ -16550,6 +16659,722 @@ function openLiveGame(
   return true;
 }
 
+/*
+ * ============================================================
+ * ROADMAP 6 — LIVE GAME PRESENTATION STEP
+ * ============================================================
+ *
+ * Advances the canonical live simulation by one meaningful
+ * hockey step and refreshes the visible scoreboard / game feed.
+ *
+ * Temporary interaction:
+ * tapping 1× advances one step.
+ *
+ * Once validated, the same function will power timed playback
+ * at 1× / 2× / 4× / MAX.
+ */
+
+function formatLivePresentationClock(
+  totalSeconds
+) {
+  const safeSeconds =
+    Math.max(
+      0,
+      Number(
+        totalSeconds
+      ) || 0
+    );
+
+  const minutes =
+    Math.floor(
+      safeSeconds / 60
+    );
+
+  const seconds =
+    safeSeconds % 60;
+
+  return (
+    `${minutes}:` +
+    `${String(
+      seconds
+    ).padStart(
+      2,
+      '0'
+    )}`
+  );
+}
+
+function getLivePresentationPeriodLabel(
+  period
+) {
+  const safePeriod =
+    Number(period) || 1;
+
+  if (safePeriod === 1) {
+    return '1ST';
+  }
+
+  if (safePeriod === 2) {
+    return '2ND';
+  }
+
+  if (safePeriod === 3) {
+    return '3RD';
+  }
+
+  if (safePeriod === 4) {
+    return 'OT';
+  }
+
+  if (safePeriod >= 5) {
+    return 'SO';
+  }
+
+  return '1ST';
+}
+
+/*
+ * ============================================================
+ * ROADMAP 6 — LIVE PRESENTATION PLAYER LOOKUP
+ * ============================================================
+ *
+ * Live events store stable player IDs.
+ *
+ * Resolve those IDs back to the canonical roster so the
+ * presentation layer can display real names and jersey numbers
+ * without duplicating identity data inside the simulator.
+ */
+
+function getLivePresentationPlayer(
+  playerId
+) {
+  if (!playerId) {
+    return null;
+  }
+
+  const teams =
+    Array.isArray(
+      WorldEngine.state
+        ?.teams
+    )
+      ? WorldEngine.state
+          .teams
+      : [];
+
+  for (const team of teams) {
+    const roster =
+      Array.isArray(
+        team?.roster
+      )
+        ? team.roster
+        : [];
+
+    const player =
+      roster.find(
+        rosterPlayer =>
+          String(
+            rosterPlayer
+              ?.playerId ||
+            rosterPlayer
+              ?.id ||
+            ''
+          ) ===
+          String(playerId)
+      ) ||
+      null;
+
+    if (!player) {
+      continue;
+    }
+
+    const name =
+      [
+        player.firstName ||
+          '',
+        player.lastName ||
+          '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+      'Unknown Player';
+
+    const jerseyNumber =
+      player.jerseyNumber ??
+      player.number ??
+      player.jersey ??
+      null;
+
+    return {
+      player,
+      team,
+
+      playerId:
+        player.playerId ||
+        player.id ||
+        playerId,
+
+      name,
+
+      jerseyNumber,
+
+      position:
+        player.position ||
+        null,
+    };
+  }
+
+  return null;
+}
+
+function formatLiveShotType(
+  shotType
+) {
+  const safeType =
+    String(
+      shotType ||
+      'shot'
+    )
+      .replaceAll(
+        '-',
+        ' '
+      );
+
+  return (
+    safeType
+      .charAt(0)
+      .toUpperCase() +
+    safeType.slice(1)
+  );
+}
+
+function getLivePresentationEventText(
+  event
+) {
+  if (!event) {
+    return 'Play continues.';
+  }
+
+  const eventType =
+    String(
+      event.type ||
+      event.eventType ||
+      event.result ||
+      ''
+    );
+
+  /*
+   * ==========================================================
+   * SAVED SHOT
+   * ==========================================================
+   */
+
+  if (
+    eventType ===
+      'shot-saved' ||
+    eventType ===
+      'shot-on-goal' ||
+    eventType ===
+      'shot'
+  ) {
+    const shooter =
+      getLivePresentationPlayer(
+        event
+          .shooterPlayerId
+      );
+
+    const goalie =
+      getLivePresentationPlayer(
+        event
+          .goaliePlayerId
+      );
+
+    const shotType =
+      formatLiveShotType(
+        event.shotType
+      );
+
+    const shooterName =
+      shooter?.name ||
+      'Unknown Shooter';
+
+    if (goalie?.name) {
+      const shooterLabel =
+        shooter?.jerseyNumber
+          ? `#${shooter.jerseyNumber} ${shooterName}`
+          : shooterName;
+
+      const goalieLabel =
+        goalie?.jerseyNumber
+          ? `#${goalie.jerseyNumber} ${goalie.name}`
+          : goalie?.name;
+
+      if (goalieLabel) {
+        return {
+          primary:
+            `SHOT — ${shooterLabel}`,
+
+          secondary:
+            `${shotType} · Saved by ${goalieLabel}`,
+        };
+      }
+
+      return {
+        primary:
+          `SHOT — ${shooterLabel}`,
+
+        secondary:
+          `${shotType} · Saved`,
+      };
+    }
+
+    return (
+      `SHOT — ${shooterName}` +
+      `\n${shotType} · Saved`
+    );
+  }
+
+  /*
+   * ==========================================================
+   * GOAL
+   * ==========================================================
+   */
+
+  if (
+    eventType ===
+    'goal'
+  ) {
+    const scorer =
+      getLivePresentationPlayer(
+        event
+          .scorerPlayerId
+      );
+
+    const primaryAssist =
+      getLivePresentationPlayer(
+        event
+          .primaryAssistPlayerId
+      );
+
+    const secondaryAssist =
+      getLivePresentationPlayer(
+        event
+          .secondaryAssistPlayerId
+      );
+
+    const assistNames =
+      [
+        primaryAssist?.name,
+        secondaryAssist?.name,
+      ]
+        .filter(Boolean);
+
+    const scorerName =
+      scorer?.name ||
+      'Unknown Scorer';
+
+    const scorerLabel =
+      scorer?.jerseyNumber
+        ? `#${scorer.jerseyNumber} ${scorerName}`
+        : scorerName;
+
+    const assistLabels =
+      [
+        primaryAssist,
+        secondaryAssist,
+      ]
+        .filter(Boolean)
+        .map(player =>
+          player.jerseyNumber
+            ? `#${player.jerseyNumber} ${player.name}`
+            : player.name
+        );
+
+    if (
+      assistLabels.length > 0
+    ) {
+      return {
+        primary:
+          `GOAL — ${scorerLabel}`,
+
+        secondary:
+          `Assists: ${
+            assistLabels.join(', ')
+          }`,
+      };
+    }
+
+    return {
+      primary:
+        `GOAL — ${scorerLabel}`,
+
+      secondary:
+        'Unassisted',
+    };
+  }
+
+  /*
+   * ==========================================================
+   * HIT
+   * ==========================================================
+   */
+
+  if (
+    eventType ===
+    'hit'
+  ) {
+    const hitter =
+      getLivePresentationPlayer(
+        event
+          .hitterPlayerId
+      );
+
+    const playerHit =
+      getLivePresentationPlayer(
+        event
+          .hitPlayerId
+      );
+
+    const hitterName =
+      hitter?.name ||
+      'Unknown Player';
+
+    if (playerHit?.name) {
+    const hitterLabel =
+      hitter?.jerseyNumber
+        ? `#${hitter.jerseyNumber} ${hitterName}`
+        : hitterName;
+
+    const hitPlayerLabel =
+      playerHit?.jerseyNumber
+        ? `#${playerHit.jerseyNumber} ${playerHit.name}`
+        : playerHit?.name;
+
+    return {
+      primary:
+        `HIT — ${hitterLabel}`,
+
+      secondary:
+        hitPlayerLabel
+          ? `on ${hitPlayerLabel}`
+          : '',
+    };
+  }
+
+  /*
+   * ==========================================================
+   * PENALTY
+   * ==========================================================
+   */
+
+  if (
+    eventType ===
+    'penalty'
+  ) {
+    const penalizedPlayer =
+      getLivePresentationPlayer(
+        event.playerId
+      );
+
+    const playerName =
+      penalizedPlayer
+        ?.name ||
+      'Unknown Player';
+
+    const infraction =
+      event.infraction ||
+      'Penalty';
+
+    const minutes =
+      Number(
+        event.minutes
+      ) || 2;
+
+    const penalizedLabel =
+      penalizedPlayer?.jerseyNumber
+        ? `#${penalizedPlayer.jerseyNumber} ${playerName}`
+        : playerName;
+
+    return {
+      primary:
+        `PENALTY — ${penalizedLabel}`,
+
+      secondary:
+        `${infraction} · ${minutes} min`,
+    };
+  }
+
+  /*
+   * Everything else still exists inside the engine,
+   * but it is intentionally not part of our broadcast feed.
+   */
+    return {
+      primary: '',
+      secondary: '',
+    };
+}
+
+function renderLiveGameState() {
+  if (!activeLiveGame) {
+    return;
+  }
+
+  document.getElementById(
+    'live-game-away-score'
+  ).textContent =
+    String(
+      activeLiveGame
+        ?.away
+        ?.score ??
+      0
+    );
+
+  document.getElementById(
+    'live-game-home-score'
+  ).textContent =
+    String(
+      activeLiveGame
+        ?.home
+        ?.score ??
+      0
+    );
+
+  document.getElementById(
+    'live-game-period'
+  ).textContent =
+    getLivePresentationPeriodLabel(
+      activeLiveGame.period
+    );
+
+  document.getElementById(
+    'live-game-clock'
+  ).textContent =
+    formatLivePresentationClock(
+      activeLiveGame
+        .clockSecondsRemaining
+    );
+
+  const strengthElement =
+    document.getElementById(
+      'live-game-strength'
+    );
+
+  if (strengthElement) {
+    const homeStrength =
+      Number(
+        activeLiveGame
+          ?.home
+          ?.skatersOnIce
+      ) || 5;
+
+    const awayStrength =
+      Number(
+        activeLiveGame
+          ?.away
+          ?.skatersOnIce
+      ) || 5;
+
+    strengthElement.textContent =
+      `${awayStrength} ON ${homeStrength}`;
+  }
+}
+
+function appendLiveGameEventToFeed(
+  event
+) {
+  if (!event) {
+    return;
+  }
+
+  /*
+   * ROADMAP 6 — BROADCAST FEED FILTER
+   *
+   * The simulation remains fully detailed internally.
+   * The player-facing feed only surfaces meaningful
+   * broadcast events.
+   */
+  const eventType =
+    String(
+      event.type ||
+      event.eventType ||
+      event.result ||
+      ''
+    );
+
+  const visibleEventTypes =
+    new Set([
+      'shot',
+      'shot-on-goal',
+      'shot-saved',
+      'hit',
+      'goal',
+      'penalty',
+    ]);
+
+  if (
+    !visibleEventTypes.has(
+      eventType
+    )
+  ) {
+    return;
+  }
+
+  const timeline =
+    document.getElementById(
+      'live-game-timeline'
+    );
+
+  if (!timeline) {
+    return;
+  }
+
+  const emptyState =
+    timeline.querySelector(
+      '.live-game__timeline-empty'
+    );
+
+  if (emptyState) {
+    emptyState.remove();
+  }
+
+  const eventElement =
+    document.createElement(
+      'div'
+    );
+
+  eventElement.className =
+    'live-game__timeline-event';
+
+  const period =
+    getLivePresentationPeriodLabel(
+      event.period ||
+      activeLiveGame?.period
+    );
+
+  const clock =
+    formatLivePresentationClock(
+      event.clockSecondsRemaining ??
+      activeLiveGame
+        ?.clockSecondsRemaining
+    );
+
+  const eventText =
+    getLivePresentationEventText(
+      event
+    );
+
+  eventElement.innerHTML = `
+    <span class="live-game__timeline-time">
+      ${period} · ${clock}
+    </span>
+
+    <div class="live-game__timeline-primary">
+      ${eventText.primary || ''}
+    </div>
+
+    ${
+      eventText.secondary
+        ? `
+          <div class="live-game__timeline-secondary">
+            ${eventText.secondary}
+          </div>
+        `
+        : ''
+    }
+  `;
+
+  /*
+   * Newest event stays at the top,
+   * HLM-style.
+   */
+  timeline.prepend(
+    eventElement
+  );
+
+  /*
+   * Keep the visible feed lightweight.
+   * Older events remain in the simulation state.
+   */
+  while (
+    timeline.children.length > 12
+  ) {
+    timeline.removeChild(
+      timeline.lastElementChild
+    );
+  }
+}
+
+function advanceLiveGamePresentationStep() {
+  if (!activeLiveGame) {
+    console.error(
+      '[Project Ice] No active live game simulation.'
+    );
+
+    return;
+  }
+
+  if (
+    activeLiveGame
+      .gameComplete === true
+  ) {
+    return;
+  }
+
+  const previousEventCount =
+    Array.isArray(
+      activeLiveGame.events
+    )
+      ? activeLiveGame.events.length
+      : 0;
+
+  const step =
+    WorldEngine
+      .advanceLiveGameStep(
+        activeLiveGame
+      );
+
+  if (
+    !step ||
+    step.success !== true
+  ) {
+    console.error(
+      '[Project Ice] Live game step failed.',
+      step
+    );
+
+    return;
+  }
+
+  /*
+   * advanceLiveGameStep mutates the same canonical simulation
+   * object. Keep the returned reference if supplied.
+   */
+  activeLiveGame =
+    step.simulation ||
+    activeLiveGame;
+
+  renderLiveGameState();
+
+  const events =
+    Array.isArray(
+      activeLiveGame.events
+    )
+      ? activeLiveGame.events
+      : [];
+
+  const newEvents =
+    events.slice(
+      previousEventCount
+    );
+
+  newEvents.forEach(
+    event =>
+      appendLiveGameEventToFeed(
+        event
+      )
+  );
+}
+
 document
 .getElementById(
   'btn-pregame-play'
@@ -16576,6 +17401,24 @@ document
     );
   }
 );
+
+/*
+ * TEMPORARY 6B.5 VALIDATION
+ *
+ * Until continuous playback is connected,
+ * tapping 1× advances one canonical live-game step.
+ */
+
+document
+  .querySelector(
+    '[data-live-game-speed="1"]'
+  )
+  ?.addEventListener(
+    'click',
+    () => {
+      advanceLiveGamePresentationStep();
+    }
+  );
 
 /*
  * ============================================================
