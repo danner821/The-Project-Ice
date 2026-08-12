@@ -8068,6 +8068,144 @@ const WorldEngine = (() => {
         ? event.rawEvent
         : event;
 
+    /*
+     * ============================================================
+     * WEEKLY LIVING WORLD — AI VS AI CANONICAL RESOLUTION
+     * ============================================================
+     *
+     * AI-vs-AI scheduled games now use the same validated live-game
+     * resolver that will eventually power the visible game-day
+     * experience.
+     *
+     * Career-player games temporarily continue through the existing
+     * career-game path until the Live Game Experience is connected.
+     *
+     * The live resolver itself performs no permanent writes.
+     * processSeasonDate() remains responsible for applying the
+     * returned canonical gameResult to the schedule, standings,
+     * player stats and development systems.
+     */
+
+    const homeTeam =
+      getTeamById(
+        canonicalGameEvent
+          ?.homeTeamId
+      );
+
+    const awayTeam =
+      getTeamById(
+        canonicalGameEvent
+          ?.awayTeamId
+      );
+
+    const teamContainsCareerPlayer =
+      team =>
+        Array.isArray(
+          team?.roster
+        ) &&
+        team.roster.some(
+          player =>
+            player
+              ?.isCareerPlayer ===
+            true
+        );
+
+    const isCareerPlayerGame =
+      teamContainsCareerPlayer(
+        homeTeam
+      ) ||
+      teamContainsCareerPlayer(
+        awayTeam
+      );
+
+    /*
+     * Only background AI-vs-AI games enter the new path during
+     * Roadmap 5. Career-player games stay untouched for now.
+     */
+    if (!isCareerPlayerGame) {
+      const liveResolution =
+        resolveLiveGameToFinalResult(
+          canonicalGameEvent
+        );
+
+      result.type =
+        EVENT_TYPES.GAME;
+
+      result.eventId =
+        canonicalGameEvent?.id ||
+        canonicalGameEvent
+          ?.eventId ||
+        canonicalGameEvent
+          ?.gameId ||
+        event?.id ||
+        event?.eventId ||
+        null;
+
+      result.date =
+        canonicalGameEvent?.date ||
+        event?.date ||
+        options?.date ||
+        null;
+
+      result.event =
+        canonicalGameEvent;
+
+      if (
+        !liveResolution ||
+        liveResolution
+          .success !== true ||
+        !liveResolution.gameResult
+      ) {
+        result.success =
+          false;
+
+        result.resolved =
+          false;
+
+        result.stopSimulation =
+          true;
+
+        result.reason =
+          liveResolution?.reason ||
+          'ai-live-game-resolution-failed';
+
+        result.gameResult =
+          null;
+
+        result.liveGameResolution =
+          liveResolution || null;
+
+        return result;
+      }
+
+      result.success =
+        true;
+
+      result.resolved =
+        true;
+
+      result.stopSimulation =
+        false;
+
+      result.reason =
+        'ai-game-resolved-by-live-engine';
+
+      result.gameResult =
+        liveResolution.gameResult;
+
+      result.liveGameResolution = {
+        success: true,
+
+        reason:
+          liveResolution.reason,
+
+        steps:
+          liveResolution.steps,
+      };
+
+      return result;
+    }
+
     const gameResult =
       createEmptyGameResult(
         canonicalGameEvent

@@ -599,6 +599,8 @@ function ensureHubLiveGameDiagnosticButton() {
     button
   );
 
+  
+
   /*
    * ============================================================
    * DEV — COMPETITIVE BALANCE DIAGNOSTIC BUTTON
