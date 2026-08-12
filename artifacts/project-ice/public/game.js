@@ -16306,6 +16306,15 @@ function openPregameMatchup(
 
 let activeLiveGame = null;
 
+let liveGamePlaybackTimer =
+  null;
+
+let liveGamePlaybackSpeed =
+  1;
+
+let liveGamePlaybackPaused =
+  true;
+
 /*
  * ============================================================
  * ROADMAP 6 — OPEN LIVE GAME
@@ -16409,6 +16418,28 @@ function openLiveGame(
   activeLiveGame =
     liveGameCreation
       .simulation;
+
+  clearLiveGamePlaybackTimer();
+
+  liveGamePlaybackSpeed =
+    1;
+
+  liveGamePlaybackPaused =
+    true;
+
+  setLiveGameActiveSpeedButton(
+    1
+  );
+
+  const pauseButton =
+    document.getElementById(
+      'btn-live-game-pause'
+    );
+
+  if (pauseButton) {
+    pauseButton.textContent =
+      'Pause';
+  }
 
   const careerPlayer =
     WorldEngine.state.player ||
@@ -17814,6 +17845,317 @@ function advanceLiveGamePresentationStep() {
       }
     }
   );
+  return {
+    success: true,
+
+    elapsedSeconds:
+      Math.max(
+        0,
+        Number(
+          step.elapsedSeconds
+        ) || 0
+      ),
+
+    gameComplete:
+      activeLiveGame
+        ?.gameComplete === true,
+  };
+}
+
+/*
+ * ============================================================
+ * ROADMAP 6 — LIVE GAME PLAYBACK
+ * ============================================================
+ *
+ * Presentation speed controls how much canonical hockey time
+ * is consumed during each playback tick.
+ *
+ * 1×  -> ~1 game minute every 1 real second
+ * 2×  -> ~2 game minutes every 1 real second
+ * 4×  -> ~4 game minutes every 1 real second
+ * MAX -> rapid completion
+ *
+ * Every canonical step still occurs. Nothing inside the
+ * simulation is skipped merely because presentation is faster.
+ */
+
+function clearLiveGamePlaybackTimer() {
+  if (
+    liveGamePlaybackTimer !==
+    null
+  ) {
+    window.clearTimeout(
+      liveGamePlaybackTimer
+    );
+
+    liveGamePlaybackTimer =
+      null;
+  }
+}
+
+function setLiveGameActiveSpeedButton(
+  speed
+) {
+  document
+    .querySelectorAll(
+      '[data-live-game-speed]'
+    )
+    .forEach(button => {
+      button.classList.remove(
+        'live-game__speed-button--active'
+      );
+
+      if (
+        String(
+          button.dataset
+            .liveGameSpeed
+        ) ===
+        String(speed)
+      ) {
+        button.classList.add(
+          'live-game__speed-button--active'
+        );
+      }
+    });
+}
+
+function advanceLiveGamePresentationChunk(
+  targetGameSeconds
+) {
+  if (
+    !activeLiveGame ||
+    activeLiveGame
+      .gameComplete === true
+  ) {
+    return {
+      success: true,
+      elapsedSeconds: 0,
+      gameComplete:
+        activeLiveGame
+          ?.gameComplete === true,
+    };
+  }
+
+  const targetSeconds =
+    Math.max(
+      1,
+      Number(
+        targetGameSeconds
+      ) || 60
+    );
+
+  let elapsedSeconds =
+    0;
+
+  let safetySteps =
+    0;
+
+  /*
+   * Some canonical steps consume zero clock time:
+   * faceoffs, restarts, shootout transitions, etc.
+   *
+   * They must still resolve, so this loop counts hockey time
+   * separately from raw engine steps.
+   */
+  while (
+    activeLiveGame &&
+    activeLiveGame
+      .gameComplete !== true &&
+    elapsedSeconds <
+      targetSeconds &&
+    safetySteps < 300
+  ) {
+    const stepResult =
+      advanceLiveGamePresentationStep();
+
+    safetySteps += 1;
+
+    if (
+      !stepResult ||
+      stepResult.success !== true
+    ) {
+      return {
+        success: false,
+
+        elapsedSeconds,
+
+        gameComplete:
+          activeLiveGame
+            ?.gameComplete === true,
+      };
+    }
+
+    elapsedSeconds +=
+      Math.max(
+        0,
+        Number(
+          stepResult
+            .elapsedSeconds
+        ) || 0
+      );
+  }
+
+  return {
+    success: true,
+
+    elapsedSeconds,
+
+    gameComplete:
+      activeLiveGame
+        ?.gameComplete === true,
+
+    safetySteps,
+  };
+}
+
+function pauseLiveGamePlayback() {
+  liveGamePlaybackPaused =
+    true;
+
+  clearLiveGamePlaybackTimer();
+
+  const pauseButton =
+    document.getElementById(
+      'btn-live-game-pause'
+    );
+
+  if (pauseButton) {
+    pauseButton.textContent =
+      'Resume';
+  }
+}
+
+function scheduleNextLiveGamePlaybackTick() {
+  clearLiveGamePlaybackTimer();
+
+  if (
+    liveGamePlaybackPaused ||
+    !activeLiveGame ||
+    activeLiveGame
+      .gameComplete === true
+  ) {
+    return;
+  }
+
+  const isMaxSpeed =
+    liveGamePlaybackSpeed ===
+    'max';
+
+  const gameSecondsThisTick =
+    isMaxSpeed
+      ? 20 * 60
+      : Math.max(
+          1,
+          Number(
+            liveGamePlaybackSpeed
+          ) || 1
+        ) * 60;
+
+  const result =
+    advanceLiveGamePresentationChunk(
+      gameSecondsThisTick
+    );
+
+  if (
+    !result ||
+    result.success !== true
+  ) {
+    console.error(
+      '[Project Ice] Live playback chunk failed.',
+      result
+    );
+
+    pauseLiveGamePlayback();
+
+    return;
+  }
+
+  /*
+   * The game has reached its canonical ending.
+   * Final result / postgame application comes in the next
+   * roadmap step.
+   */
+  if (
+    activeLiveGame
+      ?.gameComplete === true
+  ) {
+    liveGamePlaybackPaused =
+      true;
+
+    clearLiveGamePlaybackTimer();
+
+    const pauseButton =
+      document.getElementById(
+        'btn-live-game-pause'
+      );
+
+    if (pauseButton) {
+      pauseButton.textContent =
+        'Game Over';
+    }
+
+    return;
+  }
+
+  /*
+   * Normal speeds deliberately pause for a full second so the
+   * user has time to read the feed.
+   *
+   * MAX only yields briefly to the browser so the screen remains
+   * responsive while racing toward the final horn.
+   */
+  const delay =
+    isMaxSpeed
+      ? 75
+      : 1000;
+
+  liveGamePlaybackTimer =
+    window.setTimeout(
+      scheduleNextLiveGamePlaybackTick,
+      delay
+    );
+}
+
+function startLiveGamePlayback(
+  speed = 1
+) {
+  if (
+    !activeLiveGame ||
+    activeLiveGame
+      .gameComplete === true
+  ) {
+    return;
+  }
+
+  liveGamePlaybackSpeed =
+    speed === 'max'
+      ? 'max'
+      : Math.max(
+          1,
+          Number(speed) || 1
+        );
+
+  liveGamePlaybackPaused =
+    false;
+
+  setLiveGameActiveSpeedButton(
+    liveGamePlaybackSpeed
+  );
+
+  const pauseButton =
+    document.getElementById(
+      'btn-live-game-pause'
+    );
+
+  if (pauseButton) {
+    pauseButton.textContent =
+      'Pause';
+  }
+
+  /*
+   * Changing speed should feel immediate.
+   */
+  scheduleNextLiveGamePlaybackTick();
 }
 
 document
@@ -17844,20 +18186,61 @@ document
 );
 
 /*
- * TEMPORARY 6B.5 VALIDATION
- *
- * Until continuous playback is connected,
- * tapping 1× advances one canonical live-game step.
+ * ============================================================
+ * LIVE GAME SPEED CONTROLS
+ * ============================================================
  */
 
 document
-  .querySelector(
-    '[data-live-game-speed="1"]'
+  .querySelectorAll(
+    '[data-live-game-speed]'
+  )
+  .forEach(button => {
+    button.addEventListener(
+      'click',
+      () => {
+        const speedValue =
+          button.dataset
+            .liveGameSpeed;
+
+        const speed =
+          speedValue === 'max'
+            ? 'max'
+            : Number(
+                speedValue
+              ) || 1;
+
+        startLiveGamePlayback(
+          speed
+        );
+      }
+    );
+  });
+
+document
+  .getElementById(
+    'btn-live-game-pause'
   )
   ?.addEventListener(
     'click',
     () => {
-      advanceLiveGamePresentationStep();
+      if (
+        !activeLiveGame ||
+        activeLiveGame
+          .gameComplete === true
+      ) {
+        return;
+      }
+
+      if (
+        liveGamePlaybackPaused
+      ) {
+        startLiveGamePlayback(
+          liveGamePlaybackSpeed
+        );
+      } else {
+        pauseLiveGamePlayback();
+      }
     }
   );
 
