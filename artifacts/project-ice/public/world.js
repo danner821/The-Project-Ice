@@ -3669,20 +3669,104 @@ const WorldEngine = (() => {
     }
 
     /*
-     * Future weekly systems will plug in here:
+     * ============================================================
+     * WEEKLY LIVING WORLD — LEAGUE DEVELOPMENT
+     * ============================================================
      *
-     * - NPC development
-     * - Coach lineup reviews
-     * - PP and PK reassignment
-     * - Prospect rankings
-     * - Award races
-     * - Scouting updates
-     * - Dynamic objectives
-     * - League news
+     * A completed season week now advances development for the
+     * rest of the league before the week is marked as processed.
      *
-     * For now, this coordinator only records that the
-     * completed week has been processed successfully.
+     * processLeagueDevelopmentWeek() owns NPC development logic.
+     * This coordinator only decides when that existing system runs.
      */
+
+    const leagueDevelopment =
+      processLeagueDevelopmentWeek(
+        {
+          week:
+            safeCompletedWeek,
+
+          currentDate:
+            _state.season
+              ?.currentDate ||
+            _state.player
+              ?.currentDate ||
+            null,
+        },
+        {
+          save: false,
+        }
+      );
+
+    if (
+      !leagueDevelopment ||
+      leagueDevelopment.success !==
+        true
+    ) {
+      return {
+        success: false,
+
+        processed: false,
+
+        week:
+          safeCompletedWeek,
+
+        reason:
+          leagueDevelopment
+            ?.reason ||
+          'weekly-league-development-failed',
+
+        leagueDevelopment:
+          leagueDevelopment ||
+          null,
+      };
+    }
+
+    /*
+     * ============================================================
+     * WEEKLY LIVING WORLD — TEAM DEPLOYMENT REVIEW
+     * ============================================================
+     *
+     * After NPC development has been applied, every team refreshes
+     * its canonical roster deployment.
+     *
+     * This allows:
+     * - developed NPCs to move up or down even-strength lines
+     * - goalie starter/backup order to refresh
+     * - PP units to be reassigned
+     * - PK units to be reassigned
+     *
+     * The career player's existing roster slot remains reserved.
+     * Career-player promotion/demotion logic is handled separately
+     * through the career/coach system rather than NPC overall alone.
+     */
+
+    const teamDeploymentResults =
+      (
+        Array.isArray(
+          _state.teams
+        )
+          ? _state.teams
+          : []
+      ).map(team => {
+        const refreshedTeam =
+          refreshTeamRosterManagement(
+            team.teamId,
+            {
+              save: false,
+            }
+          );
+
+        return {
+          teamId:
+            team.teamId,
+
+          success:
+            Boolean(
+              refreshedTeam
+            ),
+        };
+      });
 
     _state.season.processedWeeks.push(
       safeCompletedWeek
@@ -3708,9 +3792,18 @@ const WorldEngine = (() => {
 
     return {
       success: true,
+
       processed: true,
-      week: safeCompletedWeek,
-      reason: 'week-processed',
+
+      week:
+        safeCompletedWeek,
+
+      reason:
+        'week-processed',
+
+      leagueDevelopment,
+
+      teamDeploymentResults,
     };
   }
 
