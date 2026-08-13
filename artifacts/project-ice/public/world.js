@@ -36427,6 +36427,15 @@ const WorldEngine = (() => {
           _state
         );
 
+        /*
+         * IndexedDB is now authoritative.
+         * Remove the obsolete giant localStorage world so it cannot
+         * consume the browser quota needed by the small career preview.
+         */
+        localStorage.removeItem(
+          WORLD_KEY
+        );
+
         return true;
       }
     } catch (error) {
@@ -36484,6 +36493,14 @@ const WorldEngine = (() => {
        * Immediately migrate the legacy world into IndexedDB.
        */
       await save();
+
+      /*
+       * Migration succeeded. The old localStorage world is no longer
+       * needed and was the source of our quota problem.
+       */
+      localStorage.removeItem(
+        WORLD_KEY
+      );
 
       return true;
     } catch (error) {

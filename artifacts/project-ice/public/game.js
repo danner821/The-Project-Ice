@@ -20513,15 +20513,129 @@ document.addEventListener('click', event => {
   showScreen('player-profile');
 });
 
+function recoverCareerPreviewFromWorld() {
+  /*
+   * If the small player preview still exists, nothing to recover.
+   */
+  if (
+    localStorage.getItem(
+      SAVE_KEY
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * The canonical World Engine roster is the source of truth.
+   * Find the career player that survived in IndexedDB.
+   */
+  let careerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    ) ||
+    null;
+
+  if (!careerPlayer) {
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      const found =
+        (
+          team.roster ||
+          []
+        ).find(
+          player =>
+            player?.isCareerPlayer ===
+            true
+        );
+
+      if (found) {
+        careerPlayer = {
+          ...found,
+          teamId:
+            found.teamId ||
+            team.teamId,
+          schoolName:
+            found.schoolName ||
+            team.schoolName,
+          teamName:
+            found.teamName ||
+            team.teamName,
+        };
+
+        break;
+      }
+    }
+  }
+
+  if (!careerPlayer) {
+    return false;
+  }
+
+  /*
+   * Reconstruct Game.player from the canonical player.
+   * upsertCareerPlayer originally received the full Game.player,
+   * so these identity/career fields should already be preserved.
+   */
+  Game.player = {
+    ...Game.player,
+    ...careerPlayer,
+
+    playerId:
+      careerPlayer.playerId ||
+      careerPlayer.id ||
+      'career-player',
+
+    id:
+      careerPlayer.id ||
+      careerPlayer.playerId ||
+      'career-player',
+
+    teamId:
+      careerPlayer.teamId ||
+      null,
+
+    stage:
+      'hub',
+
+    tryoutsComplete:
+      true,
+
+    currentDate:
+      WorldEngine.state
+        .season
+        ?.currentDate ||
+      careerPlayer.currentDate ||
+      Game.player.currentDate,
+  };
+
+  /*
+   * Recreate only the small Continue Career record.
+   * The actual universe remains in IndexedDB.
+   */
+  saveCareerPreview();
+
+  return Boolean(
+    localStorage.getItem(
+      SAVE_KEY
+    )
+  );
+}
+
 // ── App initialization ──────────────────────────────────────
 async function init() {
-  /*
-   * Wait for the full persisted world to load before anything
-   * attempts to render or mutate it.
-   */
   await WorldEngine.load();
 
   WorldEngine.ensureGeneratedRosters();
+
+  /*
+   * Careers created before the IndexedDB migration may have lost
+   * their small localStorage preview when the old giant world hit
+   * the storage quota. Recover it from the canonical world.
+   */
+  recoverCareerPreviewFromWorld();
 
   updateContinueButton();
   updateDevShortcut();
