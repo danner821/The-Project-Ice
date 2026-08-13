@@ -18735,7 +18735,7 @@ function pauseLiveGamePlayback() {
  * connected here next.
  */
 
-function handleLiveGameCompletion() {
+  async function handleLiveGameCompletion() {
   if (
     liveGameCompletionHandled ||
     !activeLiveGame ||
@@ -18871,7 +18871,19 @@ function handleLiveGameCompletion() {
        * Persist that completed state immediately so a reload cannot
        * restore the pregame version of this scheduled game.
        */
-      WorldEngine.save();
+      const worldSaved =
+        await WorldEngine.save();
+
+      if (!worldSaved) {
+        console.error(
+          '[Project Ice] Completed live game could not be persisted.'
+        );
+
+        liveGameCompletionHandled =
+          false;
+
+        return;
+      }
 
       
 
@@ -19239,8 +19251,8 @@ document
     'btn-pregame-sim'
   )
   ?.addEventListener(
-    'click',
-    () => {
+      'click',
+      async () => {
       const gameId =
         pregameMatchupScreen
           ?.dataset
@@ -19281,9 +19293,29 @@ document
         return;
       }
 
-      simulateToDate(
-        currentDate
-      );
+        const simulationResult =
+          simulateToDate(
+            currentDate
+          );
+
+        if (
+          simulationResult &&
+          typeof simulationResult.then ===
+            'function'
+        ) {
+          await simulationResult;
+        }
+
+        const worldSaved =
+          await WorldEngine.save();
+
+        if (!worldSaved) {
+          console.error(
+            '[Project Ice] Sim Game result could not be persisted.'
+          );
+
+          return;
+        }
     }
   );
 
@@ -20482,12 +20514,18 @@ document.addEventListener('click', event => {
 });
 
 // ── App initialization ──────────────────────────────────────
-function init() {
-  WorldEngine.load();
+async function init() {
+  /*
+   * Wait for the full persisted world to load before anything
+   * attempts to render or mutate it.
+   */
+  await WorldEngine.load();
+
   WorldEngine.ensureGeneratedRosters();
 
   updateContinueButton();
   updateDevShortcut();
+
   showScreen('title');
 }
 

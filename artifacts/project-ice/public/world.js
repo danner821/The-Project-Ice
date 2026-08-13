@@ -20,6 +20,80 @@ const WorldEngine = (() => {
   // ── Storage key (separate from the player SAVE_KEY) ────────
   const WORLD_KEY = 'projectice_world';
 
+  /*
+   * ============================================================
+   * WORLD STORAGE — INDEXEDDB
+   * ============================================================
+   *
+   * The Project Ice world has outgrown localStorage.
+   *
+   * localStorage remains available temporarily as a migration
+   * source for older saves, but the full world state will now live
+   * in IndexedDB so large rosters, schedules, stats and history can
+   * persist safely.
+   */
+
+  const WORLD_DB_NAME =
+    'projectice_database';
+
+  const WORLD_DB_VERSION =
+    1;
+
+  const WORLD_STORE_NAME =
+    'worlds';
+
+  const WORLD_RECORD_ID =
+    'default';
+
+  function openWorldDatabase() {
+    return new Promise(
+      (resolve, reject) => {
+        const request =
+          indexedDB.open(
+            WORLD_DB_NAME,
+            WORLD_DB_VERSION
+          );
+
+        request.onupgradeneeded =
+          event => {
+            const database =
+              event.target.result;
+
+            if (
+              !database.objectStoreNames
+                .contains(
+                  WORLD_STORE_NAME
+                )
+            ) {
+              database.createObjectStore(
+                WORLD_STORE_NAME,
+                {
+                  keyPath: 'id',
+                }
+              );
+            }
+          };
+
+        request.onsuccess =
+          () => {
+            resolve(
+              request.result
+            );
+          };
+
+        request.onerror =
+          () => {
+            reject(
+              request.error ||
+              new Error(
+                'Could not open Project Ice IndexedDB.'
+              )
+            );
+          };
+      }
+    );
+  }
+
   // ── Seed teams ──────────────────────────────────────────────
   // Eight fictional high-school programs for the 2022-23 season.
   // Future systems populate each team's roster array and update
@@ -36172,36 +36246,101 @@ const WorldEngine = (() => {
   // Call load() in init(); if no stored world exists it silently
   // falls back to defaults.
 
-  function save() {
+  async function save() {
+    const worldSnapshot =
+      structuredClone(_state);
+
+    /*
+     * Primary save: IndexedDB.
+     */
     try {
-      localStorage.setItem(WORLD_KEY, JSON.stringify(_state));
-    } catch (err) {
-      console.error(
-        '[WorldEngine] Save failed:',
-        err
+      const database =
+        await openWorldDatabase();
+
+      await new Promise(
+        (resolve, reject) => {
+          const transaction =
+            database.transaction(
+              WORLD_STORE_NAME,
+              'readwrite'
+            );
+
+          const store =
+            transaction.objectStore(
+              WORLD_STORE_NAME
+            );
+
+          store.put({
+            id:
+              WORLD_RECORD_ID,
+
+            savedAt:
+              new Date()
+                .toISOString(),
+
+            world:
+              worldSnapshot,
+          });
+
+          transaction.oncomplete =
+            () => {
+              resolve();
+            };
+
+          transaction.onerror =
+            () => {
+              reject(
+                transaction.error ||
+                new Error(
+                  'Project Ice world save transaction failed.'
+                )
+              );
+            };
+
+          transaction.onabort =
+            () => {
+              reject(
+                transaction.error ||
+                new Error(
+                  'Project Ice world save transaction was aborted.'
+                )
+              );
+            };
+        }
       );
 
-      alert(
-        [
-          'WORLD SAVE FAILED',
-          '',
-          `Name: ${
-            err?.name ||
-            'Unknown'
-          }`,
-          `Message: ${
-            err?.message ||
-            String(err)
-          }`,
-          '',
-          `World size: ${
-            JSON.stringify(_state)
-              .length
-              .toLocaleString()
-          } characters`,
-        ].join('\n')
+      database.close();
+    } catch (error) {
+      console.error(
+        '[WorldEngine] IndexedDB save failed:',
+        error
+      );
+
+      return false;
+    }
+
+    /*
+     * Temporary compatibility write.
+     *
+     * Do not depend on this succeeding anymore. Older builds can
+     * still read it while we complete the migration, but IndexedDB
+     * is now the authoritative full-world save.
+     */
+    try {
+      localStorage.setItem(
+        WORLD_KEY,
+        JSON.stringify(
+          worldSnapshot
+        )
+      );
+    } catch (error) {
+      console.warn(
+        '[WorldEngine] Legacy localStorage world save skipped:',
+        error
       );
     }
+
+    return true;
   }
 
   /**
@@ -36209,27 +36348,150 @@ const WorldEngine = (() => {
    * missing fields from older save versions are back-filled.
    * @returns {boolean} true if a stored world was found and loaded.
    */
-  function load() {
+  async function load() {
+    /*
+     * ============================================================
+     * PRIMARY LOAD — INDEXEDDB
+     * ============================================================
+     */
     try {
-      const stored = localStorage.getItem(WORLD_KEY);
-      if (!stored) return false;
-      const parsed = JSON.parse(stored);
-      _state = { ...buildDefaults(), ...parsed };
-      // Deep-merge news so seed headlines survive a fresh install
-      // when no stored news exists yet.
-      if (!Array.isArray(_state.newsItems) || _state.newsItems.length === 0) {
-        _state.newsItems = SEED_NEWS.map(item => ({ ...item }));
+      const database =
+        await openWorldDatabase();
+
+      const storedRecord =
+        await new Promise(
+          (resolve, reject) => {
+            const transaction =
+              database.transaction(
+                WORLD_STORE_NAME,
+                'readonly'
+              );
+
+            const store =
+              transaction.objectStore(
+                WORLD_STORE_NAME
+              );
+
+            const request =
+              store.get(
+                WORLD_RECORD_ID
+              );
+
+            request.onsuccess =
+              () => {
+                resolve(
+                  request.result ||
+                  null
+                );
+              };
+
+            request.onerror =
+              () => {
+                reject(
+                  request.error ||
+                  new Error(
+                    'Project Ice IndexedDB world load failed.'
+                  )
+                );
+              };
+          }
+        );
+
+      database.close();
+
+      if (
+        storedRecord?.world &&
+        typeof storedRecord.world ===
+          'object'
+      ) {
+        _state = {
+          ...buildDefaults(),
+          ...storedRecord.world,
+        };
+
+        if (
+          !Array.isArray(
+            _state.newsItems
+          ) ||
+          _state.newsItems.length === 0
+        ) {
+          _state.newsItems =
+            SEED_NEWS.map(
+              item => ({
+                ...item,
+              })
+            );
+        }
+
+        ensureCanonicalSeasonState(
+          _state
+        );
+
+        return true;
       }
-      /*
-       * Migrate older worlds into the permanent Season Engine
-       * while preserving their existing saved date and week.
-       */
+    } catch (error) {
+      console.warn(
+        '[WorldEngine] IndexedDB load unavailable, trying legacy localStorage:',
+        error
+      );
+    }
+
+    /*
+     * ============================================================
+     * LEGACY MIGRATION — LOCALSTORAGE
+     * ============================================================
+     *
+     * If IndexedDB does not have a world yet, import the existing
+     * localStorage world once so current careers are preserved.
+     */
+    try {
+      const stored =
+        localStorage.getItem(
+          WORLD_KEY
+        );
+
+      if (!stored) {
+        return false;
+      }
+
+      const parsed =
+        JSON.parse(stored);
+
+      _state = {
+        ...buildDefaults(),
+        ...parsed,
+      };
+
+      if (
+        !Array.isArray(
+          _state.newsItems
+        ) ||
+        _state.newsItems.length === 0
+      ) {
+        _state.newsItems =
+          SEED_NEWS.map(
+            item => ({
+              ...item,
+            })
+          );
+      }
+
       ensureCanonicalSeasonState(
         _state
       );
+
+      /*
+       * Immediately migrate the legacy world into IndexedDB.
+       */
+      await save();
+
       return true;
-    } catch (err) {
-      console.error('[WorldEngine] Load failed:', err);
+    } catch (error) {
+      console.error(
+        '[WorldEngine] Load failed:',
+        error
+      );
+
       return false;
     }
   }
