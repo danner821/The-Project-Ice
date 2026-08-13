@@ -2989,21 +2989,44 @@ function ensureCareerScheduleEventsOnLoad() {
   return true;
 }
 
-function loadCareerPreview() {
-  try {
-    
-    const savedCareer = localStorage.getItem(SAVE_KEY);
+    function loadCareerPreview() {
+      try {
+        const savedCareer =
+          localStorage.getItem(
+            SAVE_KEY
+          );
 
-    if (!savedCareer) return;
+        if (savedCareer) {
+          const parsedCareer =
+            JSON.parse(
+              savedCareer
+            );
 
-    const parsedCareer = JSON.parse(savedCareer);
+          if (
+            parsedCareer?.player
+          ) {
+            Game.player = {
+              ...Game.player,
+              ...parsedCareer.player,
+            };
+          }
+        } else {
+          /*
+           * No localStorage preview exists.
+           *
+           * Recover directly from the canonical IndexedDB world.
+           */
+          const recovered =
+            recoverCareerPreviewFromWorld();
 
-    if (!parsedCareer.player) return;
+          if (!recovered) {
+            console.error(
+              '[Project Ice] No recoverable career exists in the loaded world.'
+            );
 
-    Game.player = {
-      ...Game.player,
-      ...parsedCareer.player,
-    };
+            return;
+          }
+        }
     Game.player.currentDate =
       WorldEngine.state.player?.currentDate ||
       Game.player.currentDate ||
@@ -3071,8 +3094,62 @@ function restoreSelectedChoice(groupName, selectedValue) {
   });
 }
 
-function updateContinueButton() {
-  const hasSave = Boolean(localStorage.getItem(SAVE_KEY));
+/*
+ * ============================================================
+ * CAREER EXISTENCE — CANONICAL WORLD CHECK
+ * ============================================================
+ *
+ * IndexedDB / WorldEngine is now the source of truth.
+ *
+ * The old projectice_save localStorage record is only a
+ * compatibility/preview cache and must never be required in
+ * order to continue an existing career.
+ */
+function hasCanonicalCareerWorld() {
+  const directCareerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    );
+
+  if (directCareerPlayer) {
+    return true;
+  }
+
+  for (
+    const team of
+    WorldEngine.state.teams || []
+  ) {
+    const found =
+      (
+        team.roster || []
+      ).some(
+        player =>
+          player?.isCareerPlayer ===
+            true ||
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          ) ===
+            'career-player'
+      );
+
+    if (found) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+  function updateContinueButton() {
+    const hasSave =
+      Boolean(
+        localStorage.getItem(
+          SAVE_KEY
+        )
+      ) ||
+      hasCanonicalCareerWorld();
 
   btnContinue.disabled = !hasSave;
 
@@ -20762,13 +20839,13 @@ function recoverCareerPreviewFromWorld() {
    * Recreate only the small Continue Career record.
    * The actual universe remains in IndexedDB.
    */
+  /*
+   * Try to rebuild the lightweight preview cache, but the
+   * canonical world no longer depends on that write succeeding.
+   */
   saveCareerPreview();
 
-  return Boolean(
-    localStorage.getItem(
-      SAVE_KEY
-    )
-  );
+  return true;
 }
 
 // ── App initialization ──────────────────────────────────────
