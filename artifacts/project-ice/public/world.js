@@ -8211,15 +8211,63 @@ const WorldEngine = (() => {
         awayTeam
       );
 
-    /*
-     * Only background AI-vs-AI games enter the new path during
-     * Roadmap 5. Career-player games stay untouched for now.
-     */
-    if (!isCareerPlayerGame) {
-      const liveResolution =
-        resolveLiveGameToFinalResult(
-          canonicalGameEvent
-        );
+    const liveEngineCareerGameId =
+      canonicalGameEvent?.gameId ||
+      canonicalGameEvent?.eventId ||
+      canonicalGameEvent?.id ||
+      null;
+
+    const careerGameApprovedForLiveEngine =
+      Boolean(
+        isCareerPlayerGame &&
+        liveEngineCareerGameId &&
+        _state.season
+          ?.careerGameSimApproval &&
+        String(
+          liveEngineCareerGameId
+        ) ===
+          String(
+            _state.season
+              .careerGameSimApproval
+          )
+      );
+
+      /*
+       * ============================================================
+       * UNIVERSAL GAME SIMULATION ENGINE
+       * ============================================================
+       *
+       * Every hockey game now uses the same canonical live-game
+       * resolver:
+       *
+       * - Play Game presents the resolver step-by-step.
+       * - Sim Game resolves the same engine immediately.
+       * - Background AI games resolve the same engine immediately.
+       *
+       * Presentation speed must never change hockey outcomes.
+       */
+        if (
+          !isCareerPlayerGame ||
+          careerGameApprovedForLiveEngine
+        ) {
+        /*
+         * Sim approval is single-use.
+         *
+         * Clear it before resolution so it can never leak into a
+         * later career game.
+         */
+          if (
+            careerGameApprovedForLiveEngine
+          ) {
+          _state.season
+            .careerGameSimApproval =
+              null;
+        }
+
+        const liveResolution =
+          resolveLiveGameToFinalResult(
+            canonicalGameEvent
+          );
 
       result.type =
         EVENT_TYPES.GAME;

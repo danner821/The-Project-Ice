@@ -7604,10 +7604,122 @@ function openPostgameSummary(gameId) {
     awayTeam?.abbreviation ||
     'AWAY';
 
+  /*
+   * Support both scoring-summary contracts.
+   *
+   * Older simulated games saved their goal timeline as
+   * summary.timeline.
+   *
+   * The canonical live-game engine saves the actual scoring
+   * events as summary.scoringPlays.
+   */
   const rawScoringPlays =
-    Array.isArray(summary.timeline)
-      ? summary.timeline
-      : [];
+    Array.isArray(
+      summary.scoringPlays
+    ) &&
+    summary.scoringPlays.length > 0
+      ? summary.scoringPlays
+      : Array.isArray(
+          summary.timeline
+        )
+        ? summary.timeline
+        : [];
+
+  const normalizePostgameScoringPlay =
+    play => {
+      const scorerId =
+        play?.scorerId ||
+        play?.scorerPlayerId ||
+        play?.playerId ||
+        null;
+
+      const primaryAssistId =
+        play?.primaryAssistId ||
+        play?.primaryAssistPlayerId ||
+        (
+          Array.isArray(
+            play?.assistPlayerIds
+          )
+            ? play.assistPlayerIds[0]
+            : null
+        ) ||
+        null;
+
+      const secondaryAssistId =
+        play?.secondaryAssistId ||
+        play?.secondaryAssistPlayerId ||
+        (
+          Array.isArray(
+            play?.assistPlayerIds
+          )
+            ? play.assistPlayerIds[1]
+            : null
+        ) ||
+        null;
+
+      const getPlayerName =
+        playerId => {
+          if (!playerId) {
+            return '';
+          }
+
+          const player =
+            WorldEngine.getPlayerById(
+              playerId
+            );
+
+          if (!player) {
+            return '';
+          }
+
+          return [
+            player.firstName,
+            player.lastName,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+        };
+
+      return {
+        ...play,
+
+        scorerId,
+
+        scorerName:
+          play?.scorerName ||
+          getPlayerName(
+            scorerId
+          ),
+
+        primaryAssistName:
+          play?.primaryAssistName ||
+          getPlayerName(
+            primaryAssistId
+          ),
+
+        secondaryAssistName:
+          play?.secondaryAssistName ||
+          getPlayerName(
+            secondaryAssistId
+          ),
+
+        teamId:
+          play?.teamId ||
+          (
+            play?.side === 'home'
+              ? summary.home?.teamId
+              : play?.side === 'away'
+                ? summary.away?.teamId
+                : null
+          ),
+
+        timeRemaining:
+          play?.timeRemaining ??
+          play?.clockSecondsRemaining ??
+          null,
+      };
+    };
 
   const formatScoringTime =
     play => {
@@ -7696,9 +7808,12 @@ function openPostgameSummary(gameId) {
   let runningHomeScore = 0;
   let runningAwayScore = 0;
 
-  const scoringPlays =
-    rawScoringPlays
-      .filter(play =>
+        const scoringPlays =
+          rawScoringPlays
+            .map(
+              normalizePostgameScoringPlay
+            )
+            .filter(play =>
         Boolean(
           play?.scorerId ||
           play?.scorerName
