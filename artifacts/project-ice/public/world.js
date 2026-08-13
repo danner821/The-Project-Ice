@@ -34409,14 +34409,86 @@ const WorldEngine = (() => {
         dateString
       );
 
+    /*
+     * ROADMAP 6 — LIVE GAME RESULT HANDOFF
+     *
+     * A career game played through the live experience has
+     * already been completely resolved by the canonical live
+     * simulator.
+     *
+     * When that finished gameResult is supplied here, inject it
+     * into the NORMAL permanent game-result application pipeline
+     * instead of simulating the same scheduled game again.
+     */
+    const suppliedGameResult =
+      options?.resolvedGameResult &&
+      typeof options
+        .resolvedGameResult ===
+          'object'
+        ? options.resolvedGameResult
+        : null;
+
+    const suppliedGameId =
+      suppliedGameResult
+        ?.gameId ||
+      suppliedGameResult
+        ?.eventId ||
+      null;
+
     const eventResults =
-      scheduledEvents.map(event =>
-        resolveScheduledEvent(
-          event,
-          {
-            date: dateString,
+      scheduledEvents.map(
+        event => {
+          const eventId =
+            event?.gameId ||
+            event?.eventId ||
+            event?.id ||
+            null;
+
+          const isSuppliedLiveGame =
+            Boolean(
+              suppliedGameResult &&
+              suppliedGameId &&
+              eventId &&
+              String(eventId) ===
+                String(
+                  suppliedGameId
+                )
+            );
+
+          if (
+            isSuppliedLiveGame
+          ) {
+            return {
+              success: true,
+
+              resolved: true,
+
+              type:
+                EVENT_TYPES.GAME,
+
+              eventId,
+
+              date:
+                dateString,
+
+              reason:
+                'completed-live-game-result-supplied',
+
+              gameResult:
+                structuredClone(
+                  suppliedGameResult
+                ),
+            };
           }
-        )
+
+          return resolveScheduledEvent(
+            event,
+            {
+              date:
+                dateString,
+            }
+          );
+        }
       );
 
     const blockingEventResult =
@@ -38772,6 +38844,7 @@ const WorldEngine = (() => {
     canUpgradePlayerAttribute,
     upgradePlayerAttribute,
     createLiveGameSimulationState,
+    finalizeLiveGameSimulation,
     getLiveGameOnIcePlayers,
     selectLiveGameEvenStrengthDeployment,
     selectLiveGameOvertimeDeployment,

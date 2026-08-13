@@ -16318,6 +16318,9 @@ let liveGamePlaybackPaused =
 let liveGameCareerPlayerId =
   null;
 
+let liveGameCompletionHandled =
+  false;
+
 let liveGameCareerTOISeconds =
   0;
 
@@ -16521,6 +16524,9 @@ function openLiveGame(
 
   liveGameCareerTOISeconds =
     0;
+
+  liveGameCompletionHandled =
+    false;
 
   const playerName =
     [
@@ -18602,6 +18608,272 @@ function pauseLiveGamePlayback() {
   }
 }
 
+/*
+ * ============================================================
+ * ROADMAP 6 — LIVE GAME FINAL HORN
+ * ============================================================
+ *
+ * This is the single presentation handoff point when the
+ * canonical live simulation reports that the game is complete.
+ *
+ * Final result application + Postgame Summary routing will be
+ * connected here next.
+ */
+
+function handleLiveGameCompletion() {
+  if (
+    liveGameCompletionHandled ||
+    !activeLiveGame ||
+    activeLiveGame
+      .gameComplete !== true
+  ) {
+    return;
+  }
+
+  liveGameCompletionHandled =
+    true;
+
+  /*
+   * Freeze the presentation at the final horn.
+   */
+  liveGamePlaybackPaused =
+    true;
+
+  clearLiveGamePlaybackTimer();
+
+  /*
+   * Make absolutely sure the final scoreboard, manpower state,
+   * career-player stats and final events are painted before we
+   * leave the live presentation.
+   */
+  renderLiveGameState();
+
+  /*
+   * Temporary final-horn hold.
+   *
+   * The next step replaces this timeout body with the canonical
+   * result application + existing Postgame Summary handoff.
+   */
+  window.setTimeout(
+    () => {
+      if (
+        !activeLiveGame ||
+        activeLiveGame
+          .gameComplete !== true
+      ) {
+        return;
+      }
+
+      /*
+       * Freeze the completed live simulation into the exact
+       * canonical gameResult contract used everywhere else.
+       */
+      const finalization =
+        WorldEngine
+          .finalizeLiveGameSimulation(
+            activeLiveGame
+          );
+
+      if (
+        !finalization ||
+        finalization
+          .success !== true ||
+        !finalization
+          .gameResult
+      ) {
+        console.error(
+          '[Project Ice] Live game finalization failed.',
+          finalization
+        );
+
+        liveGameCompletionHandled =
+          false;
+
+        return;
+      }
+
+      const gameId =
+        finalization
+          .gameResult
+          .gameId ||
+        activeLiveGame
+          .gameId;
+
+      const gameDate =
+        finalization
+          .gameResult
+          .date ||
+        Game.player
+          .currentDate;
+
+      /*
+       * Send the live game's completed canonical result through
+       * the SAME permanent date-processing pipeline used by
+       * normal simulated games.
+       *
+       * This is what writes:
+       * - schedule result
+       * - standings
+       * - skater stats
+       * - goalie stats
+       * - career progression
+       * - permanent postgame summary
+       */
+      const application =
+        WorldEngine
+          .advanceToDate(
+            gameDate,
+            {
+              processCurrentDate:
+                true,
+
+              resolvedGameResult:
+                finalization
+                  .gameResult,
+            }
+          );
+
+      if (
+        !application ||
+        application
+          .success !== true
+      ) {
+        console.error(
+          '[Project Ice] Live game result application failed.',
+          application
+        );
+
+        liveGameCompletionHandled =
+          false;
+
+        return;
+      }
+
+      /*
+       * Pull the newly persisted world state back into the
+       * presentation layer before opening Postgame.
+       */
+      if (
+        typeof syncCareerPlayerWithWorld ===
+        'function'
+      ) {
+        syncCareerPlayerWithWorld();
+      }
+
+      if (
+        typeof refreshScheduleEvents ===
+        'function'
+      ) {
+        refreshScheduleEvents();
+      }
+
+      /*
+       * openPostgameSummary reads ONLY the permanently saved
+       * scheduled-game result, so reaching this screen proves
+       * the canonical application succeeded.
+       */
+      /*
+       * Keep the player on the rink after the final horn.
+       * The game has already been permanently applied above;
+       * this button only controls when we leave the live-game
+       * presentation and enter Postgame Summary.
+       */
+      let continueButton =
+        document.getElementById(
+          'live-game-final-continue'
+        );
+
+      if (!continueButton) {
+        continueButton =
+          document.createElement(
+            'button'
+          );
+
+        continueButton.id =
+          'live-game-final-continue';
+
+        continueButton.type =
+          'button';
+
+        continueButton.textContent =
+          'Continue';
+
+        continueButton.style.cssText = `
+          position: absolute;
+          left: 50%;
+          bottom: 24px;
+          transform: translateX(-50%);
+          z-index: 20;
+
+          min-width: 132px;
+          padding: 11px 22px;
+
+          border: 1px solid rgba(116, 169, 255, 0.34);
+          border-radius: 999px;
+
+          background: rgba(9, 28, 58, 0.94);
+          color: #f5f8ff;
+
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 0.03em;
+
+          box-shadow:
+            0 8px 24px rgba(0, 0, 0, 0.22);
+
+          opacity: 0;
+          transition:
+            opacity 180ms ease,
+            transform 180ms ease;
+        `;
+
+        liveGameScreen.appendChild(
+          continueButton
+        );
+
+        requestAnimationFrame(
+          () => {
+            continueButton.style.opacity =
+              '1';
+
+            continueButton.style.transform =
+              'translateX(-50%) translateY(-2px)';
+          }
+        );
+      }
+
+      continueButton.onclick =
+        () => {
+          continueButton.disabled =
+            true;
+
+          const opened =
+            openPostgameSummary(
+              gameId
+            );
+
+          if (!opened) {
+            console.error(
+              '[Project Ice] Postgame Summary failed to open.',
+              {
+                gameId,
+                application,
+              }
+            );
+
+            continueButton.disabled =
+              false;
+
+            return;
+          }
+
+          continueButton.remove();
+        };
+    },
+    250
+  );
+}
+
 function scheduleNextLiveGamePlaybackTick() {
   clearLiveGamePlaybackTimer();
 
@@ -18670,6 +18942,8 @@ function scheduleNextLiveGamePlaybackTick() {
       pauseButton.textContent =
         'Game Over';
     }
+
+    handleLiveGameCompletion();
 
     return;
   }
