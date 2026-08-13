@@ -36319,26 +36319,6 @@ const WorldEngine = (() => {
       return false;
     }
 
-    /*
-     * Temporary compatibility write.
-     *
-     * Do not depend on this succeeding anymore. Older builds can
-     * still read it while we complete the migration, but IndexedDB
-     * is now the authoritative full-world save.
-     */
-    try {
-      localStorage.setItem(
-        WORLD_KEY,
-        JSON.stringify(
-          worldSnapshot
-        )
-      );
-    } catch (error) {
-      console.warn(
-        '[WorldEngine] Legacy localStorage world save skipped:',
-        error
-      );
-    }
 
     return true;
   }

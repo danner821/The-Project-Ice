@@ -2517,15 +2517,89 @@ function updateSummary() {
 function saveCareerPreview() {
   if (isDevSession) return;
   try {
+    const playerPreview = {
+      playerId:
+        Game.player.playerId ||
+        Game.player.id ||
+        'career-player',
+
+      id:
+        Game.player.id ||
+        Game.player.playerId ||
+        'career-player',
+
+      firstName:
+        Game.player.firstName ||
+        '',
+
+      lastName:
+        Game.player.lastName ||
+        '',
+
+      hometown:
+        Game.player.hometown ||
+        '',
+
+      position:
+        Game.player.position ||
+        '',
+
+      handedness:
+        Game.player.handedness ||
+        '',
+
+      archetype:
+        Game.player.archetype ||
+        '',
+
+      age:
+        Number(
+          Game.player.age
+        ) || 14,
+
+      year:
+        Game.player.year ||
+        'Freshman',
+
+      stage:
+        Game.player.stage ||
+        'hub',
+
+      tryoutsComplete:
+        Game.player.tryoutsComplete ===
+        true,
+
+      teamId:
+        Game.player.teamId ||
+        Game.player.highSchoolTeamId ||
+        null,
+
+      highSchoolTeamId:
+        Game.player.highSchoolTeamId ||
+        Game.player.teamId ||
+        null,
+
+      currentDate:
+        Game.player.currentDate ||
+        WorldEngine.state
+          .season
+          ?.currentDate ||
+        null,
+    };
+
     localStorage.setItem(
       SAVE_KEY,
       JSON.stringify({
-        version: '0.0.2',
-        savedAt: new Date().toISOString(),
-        player: Game.player,
-        // Reference to the world this career belongs to.
-        // 'default' is the only world ID at this stage.
-        worldRef: WorldEngine.state.id,
+        version: '0.0.3',
+        savedAt:
+          new Date()
+            .toISOString(),
+
+        player:
+          playerPreview,
+
+        worldRef:
+          WorldEngine.state.id,
       })
     );
 
