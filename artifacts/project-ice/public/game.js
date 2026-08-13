@@ -18865,6 +18865,17 @@ function handleLiveGameCompletion() {
       }
 
       /*
+       * The completed live-game result has now been applied to the
+       * canonical World Engine schedule in memory.
+       *
+       * Persist that completed state immediately so a reload cannot
+       * restore the pregame version of this scheduled game.
+       */
+      WorldEngine.save();
+
+      
+
+      /*
        * Pull the newly persisted world state back into the
        * presentation layer before opening Postgame.
        */

@@ -30387,14 +30387,24 @@ const WorldEngine = (() => {
           )
         : [];
 
-    const playByPlay =
-      Array.isArray(
-        simulation.events
-      )
-        ? structuredClone(
-            simulation.events
-          )
-        : [];
+    /*
+     * The full live event stream is presentation-only.
+     *
+     * Permanently storing hundreds of internal events for every
+     * league game makes the world save grow extremely quickly.
+     *
+     * Postgame already preserves the data we actually need:
+     * - scoring plays
+     * - penalties
+     * - final score
+     * - skater box scores
+     * - goalie box scores
+     *
+     * If we build historical game replays later, they should use
+     * their own compact event-history format rather than the raw
+     * resolver stream.
+     */
+    const playByPlay = [];
 
     const gameResult = {
       gameId:
@@ -36163,11 +36173,34 @@ const WorldEngine = (() => {
   // falls back to defaults.
 
   function save() {
-    if (window.PROJECT_ICE_DEV_SESSION) return;
     try {
       localStorage.setItem(WORLD_KEY, JSON.stringify(_state));
     } catch (err) {
-      console.error('[WorldEngine] Save failed:', err);
+      console.error(
+        '[WorldEngine] Save failed:',
+        err
+      );
+
+      alert(
+        [
+          'WORLD SAVE FAILED',
+          '',
+          `Name: ${
+            err?.name ||
+            'Unknown'
+          }`,
+          `Message: ${
+            err?.message ||
+            String(err)
+          }`,
+          '',
+          `World size: ${
+            JSON.stringify(_state)
+              .length
+              .toLocaleString()
+          } characters`,
+        ].join('\n')
+      );
     }
   }
 
