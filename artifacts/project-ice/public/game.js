@@ -20571,6 +20571,79 @@ function recoverCareerPreviewFromWorld() {
   }
 
   if (!careerPlayer) {
+    const rosterCareerPlayers = [];
+
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      for (
+        const player of
+        team.roster ||
+        []
+      ) {
+        if (
+          player?.isCareerPlayer === true ||
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          ) === 'career-player'
+        ) {
+          rosterCareerPlayers.push({
+            id:
+              player?.id ||
+              player?.playerId ||
+              'missing',
+
+            name:
+              `${player?.firstName || ''} ${player?.lastName || ''}`.trim(),
+
+            teamId:
+              team.teamId,
+          });
+        }
+      }
+    }
+
+    alert(
+      [
+        'CAREER RECOVERY DIAGNOSTIC',
+        '',
+        `World player id: ${
+          WorldEngine.state
+            ?.player
+            ?.id ||
+          'missing'
+        }`,
+        `World player playerId: ${
+          WorldEngine.state
+            ?.player
+            ?.playerId ||
+          'missing'
+        }`,
+        '',
+        `Teams: ${
+          (
+            WorldEngine.state.teams ||
+            []
+          ).length
+        }`,
+        `Career players found in rosters: ${
+          rosterCareerPlayers.length
+        }`,
+        '',
+        rosterCareerPlayers.length
+          ? JSON.stringify(
+              rosterCareerPlayers,
+              null,
+              2
+            )
+          : 'No canonical career player found.',
+      ].join('\n')
+    );
+
     return false;
   }
 
