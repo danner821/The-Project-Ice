@@ -5,22 +5,27 @@ Updated: 2026-08-14
 This roadmap supersedes earlier ordering unless a later architectural finding requires a change. Any order change should be explained before implementation.
 
 ## Phase 0 — Stability Hardening and Cleanup
-Status: IN PROGRESS
+Status: COMPLETE
 
 Goal: lock the current foundation before adding more interconnected systems.
 
-- Directly repair the final-horn async bug in canonical `game.js` and retire `game-loader.js` after regression testing.
-- Verify Continue Career, IndexedDB save/load, Play Game completion, Sim Game completion, reload-after-game, postgame summary, schedule persistence and date persistence.
-- The prior bug where a completed Play Game / Sim Game returned as unplayed after reloading Continue Career is FIXED. Treat this as closed unless regression testing reproduces it.
-- Keep `career-persistence.js` only as the migration bridge.
-- Remove zero-risk troubleshooting residue.
-- Save-schema/versioning and migration policy is now established in `PROJECT_ICE_SAVE_SCHEMA.md`; recovered previews now carry an explicit `previewVersion` while retaining legacy compatibility.
-- Core regression procedure is now established in `PROJECT_ICE_REGRESSION.md`.
-- Do not delete dormant Replit/React scaffolding until the runtime/build has been proven independent of it.
+Completed:
+- Repaired the final-horn async bug directly in canonical `game.js`.
+- Restored direct runtime loading of `game.js` and retired `game-loader.js`.
+- Verified Continue Career opens normally.
+- Verified Play Game completion persists after reload and Continue Career.
+- Verified Sim Game completion persists after reload and Continue Career.
+- Confirmed the prior bug where completed games returned as unplayed after reload remains fixed.
+- Kept `career-persistence.js` only as the IndexedDB migration/preview compatibility bridge.
+- Removed zero-risk troubleshooting residue.
+- Established save-schema/versioning and migration policy in `PROJECT_ICE_SAVE_SCHEMA.md`; recovered previews carry an explicit `previewVersion` while retaining legacy compatibility.
+- Established the core regression procedure in `PROJECT_ICE_REGRESSION.md`.
+- Deferred removal of dormant Replit/React scaffolding until the runtime/build is proven independent of it.
 
-Exit criteria: the current career can be played, simulated, closed, reloaded and continued without diagnostics or temporary runtime errors.
+Exit criteria: PASSED. The current career can be played, simulated, closed, reloaded and continued without the temporary game loader or completed-game rollback.
 
 ## Phase 1 — Complete Live Game Experience
+Status: NEXT
 
 Goal: finish the player-facing Play Game experience now that the canonical simulation engine is working.
 
