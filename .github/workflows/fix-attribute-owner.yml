@@ -1,0 +1,29 @@
+name: Fix attribute ownership
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-attribute-owner.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Correct ownership map
+        run: python .github/scripts/fix_attribute_owner.py
+
+      - name: Validate game.js
+        run: node --check artifacts/project-ice/public/game.js
+
+      - name: Commit correction
+        run: |
+          git config user.name "danner821"
+          git config user.email "danner821@hotmail.com"
+          git add artifacts/project-ice/public/game.js
+          git commit -m "Correct player-facing attribute category ownership"
+          git push
