@@ -1,0 +1,200 @@
+function selectLiveGameEvenStrengthDeployment(
+    simulation,
+    side
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        deployment: null,
+      };
+    }
+
+    if (
+      side !== 'home' &&
+      side !== 'away'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-team-side',
+        deployment: null,
+      };
+    }
+
+    /*
+     * Forward usage targets.
+     *
+     * These are relative weights, not exact TOI percentages.
+     */
+    const forwardLineWeights = [
+      {
+        line: 1,
+        weight: 34,
+      },
+      {
+        line: 2,
+        weight: 28,
+      },
+      {
+        line: 3,
+        weight: 22,
+      },
+      {
+        line: 4,
+        weight: 16,
+      },
+    ];
+
+    /*
+     * Defensive-pair usage targets.
+     */
+    const defensePairWeights = [
+      {
+        pair: 1,
+        weight: 42,
+      },
+      {
+        pair: 2,
+        weight: 34,
+      },
+      {
+        pair: 3,
+        weight: 24,
+      },
+    ];
+
+    const weightedPick =
+      weightedOptions => {
+        const totalWeight =
+          weightedOptions.reduce(
+            (sum, option) =>
+              sum +
+              Math.max(
+                0,
+                Number(
+                  option.weight
+                ) || 0
+              ),
+            0
+          );
+
+        if (totalWeight <= 0) {
+          return (
+            weightedOptions[0] ||
+            null
+          );
+        }
+
+        let roll =
+          Math.random() *
+          totalWeight;
+
+        for (
+          const option of
+          weightedOptions
+        ) {
+          roll -=
+            Math.max(
+              0,
+              Number(
+                option.weight
+              ) || 0
+            );
+
+          if (roll <= 0) {
+            return option;
+          }
+        }
+
+        return (
+          weightedOptions[
+            weightedOptions.length - 1
+          ] ||
+          null
+        );
+      };
+
+    const selectedForwardLine =
+      weightedPick(
+        forwardLineWeights
+      );
+
+    const selectedDefensePair =
+      weightedPick(
+        defensePairWeights
+      );
+
+    if (
+      !selectedForwardLine ||
+      !selectedDefensePair
+    ) {
+      return {
+        success: false,
+        reason:
+          'deployment-selection-failed',
+        deployment: null,
+      };
+    }
+
+    const deployment =
+      getLiveGameOnIcePlayers(
+        simulation,
+        side,
+        {
+          situation:
+            'even-strength',
+
+          forwardLine:
+            selectedForwardLine.line,
+
+          defensePair:
+            selectedDefensePair.pair,
+        }
+      );
+
+    if (
+      !deployment ||
+      deployment.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          'deployment-resolution-failed',
+        deployment:
+          deployment || null,
+      };
+    }
+
+    return {
+      success: true,
+
+      reason:
+        'even-strength-deployment-selected',
+
+      side,
+
+      forwardLine:
+        selectedForwardLine.line,
+
+      defensePair:
+        selectedDefensePair.pair,
+
+      deployment,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — OVERTIME DEPLOYMENT
+   * ============================================================
+   *
+   * Selects a 3-on-3 group:
+   * two forwards
+   * one defenseman
+   * one goalie
+   */
