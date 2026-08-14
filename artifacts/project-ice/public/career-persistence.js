@@ -20,6 +20,8 @@
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
 
+  let continueHandlerBound = false;
+
   function openDatabase() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -141,6 +143,58 @@
     };
   }
 
+  function bindContinueHandler() {
+    const button = document.getElementById('btn-continue');
+
+    if (!button || continueHandlerBound) return;
+
+    /*
+     * The original game.js listener may not have been attached in the
+     * quota-failure startup path. Use a capture-phase bridge so a
+     * recovered button always reaches the existing career loader.
+     */
+    button.addEventListener(
+      'click',
+      event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        try {
+          if (typeof window.loadCareerPreview === 'function') {
+            window.loadCareerPreview();
+            return;
+          }
+
+          if (typeof loadCareerPreview === 'function') {
+            loadCareerPreview();
+            return;
+          }
+
+          alert(
+            'Continue Career loader is unavailable. Please send this message back to ChatGPT.'
+          );
+        } catch (error) {
+          console.error(
+            '[Project Ice] Continue Career bridge failed:',
+            error
+          );
+
+          alert(
+            [
+              'CONTINUE CAREER ERROR',
+              '',
+              `Name: ${error?.name || 'Unknown'}`,
+              `Message: ${error?.message || String(error)}`,
+            ].join('\n')
+          );
+        }
+      },
+      true
+    );
+
+    continueHandlerBound = true;
+  }
+
   function enableContinueButton() {
     const button = document.getElementById('btn-continue');
 
@@ -157,17 +211,13 @@
       <span class="btn__label">Continue Career</span>
       <span class="btn__arrow">›</span>
     `;
+
+    bindContinueHandler();
   }
 
   function keepContinueButtonEnabled() {
     enableContinueButton();
 
-    /*
-     * game.js also evaluates the Continue button during its async
-     * startup. Re-assert the recovered state after that startup work
-     * completes so the old localStorage-only check cannot disable the
-     * button again after this bridge has repaired the preview.
-     */
     [0, 50, 250, 750, 1500].forEach(delay => {
       window.setTimeout(enableContinueButton, delay);
     });
