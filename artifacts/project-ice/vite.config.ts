@@ -30,26 +30,14 @@ if (!basePath) {
 const careerPersistencePlugin = {
   name: 'project-ice-career-persistence',
   transformIndexHtml(html: string) {
-    let transformed = html;
-
-    /*
-     * game.js currently contains one parse-time async callback bug in the
-     * final-horn persistence path. Route the page through the tiny bootstrap
-     * that applies only that correction before executing the canonical file.
-     */
-    transformed = transformed.replace(
-      '<script src="/game.js"></script>',
-      '<script src="/game-loader.js"></script>',
-    );
-
-    if (!transformed.includes('/career-persistence.js')) {
-      transformed = transformed.replace(
-        '</body>',
-        '    <script src="/career-persistence.js"></script>\n  </body>',
-      );
+    if (html.includes('/career-persistence.js')) {
+      return html;
     }
 
-    return transformed;
+    return html.replace(
+      '</body>',
+      '    <script src="/career-persistence.js"></script>\n  </body>',
+    );
   },
 };
 
