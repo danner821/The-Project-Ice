@@ -6948,14 +6948,28 @@ function openPostgameSummary(gameId) {
       ? WorldEngine.state.schedule
       : [];
 
+  const targetGameId =
+    String(gameId || '');
+
   const scheduledGame =
-    schedule.find(
-      game =>
-        String(
-          game.gameId ||
-          game.id
-        ) === String(gameId)
+    schedule.find(game =>
+      [
+        game?.gameId,
+        game?.id,
+        game?.eventId,
+        game?.postgameSummary?.gameId,
+      ].some(alias =>
+        alias !== null &&
+        alias !== undefined &&
+        String(alias) === targetGameId
+      )
     );
+
+  const canonicalPostgameGameId =
+    scheduledGame?.gameId ||
+    scheduledGame?.id ||
+    scheduledGame?.eventId ||
+    gameId;
 
     let summary =
       scheduledGame?.postgameSummary ||
@@ -6989,7 +7003,7 @@ function openPostgameSummary(gameId) {
       const repairResult =
         WorldEngine
           .repairCompletedGameDevelopment(
-            gameId
+            canonicalPostgameGameId
           );
 
       if (
@@ -18967,10 +18981,6 @@ function maybeOpenLiveGameCareerDecision() {
     return false;
   }
 
-  pauseLiveGamePlayback();
-  liveGameCareerDecisionOpen =
-    true;
-
   let scenario = careerIsDefending ? {
     key: zone === 'offensive' ? 'defensive-zone-read' : 'backcheck-read',
     eyebrow: zone === 'offensive' ? 'DEFENSIVE ZONE' : 'BACKCHECK',
@@ -19330,6 +19340,13 @@ function maybeOpenLiveGameCareerDecision() {
     });
   });
 
+  /*
+   * Only freeze playback after the full scenario card exists. If scenario
+   * construction ever fails, normal game playback is never left silently
+   * paused with nothing for the player to interact with.
+   */
+  pauseLiveGamePlayback();
+  liveGameCareerDecisionOpen = true;
   liveGameScreen.appendChild(card);
   return true;
 }

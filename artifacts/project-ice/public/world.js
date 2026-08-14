@@ -8291,19 +8291,28 @@ const WorldEngine = (() => {
       canonicalGameEvent?.id ||
       null;
 
+    const approvedCareerGameAlias =
+      _state.season
+        ?.careerGameSimApproval ||
+      null;
+
     const careerGameApprovedForLiveEngine =
       Boolean(
         isCareerPlayerGame &&
-        liveEngineCareerGameId &&
-        _state.season
-          ?.careerGameSimApproval &&
-        String(
-          liveEngineCareerGameId
-        ) ===
-          String(
-            _state.season
-              .careerGameSimApproval
-          )
+        approvedCareerGameAlias &&
+        [
+          canonicalGameEvent?.gameId,
+          canonicalGameEvent?.eventId,
+          canonicalGameEvent?.id,
+          event?.gameId,
+          event?.eventId,
+          event?.id,
+        ].some(alias =>
+          alias !== null &&
+          alias !== undefined &&
+          String(alias) ===
+            String(approvedCareerGameAlias)
+        )
       );
 
       /*
@@ -8441,12 +8450,20 @@ const WorldEngine = (() => {
     const careerGameApprovedForSim =
       Boolean(
         isCareerPlayerGame &&
-        careerGameId &&
         approvedCareerGameId &&
-        String(careerGameId) ===
-          String(
-            approvedCareerGameId
-          )
+        [
+          canonicalGameEvent?.id,
+          canonicalGameEvent?.eventId,
+          canonicalGameEvent?.gameId,
+          event?.id,
+          event?.eventId,
+          event?.gameId,
+        ].some(alias =>
+          alias !== null &&
+          alias !== undefined &&
+          String(alias) ===
+            String(approvedCareerGameId)
+        )
       );
 
     /*
@@ -17848,8 +17865,8 @@ const WorldEngine = (() => {
        * 5-on-5 deployment without forcing every linemate to identical TOI.
        */
       return (
-        averageTOI * 0.58 +
-        hottestPlayerTOI * 0.42
+        averageTOI * 0.30 +
+        hottestPlayerTOI * 0.70
       );
     };
 
@@ -17938,14 +17955,14 @@ const WorldEngine = (() => {
          */
         const overTargetPenalty =
           toiDeficit < 0
-            ? Math.abs(toiDeficit) * 0.45
+            ? Math.abs(toiDeficit) * 2.25
             : 0;
 
         const score =
-          toiDeficit * 1.35 -
+          toiDeficit * 1.55 -
           overTargetPenalty +
-          shiftCountDeficit * 15 +
-          Math.random() * 10;
+          shiftCountDeficit * 8 +
+          Math.random() * 6;
 
         if (score > bestScore) {
           bestScore = score;
