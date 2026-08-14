@@ -18610,7 +18610,12 @@ function closeLiveGameCareerDecision() {
     false;
 }
 
-function submitLiveGameCareerDecision(action, choiceLabel = '') {
+function submitLiveGameCareerDecision(
+  action,
+  choiceLabel = '',
+  choiceRisk = '',
+  scenarioLabel = ''
+) {
   if (
     !activeLiveGame ||
     !liveGameCareerPlayerId ||
@@ -18625,11 +18630,26 @@ function submitLiveGameCareerDecision(action, choiceLabel = '') {
     );
 
   if (decisionCard) {
-    decisionCard.querySelectorAll('button').forEach(button => {
-      button.disabled = true;
-      button.style.opacity = '.55';
-    });
+    decisionCard
+      .querySelectorAll('button')
+      .forEach(button => {
+        button.disabled = true;
+        button.style.opacity = '.55';
+      });
   }
+
+  const context =
+    getLiveCareerPlayerContext();
+
+  const careerScore =
+    context?.side === 'home'
+      ? Number(activeLiveGame.home?.score) || 0
+      : Number(activeLiveGame.away?.score) || 0;
+
+  const opponentScore =
+    context?.side === 'home'
+      ? Number(activeLiveGame.away?.score) || 0
+      : Number(activeLiveGame.home?.score) || 0;
 
   liveGameCareerDecisionLastChoice = {
     action,
@@ -18640,10 +18660,20 @@ function submitLiveGameCareerDecision(action, choiceLabel = '') {
         : action === 'pass'
           ? 'Pass'
           : 'Hold the puck'),
+    risk:
+      choiceRisk ||
+      'READ',
+    scenario:
+      scenarioLabel ||
+      'YOUR MOMENT',
     period:
       activeLiveGame.period,
     clockSecondsRemaining:
       activeLiveGame.clockSecondsRemaining,
+    careerScore,
+    opponentScore,
+    pressureBefore:
+      Number(activeLiveGame.flow?.pressureLevel) || 0,
   };
 
   activeLiveGame.pendingCareerDecision = {
@@ -18789,64 +18819,143 @@ function maybeOpenLiveGameCareerDecision() {
     true;
 
   let scenario = {
-    eyebrow:
-      zone === 'offensive'
-        ? 'OFFENSIVE ZONE'
-        : 'TRANSITION',
-    title:
-      zone === 'offensive'
-        ? 'You have space with the puck.'
-        : 'You catch the defense moving backward.',
-    detail:
-      zone === 'offensive'
-        ? 'The play is opening up. Choose how you want to attack.'
-        : 'There is a decision to make before the defense gets set.',
+    key: 'offensive-read',
+    eyebrow: 'OFFENSIVE ZONE',
+    title: 'You receive the puck with room to work.',
+    detail: 'The defense is set, but you have enough space to dictate the next move.',
     accent: '#6aa8ff',
     choices: [
       {
         action: 'shoot',
         label: 'Attack the net',
-        note: 'Force a shot now',
+        note: 'Turn the possession into a shot now',
         risk: 'AGGRESSIVE',
       },
       {
         action: 'pass',
-        label: 'Move the puck',
-        note: 'Use your passing and vision',
-        risk: 'SMART',
+        label: 'Find the open man',
+        note: 'Use vision and passing to extend the attack',
+        risk: 'CREATE',
       },
       {
         action: 'hold',
-        label: 'Stay patient',
-        note: 'Let the play develop',
-        risk: 'CONTROL',
+        label: 'Protect and scan',
+        note: 'Keep possession and wait for a better lane',
+        risk: 'POISE',
       },
     ],
   };
 
+  if (zone === 'neutral') {
+    scenario = {
+      key: 'transition-rush',
+      eyebrow: 'TRANSITION RUSH',
+      title: 'You carry the puck at a retreating defense.',
+      detail: 'The gap is still forming. Your next touch decides whether the rush becomes a chance.',
+      accent: '#75b7ff',
+      choices: [
+        {
+          action: 'shoot',
+          label: 'Drive and fire',
+          note: 'Attack before the defense can set',
+          risk: 'ATTACK',
+        },
+        {
+          action: 'pass',
+          label: 'Hit the trailer',
+          note: 'Move the puck into the developing lane',
+          risk: 'VISION',
+        },
+        {
+          action: 'hold',
+          label: 'Delay the rush',
+          note: 'Buy time and let support arrive',
+          risk: 'CONTROL',
+        },
+      ],
+    };
+  } else if (pressure >= 5) {
+    scenario = {
+      key: 'net-front-chaos',
+      eyebrow: 'NET-FRONT CHAOS',
+      title: 'The defense is scrambling around its own crease.',
+      detail: 'Bodies are collapsing toward the net and the goalie is fighting through traffic.',
+      accent: '#ffbe66',
+      choices: [
+        {
+          action: 'shoot',
+          label: 'Put it through traffic',
+          note: 'Trust the chaos and get the puck on goal',
+          risk: 'FINISH',
+        },
+        {
+          action: 'pass',
+          label: 'Slip it across',
+          note: 'Look for a teammate outside the collapse',
+          risk: 'CREATE',
+        },
+        {
+          action: 'hold',
+          label: 'Pull it back',
+          note: 'Escape the traffic and reset the possession',
+          risk: 'COMPOSED',
+        },
+      ],
+    };
+  } else if (pressure >= 3) {
+    scenario = {
+      key: 'high-danger-read',
+      eyebrow: 'HIGH-DANGER READ',
+      title: 'A dangerous lane opens in front of you.',
+      detail: 'You have a brief window before the defense closes it down.',
+      accent: '#84c6ff',
+      choices: [
+        {
+          action: 'shoot',
+          label: 'Take the lane',
+          note: 'Use the opening before it disappears',
+          risk: 'DECISIVE',
+        },
+        {
+          action: 'pass',
+          label: 'Draw and dish',
+          note: 'Pull pressure toward you and move the puck',
+          risk: 'PLAYMAKE',
+        },
+        {
+          action: 'hold',
+          label: 'Stay on it',
+          note: 'Protect the puck and force another defensive read',
+          risk: 'POISE',
+        },
+      ],
+    };
+  }
+
   if (onPowerPlay) {
     scenario = {
+      key: 'power-play-read',
       eyebrow: 'POWER PLAY',
-      title: 'The penalty kill is collapsing toward you.',
-      detail: 'A clean decision here can create the best chance of the shift.',
+      title: 'The penalty kill collapses toward your side.',
+      detail: 'One clean decision can shift the entire box and create the best look of the shift.',
       accent: '#f0bf55',
       choices: [
         {
           action: 'shoot',
-          label: 'Shoot through traffic',
-          note: 'Get the puck to the net',
+          label: 'Shoot through the screen',
+          note: 'Get it to the net while the goalie is fighting traffic',
           risk: 'PRESSURE',
         },
         {
           action: 'pass',
-          label: 'Work it low',
-          note: 'Try to open the box',
+          label: 'Work it through the seam',
+          note: 'Use your vision to force the penalty kill to rotate',
           risk: 'CREATE',
         },
         {
           action: 'hold',
           label: 'Reset the setup',
-          note: 'Keep possession and wait',
+          note: 'Keep possession and make the killers move again',
           risk: 'PATIENT',
         },
       ],
@@ -18858,6 +18967,7 @@ function maybeOpenLiveGameCareerDecision() {
       scoreDiff === 0;
 
     scenario = {
+      key: 'clutch-possession',
       eyebrow:
         tied
           ? 'CLUTCH MOMENT · TIE GAME'
@@ -18868,8 +18978,8 @@ function maybeOpenLiveGameCareerDecision() {
         tied
           ? 'This possession could decide the game.'
           : scoreDiff < 0
-            ? 'Time is running out. You have the puck.'
-            : 'A smart play here can kill valuable time.',
+            ? 'Time is running out. The puck is on your stick.'
+            : 'A smart decision here can drain precious time.',
       detail:
         `${getLivePresentationPeriodLabel(period)} · ${formatLivePresentationClock(clock)} · ${careerScore}-${opponentScore}`,
       accent: '#f5d06f',
@@ -18879,13 +18989,13 @@ function maybeOpenLiveGameCareerDecision() {
               {
                 action: 'hold',
                 label: 'Protect the puck',
-                note: 'Make them chase you',
+                note: 'Make them chase you and burn clock',
                 risk: 'SAFE',
               },
               {
                 action: 'pass',
                 label: 'Find support',
-                note: 'Move it to the open teammate',
+                note: 'Move it to the safest open teammate',
                 risk: 'SMART',
               },
               {
@@ -18905,13 +19015,13 @@ function maybeOpenLiveGameCareerDecision() {
               {
                 action: 'pass',
                 label: 'Find the best look',
-                note: 'Trust your vision',
+                note: 'Trust your vision under pressure',
                 risk: 'CREATE',
               },
               {
                 action: 'hold',
                 label: 'Wait for the lane',
-                note: 'Stay composed under pressure',
+                note: 'Stay composed and refuse a bad attempt',
                 risk: 'POISE',
               },
             ],
@@ -18943,6 +19053,8 @@ function maybeOpenLiveGameCareerDecision() {
             type="button"
             data-career-live-choice="${choice.action}"
             data-career-live-label="${choice.label}"
+            data-career-live-risk="${choice.risk}"
+            data-career-live-scenario="${scenario.eyebrow}"
             style="
               width:100%;
               text-align:left;
@@ -18971,6 +19083,7 @@ function maybeOpenLiveGameCareerDecision() {
       </div>
       <div style="margin-top:8px;font-size:19px;line-height:1.15;font-weight:900;color:#fff;">${scenario.title}</div>
       <div style="margin-top:6px;font-size:12px;line-height:1.4;color:rgba(207,220,241,.72);">${scenario.detail}</div>
+      <div style="margin-top:9px;font-size:10px;font-weight:800;color:rgba(180,202,235,.52);">SCORE ${careerScore}-${opponentScore} · PRESSURE ${Math.round(pressure)}</div>
       <div style="display:grid;gap:8px;margin-top:14px;">${choiceMarkup}</div>
       <div style="margin-top:10px;text-align:center;font-size:9px;letter-spacing:.09em;color:rgba(171,190,220,.42);">YOUR ATTRIBUTES + GAME CONTEXT RESOLVE THE RESULT</div>
     </div>
@@ -18982,7 +19095,9 @@ function maybeOpenLiveGameCareerDecision() {
     button.addEventListener('click', () => {
       submitLiveGameCareerDecision(
         button.dataset.careerLiveChoice,
-        button.dataset.careerLiveLabel
+        button.dataset.careerLiveLabel,
+        button.dataset.careerLiveRisk,
+        button.dataset.careerLiveScenario
       );
     });
   });
@@ -19113,39 +19228,86 @@ function advanceLiveGamePresentationStep() {
     const outcomeType =
       String(outcomeEvent?.type || '');
 
+    const eventText =
+      outcomeEvent
+        ? getLivePresentationEventText(outcomeEvent)
+        : null;
+
     let outcomeTitle =
       choice.action === 'hold'
-        ? 'You stay composed and let the play develop.'
+        ? 'You stay patient and keep reading the play.'
         : choice.action === 'pass'
-          ? 'You move the puck.'
-          : 'You attack the net.';
+          ? 'You try to create for a teammate.'
+          : 'You commit to attacking the net.';
 
     let outcomeDetail =
-      'Play continues.';
+      'The possession continues through the live engine.';
+
+    let outcomeTag =
+      choice.risk ||
+      'DECISION';
 
     if (outcomeType === 'goal') {
       outcomeTitle =
-        'GOAL — your decision pays off.';
+        'GOAL — the possession turns into a finish.';
       outcomeDetail =
-        'A huge moment in the game.';
+        eventText?.secondary ||
+        'Your choice directly helped create the biggest result possible.';
+      outcomeTag =
+        'IMPACT';
     } else if (
       outcomeType === 'shot' ||
       outcomeType === 'shot-on-goal' ||
       outcomeType === 'shot-saved'
     ) {
+      outcomeTitle =
+        eventText?.primary ||
+        'You create a shot.';
       outcomeDetail =
-        'You create a shot on the possession.';
+        eventText?.secondary ||
+        'The decision produces a real attempt through the canonical shot resolver.';
+      outcomeTag =
+        'CHANCE';
     } else if (outcomeType === 'career-pass') {
       outcomeTitle =
-        'Pass completed.';
+        'Pass completed — possession stays alive.';
       outcomeDetail =
-        'Your team keeps the attack alive.';
+        `The puck moves cleanly and your team keeps attacking. Pressure is now ${Math.round(Number(activeLiveGame.flow?.pressureLevel) || 0)}.`;
+      outcomeTag =
+        'CREATED';
     } else if (outcomeType === 'turnover') {
       outcomeTitle =
         'The play is broken up.';
       outcomeDetail =
-        'Possession goes the other way.';
+        'The defense reads the decision and possession goes the other way.';
+      outcomeTag =
+        'TURNOVER';
+    } else if (choice.action === 'hold') {
+      outcomeTitle =
+        'You refuse the first option and let the play breathe.';
+      outcomeDetail =
+        outcomeEvent
+          ? `${eventText?.primary || 'Play develops'}${eventText?.secondary ? ` · ${eventText.secondary}` : ''}`
+          : 'You keep the sequence alive without forcing a low-quality play.';
+      outcomeTag =
+        'POISE';
     }
+
+    const currentContext =
+      getLiveCareerPlayerContext();
+
+    const currentCareerScore =
+      currentContext?.side === 'home'
+        ? Number(activeLiveGame.home?.score) || 0
+        : Number(activeLiveGame.away?.score) || 0;
+
+    const currentOpponentScore =
+      currentContext?.side === 'home'
+        ? Number(activeLiveGame.away?.score) || 0
+        : Number(activeLiveGame.home?.score) || 0;
+
+    const clockLabel =
+      `${getLivePresentationPeriodLabel(activeLiveGame.period)} · ${formatLivePresentationClock(activeLiveGame.clockSecondsRemaining)}`;
 
     document.getElementById(
       'live-game-career-outcome'
@@ -19163,25 +19325,32 @@ function advanceLiveGamePresentationStep() {
       right:14px;
       bottom:18px;
       z-index:35;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(113,164,239,.30);
-      background:rgba(5,17,38,.96);
-      box-shadow:0 12px 32px rgba(0,0,0,.35);
+      padding:14px 15px;
+      border-radius:16px;
+      border:1px solid rgba(113,164,239,.34);
+      background:rgba(5,17,38,.98);
+      box-shadow:0 14px 38px rgba(0,0,0,.42);
       pointer-events:none;
     `;
 
     outcome.innerHTML = `
-      <div style="font-size:9px;font-weight:900;letter-spacing:.13em;color:#7fb2ff;">${choice.label.toUpperCase()}</div>
-      <div style="margin-top:3px;font-size:14px;font-weight:850;color:#fff;">${outcomeTitle}</div>
-      <div style="margin-top:2px;font-size:11px;color:rgba(205,219,240,.68);">${outcomeDetail}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-size:9px;font-weight:900;letter-spacing:.13em;color:#7fb2ff;">${choice.scenario || 'YOUR MOMENT'}</div>
+        <div style="font-size:9px;font-weight:900;letter-spacing:.11em;color:#f2cf77;">${outcomeTag}</div>
+      </div>
+      <div style="margin-top:7px;font-size:15px;line-height:1.18;font-weight:900;color:#fff;">${outcomeTitle}</div>
+      <div style="margin-top:5px;font-size:11px;line-height:1.42;color:rgba(205,219,240,.72);">${outcomeDetail}</div>
+      <div style="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;gap:8px;font-size:9px;font-weight:800;color:rgba(177,197,226,.52);">
+        <span>${choice.label}</span>
+        <span>${clockLabel} · ${currentCareerScore}-${currentOpponentScore}</span>
+      </div>
     `;
 
     liveGameScreen.appendChild(outcome);
 
     window.setTimeout(() => {
       outcome.remove();
-    }, 1650);
+    }, 2800);
 
     liveGameCareerDecisionLastChoice =
       null;
