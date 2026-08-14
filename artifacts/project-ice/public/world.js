@@ -17700,8 +17700,7 @@ const WorldEngine = (() => {
     ) {
       return {
         success: false,
-        reason:
-          'invalid-live-game',
+        reason: 'invalid-live-game',
         deployment: null,
       };
     }
@@ -17712,113 +17711,108 @@ const WorldEngine = (() => {
     ) {
       return {
         success: false,
-        reason:
-          'invalid-team-side',
+        reason: 'invalid-team-side',
         deployment: null,
       };
     }
 
     /*
-     * Forward usage targets.
-     *
-     * These are relative weights, not exact TOI percentages.
+     * These remain the role-based even-strength usage targets.
+     * Instead of independently rerolling every shift, selection now
+     * balances each line/pair back toward its target share. This keeps
+     * realistic game-to-game variation without producing wild TOI swings.
      */
     const forwardLineWeights = [
-      {
-        line: 1,
-        weight: 34,
-      },
-      {
-        line: 2,
-        weight: 28,
-      },
-      {
-        line: 3,
-        weight: 22,
-      },
-      {
-        line: 4,
-        weight: 16,
-      },
+      { line: 1, weight: 34 },
+      { line: 2, weight: 28 },
+      { line: 3, weight: 22 },
+      { line: 4, weight: 16 },
     ];
 
-    /*
-     * Defensive-pair usage targets.
-     */
     const defensePairWeights = [
-      {
-        pair: 1,
-        weight: 42,
-      },
-      {
-        pair: 2,
-        weight: 34,
-      },
-      {
-        pair: 3,
-        weight: 24,
-      },
+      { pair: 1, weight: 42 },
+      { pair: 2, weight: 34 },
+      { pair: 3, weight: 24 },
     ];
 
-    const weightedPick =
-      weightedOptions => {
-        const totalWeight =
-          weightedOptions.reduce(
-            (sum, option) =>
-              sum +
-              Math.max(
-                0,
-                Number(
-                  option.weight
-                ) || 0
-              ),
-            0
-          );
-
-        if (totalWeight <= 0) {
-          return (
-            weightedOptions[0] ||
-            null
-          );
-        }
-
-        let roll =
-          Math.random() *
-          totalWeight;
-
-        for (
-          const option of
-          weightedOptions
-        ) {
-          roll -=
-            Math.max(
-              0,
-              Number(
-                option.weight
-              ) || 0
-            );
-
-          if (roll <= 0) {
-            return option;
-          }
-        }
-
-        return (
-          weightedOptions[
-            weightedOptions.length - 1
-          ] ||
-          null
-        );
+    if (!simulation.flow.deploymentUsage) {
+      simulation.flow.deploymentUsage = {
+        home: {
+          forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+          defensePairs: { 1: 0, 2: 0, 3: 0 },
+        },
+        away: {
+          forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+          defensePairs: { 1: 0, 2: 0, 3: 0 },
+        },
       };
+    }
+
+    const usage =
+      simulation.flow.deploymentUsage[side];
+
+    const balancedPick = (
+      weightedOptions,
+      usageMap,
+      key
+    ) => {
+      const totalWeight =
+        weightedOptions.reduce(
+          (sum, option) =>
+            sum + Math.max(0, Number(option.weight) || 0),
+          0
+        );
+
+      const totalSelections =
+        Object.values(usageMap).reduce(
+          (sum, value) => sum + (Number(value) || 0),
+          0
+        );
+
+      let best = null;
+      let bestScore = -Infinity;
+
+      weightedOptions.forEach(option => {
+        const id =
+          Number(option[key]);
+        const targetShare =
+          totalWeight > 0
+            ? (Number(option.weight) || 0) / totalWeight
+            : 0;
+        const actualCount =
+          Number(usageMap[id]) || 0;
+        const targetCountAfterNext =
+          (totalSelections + 1) * targetShare;
+
+        /*
+         * Large deficit term keeps usage near role targets.
+         * Small jitter preserves natural shift-to-shift variation.
+         */
+        const score =
+          (targetCountAfterNext - actualCount) * 100 +
+          Math.random() * 10;
+
+        if (score > bestScore) {
+          bestScore = score;
+          best = option;
+        }
+      });
+
+      return best || weightedOptions[0] || null;
+    };
 
     const selectedForwardLine =
-      weightedPick(
-        forwardLineWeights
+      balancedPick(
+        forwardLineWeights,
+        usage.forwardLines,
+        'line'
       );
 
     const selectedDefensePair =
-      weightedPick(
-        defensePairWeights
+      balancedPick(
+        defensePairWeights,
+        usage.defensePairs,
+        'pair'
       );
 
     if (
@@ -17827,8 +17821,7 @@ const WorldEngine = (() => {
     ) {
       return {
         success: false,
-        reason:
-          'deployment-selection-failed',
+        reason: 'deployment-selection-failed',
         deployment: null,
       };
     }
@@ -17838,14 +17831,9 @@ const WorldEngine = (() => {
         simulation,
         side,
         {
-          situation:
-            'even-strength',
-
-          forwardLine:
-            selectedForwardLine.line,
-
-          defensePair:
-            selectedDefensePair.pair,
+          situation: 'even-strength',
+          forwardLine: selectedForwardLine.line,
+          defensePair: selectedDefensePair.pair,
         }
       );
 
@@ -17855,41 +17843,39 @@ const WorldEngine = (() => {
     ) {
       return {
         success: false,
-        reason:
-          'deployment-resolution-failed',
-        deployment:
-          deployment || null,
+        reason: 'deployment-resolution-failed',
+        deployment: deployment || null,
       };
     }
 
+    usage.forwardLines[
+      selectedForwardLine.line
+    ] =
+      (Number(
+        usage.forwardLines[
+          selectedForwardLine.line
+        ]
+      ) || 0) + 1;
+
+    usage.defensePairs[
+      selectedDefensePair.pair
+    ] =
+      (Number(
+        usage.defensePairs[
+          selectedDefensePair.pair
+        ]
+      ) || 0) + 1;
+
     return {
       success: true,
-
-      reason:
-        'even-strength-deployment-selected',
-
+      reason: 'even-strength-deployment-selected',
       side,
-
-      forwardLine:
-        selectedForwardLine.line,
-
-      defensePair:
-        selectedDefensePair.pair,
-
+      forwardLine: selectedForwardLine.line,
+      defensePair: selectedDefensePair.pair,
       deployment,
     };
   }
 
-  /*
-   * ============================================================
-   * LIVE GAME — OVERTIME DEPLOYMENT
-   * ============================================================
-   *
-   * Selects a 3-on-3 group:
-   * two forwards
-   * one defenseman
-   * one goalie
-   */
   function selectLiveGameOvertimeDeployment(
     simulation,
     side

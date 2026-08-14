@@ -3366,6 +3366,33 @@ function openHubTab(tabId) {
   if (tabId === 'schedule') {
     refreshScheduleEvents();
 
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
     renderScheduleCalendar(
       scheduleViewYear,
       scheduleViewMonth
@@ -19233,81 +19260,100 @@ function advanceLiveGamePresentationStep() {
         ? getLivePresentationEventText(outcomeEvent)
         : null;
 
+    const contextAfterChoice =
+      getLiveCareerPlayerContext();
+
+    const careerScore =
+      contextAfterChoice?.side === 'home'
+        ? Number(activeLiveGame.home?.score) || 0
+        : Number(activeLiveGame.away?.score) || 0;
+
+    const opponentScore =
+      contextAfterChoice?.side === 'home'
+        ? Number(activeLiveGame.away?.score) || 0
+        : Number(activeLiveGame.home?.score) || 0;
+
+    const pressureAfter =
+      Number(activeLiveGame.flow?.pressureLevel) || 0;
+
+    let resultTag =
+      choice.action === 'hold'
+        ? 'POISE'
+        : choice.action === 'pass'
+          ? 'CREATE'
+          : 'ATTACK';
+
     let outcomeTitle =
       choice.action === 'hold'
-        ? 'You stay patient and keep reading the play.'
+        ? 'You stay composed and let the play develop.'
         : choice.action === 'pass'
-          ? 'You try to create for a teammate.'
-          : 'You commit to attacking the net.';
+          ? 'You move the puck.'
+          : 'You attack the net.';
 
     let outcomeDetail =
-      'The possession continues through the live engine.';
+      eventText?.secondary ||
+      'Play develops from your decision.';
 
-    let outcomeTag =
-      choice.risk ||
-      'DECISION';
+    let impactDetail =
+      `Offensive pressure: ${pressureAfter}`;
 
     if (outcomeType === 'goal') {
+      resultTag = 'IMPACT';
       outcomeTitle =
-        'GOAL — the possession turns into a finish.';
+        eventText?.primary ||
+        'GOAL — your decision pays off.';
       outcomeDetail =
         eventText?.secondary ||
-        'Your choice directly helped create the biggest result possible.';
-      outcomeTag =
-        'IMPACT';
+        'A huge moment in the game.';
+      impactDetail =
+        `Score now ${careerScore}-${opponentScore}`;
     } else if (
       outcomeType === 'shot' ||
       outcomeType === 'shot-on-goal' ||
       outcomeType === 'shot-saved'
     ) {
+      resultTag = 'CHANCE';
       outcomeTitle =
         eventText?.primary ||
-        'You create a shot.';
+        'You create a shooting chance.';
       outcomeDetail =
         eventText?.secondary ||
-        'The decision produces a real attempt through the canonical shot resolver.';
-      outcomeTag =
-        'CHANCE';
+        'The possession produces a shot.';
+      impactDetail =
+        `Score ${careerScore}-${opponentScore} · pressure ${pressureAfter}`;
     } else if (outcomeType === 'career-pass') {
+      resultTag = 'CREATED';
       outcomeTitle =
         'Pass completed — possession stays alive.';
       outcomeDetail =
-        `The puck moves cleanly and your team keeps attacking. Pressure is now ${Math.round(Number(activeLiveGame.flow?.pressureLevel) || 0)}.`;
-      outcomeTag =
-        'CREATED';
+        'Your read keeps the attack moving and gives your team another action.';
+      impactDetail =
+        `Offensive pressure builds to ${pressureAfter}`;
     } else if (outcomeType === 'turnover') {
+      resultTag = 'TURNOVER';
       outcomeTitle =
-        'The play is broken up.';
+        'The defense reads the play.';
       outcomeDetail =
-        'The defense reads the decision and possession goes the other way.';
-      outcomeTag =
-        'TURNOVER';
+        'Your possession ends and the puck goes the other way.';
+      impactDetail =
+        `Score remains ${careerScore}-${opponentScore}`;
     } else if (choice.action === 'hold') {
+      resultTag = 'POISE';
       outcomeTitle =
-        'You refuse the first option and let the play breathe.';
+        'You stay patient and let the play breathe.';
       outcomeDetail =
-        outcomeEvent
-          ? `${eventText?.primary || 'Play develops'}${eventText?.secondary ? ` · ${eventText.secondary}` : ''}`
-          : 'You keep the sequence alive without forcing a low-quality play.';
-      outcomeTag =
-        'POISE';
+        eventText?.primary ||
+        'The next layer of the possession develops around you.';
+      impactDetail =
+        eventText?.secondary ||
+        `Offensive pressure: ${pressureAfter}`;
     }
 
-    const currentContext =
-      getLiveCareerPlayerContext();
-
-    const currentCareerScore =
-      currentContext?.side === 'home'
-        ? Number(activeLiveGame.home?.score) || 0
-        : Number(activeLiveGame.away?.score) || 0;
-
-    const currentOpponentScore =
-      currentContext?.side === 'home'
-        ? Number(activeLiveGame.away?.score) || 0
-        : Number(activeLiveGame.home?.score) || 0;
-
-    const clockLabel =
-      `${getLivePresentationPeriodLabel(activeLiveGame.period)} · ${formatLivePresentationClock(activeLiveGame.clockSecondsRemaining)}`;
+    /*
+     * The result itself is now a player moment too.
+     * Freeze the live game until the user has had time to absorb it.
+     */
+    pauseLiveGamePlayback();
 
     document.getElementById(
       'live-game-career-outcome'
@@ -19321,36 +19367,42 @@ function advanceLiveGamePresentationStep() {
 
     outcome.style.cssText = `
       position:absolute;
-      left:14px;
-      right:14px;
-      bottom:18px;
-      z-index:35;
-      padding:14px 15px;
-      border-radius:16px;
-      border:1px solid rgba(113,164,239,.34);
-      background:rgba(5,17,38,.98);
-      box-shadow:0 14px 38px rgba(0,0,0,.42);
-      pointer-events:none;
+      inset:0;
+      z-index:38;
+      display:flex;
+      align-items:flex-end;
+      padding:18px 14px 20px;
+      background:linear-gradient(180deg,rgba(2,10,23,.12) 0%,rgba(2,9,22,.66) 46%,rgba(1,7,17,.96) 100%);
+      backdrop-filter:blur(2px);
     `;
 
     outcome.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div style="font-size:9px;font-weight:900;letter-spacing:.13em;color:#7fb2ff;">${choice.scenario || 'YOUR MOMENT'}</div>
-        <div style="font-size:9px;font-weight:900;letter-spacing:.11em;color:#f2cf77;">${outcomeTag}</div>
-      </div>
-      <div style="margin-top:7px;font-size:15px;line-height:1.18;font-weight:900;color:#fff;">${outcomeTitle}</div>
-      <div style="margin-top:5px;font-size:11px;line-height:1.42;color:rgba(205,219,240,.72);">${outcomeDetail}</div>
-      <div style="margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;gap:8px;font-size:9px;font-weight:800;color:rgba(177,197,226,.52);">
-        <span>${choice.label}</span>
-        <span>${clockLabel} · ${currentCareerScore}-${currentOpponentScore}</span>
+      <div style="width:100%;border:1px solid rgba(113,164,239,.30);border-radius:20px;padding:16px;background:rgba(5,17,38,.985);box-shadow:0 18px 45px rgba(0,0,0,.48);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="font-size:9px;font-weight:900;letter-spacing:.14em;color:#7fb2ff;">${String(choice.scenario || 'YOUR MOMENT').toUpperCase()}</div>
+          <div style="font-size:9px;font-weight:900;letter-spacing:.12em;color:#f1c86a;">${resultTag}</div>
+        </div>
+        <div style="margin-top:7px;font-size:11px;font-weight:800;color:rgba(197,215,242,.68);">YOU CHOSE · ${String(choice.label || choice.action).toUpperCase()}</div>
+        <div style="margin-top:5px;font-size:18px;line-height:1.2;font-weight:900;color:#fff;">${outcomeTitle}</div>
+        <div style="margin-top:6px;font-size:12px;line-height:1.45;color:rgba(211,224,244,.75);">${outcomeDetail}</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;line-height:1.35;color:rgba(177,198,228,.58);">${impactDetail} · ${getLivePresentationPeriodLabel(activeLiveGame.period)} ${formatLivePresentationClock(activeLiveGame.clockSecondsRemaining)} · ${careerScore}-${opponentScore}</div>
+        <button id="live-game-career-outcome-resume" type="button" style="width:100%;margin-top:13px;padding:12px 14px;border-radius:13px;border:1px solid rgba(116,169,255,.48);background:rgba(35,103,210,.32);color:#fff;font-size:13px;font-weight:900;letter-spacing:.02em;">Resume Game</button>
       </div>
     `;
 
     liveGameScreen.appendChild(outcome);
 
-    window.setTimeout(() => {
-      outcome.remove();
-    }, 2800);
+    document.getElementById(
+      'live-game-career-outcome-resume'
+    )?.addEventListener(
+      'click',
+      () => {
+        outcome.remove();
+        startLiveGamePlayback(
+          liveGamePlaybackSpeed
+        );
+      }
+    );
 
     liveGameCareerDecisionLastChoice =
       null;
