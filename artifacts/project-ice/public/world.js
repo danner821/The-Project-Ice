@@ -26291,6 +26291,18 @@ function resolveLiveGameCareerPass(
       homeSkaterCount;
 
     /*
+     * Rotate special-teams units during extended penalties.
+     * Unit 1 starts the sequence; Unit 2 takes the next ~45-second window.
+     * This prevents PP1/PK1 skaters from playing an entire two-minute minor.
+     */
+    const specialTeamsShiftUnit =
+      (
+        Math.floor(
+          (Number(flow.deploymentAgeSeconds) || 0) / 45
+        ) % 2
+      ) + 1;
+
+    /*
      * ========================================================
      * HOME DEPLOYMENT
      * ========================================================
@@ -26310,7 +26322,8 @@ function resolveLiveGameCareerPass(
             situation:
               'power-play',
 
-            specialTeamsUnit: 1,
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
 
             skaterCount:
               homeSkaterCount,
@@ -26328,7 +26341,8 @@ function resolveLiveGameCareerPass(
             situation:
               'penalty-kill',
 
-            specialTeamsUnit: 1,
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
 
             skaterCount:
               homeSkaterCount,
@@ -26390,7 +26404,8 @@ function resolveLiveGameCareerPass(
             situation:
               'power-play',
 
-            specialTeamsUnit: 1,
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
 
             skaterCount:
               awaySkaterCount,
@@ -26408,7 +26423,8 @@ function resolveLiveGameCareerPass(
             situation:
               'penalty-kill',
 
-            specialTeamsUnit: 1,
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
 
             skaterCount:
               awaySkaterCount,
@@ -26587,10 +26603,22 @@ function resolveLiveGameCareerPass(
      * Penalties count down using actual hockey seconds, completely
      * independent of presentation speed.
      */
+    const manpowerBeforeClock =
+      `${homeSkaterCount}v${awaySkaterCount}`;
+
     advanceLiveGameSpecialTeamsClock(
       simulation,
       elapsedSeconds
     );
+
+    const manpowerAfterClock =
+      `${Math.max(3, Number(specialTeams.homeSkaters) || 5)}v${Math.max(3, Number(specialTeams.awaySkaters) || 5)}`;
+
+    if (manpowerAfterClock !== manpowerBeforeClock) {
+      flow.homeDeployment = null;
+      flow.awayDeployment = null;
+      flow.deploymentAgeSeconds = 0;
+    }
 
     /*
      * ==========================================================

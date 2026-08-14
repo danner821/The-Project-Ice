@@ -18069,11 +18069,19 @@ function renderLiveCareerPlayerStrip() {
   ).textContent =
     status;
 
+  const canonicalLiveTOISeconds =
+    Math.max(
+      0,
+      Number(
+        liveSkater.timeOnIceSeconds
+      ) || 0
+    );
+
   document.getElementById(
     'live-game-player-toi'
   ).textContent =
     formatLivePresentationClock(
-      liveGameCareerTOISeconds
+      canonicalLiveTOISeconds
     );
 
   document.getElementById(
