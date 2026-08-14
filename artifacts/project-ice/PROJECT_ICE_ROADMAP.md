@@ -11,6 +11,7 @@ Goal: lock the current foundation before adding more interconnected systems.
 
 - Directly repair the final-horn async bug in canonical `game.js` and retire `game-loader.js` after regression testing.
 - Verify Continue Career, IndexedDB save/load, Play Game completion, Sim Game completion, reload-after-game, postgame summary, schedule persistence and date persistence.
+- The prior bug where a completed Play Game / Sim Game returned as unplayed after reloading Continue Career is FIXED. Treat this as closed unless regression testing reproduces it.
 - Keep `career-persistence.js` only as the migration bridge.
 - Remove zero-risk troubleshooting residue.
 - Establish an explicit save-schema version/migration convention before multi-season work.
@@ -18,7 +19,21 @@ Goal: lock the current foundation before adding more interconnected systems.
 
 Exit criteria: the current career can be played, simulated, closed, reloaded and continued without diagnostics or temporary runtime errors.
 
-## Phase 1 — Weekly Living World
+## Phase 1 — Complete Live Game Experience
+
+Goal: finish the player-facing Play Game experience now that the canonical simulation engine is working.
+
+- Add contextual interactive decisions during live Play Game at appropriate moments rather than on every possession.
+- Initial decision families should include choices such as pass / shoot when the career player has the puck, with future context-sensitive options added only where they improve the career experience.
+- Decisions must resolve through the same canonical simulation state and player attributes used by the rest of the engine; choices should influence probabilities and outcomes rather than bypassing the simulation.
+- Decision opportunities should depend on deployment, game state, position, zone, teammates/opponents, score/time context, special-teams state and the career player's attributes.
+- Keep the live game primarily a simulation presentation, not an arcade control game.
+- Preserve speed controls, pause/resume, event markers, scrollable event feed, career-player tracker and postgame handoff.
+- Ensure Play Game and Sim Game remain statistically consistent because both use the same canonical hockey engine.
+
+Exit criteria: Play Game occasionally gives meaningful career-player decisions, those decisions visibly affect the live sequence through the canonical engine, and the full game still saves/reloads correctly.
+
+## Phase 2 — Weekly Living World
 
 Goal: make the hockey world visibly change around the career player every week.
 
@@ -31,7 +46,7 @@ Goal: make the hockey world visibly change around the career player every week.
 
 Exit criteria: advancing one week produces a coherent set of world changes that remain correct after reload.
 
-## Phase 2 — Scouting and Prospect World
+## Phase 3 — Scouting and Prospect World
 
 Goal: connect career performance to an evolving prospect ecosystem.
 
@@ -44,7 +59,7 @@ Goal: connect career performance to an evolving prospect ecosystem.
 
 Exit criteria: scouting information changes for understandable reasons and persists across weeks/seasons.
 
-## Phase 3 — News and Home Hub Refresh
+## Phase 4 — News and Home Hub Refresh
 
 Goal: turn world events into a clean career narrative.
 
@@ -56,7 +71,7 @@ Goal: turn world events into a clean career narrative.
 
 Exit criteria: Home feels like a living career dashboard rather than a static menu.
 
-## Phase 4 — Season Transition, Awards and History
+## Phase 5 — Season Transition, Awards and History
 
 Goal: make Year 1 safely become Year 2 and establish true multi-season careers.
 
@@ -71,7 +86,7 @@ Goal: make Year 1 safely become Year 2 and establish true multi-season careers.
 
 Exit criteria: complete a season, reload, begin the next season and retain all prior history/statistics.
 
-## Phase 5 — Post-High-School Career Pathways
+## Phase 6 — Post-High-School Career Pathways
 
 Goal: expand the world beyond high school while keeping the same career-mode philosophy.
 
@@ -82,7 +97,7 @@ Goal: expand the world beyond high school while keeping the same career-mode phi
 
 Exit criteria: the player can leave high school and continue seamlessly into the next career level.
 
-## Phase 6 — Draft and NHL Career Ecosystem
+## Phase 7 — Draft and NHL Career Ecosystem
 
 Goal: deliver the long-form destination of Project Ice.
 
@@ -95,7 +110,7 @@ Goal: deliver the long-form destination of Project Ice.
 
 Exit criteria: a career can progress from age 14 into a persistent professional career.
 
-## Phase 7 — Release Cleanup and Calibration
+## Phase 8 — Release Cleanup and Calibration
 
 Goal: turn the working pre-alpha into a stable, maintainable game build.
 
@@ -116,5 +131,6 @@ Goal: turn the working pre-alpha into a stable, maintainable game build.
 - Career-player lineup role is contextual; AI/NPC lineup ordering is primarily ability-based.
 - Practice/recovery are quick career events, not separate playable mini-games.
 - Play Game, Sim Game and background games should share one canonical hockey simulation engine.
+- Play Game should include occasional contextual career-player decisions without becoming an arcade control mode.
 - New systems should read/write canonical world state and persist through IndexedDB.
 - Prefer small focused commits and immediate testing over large rewrites.
