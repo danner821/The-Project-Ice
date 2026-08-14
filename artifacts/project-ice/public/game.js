@@ -19341,7 +19341,7 @@ function advanceLiveGamePresentationStep() {
         : succeeded
           ? `Pressure drops from ${Number(outcomeEvent?.pressureBefore || 0).toFixed(1)} to ${Number(outcomeEvent?.pressureAfter || 0).toFixed(1)} and the danger is contained.`
           : `The gamble does not land · opponent pressure rises to ${Number(outcomeEvent?.pressureAfter || 0).toFixed(1)}.`;
-      outcomeTag = wonPuck ? 'TAKEAWAY' : succeeded ? 'DEFENDED' : 'BEATEN';
+      resultTag = wonPuck ? 'TAKEAWAY' : succeeded ? 'DEFENDED' : 'BEATEN';
     } else if (outcomeType === 'career-pass') {
       resultTag = 'CREATED';
       outcomeTitle =
