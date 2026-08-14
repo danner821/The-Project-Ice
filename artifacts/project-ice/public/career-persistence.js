@@ -20,8 +20,6 @@
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
 
-  let continueRecoveryBound = false;
-
   function openDatabase() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -143,116 +141,6 @@
     };
   }
 
-  function bindCanonicalContinueRecovery() {
-    const button = document.getElementById('btn-continue');
-
-    if (!button || continueRecoveryBound) return;
-
-    /*
-     * The title-screen listener in game.js is present, but recovered
-     * IndexedDB careers can still leave the title visible without
-     * throwing. This bubble listener runs after game.js's listener.
-     * If game.js already navigated, it does nothing. If not, it uses
-     * game.js's existing canonical sync/render helpers to finish the
-     * restore from the already-loaded WorldEngine state.
-     */
-    button.addEventListener('click', () => {
-      window.setTimeout(() => {
-        const titleScreen = document.getElementById('title-screen');
-        const stillOnTitle = Boolean(
-          titleScreen &&
-          !titleScreen.classList.contains('screen--hidden')
-        );
-
-        if (!stillOnTitle) return;
-
-        try {
-          const previewText = localStorage.getItem(SAVE_KEY);
-          const preview = previewText
-            ? JSON.parse(previewText)
-            : null;
-
-          if (!preview?.player) {
-            throw new Error('Recovered career preview is missing player data.');
-          }
-
-          if (typeof Game !== 'object' || !Game.player) {
-            throw new Error('Game state is unavailable.');
-          }
-
-          Game.player = {
-            ...Game.player,
-            ...preview.player,
-            stage: 'hub',
-            tryoutsComplete: true,
-          };
-
-          const canonicalPlayer =
-            typeof syncCareerPlayerWithWorld === 'function'
-              ? syncCareerPlayerWithWorld()
-              : null;
-
-          if (!canonicalPlayer) {
-            throw new Error('Canonical career player could not be synchronized from WorldEngine.');
-          }
-
-          Game.player.currentDate =
-            WorldEngine.state?.season?.currentDate ||
-            Game.player.currentDate ||
-            preview.player.currentDate ||
-            null;
-
-          if (typeof ensureCareerScheduleEventsOnLoad === 'function') {
-            ensureCareerScheduleEventsOnLoad();
-          }
-
-          if (typeof refreshScheduleEvents === 'function') {
-            refreshScheduleEvents();
-          }
-
-          if (typeof refreshCareerUI === 'function') {
-            refreshCareerUI();
-          }
-
-          if (typeof showScreen !== 'function') {
-            throw new Error('Project Ice screen router is unavailable.');
-          }
-
-          showScreen('hub');
-
-          if (typeof ensureHubLiveGameDiagnosticButton === 'function') {
-            ensureHubLiveGameDiagnosticButton();
-          }
-
-          console.info(
-            '[Project Ice] Continue Career completed through canonical recovery fallback.',
-            {
-              playerId: Game.player.playerId || Game.player.id,
-              teamId: Game.player.teamId,
-              currentDate: Game.player.currentDate,
-            }
-          );
-        } catch (error) {
-          console.error(
-            '[Project Ice] Canonical Continue Career recovery failed:',
-            error
-          );
-
-          alert(
-            [
-              'CONTINUE CAREER RECOVERY ERROR',
-              '',
-              `Name: ${error?.name || 'Error'}`,
-              `Message: ${error?.message || String(error)}`,
-            ].join('\n')
-          );
-        }
-      }, 0);
-    });
-
-    continueRecoveryBound = true;
-  }
-
   function enableContinueButton() {
     const button = document.getElementById('btn-continue');
 
@@ -269,8 +157,6 @@
       <span class="btn__label">Continue Career</span>
       <span class="btn__arrow">›</span>
     `;
-
-    bindCanonicalContinueRecovery();
   }
 
   function keepContinueButtonEnabled() {
