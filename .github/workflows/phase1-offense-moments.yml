@@ -1,0 +1,32 @@
+name: Phase 1 offense moments
+
+on:
+  push:
+    paths:
+      - '.github/workflows/phase1-offense-moments.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply offense moment upgrade
+        run: python .github/scripts/phase1_offense_moments.py
+
+      - name: Validate JavaScript
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/world.js
+          git diff --check
+
+      - name: Commit gameplay upgrade
+        run: |
+          git config user.name "danner821"
+          git config user.email "danner821@hotmail.com"
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+          git commit -m "Add breakaway and odd-man career moments"
+          git push
