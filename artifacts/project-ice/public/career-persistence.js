@@ -20,7 +20,7 @@
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
 
-  let diagnosticsBound = false;
+  let continueRecoveryBound = false;
 
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -143,90 +143,114 @@
     };
   }
 
-  function bindContinueDiagnostics() {
+  function bindCanonicalContinueRecovery() {
     const button = document.getElementById('btn-continue');
 
-    if (!button || diagnosticsBound) return;
+    if (!button || continueRecoveryBound) return;
 
     /*
-     * game.js catches its own Continue Career errors and only writes
-     * them to console.error. Temporarily observe console.error during
-     * the click without stopping propagation, so the original handler
-     * still runs exactly as written and we can surface the hidden error.
+     * The title-screen listener in game.js is present, but recovered
+     * IndexedDB careers can still leave the title visible without
+     * throwing. This bubble listener runs after game.js's listener.
+     * If game.js already navigated, it does nothing. If not, it uses
+     * game.js's existing canonical sync/render helpers to finish the
+     * restore from the already-loaded WorldEngine state.
      */
-    button.addEventListener(
-      'click',
-      () => {
-        const originalConsoleError = console.error;
-        const captured = [];
+    button.addEventListener('click', () => {
+      window.setTimeout(() => {
+        const titleScreen = document.getElementById('title-screen');
+        const stillOnTitle = Boolean(
+          titleScreen &&
+          !titleScreen.classList.contains('screen--hidden')
+        );
 
-        console.error = (...args) => {
-          captured.push(args);
-          originalConsoleError.apply(console, args);
-        };
+        if (!stillOnTitle) return;
 
-        window.setTimeout(() => {
-          console.error = originalConsoleError;
+        try {
+          const previewText = localStorage.getItem(SAVE_KEY);
+          const preview = previewText
+            ? JSON.parse(previewText)
+            : null;
 
-          const titleScreen =
-            document.getElementById('title-screen');
-
-          const stillOnTitle =
-            Boolean(
-              titleScreen &&
-              !titleScreen.classList.contains('screen--hidden')
-            );
-
-          if (!stillOnTitle) return;
-
-          const loadFailure =
-            captured.find(args =>
-              String(args?.[0] || '').includes(
-                '[Project Ice] Load failed:'
-              )
-            ) || null;
-
-          const previewText =
-            localStorage.getItem(SAVE_KEY);
-
-          let preview = null;
-
-          try {
-            preview = previewText
-              ? JSON.parse(previewText)
-              : null;
-          } catch (error) {
-            preview = null;
+          if (!preview?.player) {
+            throw new Error('Recovered career preview is missing player data.');
           }
 
-          const error =
-            loadFailure?.[1] ||
+          if (typeof Game !== 'object' || !Game.player) {
+            throw new Error('Game state is unavailable.');
+          }
+
+          Game.player = {
+            ...Game.player,
+            ...preview.player,
+            stage: 'hub',
+            tryoutsComplete: true,
+          };
+
+          const canonicalPlayer =
+            typeof syncCareerPlayerWithWorld === 'function'
+              ? syncCareerPlayerWithWorld()
+              : null;
+
+          if (!canonicalPlayer) {
+            throw new Error('Canonical career player could not be synchronized from WorldEngine.');
+          }
+
+          Game.player.currentDate =
+            WorldEngine.state?.season?.currentDate ||
+            Game.player.currentDate ||
+            preview.player.currentDate ||
             null;
+
+          if (typeof ensureCareerScheduleEventsOnLoad === 'function') {
+            ensureCareerScheduleEventsOnLoad();
+          }
+
+          if (typeof refreshScheduleEvents === 'function') {
+            refreshScheduleEvents();
+          }
+
+          if (typeof refreshCareerUI === 'function') {
+            refreshCareerUI();
+          }
+
+          if (typeof showScreen !== 'function') {
+            throw new Error('Project Ice screen router is unavailable.');
+          }
+
+          showScreen('hub');
+
+          if (typeof ensureHubLiveGameDiagnosticButton === 'function') {
+            ensureHubLiveGameDiagnosticButton();
+          }
+
+          console.info(
+            '[Project Ice] Continue Career completed through canonical recovery fallback.',
+            {
+              playerId: Game.player.playerId || Game.player.id,
+              teamId: Game.player.teamId,
+              currentDate: Game.player.currentDate,
+            }
+          );
+        } catch (error) {
+          console.error(
+            '[Project Ice] Canonical Continue Career recovery failed:',
+            error
+          );
 
           alert(
             [
-              'CONTINUE CAREER LOAD DIAGNOSTIC',
+              'CONTINUE CAREER RECOVERY ERROR',
               '',
-              `Load error captured: ${Boolean(loadFailure)}`,
-              `Error name: ${error?.name || 'none'}`,
-              `Error message: ${error?.message || 'none'}`,
-              '',
-              `Preview exists: ${Boolean(previewText)}`,
-              `Preview stage: ${preview?.player?.stage || 'missing'}`,
-              `Preview player: ${[
-                preview?.player?.firstName,
-                preview?.player?.lastName,
-              ].filter(Boolean).join(' ') || 'missing'}`,
-              `Preview teamId: ${preview?.player?.teamId || 'missing'}`,
-              `Preview date: ${preview?.player?.currentDate || 'missing'}`,
+              `Name: ${error?.name || 'Error'}`,
+              `Message: ${error?.message || String(error)}`,
             ].join('\n')
           );
-        }, 100);
-      },
-      true
-    );
+        }
+      }, 0);
+    });
 
-    diagnosticsBound = true;
+    continueRecoveryBound = true;
   }
 
   function enableContinueButton() {
@@ -234,12 +258,6 @@
 
     if (!button) return;
 
-    /*
-     * IMPORTANT:
-     * game.js already owns the canonical Continue Career click handler.
-     * This bridge ONLY repairs persistence state and button availability.
-     * It must never intercept, stop, redispatch, or duplicate the click.
-     */
     button.disabled = false;
     button.removeAttribute('disabled');
     button.setAttribute('aria-disabled', 'false');
@@ -252,7 +270,7 @@
       <span class="btn__arrow">›</span>
     `;
 
-    bindContinueDiagnostics();
+    bindCanonicalContinueRecovery();
   }
 
   function keepContinueButtonEnabled() {
