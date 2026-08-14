@@ -17821,19 +17821,35 @@ const WorldEngine = (() => {
         return null;
       }
 
-      return (
-        matchingPlayers.reduce(
-          (sum, player) =>
-            sum +
-            Math.max(
-              0,
-              Number(
-                player.timeOnIceSeconds
-              ) || 0
-            ),
+      const playerTOIValues =
+        matchingPlayers.map(player =>
+          Math.max(
+            0,
+            Number(
+              player.timeOnIceSeconds
+            ) || 0
+          )
+        );
+
+      const averageTOI =
+        playerTOIValues.reduce(
+          (sum, value) =>
+            sum + value,
           0
         ) /
-        matchingPlayers.length
+        playerTOIValues.length;
+
+      const hottestPlayerTOI =
+        Math.max(...playerTOIValues);
+
+      /*
+       * Blend the unit average with the most-used skater. A player who
+       * accumulated extra PP/PK minutes now meaningfully cools the next
+       * 5-on-5 deployment without forcing every linemate to identical TOI.
+       */
+      return (
+        averageTOI * 0.58 +
+        hottestPlayerTOI * 0.42
       );
     };
 
@@ -17920,10 +17936,16 @@ const WorldEngine = (() => {
          * Seconds played drive the decision. Shift-count balance remains a
          * smaller stabilizer, and modest jitter keeps rotations organic.
          */
+        const overTargetPenalty =
+          toiDeficit < 0
+            ? Math.abs(toiDeficit) * 0.45
+            : 0;
+
         const score =
-          toiDeficit * 1.25 +
-          shiftCountDeficit * 18 +
-          Math.random() * 12;
+          toiDeficit * 1.35 -
+          overTargetPenalty +
+          shiftCountDeficit * 15 +
+          Math.random() * 10;
 
         if (score > bestScore) {
           bestScore = score;

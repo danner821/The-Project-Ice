@@ -18917,7 +18917,7 @@ function maybeOpenLiveGameCareerDecision() {
     ? Math.min(0.18, 0.055 + pressure * 0.021)
     : zone === 'offensive'
       ? Math.min(0.20, 0.07 + pressure * 0.023)
-      : 0.03;
+      : 0.085;
 
   if (!careerIsDefending && onPowerPlay) chance += 0.035;
   if (careerIsDefending && careerSkaters < opponentSkaters) chance += 0.035;
@@ -18977,7 +18977,7 @@ function maybeOpenLiveGameCareerDecision() {
   if (!careerIsDefending && zone === 'neutral') {
     const rushRoll = Math.random();
 
-    if (rushRoll < 0.18) {
+    if (rushRoll < 0.24) {
       scenario = {
         key: 'breakaway',
         eyebrow: 'BREAKAWAY',
@@ -19005,7 +19005,7 @@ function maybeOpenLiveGameCareerDecision() {
           },
         ],
       };
-    } else if (rushRoll < 0.52) {
+    } else if (rushRoll < 0.68) {
       scenario = {
         key: 'two-on-one',
         eyebrow: '2-ON-1 RUSH',
