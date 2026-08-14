@@ -18921,7 +18921,7 @@ function pauseLiveGamePlayback() {
    * result application + existing Postgame Summary handoff.
    */
   window.setTimeout(
-    () => {
+    async () => {
       if (
         !activeLiveGame ||
         activeLiveGame
