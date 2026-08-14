@@ -23639,6 +23639,134 @@ function resolveLiveGameCareerPass(
   };
 }
 
+  function resolveLiveGameCareerDefense(
+    simulation,
+    playerId,
+    action
+  ) {
+    if (!simulation || !simulation.flow || !playerId) {
+      return { success: false, reason: 'invalid-career-defense-state', event: null };
+    }
+
+    const flow = simulation.flow;
+    const careerPlayer = getPlayerById(playerId);
+    if (!careerPlayer) {
+      return { success: false, reason: 'career-defender-not-found', event: null };
+    }
+
+    const homeOnIce = Array.isArray(flow.homeDeployment?.skaters)
+      ? flow.homeDeployment.skaters : [];
+    const awayOnIce = Array.isArray(flow.awayDeployment?.skaters)
+      ? flow.awayDeployment.skaters : [];
+    const careerSide = homeOnIce.some(p => String(p.playerId) === String(playerId))
+      ? 'home'
+      : awayOnIce.some(p => String(p.playerId) === String(playerId))
+        ? 'away' : null;
+
+    if (!careerSide || flow.possessionSide === careerSide) {
+      return { success: false, reason: 'career-defense-context-missing', event: null };
+    }
+
+    const attackingSide = flow.possessionSide;
+    const attackingDeployment = attackingSide === 'home'
+      ? flow.homeDeployment : flow.awayDeployment;
+    const attackers = Array.isArray(attackingDeployment?.skaters)
+      ? attackingDeployment.skaters : [];
+    const attrs = careerPlayer.attributes || {};
+
+    const attackerPressure = attackers.length
+      ? attackers.reduce((sum, skater) => {
+          const p = getPlayerById(skater.playerId)?.attributes || {};
+          return sum + (Number(p.puckControl) || 50) * 0.45 +
+            (Number(p.offensiveAwareness) || 50) * 0.35 +
+            (Number(p.skating) || Number(p.acceleration) || 50) * 0.20;
+        }, 0) / attackers.length
+      : 50;
+
+    let defenseSkill = 50;
+    let baseChance = 0.50;
+    let pressureReduction = 1;
+    let turnoverBonus = 0;
+
+    if (action === 'defend-stick') {
+      defenseSkill = (Number(attrs.stickChecking) || 50) * 0.50 +
+        (Number(attrs.defensiveAwareness) || 50) * 0.35 +
+        (Number(attrs.acceleration) || Number(attrs.skating) || 50) * 0.15;
+      baseChance = 0.52;
+      pressureReduction = 1.6;
+      turnoverBonus = 0.28;
+    } else if (action === 'defend-body') {
+      defenseSkill = (Number(attrs.bodyChecking) || 50) * 0.50 +
+        (Number(attrs.strength) || 50) * 0.30 +
+        (Number(attrs.aggression) || 50) * 0.20;
+      baseChance = 0.44;
+      pressureReduction = 2.0;
+      turnoverBonus = 0.34;
+    } else {
+      defenseSkill = (Number(attrs.defensiveAwareness) || 50) * 0.55 +
+        (Number(attrs.stickChecking) || 50) * 0.20 +
+        (Number(attrs.skating) || Number(attrs.acceleration) || 50) * 0.25;
+      baseChance = 0.62;
+      pressureReduction = 1.35;
+      turnoverBonus = 0.12;
+    }
+
+    const successChance = Math.max(0.28, Math.min(0.88,
+      baseChance + (defenseSkill - attackerPressure) * 0.006));
+    const succeeded = Math.random() < successChance;
+    const pressureBefore = Number(flow.pressureLevel) || 0;
+    let possessionChanged = false;
+
+    if (succeeded) {
+      flow.pressureLevel = Math.max(0, pressureBefore - pressureReduction);
+      possessionChanged = Math.random() < Math.min(0.82, 0.30 + turnoverBonus +
+        (defenseSkill - attackerPressure) * 0.004);
+
+      if (possessionChanged) {
+        flow.possessionSide = careerSide;
+        flow.zone = flow.zone === 'offensive' ? 'defensive'
+          : flow.zone === 'defensive' ? 'offensive' : 'neutral';
+        flow.paceContext = 'transition';
+        flow.pressureLevel = 0;
+        flow.recentPossessionTouches = [];
+        const teamState = careerSide === 'home' ? simulation.home : simulation.away;
+        teamState.takeaways = (Number(teamState.takeaways) || 0) + 1;
+        careerPlayer.takeaways = (Number(careerPlayer.takeaways) || 0) + 1;
+      } else {
+        flow.paceContext = 'normal';
+      }
+
+      if (action === 'defend-body') {
+        const teamState = careerSide === 'home' ? simulation.home : simulation.away;
+        teamState.hits = (Number(teamState.hits) || 0) + 1;
+        careerPlayer.hits = (Number(careerPlayer.hits) || 0) + 1;
+      }
+    } else {
+      flow.pressureLevel = Math.min(5, pressureBefore + (action === 'defend-body' ? 0.75 : 0.45));
+      flow.paceContext = flow.zone === 'offensive' ? 'offensive-zone' : 'normal';
+    }
+
+    flow.lastEventType = 'career-defense';
+    flow.lastEventSide = careerSide;
+
+    const event = {
+      id: `live-event-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      type: 'career-defense',
+      period: simulation.period,
+      clockSecondsRemaining: simulation.clockSecondsRemaining,
+      side: careerSide,
+      playerId,
+      defenseAction: action,
+      succeeded,
+      possessionChanged,
+      successChance,
+      pressureBefore,
+      pressureAfter: Number(flow.pressureLevel) || 0,
+    };
+    simulation.events.push(event);
+    return { success: true, reason: 'career-defense-resolved', succeeded, possessionChanged, event };
+  }
+
   function resolveLiveGameHit(
     simulation
   ) {
@@ -26530,20 +26658,12 @@ simulation.pendingCareerDecision =
 
 const selection =
   pendingCareerDecision?.action === 'shoot'
-    ? {
-        success: true,
-        reason: 'career-decision-shoot',
-        eventType: 'shot-attempt',
-      }
+    ? { success: true, reason: 'career-decision-shoot', eventType: 'shot-attempt' }
     : pendingCareerDecision?.action === 'pass'
-      ? {
-          success: true,
-          reason: 'career-decision-pass',
-          eventType: 'career-pass',
-        }
-      : selectNextLiveGameEventType(
-          simulation
-        );
+      ? { success: true, reason: 'career-decision-pass', eventType: 'career-pass' }
+      : ['defend-stick', 'defend-body', 'defend-contain'].includes(pendingCareerDecision?.action)
+        ? { success: true, reason: 'career-decision-defense', eventType: 'career-defense' }
+        : selectNextLiveGameEventType(simulation);
 
     if (
       !selection ||
@@ -26580,6 +26700,14 @@ case 'career-pass':
       simulation,
       pendingCareerDecision?.playerId || null
     );
+  break;
+
+case 'career-defense':
+  resolution = resolveLiveGameCareerDefense(
+    simulation,
+    pendingCareerDecision?.playerId || null,
+    pendingCareerDecision?.action || 'defend-contain'
+  );
   break;
 
       case 'hit':

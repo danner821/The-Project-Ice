@@ -18127,6 +18127,7 @@ function appendLiveGameEventToFeed(
       'goal',
       'penalty',
       'career-pass',
+      'career-defense',
     ]);
 
   if (
@@ -18749,19 +18750,16 @@ function maybeOpenLiveGameCareerDecision() {
     context.inPenaltyBox ||
     !flow ||
     flow.stopped === true ||
-    flow.possessionSide !== context.side
+    (flow.possessionSide !== 'home' && flow.possessionSide !== 'away')
   ) {
     return false;
   }
 
-  const zone =
-    flow.zone ||
-    'neutral';
+  const zone = flow.zone || 'neutral';
+  const careerHasPossession = flow.possessionSide === context.side;
+  const careerIsDefending = flow.possessionSide !== context.side;
 
-  if (
-    zone !== 'offensive' &&
-    zone !== 'neutral'
-  ) {
+  if (careerHasPossession && zone !== 'offensive' && zone !== 'neutral') {
     return false;
   }
 
@@ -18820,22 +18818,15 @@ function maybeOpenLiveGameCareerDecision() {
     Number(flow.pressureLevel) ||
     0;
 
-  let chance =
-    zone === 'offensive'
-      ? Math.min(
-          0.20,
-          0.07 +
-          pressure * 0.023
-        )
+  let chance = careerIsDefending
+    ? Math.min(0.18, 0.055 + pressure * 0.021)
+    : zone === 'offensive'
+      ? Math.min(0.20, 0.07 + pressure * 0.023)
       : 0.03;
 
-  if (onPowerPlay) {
-    chance += 0.035;
-  }
-
-  if (lateClutch) {
-    chance += 0.08;
-  }
+  if (!careerIsDefending && onPowerPlay) chance += 0.035;
+  if (careerIsDefending && careerSkaters < opponentSkaters) chance += 0.035;
+  if (lateClutch) chance += careerIsDefending ? 0.06 : 0.08;
 
   if (Math.random() >= chance) {
     return false;
@@ -18845,7 +18836,22 @@ function maybeOpenLiveGameCareerDecision() {
   liveGameCareerDecisionOpen =
     true;
 
-  let scenario = {
+  let scenario = careerIsDefending ? {
+    key: zone === 'offensive' ? 'defensive-zone-read' : 'backcheck-read',
+    eyebrow: zone === 'offensive' ? 'DEFENSIVE ZONE' : 'BACKCHECK',
+    title: zone === 'offensive'
+      ? 'The puck carrier attacks your layer of coverage.'
+      : 'The rush is coming back at you with speed.',
+    detail: zone === 'offensive'
+      ? 'Choose how aggressively you want to challenge the possession.'
+      : 'Your read can stop the rush or give the attack another lane.',
+    accent: '#7dd3b0',
+    choices: [
+      { action: 'defend-stick', label: 'Attack the puck', note: 'Use your stick and timing to force a takeaway', risk: 'READ' },
+      { action: 'defend-body', label: 'Step into him', note: 'Use strength and body checking to separate puck from player', risk: 'PHYSICAL' },
+      { action: 'defend-contain', label: 'Hold your lane', note: 'Stay disciplined and take away the dangerous option', risk: 'POSITION' },
+    ],
+  } : {
     key: 'offensive-read',
     eyebrow: 'OFFENSIVE ZONE',
     title: 'You receive the puck with room to work.',
@@ -18873,7 +18879,7 @@ function maybeOpenLiveGameCareerDecision() {
     ],
   };
 
-  if (zone === 'neutral') {
+  if (!careerIsDefending && zone === 'neutral') {
     scenario = {
       key: 'transition-rush',
       eyebrow: 'TRANSITION RUSH',
@@ -18901,7 +18907,7 @@ function maybeOpenLiveGameCareerDecision() {
         },
       ],
     };
-  } else if (pressure >= 5) {
+  } else if (!careerIsDefending && pressure >= 5) {
     scenario = {
       key: 'net-front-chaos',
       eyebrow: 'NET-FRONT CHAOS',
@@ -18929,7 +18935,7 @@ function maybeOpenLiveGameCareerDecision() {
         },
       ],
     };
-  } else if (pressure >= 3) {
+  } else if (!careerIsDefending && pressure >= 3) {
     scenario = {
       key: 'high-danger-read',
       eyebrow: 'HIGH-DANGER READ',
@@ -18959,7 +18965,7 @@ function maybeOpenLiveGameCareerDecision() {
     };
   }
 
-  if (onPowerPlay) {
+  if (!careerIsDefending && onPowerPlay) {
     scenario = {
       key: 'power-play-read',
       eyebrow: 'POWER PLAY',
@@ -18989,7 +18995,7 @@ function maybeOpenLiveGameCareerDecision() {
     };
   }
 
-  if (lateClutch) {
+  if (lateClutch && !careerIsDefending) {
     const tied =
       scoreDiff === 0;
 
@@ -19321,6 +19327,21 @@ function advanceLiveGamePresentationStep() {
         'The possession produces a shot.';
       impactDetail =
         `Score ${careerScore}-${opponentScore} · pressure ${pressureAfter}`;
+    } else if (outcomeType === 'career-defense') {
+      const defenseAction = String(outcomeEvent?.defenseAction || choice.action || '');
+      const succeeded = outcomeEvent?.succeeded === true;
+      const wonPuck = outcomeEvent?.possessionChanged === true;
+      outcomeTitle = wonPuck
+        ? 'You win the puck back.'
+        : succeeded
+          ? 'You shut the play down.'
+          : 'The attacker gets through your pressure.';
+      outcomeDetail = wonPuck
+        ? `${defenseAction === 'defend-body' ? 'The contact separates him from the puck' : 'Your read creates the takeaway'} · possession flips your way.`
+        : succeeded
+          ? `Pressure drops from ${Number(outcomeEvent?.pressureBefore || 0).toFixed(1)} to ${Number(outcomeEvent?.pressureAfter || 0).toFixed(1)} and the danger is contained.`
+          : `The gamble does not land · opponent pressure rises to ${Number(outcomeEvent?.pressureAfter || 0).toFixed(1)}.`;
+      outcomeTag = wonPuck ? 'TAKEAWAY' : succeeded ? 'DEFENDED' : 'BEATEN';
     } else if (outcomeType === 'career-pass') {
       resultTag = 'CREATED';
       outcomeTitle =
