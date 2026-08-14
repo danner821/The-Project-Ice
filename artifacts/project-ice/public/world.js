@@ -17751,23 +17751,120 @@ const WorldEngine = (() => {
     const usage =
       simulation.flow.deploymentUsage[side];
 
+    const getElapsedRegulationSeconds = () => {
+      const period =
+        Math.max(
+          1,
+          Number(simulation.period) || 1
+        );
+
+      const completedPeriods =
+        Math.max(
+          0,
+          Math.min(2, period - 1)
+        );
+
+      const currentPeriodElapsed =
+        period <= 3
+          ? Math.max(
+              0,
+              1200 -
+                Math.max(
+                  0,
+                  Math.min(
+                    1200,
+                    Number(
+                      simulation.clockSecondsRemaining
+                    ) || 0
+                  )
+                )
+            )
+          : 1200;
+
+      return (
+        completedPeriods * 1200 +
+        currentPeriodElapsed
+      );
+    };
+
+    const teamSkaters =
+      Array.isArray(
+        side === 'home'
+          ? simulation.home?.skaters
+          : simulation.away?.skaters
+      )
+        ? (
+            side === 'home'
+              ? simulation.home.skaters
+              : simulation.away.skaters
+          )
+        : [];
+
+    const getUnitAverageTOI = (
+      unit,
+      assignmentKey,
+      assignmentValue
+    ) => {
+      const matchingPlayers =
+        teamSkaters.filter(player =>
+          player
+            ?.lineupAssignment
+            ?.unit === unit &&
+          Number(
+            player
+              ?.lineupAssignment
+              ?.[assignmentKey]
+          ) === Number(assignmentValue)
+        );
+
+      if (matchingPlayers.length === 0) {
+        return null;
+      }
+
+      return (
+        matchingPlayers.reduce(
+          (sum, player) =>
+            sum +
+            Math.max(
+              0,
+              Number(
+                player.timeOnIceSeconds
+              ) || 0
+            ),
+          0
+        ) /
+        matchingPlayers.length
+      );
+    };
+
     const balancedPick = (
       weightedOptions,
       usageMap,
-      key
+      key,
+      unit,
+      assignmentKey
     ) => {
       const totalWeight =
         weightedOptions.reduce(
           (sum, option) =>
-            sum + Math.max(0, Number(option.weight) || 0),
+            sum +
+            Math.max(
+              0,
+              Number(option.weight) || 0
+            ),
           0
         );
 
       const totalSelections =
         Object.values(usageMap).reduce(
-          (sum, value) => sum + (Number(value) || 0),
+          (sum, value) =>
+            sum +
+            (Number(value) || 0),
           0
         );
+
+      const elapsedGameSeconds =
+        getElapsedRegulationSeconds();
 
       let best = null;
       let bestScore = -Infinity;
@@ -17775,22 +17872,58 @@ const WorldEngine = (() => {
       weightedOptions.forEach(option => {
         const id =
           Number(option[key]);
+
         const targetShare =
           totalWeight > 0
-            ? (Number(option.weight) || 0) / totalWeight
+            ? (Number(option.weight) || 0) /
+              totalWeight
             : 0;
+
         const actualCount =
           Number(usageMap[id]) || 0;
+
         const targetCountAfterNext =
-          (totalSelections + 1) * targetShare;
+          (totalSelections + 1) *
+          targetShare;
+
+        const averageUnitTOI =
+          getUnitAverageTOI(
+            unit,
+            assignmentKey,
+            id
+          );
 
         /*
-         * Large deficit term keeps usage near role targets.
-         * Small jitter preserves natural shift-to-shift variation.
+         * Target TOTAL game TOI by role, not merely equal shift counts.
+         * Because actual TOI includes PP/PK usage, heavy special-teams work
+         * automatically reduces the urgency of the next 5-on-5 shift.
+         */
+        const targetTOI =
+          Math.max(
+            45,
+            elapsedGameSeconds
+          ) * targetShare;
+
+        const toiDeficit =
+          Number.isFinite(
+            averageUnitTOI
+          )
+            ? targetTOI -
+              averageUnitTOI
+            : 0;
+
+        const shiftCountDeficit =
+          targetCountAfterNext -
+          actualCount;
+
+        /*
+         * Seconds played drive the decision. Shift-count balance remains a
+         * smaller stabilizer, and modest jitter keeps rotations organic.
          */
         const score =
-          (targetCountAfterNext - actualCount) * 100 +
-          Math.random() * 10;
+          toiDeficit * 1.25 +
+          shiftCountDeficit * 18 +
+          Math.random() * 12;
 
         if (score > bestScore) {
           bestScore = score;
@@ -17798,13 +17931,17 @@ const WorldEngine = (() => {
         }
       });
 
-      return best || weightedOptions[0] || null;
+      return best ||
+        weightedOptions[0] ||
+        null;
     };
 
     const selectedForwardLine =
       balancedPick(
         forwardLineWeights,
         usage.forwardLines,
+        'line',
+        'forward',
         'line'
       );
 
@@ -17812,6 +17949,8 @@ const WorldEngine = (() => {
       balancedPick(
         defensePairWeights,
         usage.defensePairs,
+        'pair',
+        'defense',
         'pair'
       );
 

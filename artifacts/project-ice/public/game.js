@@ -14140,10 +14140,105 @@ function updateHubScreen() {
       },
     ];
 
-    const categories =
+    const rawCategories =
       isGoalie
         ? goalieCategories
         : skaterCategories;
+
+    /*
+     * PLAYER TAB ATTRIBUTE OWNERSHIP
+     *
+     * Several canonical attributes legitimately influence more than one
+     * development category under the hood. The Player tab should not render
+     * the same upgradeable attribute twice, though, because one manual +1
+     * then looks like two separate upgrades happened.
+     *
+     * Keep the backend category/development weights untouched and give each
+     * skater attribute one clear player-facing home here.
+     */
+    const primaryCategoryByAttribute = {
+      speed: 'Skating',
+      acceleration: 'Skating',
+      agility: 'Skating',
+      balance: 'Skating',
+      endurance: 'Skating',
+
+      wristShotPower: 'Shooting',
+      wristShotAccuracy: 'Shooting',
+      slapShotPower: 'Shooting',
+      slapShotAccuracy: 'Shooting',
+      handEye: 'Shooting',
+
+      passing: 'Passing',
+      puckControl: 'Passing',
+      deking: 'Passing',
+
+      defensiveAwareness: 'Defense',
+      stickChecking: 'Defense',
+      shotBlocking: 'Defense',
+      discipline: 'Defense',
+
+      strength: 'Physical',
+      bodyChecking: 'Physical',
+      durability: 'Physical',
+
+      offensiveAwareness: 'Hockey IQ',
+      poise: 'Hockey IQ',
+    };
+
+    const seenAttributeKeys =
+      new Set();
+
+    const categories =
+      isGoalie
+        ? rawCategories
+        : rawCategories
+            .map(category => ({
+              ...category,
+              attributes:
+                Array.isArray(category.attributes)
+                  ? category.attributes.filter(attribute => {
+                      const attributeKey =
+                        attribute?.key ||
+                        null;
+
+                      if (!attributeKey) {
+                        return true;
+                      }
+
+                      const primaryCategory =
+                        primaryCategoryByAttribute[
+                          attributeKey
+                        ];
+
+                      if (
+                        primaryCategory &&
+                        primaryCategory !== category.name
+                      ) {
+                        return false;
+                      }
+
+                      if (
+                        seenAttributeKeys.has(
+                          attributeKey
+                        )
+                      ) {
+                        return false;
+                      }
+
+                      seenAttributeKeys.add(
+                        attributeKey
+                      );
+
+                      return true;
+                    })
+                  : [],
+            }))
+            .filter(
+              category =>
+                category.attributes.length > 0
+            );
+
     const upgradeableCategories =
       getUpgradeableAttributeCategories(
         player
