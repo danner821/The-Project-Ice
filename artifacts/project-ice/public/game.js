@@ -10127,11 +10127,13 @@ function simulateToDate(
       return reachedDate;
     }
 
-    EventSystem.openEvent(
-      blockingScheduleEvent.eventId,
-      'schedule',
-      blockingScheduleEvent
-    );
+    if (blockingScheduleEvent) {
+      EventSystem.openEvent(
+        blockingScheduleEvent.eventId,
+        'schedule',
+        blockingScheduleEvent
+      );
+    }
 }
 
 /*
@@ -18822,9 +18824,39 @@ function submitLiveGameCareerDecision(
   liveGameCareerDecisionCooldownSteps =
     11;
 
-  startLiveGamePlayback(
-    liveGamePlaybackSpeed
-  );
+  /*
+   * Resolve the selected hockey action immediately. The choice itself
+   * intentionally paused playback, so waiting for the next playback timer
+   * made some rush decisions appear frozen until the user pressed 1x.
+   */
+  liveGamePlaybackPaused = false;
+  clearLiveGamePlaybackTimer();
+
+  const immediateDecisionResult =
+    advanceLiveGamePresentationChunk(60);
+
+  if (
+    (!immediateDecisionResult || immediateDecisionResult.success !== true) &&
+    activeLiveGame?.gameComplete !== true
+  ) {
+    console.error(
+      '[Project Ice] Immediate career decision resolution failed.',
+      immediateDecisionResult
+    );
+    startLiveGamePlayback(liveGamePlaybackSpeed);
+    return;
+  }
+
+  /*
+   * A meaningful outcome pauses itself and waits for Resume Game. If this
+   * particular action produced no outcome overlay, return to normal playback.
+   */
+  if (
+    !document.getElementById('live-game-career-outcome') &&
+    activeLiveGame?.gameComplete !== true
+  ) {
+    startLiveGamePlayback(liveGamePlaybackSpeed);
+  }
 }
 
 function maybeOpenLiveGameCareerDecision() {
@@ -19852,6 +19884,18 @@ function pauseLiveGamePlayback() {
     true;
 
   clearLiveGamePlaybackTimer();
+
+  /*
+   * The final horn owns the live-game screen. Remove any persistent career
+   * decision/outcome overlay so it cannot sit above the final Continue button.
+   */
+  document.getElementById(
+    'live-game-career-decision'
+  )?.remove();
+  document.getElementById(
+    'live-game-career-outcome'
+  )?.remove();
+  liveGameCareerDecisionOpen = false;
 
   /*
    * Make absolutely sure the final scoreboard, manpower state,
