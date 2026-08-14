@@ -1,0 +1,37 @@
+name: Phase 1 polish fixes
+
+on:
+  push:
+    paths:
+      - '.github/workflows/phase1-polish-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Apply targeted fixes
+        run: python .github/scripts/phase1_polish_fix.py
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/world.js
+
+      - name: Verify targeted diff
+        run: |
+          git diff --check
+          git diff -- artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+
+      - name: Commit fixes
+        run: |
+          git config user.name "danner821"
+          git config user.email "danner821@hotmail.com"
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+          git commit -m "Fix duplicate attribute display and TOI balancing"
+          git push
