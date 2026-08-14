@@ -21820,7 +21820,8 @@ const WorldEngine = (() => {
    * zone pressure, and the defending goalie.
    */
   function resolveLiveGameShotAttempt(
-    simulation
+    simulation,
+    forcedShooterPlayerId = null
   ) {
     if (
       !simulation ||
@@ -22010,10 +22011,25 @@ const WorldEngine = (() => {
       }
     }
 
-    const shooterPlayer =
-      getPlayerById(
-        shooter.playerId
-      );
+if (forcedShooterPlayerId) {
+  const forcedShooter =
+    attackingSkaters.find(
+      player =>
+        String(player?.playerId || '') ===
+        String(forcedShooterPlayerId)
+    ) ||
+    null;
+
+  if (forcedShooter) {
+    shooter =
+      forcedShooter;
+  }
+}
+
+const shooterPlayer =
+  getPlayerById(
+    shooter.playerId
+  );
 
     const goaliePlayer =
       getPlayerById(
@@ -23430,6 +23446,213 @@ const WorldEngine = (() => {
    * LIVE GAME — HIT RESOLUTION
    * ============================================================
    */
+/*
+ * ============================================================
+ * LIVE GAME — CAREER PLAYER PASS DECISION
+ * ============================================================
+ */
+function resolveLiveGameCareerPass(
+  simulation,
+  playerId
+) {
+  const flow =
+    simulation?.flow ||
+    null;
+
+  const side =
+    flow?.possessionSide ||
+    null;
+
+  if (
+    !flow ||
+    flow.stopped === true ||
+    !playerId ||
+    (side !== 'home' && side !== 'away')
+  ) {
+    return {
+      success: false,
+      reason: 'career-pass-context-invalid',
+      event: null,
+    };
+  }
+
+  const deployment =
+    side === 'home'
+      ? flow.homeDeployment
+      : flow.awayDeployment;
+
+  const defendingDeployment =
+    side === 'home'
+      ? flow.awayDeployment
+      : flow.homeDeployment;
+
+  const passer =
+    (Array.isArray(deployment?.skaters)
+      ? deployment.skaters
+      : []
+    ).find(
+      player =>
+        String(player?.playerId || '') ===
+        String(playerId)
+    ) ||
+    null;
+
+  if (!passer) {
+    return {
+      success: false,
+      reason: 'career-passer-not-deployed',
+      event: null,
+    };
+  }
+
+  const passerAttributes =
+    getPlayerById(playerId)
+      ?.attributes ||
+    {};
+
+  const passSkill =
+    (Number(passerAttributes.passing) || 50) * 0.44 +
+    (Number(passerAttributes.puckControl) || 50) * 0.22 +
+    (Number(passerAttributes.offensiveAwareness) || 50) * 0.21 +
+    (Number(passerAttributes.poise) || 50) * 0.13;
+
+  const defenders =
+    Array.isArray(defendingDeployment?.skaters)
+      ? defendingDeployment.skaters
+      : [];
+
+  const defensivePressure =
+    defenders.length
+      ? defenders.reduce(
+          (total, defender) => {
+            const attrs =
+              getPlayerById(defender.playerId)
+                ?.attributes ||
+              {};
+            return total +
+              (Number(attrs.stickChecking) || 50) * 0.55 +
+              (Number(attrs.defensiveAwareness) || 50) * 0.45;
+          },
+          0
+        ) / defenders.length
+      : 50;
+
+  const successChance =
+    Math.max(
+      0.46,
+      Math.min(
+        0.91,
+        0.70 +
+        (passSkill - defensivePressure) * 0.006
+      )
+    );
+
+  const completed =
+    Math.random() < successChance;
+
+  if (completed) {
+    flow.zone =
+      flow.zone === 'defensive'
+        ? 'neutral'
+        : 'offensive';
+    flow.paceContext =
+      'offensive-zone';
+    flow.pressureLevel =
+      Math.min(
+        5,
+        (Number(flow.pressureLevel) || 0) + 1.25
+      );
+    flow.lastEventType =
+      'career-pass';
+    flow.lastEventSide =
+      side;
+
+    recordLiveGamePossessionTouch(
+      simulation,
+      side,
+      playerId,
+      'career-pass'
+    );
+
+    const event = {
+      id: `live-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type: 'career-pass',
+      period: simulation.period,
+      clockSecondsRemaining: simulation.clockSecondsRemaining,
+      side,
+      playerId,
+      completed: true,
+      successChance,
+    };
+
+    simulation.events.push(event);
+
+    return {
+      success: true,
+      reason: 'career-pass-completed',
+      completed: true,
+      event,
+    };
+  }
+
+  const defendingSide =
+    side === 'home'
+      ? 'away'
+      : 'home';
+  const attackingTeam =
+    side === 'home'
+      ? simulation.home
+      : simulation.away;
+
+  attackingTeam.giveaways =
+    (Number(attackingTeam.giveaways) || 0) + 1;
+  passer.giveaways =
+    (Number(passer.giveaways) || 0) + 1;
+
+  flow.possessionSide =
+    defendingSide;
+  flow.zone =
+    flow.zone === 'offensive'
+      ? 'defensive'
+      : flow.zone === 'defensive'
+        ? 'offensive'
+        : 'neutral';
+  flow.paceContext =
+    'transition';
+  flow.pressureLevel =
+    0;
+  flow.recentPossessionTouches =
+    [];
+  flow.lastEventType =
+    'giveaway';
+  flow.lastEventSide =
+    defendingSide;
+
+  const event = {
+    id: `live-event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type: 'turnover',
+    period: simulation.period,
+    clockSecondsRemaining: simulation.clockSecondsRemaining,
+    giveawaySide: side,
+    takeawaySide: defendingSide,
+    giveawayPlayerId: playerId,
+    takeawayPlayerId: null,
+    creditedTakeaway: false,
+    possessionChanged: true,
+    careerDecision: 'pass',
+    successChance,
+  };
+
+  simulation.events.push(event);
+
+  return {
+    success: true,
+    reason: 'career-pass-missed',
+    completed: false,
+    event,
+  };
+}
+
   function resolveLiveGameHit(
     simulation
   ) {
@@ -26310,10 +26533,31 @@ const WorldEngine = (() => {
      * SELECT NEXT EVENT
      * ==========================================================
      */
-    const selection =
-      selectNextLiveGameEventType(
-        simulation
-      );
+const pendingCareerDecision =
+  simulation.pendingCareerDecision &&
+  typeof simulation.pendingCareerDecision === 'object'
+    ? simulation.pendingCareerDecision
+    : null;
+
+simulation.pendingCareerDecision =
+  null;
+
+const selection =
+  pendingCareerDecision?.action === 'shoot'
+    ? {
+        success: true,
+        reason: 'career-decision-shoot',
+        eventType: 'shot-attempt',
+      }
+    : pendingCareerDecision?.action === 'pass'
+      ? {
+          success: true,
+          reason: 'career-decision-pass',
+          eventType: 'career-pass',
+        }
+      : selectNextLiveGameEventType(
+          simulation
+        );
 
     if (
       !selection ||
@@ -26336,10 +26580,21 @@ const WorldEngine = (() => {
     ) {
       case 'shot-attempt':
         resolution =
-          resolveLiveGameShotAttempt(
-            simulation
-          );
+resolveLiveGameShotAttempt(
+  simulation,
+  pendingCareerDecision?.action === 'shoot'
+    ? pendingCareerDecision.playerId
+    : null
+);
         break;
+
+case 'career-pass':
+  resolution =
+    resolveLiveGameCareerPass(
+      simulation,
+      pendingCareerDecision?.playerId || null
+    );
+  break;
 
       case 'hit':
         resolution =

@@ -16590,6 +16590,12 @@ let liveGameCompletionHandled =
 let liveGameCareerTOISeconds =
   0;
 
+let liveGameCareerDecisionOpen =
+  false;
+
+let liveGameCareerDecisionCooldownSteps =
+  0;
+
 /*
  * ============================================================
  * ROADMAP 6 — OPEN LIVE GAME
@@ -16790,6 +16796,16 @@ function openLiveGame(
 
   liveGameCareerTOISeconds =
     0;
+
+  liveGameCareerDecisionOpen =
+    false;
+
+  liveGameCareerDecisionCooldownSteps =
+    0;
+
+  document.getElementById(
+    'live-game-career-decision'
+  )?.remove();
 
   liveGameCompletionHandled =
     false;
@@ -17429,6 +17445,22 @@ function getLivePresentationEventText(
     }
   }
 
+if (eventType === 'career-pass') {
+  const passer =
+    getLivePresentationPlayer(event.playerId);
+  const name =
+    passer?.name || 'Career Player';
+  const label =
+    passer?.jerseyNumber
+      ? `#${passer.jerseyNumber} ${name}`
+      : name;
+
+  return {
+    primary: `PASS — ${label}`,
+    secondary: 'Completed · possession continues',
+  };
+}
+
   /*
    * ==========================================================
    * PENALTY
@@ -18061,6 +18093,7 @@ function appendLiveGameEventToFeed(
       'hit',
       'goal',
       'penalty',
+      'career-pass',
     ]);
 
   if (
@@ -18563,6 +18596,128 @@ function appendLiveGameMarker(
   }
 }
 
+function closeLiveGameCareerDecision() {
+  document.getElementById(
+    'live-game-career-decision'
+  )?.remove();
+  liveGameCareerDecisionOpen =
+    false;
+}
+
+function submitLiveGameCareerDecision(action) {
+  if (
+    !activeLiveGame ||
+    !liveGameCareerPlayerId ||
+    !liveGameCareerDecisionOpen
+  ) {
+    return;
+  }
+
+  activeLiveGame.pendingCareerDecision = {
+    action,
+    playerId: liveGameCareerPlayerId,
+    period: activeLiveGame.period,
+    clockSecondsRemaining:
+      activeLiveGame.clockSecondsRemaining,
+  };
+
+  closeLiveGameCareerDecision();
+  liveGameCareerDecisionCooldownSteps =
+    10;
+  startLiveGamePlayback(
+    liveGamePlaybackSpeed
+  );
+}
+
+function maybeOpenLiveGameCareerDecision() {
+  if (
+    liveGameCareerDecisionOpen ||
+    !activeLiveGame ||
+    activeLiveGame.gameComplete === true
+  ) {
+    return liveGameCareerDecisionOpen;
+  }
+
+  if (liveGameCareerDecisionCooldownSteps > 0) {
+    liveGameCareerDecisionCooldownSteps -= 1;
+    return false;
+  }
+
+  const context =
+    getLiveCareerPlayerContext();
+  const flow =
+    activeLiveGame.flow || null;
+
+  if (
+    !context?.onIce ||
+    context.inPenaltyBox ||
+    !flow ||
+    flow.stopped === true ||
+    flow.possessionSide !== context.side
+  ) {
+    return false;
+  }
+
+  const zone =
+    flow.zone || 'neutral';
+
+  if (zone !== 'offensive' && zone !== 'neutral') {
+    return false;
+  }
+
+  const pressure =
+    Number(flow.pressureLevel) || 0;
+  const chance =
+    zone === 'offensive'
+      ? Math.min(0.22, 0.08 + pressure * 0.025)
+      : 0.035;
+
+  if (Math.random() >= chance) {
+    return false;
+  }
+
+  pauseLiveGamePlayback();
+  liveGameCareerDecisionOpen =
+    true;
+
+  const card =
+    document.createElement('div');
+  card.id =
+    'live-game-career-decision';
+  card.style.cssText = `
+    position:absolute;left:14px;right:14px;bottom:18px;z-index:30;
+    padding:14px;border:1px solid rgba(116,169,255,.34);
+    border-radius:16px;background:rgba(7,22,48,.97);
+    box-shadow:0 14px 38px rgba(0,0,0,.35);
+  `;
+
+  card.innerHTML = `
+    <div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:#7fb2ff;text-transform:uppercase;">
+      Your Moment · ${zone === 'offensive' ? 'Offensive zone' : 'Transition'}
+    </div>
+    <div style="margin-top:5px;font-size:15px;font-weight:800;color:#fff;">
+      You have the puck. What do you do?
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px;">
+      <button type="button" data-career-live-choice="pass" style="padding:11px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.07);color:#fff;font-weight:800;">Pass</button>
+      <button type="button" data-career-live-choice="shoot" style="padding:11px 10px;border-radius:12px;border:1px solid rgba(116,169,255,.48);background:rgba(35,103,210,.32);color:#fff;font-weight:800;">Shoot</button>
+    </div>
+  `;
+
+  card.querySelectorAll(
+    '[data-career-live-choice]'
+  ).forEach(button => {
+    button.addEventListener('click', () => {
+      submitLiveGameCareerDecision(
+        button.dataset.careerLiveChoice
+      );
+    });
+  });
+
+  liveGameScreen.appendChild(card);
+  return true;
+}
+
 function advanceLiveGamePresentationStep() {
   if (!activeLiveGame) {
     console.error(
@@ -18577,6 +18732,15 @@ function advanceLiveGamePresentationStep() {
       .gameComplete === true
   ) {
     return;
+  }
+
+  if (maybeOpenLiveGameCareerDecision()) {
+    return {
+      success: true,
+      elapsedSeconds: 0,
+      gameComplete: false,
+      decisionPending: true,
+    };
   }
 
   const careerContextBefore =
@@ -18831,6 +18995,16 @@ function advanceLiveGamePresentationChunk(
         gameComplete:
           activeLiveGame
             ?.gameComplete === true,
+      };
+    }
+
+    if (stepResult.decisionPending === true) {
+      return {
+        success: true,
+        elapsedSeconds,
+        gameComplete: false,
+        safetySteps,
+        decisionPending: true,
       };
     }
 
@@ -19205,6 +19379,10 @@ function scheduleNextLiveGamePlaybackTick() {
 
     pauseLiveGamePlayback();
 
+    return;
+  }
+
+  if (result.decisionPending === true) {
     return;
   }
 
