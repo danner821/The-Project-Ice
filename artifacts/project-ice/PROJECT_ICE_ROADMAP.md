@@ -5,7 +5,7 @@ Updated: 2026-08-14
 This roadmap supersedes earlier ordering unless a later architectural finding requires a change. Any order change should be explained before implementation.
 
 ## Phase 0 — Stability Hardening and Cleanup
-Status: NEXT
+Status: IN PROGRESS
 
 Goal: lock the current foundation before adding more interconnected systems.
 
@@ -14,7 +14,8 @@ Goal: lock the current foundation before adding more interconnected systems.
 - The prior bug where a completed Play Game / Sim Game returned as unplayed after reloading Continue Career is FIXED. Treat this as closed unless regression testing reproduces it.
 - Keep `career-persistence.js` only as the migration bridge.
 - Remove zero-risk troubleshooting residue.
-- Establish an explicit save-schema version/migration convention before multi-season work.
+- Save-schema/versioning and migration policy is now established in `PROJECT_ICE_SAVE_SCHEMA.md`; recovered previews now carry an explicit `previewVersion` while retaining legacy compatibility.
+- Core regression procedure is now established in `PROJECT_ICE_REGRESSION.md`.
 - Do not delete dormant Replit/React scaffolding until the runtime/build has been proven independent of it.
 
 Exit criteria: the current career can be played, simulated, closed, reloaded and continued without diagnostics or temporary runtime errors.
