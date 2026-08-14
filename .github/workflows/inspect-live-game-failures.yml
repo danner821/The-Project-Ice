@@ -1,0 +1,13 @@
+name: Inspect live game failures
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-live-game-failures.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_live_game_failures.py
