@@ -19436,15 +19436,20 @@ function advanceLiveGamePresentationStep() {
    * step itself, so checking both sides of the step prevents us
    * from losing the first or final segment of a shift.
    */
-  if (
-    elapsedSeconds > 0 &&
-    (
+  if (elapsedSeconds > 0) {
+    if (
+      careerWasOnIce &&
+      careerIsOnIce
+    ) {
+      liveGameCareerTOISeconds +=
+        elapsedSeconds;
+    } else if (
       careerWasOnIce ||
       careerIsOnIce
-    )
-  ) {
-    liveGameCareerTOISeconds +=
-      elapsedSeconds;
+    ) {
+      liveGameCareerTOISeconds +=
+        elapsedSeconds * 0.5;
+    }
   }
 
   renderLiveGameState();
