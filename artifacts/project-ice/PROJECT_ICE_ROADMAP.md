@@ -50,14 +50,20 @@ Exit criteria: advancing one week produces a coherent set of world changes that 
 
 Goal: connect career performance to an evolving prospect ecosystem.
 
+- Complete the real-player prospect database for the 2027, 2028, 2029 and 2030 NHL draft classes before the prospect world is considered complete.
+- Research and add the planned deep pool of real prospects across those four classes, not merely a handful of headline names. Preserve `realPlayer: true` and stable IDs so real prospects remain distinct from generated filler players.
+- Treat real-player ratings, potential tiers and development seeds as Project Ice game-balance values informed by the best available scouting context, not as official ratings.
+- Keep generated prospects as depth around the real-player pool so every draft class remains large enough for a believable world.
+- Integrate the 2027-2030 real prospect pool with persistent world state so prospects age, develop, produce stats and remain the same people across seasons.
 - Scouts in attendance become functional context, not just presentation.
 - Prospect Watch / Rival Watch.
 - Watchlist and evolving scouting evaluations.
-- Real/generated prospect pool integrated with world state.
 - Player-facing potential remains visible, while certainty/evaluation can evolve.
 - Scouting reacts to performance, competition level, role, development and important games.
 
-Exit criteria: scouting information changes for understandable reasons and persists across weeks/seasons.
+Current note: `public/prospects.js` is only a partial seed list and must not be mistaken for the finished 2027-2030 database.
+
+Exit criteria: the planned real 2027-2030 prospect classes exist in-world, develop persistently, and scouting information changes for understandable reasons across weeks/seasons.
 
 ## Phase 4 — News and Home Hub Refresh
 
@@ -105,6 +111,7 @@ Goal: deliver the long-form destination of Project Ice.
 - NHL organization assignment and roster ecosystem.
 - NHL/AHL-level deployment and career progression.
 - Contracts/career milestones/awards/history where appropriate to a player career mode.
+- The real 2027-2030 prospect classes established in Phase 3 must remain persistent through their draft years and professional transitions rather than being regenerated later.
 - Real historical/current-world alignment only where intentionally designed.
 - Continue to avoid GM control: drafting, trades, coaching and roster construction happen around the player.
 
@@ -132,5 +139,6 @@ Goal: turn the working pre-alpha into a stable, maintainable game build.
 - Practice/recovery are quick career events, not separate playable mini-games.
 - Play Game, Sim Game and background games should share one canonical hockey simulation engine.
 - Play Game should include occasional contextual career-player decisions without becoming an arcade control mode.
+- Real prospects use persistent identities and coexist with generated depth; they are never regenerated as anonymous replacements.
 - New systems should read/write canonical world state and persist through IndexedDB.
 - Prefer small focused commits and immediate testing over large rewrites.
