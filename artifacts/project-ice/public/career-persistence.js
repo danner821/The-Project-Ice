@@ -20,6 +20,8 @@
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
 
+  let diagnosticsBound = false;
+
   function openDatabase() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -141,6 +143,92 @@
     };
   }
 
+  function bindContinueDiagnostics() {
+    const button = document.getElementById('btn-continue');
+
+    if (!button || diagnosticsBound) return;
+
+    /*
+     * game.js catches its own Continue Career errors and only writes
+     * them to console.error. Temporarily observe console.error during
+     * the click without stopping propagation, so the original handler
+     * still runs exactly as written and we can surface the hidden error.
+     */
+    button.addEventListener(
+      'click',
+      () => {
+        const originalConsoleError = console.error;
+        const captured = [];
+
+        console.error = (...args) => {
+          captured.push(args);
+          originalConsoleError.apply(console, args);
+        };
+
+        window.setTimeout(() => {
+          console.error = originalConsoleError;
+
+          const titleScreen =
+            document.getElementById('title-screen');
+
+          const stillOnTitle =
+            Boolean(
+              titleScreen &&
+              !titleScreen.classList.contains('screen--hidden')
+            );
+
+          if (!stillOnTitle) return;
+
+          const loadFailure =
+            captured.find(args =>
+              String(args?.[0] || '').includes(
+                '[Project Ice] Load failed:'
+              )
+            ) || null;
+
+          const previewText =
+            localStorage.getItem(SAVE_KEY);
+
+          let preview = null;
+
+          try {
+            preview = previewText
+              ? JSON.parse(previewText)
+              : null;
+          } catch (error) {
+            preview = null;
+          }
+
+          const error =
+            loadFailure?.[1] ||
+            null;
+
+          alert(
+            [
+              'CONTINUE CAREER LOAD DIAGNOSTIC',
+              '',
+              `Load error captured: ${Boolean(loadFailure)}`,
+              `Error name: ${error?.name || 'none'}`,
+              `Error message: ${error?.message || 'none'}`,
+              '',
+              `Preview exists: ${Boolean(previewText)}`,
+              `Preview stage: ${preview?.player?.stage || 'missing'}`,
+              `Preview player: ${[
+                preview?.player?.firstName,
+                preview?.player?.lastName,
+              ].filter(Boolean).join(' ') || 'missing'}`,
+              `Preview teamId: ${preview?.player?.teamId || 'missing'}`,
+              `Preview date: ${preview?.player?.currentDate || 'missing'}`,
+            ].join('\n')
+          );
+        }, 100);
+      },
+      true
+    );
+
+    diagnosticsBound = true;
+  }
+
   function enableContinueButton() {
     const button = document.getElementById('btn-continue');
 
@@ -163,6 +251,8 @@
       <span class="btn__label">Continue Career</span>
       <span class="btn__arrow">›</span>
     `;
+
+    bindContinueDiagnostics();
   }
 
   function keepContinueButtonEnabled() {
