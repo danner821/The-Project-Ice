@@ -1,0 +1,23 @@
+name: Project Ice Selector Extract
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/selector-extract.yml'
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - run: python .github/scripts/selector_extract.py
+      - run: |
+          git config user.name "danner821"
+          git config user.email "danner821@hotmail.com"
+          git add artifacts/project-ice/LIVE_SELECTOR_TEMP.txt
+          git commit -m "Capture live deployment selector"
+          git push origin main
