@@ -147,6 +147,9 @@
     if (!button) return;
 
     button.disabled = false;
+    button.removeAttribute('disabled');
+    button.setAttribute('aria-disabled', 'false');
+    button.style.pointerEvents = 'auto';
     button.classList.remove('btn--secondary');
     button.classList.add('btn--primary');
     button.innerHTML = `
@@ -156,9 +159,23 @@
     `;
   }
 
+  function keepContinueButtonEnabled() {
+    enableContinueButton();
+
+    /*
+     * game.js also evaluates the Continue button during its async
+     * startup. Re-assert the recovered state after that startup work
+     * completes so the old localStorage-only check cannot disable the
+     * button again after this bridge has repaired the preview.
+     */
+    [0, 50, 250, 750, 1500].forEach(delay => {
+      window.setTimeout(enableContinueButton, delay);
+    });
+  }
+
   async function repairCareerPreview() {
     if (localStorage.getItem(SAVE_KEY)) {
-      enableContinueButton();
+      keepContinueButtonEnabled();
       return;
     }
 
@@ -180,14 +197,10 @@
 
       const preview = buildPreview(careerPlayer, world);
 
-      /*
-       * The old multi-megabyte world blob is obsolete. Removing it
-       * ensures the tiny preview has room to persist in localStorage.
-       */
       localStorage.removeItem(LEGACY_WORLD_KEY);
       localStorage.setItem(SAVE_KEY, JSON.stringify(preview));
 
-      enableContinueButton();
+      keepContinueButtonEnabled();
 
       console.info(
         '[Project Ice] Recovered Continue Career preview from IndexedDB.',
