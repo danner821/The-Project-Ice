@@ -20,8 +20,6 @@
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
 
-  let continueHandlerBound = false;
-
   function openDatabase() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -143,115 +141,17 @@
     };
   }
 
-  function bindContinueHandler() {
-    const button = document.getElementById('btn-continue');
-
-    if (!button || continueHandlerBound) return;
-
-    /*
-     * game.js already owns the real Continue Career listener.
-     *
-     * The persistence bridge must not duplicate that loader or depend
-     * on its function being exported on window. Instead, intercept the
-     * user's first click and immediately redispatch a marked click that
-     * is allowed to continue into game.js's original listener.
-     *
-     * This keeps one canonical Continue Career pathway.
-     */
-    button.addEventListener(
-      'click',
-      event => {
-        if (event?.detail?.projectIceContinueBridge === true) {
-          return;
-        }
-
-        event.preventDefault();
-        event.stopImmediatePropagation();
-
-        let capturedRuntimeError = false;
-
-        const handleRuntimeError = errorEvent => {
-          capturedRuntimeError = true;
-
-          const error =
-            errorEvent?.error ||
-            null;
-
-          console.error(
-            '[Project Ice] Continue Career original handler failed:',
-            error || errorEvent
-          );
-
-          alert(
-            [
-              'CONTINUE CAREER ERROR',
-              '',
-              `Name: ${error?.name || 'Error'}`,
-              `Message: ${
-                error?.message ||
-                errorEvent?.message ||
-                'Unknown Continue Career error'
-              }`,
-            ].join('\n')
-          );
-        };
-
-        window.addEventListener(
-          'error',
-          handleRuntimeError,
-          { once: true }
-        );
-
-        button.dispatchEvent(
-          new CustomEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            detail: {
-              projectIceContinueBridge: true,
-            },
-          })
-        );
-
-        window.setTimeout(() => {
-          window.removeEventListener(
-            'error',
-            handleRuntimeError
-          );
-
-          if (capturedRuntimeError) {
-            return;
-          }
-
-          const titleScreen =
-            document.getElementById('title-screen');
-
-          if (
-            titleScreen &&
-            !titleScreen.classList.contains('screen--hidden')
-          ) {
-            alert(
-              [
-                'CONTINUE CAREER DIAGNOSTIC',
-                '',
-                'The recovered button is working, but the original game.js Continue Career handler did not leave the title screen.',
-                '',
-                'Please send this message back to ChatGPT.',
-              ].join('\n')
-            );
-          }
-        }, 300);
-      },
-      true
-    );
-
-    continueHandlerBound = true;
-  }
-
   function enableContinueButton() {
     const button = document.getElementById('btn-continue');
 
     if (!button) return;
 
+    /*
+     * IMPORTANT:
+     * game.js already owns the canonical Continue Career click handler.
+     * This bridge ONLY repairs persistence state and button availability.
+     * It must never intercept, stop, redispatch, or duplicate the click.
+     */
     button.disabled = false;
     button.removeAttribute('disabled');
     button.setAttribute('aria-disabled', 'false');
@@ -263,8 +163,6 @@
       <span class="btn__label">Continue Career</span>
       <span class="btn__arrow">›</span>
     `;
-
-    bindContinueHandler();
   }
 
   function keepContinueButtonEnabled() {
