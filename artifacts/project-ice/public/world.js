@@ -21946,7 +21946,8 @@ const WorldEngine = (() => {
    */
   function resolveLiveGameShotAttempt(
     simulation,
-    forcedShooterPlayerId = null
+    forcedShooterPlayerId = null,
+    forcedShotType = null
   ) {
     if (
       !simulation ||
@@ -22214,9 +22215,24 @@ const shooterPlayer =
       };
     }
 
+    const allowedForcedShotTypes =
+      new Set([
+        'wrist',
+        'snap',
+        'slap',
+        'one-timer',
+        'deflection',
+        'rebound',
+        'breakaway',
+      ]);
+
     const shotType =
-      shotTypeSelection.shotType ||
-      'wrist';
+      allowedForcedShotTypes.has(
+        String(forcedShotType || '')
+      )
+        ? String(forcedShotType)
+        : shotTypeSelection.shotType ||
+          'wrist';
 
     /*
      * ==========================================================
@@ -23578,7 +23594,8 @@ const shooterPlayer =
  */
 function resolveLiveGameCareerPass(
   simulation,
-  playerId
+  playerId,
+  passStyle = 'pass'
 ) {
   const flow =
     simulation?.flow ||
@@ -23662,12 +23679,23 @@ function resolveLiveGameCareerPass(
         ) / defenders.length
       : 50;
 
+  const passStyleConfig =
+    {
+      'pass': { success: 0, pressure: 1.25 },
+      'pass-trailer': { success: 0.03, pressure: 1.35 },
+      'pass-safe': { success: 0.09, pressure: 0.70 },
+      'pass-seam': { success: -0.08, pressure: 1.85 },
+      'pass-backdoor': { success: -0.11, pressure: 2.15 },
+    }[passStyle] ||
+    { success: 0, pressure: 1.25 };
+
   const successChance =
     Math.max(
-      0.46,
+      0.34,
       Math.min(
-        0.91,
+        0.95,
         0.70 +
+        passStyleConfig.success +
         (passSkill - defensivePressure) * 0.006
       )
     );
@@ -23685,7 +23713,8 @@ function resolveLiveGameCareerPass(
     flow.pressureLevel =
       Math.min(
         5,
-        (Number(flow.pressureLevel) || 0) + 1.25
+        (Number(flow.pressureLevel) || 0) +
+        passStyleConfig.pressure
       );
     flow.lastEventType =
       'career-pass';
@@ -23708,6 +23737,7 @@ function resolveLiveGameCareerPass(
       playerId,
       completed: true,
       successChance,
+      passStyle,
     };
 
     simulation.events.push(event);
@@ -23764,7 +23794,8 @@ function resolveLiveGameCareerPass(
     takeawayPlayerId: null,
     creditedTakeaway: false,
     possessionChanged: true,
-    careerDecision: 'pass',
+    careerDecision: passStyle,
+    passStyle,
     successChance,
   };
 
@@ -26795,12 +26826,15 @@ const pendingCareerDecision =
 simulation.pendingCareerDecision =
   null;
 
+const pendingAction =
+  String(pendingCareerDecision?.action || '');
+
 const selection =
-  pendingCareerDecision?.action === 'shoot'
+  pendingAction.startsWith('shoot')
     ? { success: true, reason: 'career-decision-shoot', eventType: 'shot-attempt' }
-    : pendingCareerDecision?.action === 'pass'
+    : pendingAction.startsWith('pass')
       ? { success: true, reason: 'career-decision-pass', eventType: 'career-pass' }
-      : ['defend-stick', 'defend-body', 'defend-contain'].includes(pendingCareerDecision?.action)
+      : ['defend-stick', 'defend-body', 'defend-contain'].includes(pendingAction)
         ? { success: true, reason: 'career-decision-defense', eventType: 'career-defense' }
         : selectNextLiveGameEventType(simulation);
 
@@ -26827,8 +26861,11 @@ const selection =
         resolution =
 resolveLiveGameShotAttempt(
   simulation,
-  pendingCareerDecision?.action === 'shoot'
-    ? pendingCareerDecision.playerId
+  pendingAction.startsWith('shoot')
+    ? pendingCareerDecision?.playerId || null
+    : null,
+  pendingAction.startsWith('shoot-')
+    ? pendingAction.slice('shoot-'.length)
     : null
 );
         break;
@@ -26837,7 +26874,8 @@ case 'career-pass':
   resolution =
     resolveLiveGameCareerPass(
       simulation,
-      pendingCareerDecision?.playerId || null
+      pendingCareerDecision?.playerId || null,
+      pendingAction || 'pass'
     );
   break;
 

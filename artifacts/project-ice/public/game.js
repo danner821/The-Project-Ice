@@ -18778,9 +18778,9 @@ function submitLiveGameCareerDecision(
     action,
     label:
       choiceLabel ||
-      (action === 'shoot'
+      (String(action).startsWith('shoot')
         ? 'Shoot'
-        : action === 'pass'
+        : String(action).startsWith('pass')
           ? 'Pass'
           : 'Hold the puck'),
     risk:
@@ -18975,33 +18975,93 @@ function maybeOpenLiveGameCareerDecision() {
   };
 
   if (!careerIsDefending && zone === 'neutral') {
-    scenario = {
-      key: 'transition-rush',
-      eyebrow: 'TRANSITION RUSH',
-      title: 'You carry the puck at a retreating defense.',
-      detail: 'The gap is still forming. Your next touch decides whether the rush becomes a chance.',
-      accent: '#75b7ff',
-      choices: [
-        {
-          action: 'shoot',
-          label: 'Drive and fire',
-          note: 'Attack before the defense can set',
-          risk: 'ATTACK',
-        },
-        {
-          action: 'pass',
-          label: 'Hit the trailer',
-          note: 'Move the puck into the developing lane',
-          risk: 'VISION',
-        },
-        {
-          action: 'hold',
-          label: 'Delay the rush',
-          note: 'Buy time and let support arrive',
-          risk: 'CONTROL',
-        },
-      ],
-    };
+    const rushRoll = Math.random();
+
+    if (rushRoll < 0.18) {
+      scenario = {
+        key: 'breakaway',
+        eyebrow: 'BREAKAWAY',
+        title: 'You are in alone on the goalie.',
+        detail: 'There is no second defender to bail him out. Pick how you want to finish it.',
+        accent: '#ffcf70',
+        choices: [
+          {
+            action: 'shoot-snap',
+            label: 'Shoot early',
+            note: 'Release it before the goalie can fully set',
+            risk: 'QUICK',
+          },
+          {
+            action: 'shoot-breakaway',
+            label: 'Make a move',
+            note: 'Challenge the goalie with deking and puck control',
+            risk: 'SKILL',
+          },
+          {
+            action: 'shoot-wrist',
+            label: 'Pick a corner',
+            note: 'Stay patient and trust your wrist-shot accuracy',
+            risk: 'FINISH',
+          },
+        ],
+      };
+    } else if (rushRoll < 0.52) {
+      scenario = {
+        key: 'two-on-one',
+        eyebrow: '2-ON-1 RUSH',
+        title: 'You enter with one teammate and one defender back.',
+        detail: 'The defender has to respect both lanes. Your read decides the chance.',
+        accent: '#7ec8ff',
+        choices: [
+          {
+            action: 'shoot-snap',
+            label: 'Use the teammate as a decoy',
+            note: 'Keep the puck and snap it before the defender closes',
+            risk: 'SHOOT',
+          },
+          {
+            action: 'pass-seam',
+            label: 'Slide it across',
+            note: 'Attempt the dangerous pass through the defender',
+            risk: 'HIGH RISK',
+          },
+          {
+            action: 'hold',
+            label: 'Delay and read',
+            note: 'Force the defender to commit before making the next play',
+            risk: 'POISE',
+          },
+        ],
+      };
+    } else {
+      scenario = {
+        key: 'transition-rush',
+        eyebrow: 'TRANSITION RUSH',
+        title: 'You carry the puck at a retreating defense.',
+        detail: 'The gap is still forming. Your next touch decides whether the rush becomes a chance.',
+        accent: '#75b7ff',
+        choices: [
+          {
+            action: 'shoot-snap',
+            label: 'Drive and fire',
+            note: 'Attack before the defense can set',
+            risk: 'ATTACK',
+          },
+          {
+            action: 'pass-trailer',
+            label: 'Hit the trailer',
+            note: 'Move the puck into the developing second wave',
+            risk: 'VISION',
+          },
+          {
+            action: 'hold',
+            label: 'Delay the rush',
+            note: 'Buy time and let support arrive',
+            risk: 'CONTROL',
+          },
+        ],
+      };
+    }
   } else if (!careerIsDefending && pressure >= 5) {
     scenario = {
       key: 'net-front-chaos',
@@ -19011,14 +19071,14 @@ function maybeOpenLiveGameCareerDecision() {
       accent: '#ffbe66',
       choices: [
         {
-          action: 'shoot',
-          label: 'Put it through traffic',
+          action: 'shoot-rebound',
+          label: 'Jam the loose puck',
           note: 'Trust the chaos and get the puck on goal',
           risk: 'FINISH',
         },
         {
-          action: 'pass',
-          label: 'Slip it across',
+          action: 'pass-backdoor',
+          label: 'Slip it backdoor',
           note: 'Look for a teammate outside the collapse',
           risk: 'CREATE',
         },
@@ -19039,13 +19099,13 @@ function maybeOpenLiveGameCareerDecision() {
       accent: '#84c6ff',
       choices: [
         {
-          action: 'shoot',
+          action: 'shoot-snap',
           label: 'Take the lane',
           note: 'Use the opening before it disappears',
           risk: 'DECISIVE',
         },
         {
-          action: 'pass',
+          action: 'pass-seam',
           label: 'Draw and dish',
           note: 'Pull pressure toward you and move the puck',
           risk: 'PLAYMAKE',
@@ -19069,13 +19129,13 @@ function maybeOpenLiveGameCareerDecision() {
       accent: '#f0bf55',
       choices: [
         {
-          action: 'shoot',
-          label: 'Shoot through the screen',
+          action: 'shoot-one-timer',
+          label: 'Hammer the one-timer',
           note: 'Get it to the net while the goalie is fighting traffic',
           risk: 'PRESSURE',
         },
         {
-          action: 'pass',
+          action: 'pass-seam',
           label: 'Work it through the seam',
           note: 'Use your vision to force the penalty kill to rotate',
           risk: 'CREATE',
@@ -19121,13 +19181,13 @@ function maybeOpenLiveGameCareerDecision() {
                 risk: 'SAFE',
               },
               {
-                action: 'pass',
+                action: 'pass-safe',
                 label: 'Find support',
                 note: 'Move it to the safest open teammate',
                 risk: 'SMART',
               },
               {
-                action: 'shoot',
+                action: 'shoot-snap',
                 label: 'Go for the dagger',
                 note: 'Attack before they can recover',
                 risk: 'BOLD',
@@ -19135,13 +19195,13 @@ function maybeOpenLiveGameCareerDecision() {
             ]
           : [
               {
-                action: 'shoot',
+                action: 'shoot-snap',
                 label: tied ? 'Take the big shot' : 'Fire it now',
                 note: 'Put the moment on your stick',
                 risk: 'CLUTCH',
               },
               {
-                action: 'pass',
+                action: 'pass-seam',
                 label: 'Find the best look',
                 note: 'Trust your vision under pressure',
                 risk: 'CREATE',
@@ -19377,17 +19437,23 @@ function advanceLiveGamePresentationStep() {
     const pressureAfter =
       Number(activeLiveGame.flow?.pressureLevel) || 0;
 
+    const isPassChoice =
+      String(choice.action || '').startsWith('pass');
+
+    const isShotChoice =
+      String(choice.action || '').startsWith('shoot');
+
     let resultTag =
       choice.action === 'hold'
         ? 'POISE'
-        : choice.action === 'pass'
+        : isPassChoice
           ? 'CREATE'
           : 'ATTACK';
 
     let outcomeTitle =
       choice.action === 'hold'
         ? 'You stay composed and let the play develop.'
-        : choice.action === 'pass'
+        : isPassChoice
           ? 'You move the puck.'
           : 'You attack the net.';
 
@@ -19411,7 +19477,9 @@ function advanceLiveGamePresentationStep() {
     } else if (
       outcomeType === 'shot' ||
       outcomeType === 'shot-on-goal' ||
-      outcomeType === 'shot-saved'
+      outcomeType === 'shot-saved' ||
+      outcomeType === 'shot-blocked' ||
+      outcomeType === 'shot-missed'
     ) {
       resultTag = 'CHANCE';
       outcomeTitle =
