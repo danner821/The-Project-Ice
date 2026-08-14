@@ -27,12 +27,27 @@ if (!basePath) {
   );
 }
 
+const careerPersistencePlugin = {
+  name: 'project-ice-career-persistence',
+  transformIndexHtml(html: string) {
+    if (html.includes('/career-persistence.js')) {
+      return html;
+    }
+
+    return html.replace(
+      '</body>',
+      '    <script src="/career-persistence.js"></script>\n  </body>',
+    );
+  },
+};
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    careerPersistencePlugin,
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [
