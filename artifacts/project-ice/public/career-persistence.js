@@ -19,6 +19,7 @@
   const DB_VERSION = 1;
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
+  const PREVIEW_SCHEMA_VERSION = 1;
 
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -118,6 +119,13 @@
       null;
 
     return {
+      previewVersion: PREVIEW_SCHEMA_VERSION,
+
+      /*
+       * Keep the legacy version field during the migration window so
+       * existing readers remain compatible while new persistence code
+       * can reason about the preview contract explicitly.
+       */
       version: '0.0.3',
       savedAt: new Date().toISOString(),
       player: {
@@ -199,6 +207,7 @@
       console.info(
         '[Project Ice] Recovered Continue Career preview from IndexedDB.',
         {
+          previewVersion: preview.previewVersion,
           playerId: preview.player.playerId,
           name: `${preview.player.firstName} ${preview.player.lastName}`.trim(),
           teamId: preview.player.teamId,
