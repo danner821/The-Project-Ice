@@ -14167,11 +14167,11 @@ function updateHubScreen() {
       wristShotAccuracy: 'Shooting',
       slapShotPower: 'Shooting',
       slapShotAccuracy: 'Shooting',
-      handEye: 'Shooting',
+      handEye: 'Playmaking',
 
-      passing: 'Passing',
-      puckControl: 'Passing',
-      deking: 'Passing',
+      passing: 'Playmaking',
+      puckControl: 'Playmaking',
+      deking: 'Playmaking',
 
       defensiveAwareness: 'Defense',
       stickChecking: 'Defense',
