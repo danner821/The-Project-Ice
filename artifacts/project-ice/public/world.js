@@ -17757,10 +17757,12 @@ const WorldEngine = (() => {
         home: {
           forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
           defensePairs: { 1: 0, 2: 0, 3: 0 },
+          evenStrengthSeconds: 0,
         },
         away: {
           forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
           defensePairs: { 1: 0, 2: 0, 3: 0 },
+          evenStrengthSeconds: 0,
         },
       };
     }
@@ -17896,8 +17898,16 @@ const WorldEngine = (() => {
           0
         );
 
-      const elapsedGameSeconds =
-        getElapsedRegulationSeconds();
+      const elapsedEvenStrengthSeconds =
+        Math.max(
+          0,
+          Number(
+            simulation.flow
+              ?.deploymentUsage
+              ?.[side]
+              ?.evenStrengthSeconds
+          ) || 0
+        );
 
       let best = null;
       let bestScore = -Infinity;
@@ -17934,7 +17944,7 @@ const WorldEngine = (() => {
         const targetTOI =
           Math.max(
             45,
-            elapsedGameSeconds
+            elapsedEvenStrengthSeconds
           ) * targetShare;
 
         const toiDeficit =
@@ -26622,6 +26632,43 @@ function resolveLiveGameCareerPass(
      */
     const manpowerBeforeClock =
       `${homeSkaterCount}v${awaySkaterCount}`;
+
+    /*
+     * Track actual 5-on-5 regulation seconds separately from total game
+     * clock. Even-strength line targets must not grow during PP/PK time,
+     * otherwise a player who already received special-teams minutes is
+     * incorrectly sent back out at 5-on-5 to 'catch up'.
+     */
+    if (
+      elapsedSeconds > 0 &&
+      Number(simulation.period) <= 3 &&
+      homeSkaterCount === 5 &&
+      awaySkaterCount === 5
+    ) {
+      if (!simulation.flow.deploymentUsage) {
+        simulation.flow.deploymentUsage = {
+          home: {
+            forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            defensePairs: { 1: 0, 2: 0, 3: 0 },
+            evenStrengthSeconds: 0,
+          },
+          away: {
+            forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            defensePairs: { 1: 0, 2: 0, 3: 0 },
+            evenStrengthSeconds: 0,
+          },
+        };
+      }
+
+      ['home', 'away'].forEach(sideKey => {
+        const sideUsage =
+          simulation.flow.deploymentUsage[sideKey];
+
+        sideUsage.evenStrengthSeconds =
+          (Number(sideUsage.evenStrengthSeconds) || 0) +
+          elapsedSeconds;
+      });
+    }
 
     advanceLiveGameSpecialTeamsClock(
       simulation,
