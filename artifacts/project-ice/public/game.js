@@ -19920,6 +19920,19 @@ function pauseLiveGamePlayback() {
   liveGameCareerDecisionOpen = false;
 
   /*
+   * A career decision/outcome can resolve on the same canonical step as the
+   * final horn. Those overlays sit above the rink and can intercept taps even
+   * after the game is complete, making the visible Continue button look dead.
+   */
+  document.getElementById(
+    'live-game-career-decision'
+  )?.remove();
+
+  document.getElementById(
+    'live-game-career-outcome'
+  )?.remove();
+
+  /*
    * Make absolutely sure the final scoreboard, manpower state,
    * career-player stats and final events are painted before we
    * leave the live presentation.
@@ -20104,7 +20117,9 @@ function pauseLiveGamePlayback() {
           left: 50%;
           bottom: 24px;
           transform: translateX(-50%);
-          z-index: 20;
+          z-index: 80;
+          pointer-events: auto;
+          touch-action: manipulation;
 
           min-width: 132px;
           padding: 11px 22px;
@@ -20583,29 +20598,88 @@ document
         return;
       }
 
-        const simulationResult =
-          simulateToDate(
-            currentDate
-          );
+      /*
+       * We are already ON game day, so simulateToDate(currentDate) can be a
+       * no-op depending on date-advance semantics. Process the current date
+       * explicitly; the one-shot approval above allows this exact career game
+       * to resolve instead of stopping for the Play/Sim choice again.
+       */
+      const simulationResult =
+        WorldEngine.advanceToDate(
+          currentDate,
+          {
+            processCurrentDate: true,
+          }
+        );
 
-        if (
-          simulationResult &&
-          typeof simulationResult.then ===
-            'function'
-        ) {
-          await simulationResult;
-        }
+      if (
+        !simulationResult ||
+        simulationResult.success !== true
+      ) {
+        console.error(
+          '[Project Ice] Sim Game failed to resolve the current game day.',
+          simulationResult
+        );
 
-        const worldSaved =
-          await WorldEngine.save();
+        return;
+      }
 
-        if (!worldSaved) {
-          console.error(
-            '[Project Ice] Sim Game result could not be persisted.'
-          );
+      const worldSaved =
+        await WorldEngine.save();
 
-          return;
-        }
+      if (!worldSaved) {
+        console.error(
+          '[Project Ice] Sim Game result could not be persisted.'
+        );
+
+        return;
+      }
+
+      if (
+        typeof syncCareerPlayerWithWorld ===
+        'function'
+      ) {
+        syncCareerPlayerWithWorld();
+      }
+
+      refreshScheduleEvents();
+
+      const completedGame =
+        (Array.isArray(
+          WorldEngine.state?.schedule
+        )
+          ? WorldEngine.state.schedule
+          : []
+        ).find(game =>
+          [
+            game?.gameId,
+            game?.id,
+            game?.eventId,
+            game?.postgameSummary?.gameId,
+          ].some(alias =>
+            alias !== null &&
+            alias !== undefined &&
+            String(alias) === String(gameId)
+          )
+        ) || null;
+
+      const postgameId =
+        completedGame?.gameId ||
+        completedGame?.id ||
+        completedGame?.eventId ||
+        completedGame?.postgameSummary?.gameId ||
+        gameId;
+
+      if (!openPostgameSummary(postgameId)) {
+        console.error(
+          '[Project Ice] Sim Game completed but Postgame Summary could not open.',
+          {
+            postgameId,
+            completedGame,
+            simulationResult,
+          }
+        );
+      }
     }
   );
 

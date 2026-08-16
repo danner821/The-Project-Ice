@@ -18040,10 +18040,27 @@ const WorldEngine = (() => {
         const periodAheadPenalty =
           periodAheadSeconds * 2.4;
 
+        /*
+         * Pace envelope.
+         *
+         * Soft balancing eventually fixes an early TOI spike, but it can do
+         * so by benching the unit late in the game. Once a unit's hottest
+         * skater is more than ~90 seconds ahead of his role's game-clock pace,
+         * make that unit extremely unlikely at 5v5 until the clock catches up.
+         * This preserves role hierarchy while distributing TOI much more
+         * naturally across all three periods.
+         */
+        const paceHardPenalty =
+          periodAheadSeconds > 90
+            ? 2000 +
+              (periodAheadSeconds - 90) * 20
+            : 0;
+
         const score =
           toiDeficit * 1.55 -
           overTargetPenalty -
-          periodAheadPenalty +
+          periodAheadPenalty -
+          paceHardPenalty +
           shiftCountDeficit * 8 +
           Math.random() * 6;
 
