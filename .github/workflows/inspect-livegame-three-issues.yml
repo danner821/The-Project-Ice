@@ -1,0 +1,25 @@
+name: Inspect Livegame Three Issues
+
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-livegame-three-issues.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect continue TOI sim button
+        run: |
+          echo '=== FINAL HORN HANDOFF ==='
+          grep -n -A 170 -B 80 "live-game-final-continue" artifacts/project-ice/public/game.js || true
+          echo '=== OPEN POSTGAME TAIL ==='
+          grep -n -A 420 "function openPostgameSummary" artifacts/project-ice/public/game.js | tail -n 120 || true
+          echo '=== PREGAME SIM BUTTON ==='
+          grep -n -A 180 -B 40 "btn-pregame-sim" artifacts/project-ice/public/game.js || true
+          echo '=== DEPLOYMENT / TOI ==='
+          grep -n -E -A 120 -B 40 "selectLiveGameEvenStrengthDeployment|balancedPick|forwardLineWeights|defensePairWeights|periodAheadPenalty|expectedTOIThroughNow" artifacts/project-ice/public/world.js | head -n 1200 || true
