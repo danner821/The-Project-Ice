@@ -18018,10 +18018,22 @@ const WorldEngine = (() => {
           priorPeriodTargetTOI +
           currentPeriodTargetTOI;
 
+        const unitHottestPlayerTOI =
+          Math.max(
+            0,
+            ...skaters.map(
+              player =>
+                Math.max(
+                  0,
+                  Number(player?.toiSeconds) || 0
+                )
+            )
+          );
+
         const periodAheadSeconds =
           Math.max(
             0,
-            hottestPlayerTOI -
+            unitHottestPlayerTOI -
             expectedTOIThroughNow -
             75
           );
