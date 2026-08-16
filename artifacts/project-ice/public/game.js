@@ -20210,8 +20210,42 @@ function scheduleNextLiveGamePlaybackTick() {
     !result ||
     result.success !== true
   ) {
+    const consecutiveFailures =
+      (Number(
+        window.__projectIceLivePlaybackFailures
+      ) || 0) + 1;
+
+    window.__projectIceLivePlaybackFailures =
+      consecutiveFailures;
+
+    console.warn(
+      '[Project Ice] Live playback chunk failed; attempting automatic recovery.',
+      {
+        consecutiveFailures,
+        result,
+      }
+    );
+
+    /*
+     * A single presentation-step miss should not silently pause the game.
+     * Retry a few times because the canonical engine can occasionally land
+     * on a zero-time transition/stoppage boundary. Persistent failures still
+     * pause safely instead of creating an endless retry loop.
+     */
+    if (consecutiveFailures <= 3) {
+      clearLiveGamePlaybackTimer();
+
+      liveGamePlaybackTimer =
+        window.setTimeout(
+          scheduleNextLiveGamePlaybackTick,
+          180
+        );
+
+      return;
+    }
+
     console.error(
-      '[Project Ice] Live playback chunk failed.',
+      '[Project Ice] Live playback could not recover after repeated failures.',
       result
     );
 
@@ -20219,6 +20253,8 @@ function scheduleNextLiveGamePlaybackTick() {
 
     return;
   }
+
+  window.__projectIceLivePlaybackFailures = 0;
 
   if (result.decisionPending === true) {
     return;
@@ -20293,6 +20329,8 @@ function startLiveGamePlayback(
 
   liveGamePlaybackPaused =
     false;
+
+  window.__projectIceLivePlaybackFailures = 0;
 
   setLiveGameActiveSpeedButton(
     liveGamePlaybackSpeed
@@ -20656,12 +20694,23 @@ if (btnPostgameContinue) {
   btnPostgameContinue.addEventListener(
     'click',
     () => {
-      refreshCareerUI();
-      refreshScheduleEvents();
-
+      /*
+       * Route first. A non-critical refresh failure should never strand
+       * the player on the completed-game screen with a dead Continue button.
+       * openHubTab('schedule') already refreshes and renders Schedule.
+       */
       openHubTab(
         'schedule'
       );
+
+      try {
+        refreshCareerUI();
+      } catch (error) {
+        console.warn(
+          '[Project Ice] Postgame UI refresh failed after returning to Schedule.',
+          error
+        );
+      }
     }
   );
 }
@@ -20730,13 +20779,18 @@ if (btnEventResultsContinue) {
   btnEventResultsContinue.addEventListener(
     'click',
     () => {
-      refreshCareerUI();
-
-      refreshScheduleEvents();
-
       openHubTab(
         'schedule'
       );
+
+      try {
+        refreshCareerUI();
+      } catch (error) {
+        console.warn(
+          '[Project Ice] Event-results UI refresh failed after returning to Schedule.',
+          error
+        );
+      }
     }
   );
 }
