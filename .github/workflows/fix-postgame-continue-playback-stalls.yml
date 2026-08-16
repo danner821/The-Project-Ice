@@ -1,0 +1,30 @@
+name: Fix Postgame Continue Playback Stalls
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-postgame-continue-playback-stalls.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply fixes
+        run: python .github/scripts/fix_postgame_continue_and_playback_stalls.py
+      - name: Validate game.js
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Commit gameplay fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo "No gameplay changes to commit"
+            exit 0
+          fi
+          git commit -m "Fix postgame Continue and live playback stalls"
+          git push
