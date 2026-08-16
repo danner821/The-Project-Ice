@@ -1,0 +1,25 @@
+name: Inspect Postgame Livegame
+
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-postgame-livegame.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect postgame and live-game control flow
+        run: |
+          echo '=== POSTGAME CONTINUE ==='
+          grep -n -A 28 -B 12 "const btnPostgameContinue" artifacts/project-ice/public/game.js || true
+          echo '=== EVENT RESULTS CONTINUE ==='
+          grep -n -A 28 -B 12 "const btnEventResultsContinue" artifacts/project-ice/public/game.js || true
+          echo '=== OPEN HUB TAB ==='
+          grep -n -A 80 -B 8 "function openHubTab" artifacts/project-ice/public/game.js || true
+          echo '=== LIVE GAME LOOP KEYWORDS ==='
+          grep -n -E -A 20 -B 8 "setInterval|setTimeout|requestAnimationFrame|paused|pause|stoppage|auto.*stop|stepLiveGame|advanceLiveGame|runLiveGame" artifacts/project-ice/public/game.js | tail -n 700 || true
