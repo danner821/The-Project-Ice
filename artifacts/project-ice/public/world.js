@@ -18018,14 +18018,28 @@ const WorldEngine = (() => {
           priorPeriodTargetTOI +
           currentPeriodTargetTOI;
 
+        const unitPlayers =
+          teamSkaters.filter(player =>
+            player
+              ?.lineupAssignment
+              ?.unit === unit &&
+            Number(
+              player
+                ?.lineupAssignment
+                ?.[assignmentKey]
+            ) === id
+          );
+
         const unitHottestPlayerTOI =
           Math.max(
             0,
-            ...skaters.map(
+            ...unitPlayers.map(
               player =>
                 Math.max(
                   0,
-                  Number(player?.toiSeconds) || 0
+                  Number(
+                    player.timeOnIceSeconds
+                  ) || 0
                 )
             )
           );
