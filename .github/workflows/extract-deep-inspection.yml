@@ -13,10 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python .github/scripts/extract_deep_inspection.py
+      - name: Extract expanded inspection
+        run: python .github/scripts/extract_deep_inspection.py
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/deep-inspection.txt
-          git commit -m "Add temporary deep inspection output"
+          git commit -m "Refresh temporary deep inspection output"
           git push
