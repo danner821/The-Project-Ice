@@ -1,0 +1,20 @@
+name: Inspect Career Load Core
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-career-load-core.yml'
+      - '.github/scripts/inspect_career_load_core.py'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_career_load_core.py > .github/career_load_core_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/career_load_core_audit.txt
+          git commit -m 'Persist career load core audit' || exit 0
+          git push
