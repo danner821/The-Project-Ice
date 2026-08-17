@@ -38095,6 +38095,13 @@ case 'career-defense':
       standings:        [],   // { teamId, wins, losses, points, … }
       prospectRankings: [],   // { rank, playerId, … }
 
+      livingWorld: {
+        version: 1,
+        processedWeeks: [],
+        weeklySnapshots: [],
+        recentBeats: [],
+      },
+
       // ── News ─────────────────────────────────────────────────
       // Managed via WorldEngine.news — not written directly.
       // Stored here so it persists with the world save.
