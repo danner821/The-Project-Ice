@@ -1,0 +1,20 @@
+name: Inspect Date Tryout Finalization
+on:
+  push:
+    paths: ['.github/workflows/inspect-date-tryout-finalization.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          echo '--- SEASON STATE ---'
+          grep -n -A180 -B60 "ensureCanonicalSeasonState" artifacts/project-ice/public/world.js | head -n 1200
+          echo '--- SET CURRENT DATE ---'
+          grep -n -A160 -B60 "function setCurrentDate" artifacts/project-ice/public/world.js | head -n 700
+          echo '--- TRYOUT FINISH ---'
+          sed -n '21740,21970p' artifacts/project-ice/public/game.js
+          echo '--- FRESHMAN TRYOUTS ---'
+          grep -n -A120 -B60 "Freshman Tryouts\|freshman-tryout\|freshman tryout" artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js | head -n 1400
