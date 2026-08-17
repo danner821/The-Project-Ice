@@ -2591,6 +2591,22 @@ function saveCareerPreview() {
           .season
           ?.currentDate ||
         null,
+
+      overall: Number(Game.player.overall) || null,
+      startingOverall: Number(Game.player.startingOverall) || Number(Game.player.overall) || null,
+      attributes: Game.player.attributes ? { ...Game.player.attributes } : null,
+      startingLine: Game.player.startingLine || null,
+      rosterSlot: Game.player.rosterSlot || null,
+      lineupAssignment: Game.player.lineupAssignment ? { ...Game.player.lineupAssignment } : null,
+      lineupStatus: Game.player.lineupStatus || null,
+      overallTryoutScore: Number(Game.player.overallTryoutScore) || null,
+      overallTryoutGrade: Game.player.overallTryoutGrade || null,
+      tryoutResults: Game.player.tryoutResults ? JSON.parse(JSON.stringify(Game.player.tryoutResults)) : null,
+      tryoutProfile: Game.player.tryoutProfile ? JSON.parse(JSON.stringify(Game.player.tryoutProfile)) : null,
+      coachTrust: Number(Game.player.coachTrust) || null,
+      reputationStars: Number(Game.player.reputationStars) || null,
+      reputationPoints: Number(Game.player.reputationPoints) || null,
+      teamLevel: Game.player.teamLevel || null,
     };
 
     localStorage.setItem(
