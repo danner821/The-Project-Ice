@@ -1,0 +1,24 @@
+name: Fix Weekly Boundary Order
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-weekly-boundary-order.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_weekly_boundary_order.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Fix Weekly Living World boundary order'
+          git push
