@@ -13976,3 +13976,22 @@ live-game-marker-pop {
   }
 }
 /* ═══════════════════════════════════════════════════════════ */
+
+/* ── Multi-career save selection ───────────────────────────── */
+.career-saves-content {
+  padding: 18px 18px calc(28px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.career-saves-intro { margin: 2px 2px 16px; color: rgba(220,232,255,.68); font-size: 13px; }
+.career-save-list { display: grid; gap: 12px; }
+.career-save-card {
+  width: 100%; text-align: left; border: 1px solid rgba(111,157,224,.20); border-radius: 16px;
+  padding: 16px; color: #fff; background: linear-gradient(145deg, rgba(17,31,58,.94), rgba(8,18,37,.94));
+  box-shadow: 0 10px 28px rgba(0,0,0,.22); -webkit-tap-highlight-color: transparent;
+}
+.career-save-card:active { transform: scale(.985); }
+.career-save-card__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.career-save-card__name { margin: 0 0 5px; font-size: 18px; font-weight: 800; }
+.career-save-card__details { margin: 0; color: rgba(220,232,255,.72); font-size: 12px; line-height: 1.4; }
+.career-save-card__arrow { font-size: 30px; line-height: 1; color: #78b8ff; }
+.career-save-card__meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(111,157,224,.12); color: rgba(220,232,255,.55); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }

@@ -45,6 +45,70 @@ const WorldEngine = (() => {
   const WORLD_RECORD_ID =
     'default';
 
+  const CAREER_SAVE_INDEX_KEY =
+    'projectice_career_save_index_v1';
+
+  const ACTIVE_CAREER_ID_KEY =
+    'projectice_active_career_id_v1';
+
+  function createCareerSaveId() {
+    return `career-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function getActiveCareerId() {
+    return localStorage.getItem(ACTIVE_CAREER_ID_KEY) || null;
+  }
+
+  function getWorldRecordId(careerId = getActiveCareerId()) {
+    return careerId ? `career:${careerId}` : WORLD_RECORD_ID;
+  }
+
+  function readCareerSaveIndex() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CAREER_SAVE_INDEX_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeCareerSaveIndex(entries) {
+    localStorage.setItem(CAREER_SAVE_INDEX_KEY, JSON.stringify(Array.isArray(entries) ? entries : []));
+  }
+
+  function buildCareerSaveMetadata(careerId, state = _state) {
+    const playerId = state?.player?.playerId || state?.player?.id || 'career-player';
+    let careerPlayer = null;
+    for (const team of state?.teams || []) {
+      careerPlayer = (team?.roster || []).find(player =>
+        String(player?.id || player?.playerId || '') === String(playerId) || player?.isCareerPlayer === true
+      );
+      if (careerPlayer) break;
+    }
+    const team = (state?.teams || []).find(item => String(item?.teamId || '') === String(careerPlayer?.teamId || state?.player?.teamId || ''));
+    return {
+      id: careerId,
+      playerName: `${careerPlayer?.firstName || state?.player?.firstName || ''} ${careerPlayer?.lastName || state?.player?.lastName || ''}`.trim() || 'Unnamed Career',
+      position: careerPlayer?.position || state?.player?.position || '',
+      overall: Number(careerPlayer?.overall) || Number(state?.player?.overall) || null,
+      teamName: team ? `${team.schoolName || ''} ${team.teamName || ''}`.trim() : (careerPlayer?.teamName || state?.player?.teamName || ''),
+      teamAbbreviation: team?.abbreviation || '',
+      currentDate: state?.season?.currentDate || state?.player?.currentDate || state?.currentDate || null,
+      seasonLabel: state?.season?.label || state?.currentSeason || '',
+      stage: careerPlayer?.stage || state?.player?.stage || '',
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  function upsertCareerSaveMetadata(careerId, state = _state) {
+    if (!careerId) return;
+    const index = readCareerSaveIndex();
+    const metadata = buildCareerSaveMetadata(careerId, state);
+    const existing = index.findIndex(item => item?.id === careerId);
+    if (existing >= 0) index[existing] = metadata; else index.unshift(metadata);
+    writeCareerSaveIndex(index);
+  }
+
   function openWorldDatabase() {
     return new Promise(
       (resolve, reject) => {
@@ -37889,9 +37953,11 @@ case 'career-defense':
               WORLD_STORE_NAME
             );
 
+          const activeCareerId = getActiveCareerId();
+
           store.put({
             id:
-              WORLD_RECORD_ID,
+              getWorldRecordId(activeCareerId),
 
             savedAt:
               new Date()
@@ -37929,6 +37995,11 @@ case 'career-defense':
       );
 
       database.close();
+
+      const activeCareerId = getActiveCareerId();
+      if (activeCareerId) {
+        upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
+      }
     } catch (error) {
       console.error(
         '[WorldEngine] IndexedDB save failed:',
@@ -37973,7 +38044,7 @@ case 'career-defense':
 
             const request =
               store.get(
-                WORLD_RECORD_ID
+                getWorldRecordId()
               );
 
             request.onsuccess =
@@ -37996,16 +38067,44 @@ case 'career-defense':
           }
         );
 
+      let resolvedRecord = storedRecord;
+
+      /* Legacy single-world migration: preserve the user's existing career as slot #1. */
+      if (!resolvedRecord?.world) {
+        const legacyDatabase = database;
+        const legacyRecord = await new Promise((resolve, reject) => {
+          const transaction = legacyDatabase.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+        if (legacyRecord?.world) {
+          let careerId = getActiveCareerId();
+          if (!careerId) {
+            careerId = createCareerSaveId();
+            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+          }
+          await new Promise((resolve, reject) => {
+            const transaction = legacyDatabase.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).put({ ...legacyRecord, id: getWorldRecordId(careerId) });
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+          });
+          resolvedRecord = { ...legacyRecord, id: getWorldRecordId(careerId) };
+          upsertCareerSaveMetadata(careerId, legacyRecord.world);
+        }
+      }
+
       database.close();
 
       if (
-        storedRecord?.world &&
+        resolvedRecord?.world &&
         typeof storedRecord.world ===
           'object'
       ) {
         _state = {
           ...buildDefaults(),
-          ...storedRecord.world,
+          ...resolvedRecord.world,
         };
 
         if (
@@ -38112,7 +38211,47 @@ case 'career-defense':
     }
   }
 
-  /** Reset to defaults and wipe the stored world. */
+  async function listCareerSaves() {
+    /* Ensure a legacy single save is migrated before the list is shown. */
+    if (readCareerSaveIndex().length === 0) {
+      await load();
+    }
+    return readCareerSaveIndex().slice().sort((a, b) => String(b?.savedAt || '').localeCompare(String(a?.savedAt || '')));
+  }
+
+  async function selectCareerSave(careerId) {
+    if (!careerId) return false;
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    return load();
+  }
+
+  async function beginNewCareerSave() {
+    const careerId = createCareerSaveId();
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    _state = buildDefaults();
+    ensureCanonicalSeasonState(_state);
+    if (!_state.player) _state.player = {};
+    _state.player.currentDate = '2026-09-01';
+    await save();
+    return careerId;
+  }
+
+  async function deleteCareerSave(careerId) {
+    if (!careerId) return false;
+    const database = await openWorldDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+      transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(careerId));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+    writeCareerSaveIndex(readCareerSaveIndex().filter(item => item?.id !== careerId));
+    if (getActiveCareerId() === careerId) localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
+    return true;
+  }
+
+  /** Reset only the currently active career to defaults. Other career slots are preserved. */
   function reset() {
     _state = buildDefaults();
 
@@ -40806,6 +40945,11 @@ case 'career-defense':
     news,
     save,
     load,
+    listCareerSaves,
+    selectCareerSave,
+    beginNewCareerSave,
+    deleteCareerSave,
+    getActiveCareerId,
     ensureGeneratedRosters,
     getOrderedRosterSlotsForPosition,
     createEmptySpecialTeamsUnits,

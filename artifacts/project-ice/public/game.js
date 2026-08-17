@@ -35,6 +35,10 @@ const Game = {
 // ── Screen references ───────────────────────────────────────
 const titleScreen          = document.getElementById('title-screen');
 const creationScreen       = document.getElementById('creation-screen');
+const careerSavesScreen    = document.getElementById('career-saves-screen');
+const careerSaveList       = document.getElementById('career-save-list');
+const careerSaveCount      = document.getElementById('career-save-count');
+const btnBackCareerSaves   = document.getElementById('btn-back-career-saves');
 const summaryScreen        = document.getElementById('summary-screen');
 const identityScreen       = document.getElementById('identity-screen');
 const careerOverviewScreen = document.getElementById('career-overview-screen');
@@ -3152,7 +3156,15 @@ function hasCanonicalCareerWorld() {
           SAVE_KEY
         )
       ) ||
-      hasCanonicalCareerWorld();
+      hasCanonicalCareerWorld() ||
+      (() => {
+        try {
+          const saves = JSON.parse(localStorage.getItem('projectice_career_save_index_v1') || '[]');
+          return Array.isArray(saves) && saves.length > 0;
+        } catch (_) {
+          return false;
+        }
+      })();
 
   btnContinue.disabled = !hasSave;
 
@@ -3216,14 +3228,63 @@ btnNewCareer.addEventListener('pointerdown', (event) => {
   spawnRipple(btnNewCareer, event);
 });
 
-btnNewCareer.addEventListener('click', () => {
+async function renderCareerSaveSelection() {
+  const saves = await WorldEngine.listCareerSaves();
+  careerSaveList.innerHTML = '';
+  careerSaveCount.textContent = `${saves.length} ${saves.length === 1 ? 'Save' : 'Saves'}`;
+
+  saves.forEach(save => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'career-save-card';
+    const dateLabel = save.currentDate ? new Date(`${save.currentDate}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Career in progress';
+    const details = [save.position, save.teamName, save.overall ? `${save.overall} OVR` : ''].filter(Boolean).join(' • ');
+    card.innerHTML = `
+      <div class="career-save-card__top">
+        <div>
+          <p class="career-save-card__name">${escapeHtml(save.playerName || 'Project Ice Career')}</p>
+          <p class="career-save-card__details">${escapeHtml(details || 'High School Career')}</p>
+        </div>
+        <span class="career-save-card__arrow">›</span>
+      </div>
+      <div class="career-save-card__meta">
+        <span>${escapeHtml(save.seasonLabel || 'Season 1')}</span>
+        <span>${escapeHtml(dateLabel)}</span>
+      </div>
+    `;
+    card.addEventListener('click', async () => {
+      card.disabled = true;
+      const loaded = await WorldEngine.selectCareerSave(save.id);
+      if (!loaded) { card.disabled = false; return; }
+      localStorage.removeItem(SAVE_KEY);
+      recoverCareerPreviewFromWorld();
+      loadCareerPreview();
+    });
+    careerSaveList.appendChild(card);
+  });
+
+  showScreen('career-saves');
+}
+
+btnNewCareer.addEventListener('click', async () => {
+  btnNewCareer.disabled = true;
+  await WorldEngine.beginNewCareerSave();
+  localStorage.removeItem(SAVE_KEY);
   resetPlayer();
+  btnNewCareer.disabled = false;
   showScreen('creation');
 });
 
 btnContinue.addEventListener('click', () => {
-  loadCareerPreview();
+  renderCareerSaveSelection();
 });
+
+if (btnBackCareerSaves) {
+  btnBackCareerSaves.addEventListener('click', () => {
+    updateContinueButton();
+    showScreen('title');
+  });
+}
 
 // ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
 // Loads the saved career and jumps straight to Career Hub without running
