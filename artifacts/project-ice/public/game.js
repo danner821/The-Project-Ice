@@ -3581,6 +3581,7 @@ function openHubTab(tabId) {
     renderLeagueStandingsPreview();
     renderLeagueLeadersPreview();
     renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
     if (
       !Array.isArray(Game.currentProspectRankings) ||
       Game.currentProspectRankings.length === 0
@@ -3942,10 +3943,46 @@ function renderHubNews() {
   `).join('');
 }
 
+
+function renderLeagueNewsPreview() {
+  const container = document.getElementById('league-news-preview');
+  if (!container) return;
+
+  const items = NewsSystem.getRecent(8);
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="league-news-feed__empty">
+        No major league stories yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="league-news-feed">
+      ${items.map(item => `
+        <article class="league-news-card">
+          <div class="league-news-card__meta">
+            <span class="league-news-card__tag">${item.tag || 'LEAGUE'}</span>
+            <span class="league-news-card__date">${item.date || ''}</span>
+          </div>
+          <strong class="league-news-card__headline">
+            ${item.headline || ''}
+          </strong>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
 // Register the hub re-render callback with the World Engine news system.
 // WorldEngine.news.publish() will call renderHubNews() automatically
 // whenever a new headline is added — without world.js touching the DOM.
-WorldEngine.news.onNewsChange(renderHubNews);
+WorldEngine.news.onNewsChange(() => {
+  renderHubNews();
+  renderLeagueNewsPreview();
+});
 
 // ── Team Profile ─────────────────────────────────────────────
 // One reusable screen shared by both standings entry points.

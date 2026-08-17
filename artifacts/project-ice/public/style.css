@@ -14182,3 +14182,51 @@ live-game-marker-pop {
   font-size: 0.74rem;
   line-height: 1.35;
 }
+
+
+/* Dynamic League News — canonical WorldEngine.news consumer */
+.league-news-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.league-news-card {
+  display: grid;
+  gap: 7px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 13px;
+  background: rgba(255,255,255,0.035);
+}
+
+.league-news-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.league-news-card__tag {
+  color: #91bbff;
+  font-size: 0.63rem;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.league-news-card__date {
+  color: rgba(255,255,255,0.38);
+  font-size: 0.66rem;
+}
+
+.league-news-card__headline {
+  color: #f1f5fb;
+  font-size: 0.88rem;
+  line-height: 1.38;
+}
+
+.league-news-feed__empty {
+  padding: 13px;
+  color: rgba(255,255,255,0.46);
+  font-size: 0.8rem;
+}
