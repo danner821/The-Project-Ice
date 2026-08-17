@@ -1,0 +1,38 @@
+name: Fix Game Day Flow TOI
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-game-day-flow-toi.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply robust fixes
+        run: python .github/scripts/fix_game_day_flow_and_toi.py
+      - name: Validate JavaScript
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/world.js
+      - name: Verify critical anchors
+        run: |
+          grep -q "simulatePregameMatchupGame" artifacts/project-ice/public/game.js
+          grep -q "z-index: 2147483647" artifacts/project-ice/public/game.js
+          grep -q "specialTeamsRotation" artifacts/project-ice/public/world.js
+          grep -q "hasSuppliedResolvedGameResult" artifacts/project-ice/public/world.js
+      - name: Commit gameplay fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+          if git diff --cached --quiet; then
+            echo "No gameplay changes to commit"
+            exit 0
+          fi
+          git commit -m "Fix game-day flow and distribute TOI"
+          git push
