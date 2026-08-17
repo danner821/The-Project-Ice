@@ -1,0 +1,22 @@
+name: Fix Career Record Id Compatibility
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-career-record-id-compat.yml'
+      - '.github/scripts/fix_career_record_id_compat.py'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_career_record_id_compat.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q "Direct career record recovery failed" artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Make career selection compatible with legacy record ids' || exit 0
+          git push
