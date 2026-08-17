@@ -27428,7 +27428,15 @@ case 'career-defense':
     const failures = [];
 
     let steps = 0;
+    let consecutiveFailures = 0;
 
+    /*
+     * The visible live-game player already treats an isolated zero-time
+     * deployment/event boundary as recoverable. The instant resolver used by
+     * Sim Game must obey the same contract; otherwise Sim Game can fail on a
+     * transient step that the exact same hockey game would recover from when
+     * played visibly.
+     */
     while (
       simulation.gameComplete !== true &&
       steps < maxSteps
@@ -27444,6 +27452,8 @@ case 'career-defense':
         !step ||
         step.success !== true
       ) {
+        consecutiveFailures += 1;
+
         failures.push({
           step: steps,
 
@@ -27457,10 +27467,19 @@ case 'career-defense':
           clockSecondsRemaining:
             simulation
               .clockSecondsRemaining,
+
+          recovered:
+            consecutiveFailures <= 3,
         });
+
+        if (consecutiveFailures <= 3) {
+          continue;
+        }
 
         break;
       }
+
+      consecutiveFailures = 0;
     }
 
     /*
@@ -27486,14 +27505,18 @@ case 'career-defense':
       });
     }
 
-    if (failures.length > 0) {
+    const unrecoveredFailure =
+      failures.find(
+        failure =>
+          failure?.recovered !== true
+      ) || null;
+
+    if (unrecoveredFailure) {
       return {
         success: false,
 
         reason:
-          failures[
-            failures.length - 1
-          ]?.reason ||
+          unrecoveredFailure.reason ||
           'live-game-resolution-failed',
 
         simulation,
@@ -27563,7 +27586,7 @@ case 'career-defense':
 
       steps,
 
-      failures: [],
+      failures,
     };
   }
 
