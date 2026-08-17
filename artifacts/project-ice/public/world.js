@@ -1710,7 +1710,7 @@ const WorldEngine = (() => {
     return items[selectedIndex];
   }
 
-  function createHighSchoolLifeEvents() {
+  function createHighSchoolLifeEvents(endDateOverride = null) {
     const lifeEvents = [];
 
     /*
@@ -1827,7 +1827,7 @@ const WorldEngine = (() => {
 
     const endDate =
       new Date(
-        '2027-03-31T12:00:00'
+        `${endDateOverride || '2027-03-31'}T12:00:00`
       );
 
     for (
@@ -1980,8 +1980,13 @@ const WorldEngine = (() => {
           'league-schedule',
       }));
 
+      const lastGameDate = gameEvents.reduce((latest, game) => {
+        const date = String(game?.date || '');
+        return date > latest ? date : latest;
+      }, '') || null;
+
       const lifeEvents =
-        createHighSchoolLifeEvents();
+        createHighSchoolLifeEvents(lastGameDate);
 
       /*
        * A league game takes priority over Practice or Recovery.

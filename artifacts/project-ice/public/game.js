@@ -2847,7 +2847,10 @@ function ensureCareerScheduleEventsOnLoad() {
    * Current saves that already contain the expanded schedule
    * need no migration.
    */
-  if (hasCareerEvents) {
+  const latestGameDate = existingSchedule.filter(e => String(e?.type || '').toLowerCase() === 'game').reduce((m,e) => String(e?.date || '') > m ? String(e.date) : m, '');
+  const latestCareerDate = existingSchedule.filter(e => ['practice','recovery','training'].includes(String(e?.type || '').toLowerCase())).reduce((m,e) => String(e?.date || '') > m ? String(e.date) : m, '');
+
+  if (hasCareerEvents && (!latestGameDate || latestCareerDate >= latestGameDate)) {
     return false;
   }
 
@@ -18368,6 +18371,10 @@ function appendLiveGameEventToFeed(
 
   eventElement.className =
     'live-game__timeline-event';
+
+  if (eventType === 'goal') {
+    eventElement.classList.add('live-game__timeline-event--goal');
+  }
 
   eventElement.dataset.eventId =
     String(

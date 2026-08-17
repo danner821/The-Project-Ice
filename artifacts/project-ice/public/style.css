@@ -13344,6 +13344,18 @@ tr.career-player-highlight .full-stats-player-button {
     );
 }
 
+.live-game__timeline-event--goal {
+  border-color: rgba(255, 231, 153, 0.95);
+  background: linear-gradient(145deg, #8f6414, #d5a62e);
+  box-shadow: 0 0 14px rgba(213, 166, 46, 0.30);
+}
+
+.live-game__timeline-event--goal .live-game__timeline-time,
+.live-game__timeline-event--goal .live-game__timeline-primary,
+.live-game__timeline-event--goal .live-game__timeline-secondary {
+  color: #ffffff;
+}
+
 .live-game__timeline-time {
   display: block;
 
