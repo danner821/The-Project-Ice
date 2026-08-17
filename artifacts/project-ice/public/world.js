@@ -38559,11 +38559,46 @@ case 'career-defense':
 
     if (!isOfficialPreview) return null;
 
-    /* First prefer an existing active/pending id so recovery never duplicates a surviving slot. */
+    /*
+     * Prefer the active/pending id only when it is empty or already belongs
+     * to this preview. Never overwrite another valid career during recovery.
+     */
     let careerId =
       getActiveCareerId() ||
       localStorage.getItem(PENDING_CAREER_ID_KEY) ||
       null;
+
+    if (careerId) {
+      try {
+        const database = await openWorldDatabase();
+        const existingRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(getWorldRecordId(careerId));
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+
+        const existingWorld = existingRecord?.world || null;
+        const existingName = `${existingWorld?.player?.firstName || ''} ${existingWorld?.player?.lastName || ''}`.trim();
+        const existingHasDifferentOfficialCareer = Boolean(
+          existingWorld &&
+          existingName &&
+          existingName.toLowerCase() !== playerName.toLowerCase() &&
+          (
+            existingWorld?.player?.stage === 'hub' ||
+            existingWorld?.player?.tryoutsComplete === true
+          )
+        );
+
+        if (existingHasDifferentOfficialCareer) {
+          careerId = null;
+        }
+      } catch (error) {
+        console.warn('[WorldEngine] Could not verify recovery career id; using a new slot.', error);
+        careerId = null;
+      }
+    }
 
     if (!careerId) {
       careerId = createCareerSaveId();
