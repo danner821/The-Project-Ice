@@ -13,13 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect weekly/date-processing architecture
+      - name: Inspect weekly coordinator contracts
         run: |
-          echo '=== WORLD: ADVANCE/DATES ==='
-          grep -n -B 35 -A 170 -E 'function advanceDay\(|function advanceToDate\(|function setCurrentDate\(' artifacts/project-ice/public/world.js || true
-          echo '=== WORLD: TRUST/FORM/LINEUPS ==='
-          grep -n -B 25 -A 90 -E 'coachTrust|recentForm|lineupAssignment|specialTeams|recalculate|deployment' artifacts/project-ice/public/world.js | tail -n 900 || true
-          echo '=== WORLD: STANDINGS/STATS/NEWS ==='
-          grep -n -B 25 -A 100 -E 'standings|leader|news|headline|story|award|prospect' artifacts/project-ice/public/world.js | tail -n 1000 || true
-          echo '=== GAME: SIMULATE TO DATE ==='
-          grep -n -B 40 -A 150 -E 'function simulateToDate\(' artifacts/project-ice/public/game.js || true
+          echo '=== WEEKLY FUNCTIONS ==='
+          grep -n -B 80 -A 260 -E 'function (processCrossedSeasonWeeks|processSeasonWeek|processWeekly|ensureCanonicalSeasonState|getSeasonWeekForDate)\(' artifacts/project-ice/public/world.js || true
+          echo '=== WEEKLY REFERENCES ==='
+          grep -n -B 20 -A 40 -E 'processedWeeks|lastProcessedWeek|weeklyProcessing|weeklyLiving|crossedWeeks' artifacts/project-ice/public/world.js || true
+          echo '=== STANDINGS HELPERS ==='
+          grep -n -B 25 -A 90 -E 'function .*Standings|standings =|getStandings|calculateStandings|buildStandings' artifacts/project-ice/public/world.js | head -n 1200 || true
+          echo '=== LEADER HELPERS ==='
+          grep -n -B 20 -A 80 -E 'function .*Leader|getLeagueLeader|statLeader|leader' artifacts/project-ice/public/world.js | head -n 1000 || true
+          echo '=== CAREER LINEUP EVALUATION ==='
+          grep -n -B 30 -A 140 -E 'coachTrust|recentForm|refreshTeamRosterManagement\(' artifacts/project-ice/public/world.js | head -n 1800 || true
