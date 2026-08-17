@@ -1,0 +1,22 @@
+name: Inspect Goal Feed Calendar
+
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-goal-feed-calendar.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_goal_feed_and_calendar.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/goal-calendar-inspection.txt
+          git commit -m "Capture goal feed calendar inspection"
+          git push
