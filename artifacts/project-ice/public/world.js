@@ -37765,6 +37765,15 @@ case 'career-defense':
         );
       }
 
+      if (beat?.type === 'season_award_winner') {
+        const player = getPlayer(beat.playerId || beat.winnerPlayerId);
+        publishOnce(
+          beat.beatId || `season-award:${beat.seasonId || weekKey}:${beat.awardKey}:${beat.playerId || beat.winnerPlayerId}`,
+          'AWARDS',
+          `${playerName(player)} wins ${beat.awardLabel || 'a league award'}.`
+        );
+      }
+
       if (beat?.type === 'award_leader_change') {
         const player = getPlayer(beat.newLeaderId);
         publishOnce(
@@ -38000,6 +38009,77 @@ case 'career-defense':
     };
   }
 
+  function isFreshmanAwardEligible(player = {}) {
+    const yearText = [
+      player.year,
+      player.schoolYear,
+      player.classYear,
+      player.gradeLabel,
+      player.careerStageLabel,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const numericGrade = Number(
+      player.grade ??
+      player.gradeLevel ??
+      player.schoolGrade
+    );
+
+    if (/freshman|9th\s*grade|grade\s*9/.test(yearText)) return true;
+    if (numericGrade === 9) return true;
+
+    /*
+     * Generated HS rosters do not all carry a literal class label yet.
+     * Age 14 is the canonical freshman fallback during the HS career stage.
+     */
+    const age = Number(player.age ?? player.development?.currentAge);
+    const levelText = [player.league, player.level, player.teamLevel, player.careerLevel]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    const clearlyPostHs = /nhl|ahl|echl|ncaa|college|ohl|whl|qmjhl|ushl|junior/.test(levelText);
+
+    return Number.isFinite(age) && age <= 14 && !clearlyPostHs;
+  }
+
+  function calculateFreshmanOfYearScore(player = {}, stats = {}) {
+    const gp = Math.max(1, Number(stats.gamesPlayed) || 0);
+    const overall = Math.max(0, Number(player.overall) || 0);
+    const reputation = Math.max(
+      0,
+      Number(player.reputationPoints) || ((Number(player.reputationStars) || 0) * 20)
+    );
+    const position = normalizeAttributePosition(player.position);
+
+    if (position === 'G') {
+      const wins = Math.max(0, Number(stats.wins) || 0);
+      const savePercentage = Math.max(0, Number(stats.savePercentage) || 0);
+      const shutouts = Math.max(0, Number(stats.shutouts) || 0);
+      const winRate = wins / gp;
+      const saveQuality = Math.max(-0.05, savePercentage - 0.88);
+      return (
+        winRate * 72 +
+        saveQuality * 520 +
+        (shutouts / gp) * 34 +
+        overall * 0.34 +
+        reputation * 0.035
+      );
+    }
+
+    const pointsPerGame = Math.max(0, Number(stats.points) || 0) / gp;
+    const goalsPerGame = Math.max(0, Number(stats.goals) || 0) / gp;
+    const plusMinusPerGame = Number(stats.plusMinus || 0) / gp;
+    return (
+      pointsPerGame * 76 +
+      goalsPerGame * 24 +
+      plusMinusPerGame * 4 +
+      overall * 0.34 +
+      reputation * 0.035
+    );
+  }
+
   function buildLivingWorldAwardRaces(dateString, weekKey) {
     const livingWorld = ensureLivingWorldState();
     if (!Array.isArray(livingWorld.awardRaceSnapshots)) livingWorld.awardRaceSnapshots = [];
@@ -38071,12 +38151,26 @@ case 'career-defense':
         (player, stats) => position(player) === 'G' && stats.gamesPlayed > 0,
         (player, stats) => stats.wins * 8 + stats.savePercentage * 100 + stats.shutouts * 12 + Math.max(0, 5 - stats.goalsAgainstAverage) * 4 + overall(player) * 0.08
       ),
+      makeRace(
+        'freshman_of_year',
+        'Freshman of the Year',
+        (player, stats) => isFreshmanAwardEligible(player) && stats.gamesPlayed > 0,
+        (player, stats) => calculateFreshmanOfYearScore(player, stats)
+      ),
     ];
 
     const snapshot = {
       weekKey,
       date: normalizeLivingWorldDateKey(dateString),
       races,
+      awardDefinitions: {
+        freshman_of_year: {
+          key: 'freshman_of_year',
+          label: 'Freshman of the Year',
+          eligibility: 'freshman',
+          seasonAward: true,
+        },
+      },
     };
 
     const previousByKey = new Map((previousSnapshot?.races || []).map(race => [race.key, race]));

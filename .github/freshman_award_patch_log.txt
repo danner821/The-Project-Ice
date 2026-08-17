@@ -1,0 +1,14 @@
+Freshman of the Year added to canonical weekly awards and League UI
+PY_STATUS=0
+WORLD_NODE_STATUS=0
+/home/runner/work/The-Project-Ice/The-Project-Ice/artifacts/project-ice/public/game.js:6013
+}
+^
+
+SyntaxError: Unexpected token '}'
+    at checkSyntax (node:internal/main/check_syntax:74:5)
+
+Node.js v22.23.2
+GAME_NODE_STATUS=1
+WORLD_GREP_STATUS=0
+GAME_GREP_STATUS=1
