@@ -1,0 +1,14 @@
+name: Inspect Scouting Next
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-scouting-next.yml'
+      - '.github/scripts/inspect_scouting_next.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_scouting_next.py
