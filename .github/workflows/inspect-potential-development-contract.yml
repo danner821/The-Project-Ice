@@ -1,0 +1,14 @@
+name: Inspect Potential Development Contract
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-potential-development-contract.yml'
+      - '.github/scripts/inspect_potential_development_contract.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_potential_development_contract.py
