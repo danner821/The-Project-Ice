@@ -3544,6 +3544,30 @@ const WorldEngine = (() => {
             ]
           : [],
 
+      /*
+       * Compact, permanent end-of-week snapshots.
+       *
+       * These records let later Home, News, awards and scouting
+       * systems react to what the world actually looked like when
+       * a week ended instead of reconstructing old weeks from the
+       * current state. Keep only a season-sized history so saves do
+       * not grow without bound.
+       */
+      weeklyHistory:
+        Array.isArray(
+          source.season?.weeklyHistory
+        )
+          ? source.season
+              .weeklyHistory
+              .slice(-64)
+              .map(record =>
+                record &&
+                typeof record === 'object'
+                  ? structuredClone(record)
+                  : record
+              )
+          : [],
+
       unresolvedEventIds:
         Array.isArray(
           source.season
@@ -3703,6 +3727,414 @@ const WorldEngine = (() => {
     );
   }
 
+  function buildWeeklyLivingWorldSnapshot(
+    completedWeek,
+    completedAtDate
+  ) {
+    const safeWeek =
+      Math.max(
+        1,
+        Number(completedWeek) || 1
+      );
+
+    const teams =
+      Array.isArray(_state.teams)
+        ? _state.teams
+        : [];
+
+    const standings =
+      teams
+        .map(team => ({
+          teamId:
+            team?.teamId || null,
+
+          abbreviation:
+            team?.abbreviation || '',
+
+          wins:
+            Math.max(
+              0,
+              Number(team?.wins) || 0
+            ),
+
+          losses:
+            Math.max(
+              0,
+              Number(team?.losses) || 0
+            ),
+
+          overtimeLosses:
+            Math.max(
+              0,
+              Number(
+                team?.overtimeLosses
+              ) || 0
+            ),
+
+          points:
+            Math.max(
+              0,
+              Number(team?.points) || 0
+            ),
+
+          goalsFor:
+            Math.max(
+              0,
+              Number(team?.goalsFor) || 0
+            ),
+
+          goalsAgainst:
+            Math.max(
+              0,
+              Number(
+                team?.goalsAgainst
+              ) || 0
+            ),
+        }))
+        .sort((firstTeam, secondTeam) => {
+          const pointsDifference =
+            secondTeam.points -
+            firstTeam.points;
+
+          if (pointsDifference !== 0) {
+            return pointsDifference;
+          }
+
+          const winsDifference =
+            secondTeam.wins -
+            firstTeam.wins;
+
+          if (winsDifference !== 0) {
+            return winsDifference;
+          }
+
+          const firstGoalDifference =
+            firstTeam.goalsFor -
+            firstTeam.goalsAgainst;
+
+          const secondGoalDifference =
+            secondTeam.goalsFor -
+            secondTeam.goalsAgainst;
+
+          return (
+            secondGoalDifference -
+            firstGoalDifference
+          );
+        });
+
+    const skaters = [];
+
+    teams.forEach(team => {
+      const roster =
+        Array.isArray(team?.roster)
+          ? team.roster
+          : [];
+
+      roster.forEach(player => {
+        if (
+          normalizeAttributePosition(
+            player?.position
+          ) === 'G'
+        ) {
+          return;
+        }
+
+        const goals =
+          Math.max(
+            0,
+            Number(player?.goals) || 0
+          );
+
+        const assists =
+          Math.max(
+            0,
+            Number(player?.assists) || 0
+          );
+
+        skaters.push({
+          playerId:
+            player?.id ||
+            player?.playerId ||
+            null,
+
+          teamId:
+            team?.teamId || null,
+
+          name:
+            `${player?.firstName || ''} ${player?.lastName || ''}`.trim(),
+
+          gamesPlayed:
+            Math.max(
+              0,
+              Number(
+                player?.gamesPlayed
+              ) || 0
+            ),
+
+          goals,
+          assists,
+
+          points:
+            Math.max(
+              goals + assists,
+              Number(player?.points) || 0
+            ),
+        });
+      });
+    });
+
+    const topSkaters = (
+      primaryKey,
+      secondaryKey
+    ) =>
+      skaters
+        .slice()
+        .sort((firstPlayer, secondPlayer) => {
+          const primaryDifference =
+            Number(
+              secondPlayer[primaryKey]
+            ) -
+            Number(
+              firstPlayer[primaryKey]
+            );
+
+          if (primaryDifference !== 0) {
+            return primaryDifference;
+          }
+
+          const secondaryDifference =
+            Number(
+              secondPlayer[secondaryKey]
+            ) -
+            Number(
+              firstPlayer[secondaryKey]
+            );
+
+          if (secondaryDifference !== 0) {
+            return secondaryDifference;
+          }
+
+          return (
+            secondPlayer.gamesPlayed -
+            firstPlayer.gamesPlayed
+          );
+        })
+        .slice(0, 5);
+
+    const careerPlayer =
+      getPlayerById(
+        _state.player?.playerId ||
+        _state.player?.id ||
+        'career-player'
+      );
+
+    return {
+      week: safeWeek,
+
+      completedAtDate:
+        completedAtDate ||
+        _state.season?.currentDate ||
+        _state.currentDate ||
+        null,
+
+      standings,
+
+      leaders: {
+        points:
+          topSkaters(
+            'points',
+            'goals'
+          ),
+
+        goals:
+          topSkaters(
+            'goals',
+            'points'
+          ),
+
+        assists:
+          topSkaters(
+            'assists',
+            'points'
+          ),
+      },
+
+      career:
+        careerPlayer
+          ? {
+              playerId:
+                careerPlayer.id ||
+                careerPlayer.playerId ||
+                null,
+
+              teamId:
+                careerPlayer.teamId ||
+                null,
+
+              gamesPlayed:
+                Math.max(
+                  0,
+                  Number(
+                    careerPlayer
+                      .gamesPlayed
+                  ) || 0
+                ),
+
+              goals:
+                Math.max(
+                  0,
+                  Number(
+                    careerPlayer.goals
+                  ) || 0
+                ),
+
+              assists:
+                Math.max(
+                  0,
+                  Number(
+                    careerPlayer.assists
+                  ) || 0
+                ),
+
+              points:
+                Math.max(
+                  0,
+                  Number(
+                    careerPlayer.points
+                  ) ||
+                  (
+                    Number(
+                      careerPlayer.goals
+                    ) || 0
+                  ) +
+                  (
+                    Number(
+                      careerPlayer.assists
+                    ) || 0
+                  )
+                ),
+
+              coachTrust:
+                Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    Number(
+                      careerPlayer
+                        .coachTrust
+                    ) || 50
+                  )
+                ),
+
+              recentForm:
+                Math.max(
+                  0,
+                  Math.min(
+                    100,
+                    Number(
+                      careerPlayer
+                        .recentForm
+                    ) || 50
+                  )
+                ),
+
+              lineupAssignment:
+                careerPlayer
+                  .lineupAssignment
+                  ? structuredClone(
+                      careerPlayer
+                        .lineupAssignment
+                    )
+                  : null,
+
+              specialTeamsAssignments:
+                careerPlayer
+                  .specialTeamsAssignments
+                  ? structuredClone(
+                      careerPlayer
+                        .specialTeamsAssignments
+                    )
+                  : {
+                      powerPlay: [],
+                      penaltyKill: [],
+                    },
+            }
+          : null,
+    };
+  }
+
+  function saveWeeklyLivingWorldSnapshot(
+    snapshot
+  ) {
+    if (
+      !snapshot ||
+      typeof snapshot !== 'object'
+    ) {
+      return false;
+    }
+
+    if (
+      !_state.season ||
+      typeof _state.season !== 'object'
+    ) {
+      ensureCanonicalSeasonState(
+        _state
+      );
+    }
+
+    if (
+      !Array.isArray(
+        _state.season.weeklyHistory
+      )
+    ) {
+      _state.season.weeklyHistory = [];
+    }
+
+    const safeWeek =
+      Math.max(
+        1,
+        Number(snapshot.week) || 1
+      );
+
+    const existingIndex =
+      _state.season.weeklyHistory
+        .findIndex(
+          record =>
+            Number(record?.week) ===
+            safeWeek
+        );
+
+    const frozenSnapshot =
+      structuredClone(snapshot);
+
+    if (existingIndex >= 0) {
+      _state.season.weeklyHistory[
+        existingIndex
+      ] = frozenSnapshot;
+    } else {
+      _state.season.weeklyHistory.push(
+        frozenSnapshot
+      );
+    }
+
+    _state.season.weeklyHistory.sort(
+      (firstRecord, secondRecord) =>
+        Number(firstRecord?.week) -
+        Number(secondRecord?.week)
+    );
+
+    if (
+      _state.season.weeklyHistory
+        .length > 64
+    ) {
+      _state.season.weeklyHistory =
+        _state.season.weeklyHistory
+          .slice(-64);
+    }
+
+    return true;
+  }
+
   function processCompletedSeasonWeek(
     completedWeek,
     options = {}
@@ -3847,6 +4279,24 @@ const WorldEngine = (() => {
         };
       });
 
+    /*
+     * Freeze the real league state at this exact week boundary.
+     * Later presentation systems can consume these records without
+     * mutating or re-simulating history.
+     */
+    const weeklySnapshot =
+      buildWeeklyLivingWorldSnapshot(
+        safeCompletedWeek,
+        options.completedAtDate ||
+          _state.season?.currentDate ||
+          _state.currentDate ||
+          null
+      );
+
+    saveWeeklyLivingWorldSnapshot(
+      weeklySnapshot
+    );
+
     _state.season.processedWeeks.push(
       safeCompletedWeek
     );
@@ -3883,6 +4333,8 @@ const WorldEngine = (() => {
       leagueDevelopment,
 
       teamDeploymentResults,
+
+      weeklySnapshot,
     };
   }
 
@@ -3911,6 +4363,13 @@ const WorldEngine = (() => {
             completedWeek,
             {
               save: false,
+
+              completedAtDate:
+                options.completedAtDate ||
+                _state.season
+                  ?.currentDate ||
+                _state.currentDate ||
+                null,
             }
           );
 
@@ -38045,6 +38504,13 @@ case 'career-defense':
 
     const dateProcessingResults = [];
 
+    const crossedWeeks = [];
+
+    const weeklyProcessingResults = [];
+
+    let activeWeek =
+      startingWeek;
+
     let blockingDateResult = null;
 
     /*
@@ -38088,6 +38554,55 @@ case 'career-defense':
 
       daysAdvanced += 1;
 
+      const enteredWeek =
+        Math.max(
+          1,
+          Number(
+            _state.season?.currentWeek ??
+            _state.currentWeek
+          ) || activeWeek
+        );
+
+      /*
+       * Process a completed week at the moment its boundary is
+       * crossed. This is essential when Sim To Date spans several
+       * weeks: each snapshot must reflect that week's real state,
+       * not the final state at the end of the entire skip.
+       *
+       * The new day's scheduled event is resolved first, so results
+       * on that date are canonical before any presentation reads the
+       * world again. A blocking interaction still preserves the week
+       * boundary because the calendar has genuinely entered it.
+       */
+      if (enteredWeek > activeWeek) {
+        const enteredWeeks = [];
+
+        for (
+          let week = activeWeek + 1;
+          week <= enteredWeek;
+          week++
+        ) {
+          enteredWeeks.push(week);
+          crossedWeeks.push(week);
+        }
+
+        const boundaryResults =
+          processCrossedSeasonWeeks(
+            enteredWeeks,
+            {
+              save: false,
+              completedAtDate:
+                advancedDate,
+            }
+          );
+
+        weeklyProcessingResults.push(
+          ...boundaryResults
+        );
+
+        activeWeek = enteredWeek;
+      }
+
       if (
         dateProcessingResult
           ?.stopSimulation === true
@@ -38101,43 +38616,6 @@ case 'career-defense':
 
     const reachedTarget =
       nextDate === targetDate;
-
-    const endingWeek =
-      Math.max(
-        1,
-        Number(
-          _state.season?.currentWeek ??
-          _state.currentWeek
-        ) || startingWeek
-      );
-
-    const crossedWeeks = [];
-
-    if (endingWeek > startingWeek) {
-      for (
-        let week =
-          startingWeek + 1;
-
-        week <= endingWeek;
-
-        week++
-      ) {
-        crossedWeeks.push(week);
-      }
-    }
-
-    /*
-     * Entering a new week completes the previous week.
-     * Every weekly system will eventually run through this
-     * coordinator exactly once.
-     */
-    const weeklyProcessingResults =
-      processCrossedSeasonWeeks(
-        crossedWeeks,
-        {
-          save: false,
-        }
-      );
 
     const simulationSummary =
       buildSimulationSummary({
