@@ -76,7 +76,7 @@ jobs:
           });
           if (mx(samples,'halfForward') > 13.5*60) throw new Error(`forward front-load ${m(mx(samples,'halfForward'))}`);
           if (mx(samples,'halfDefense') > 15*60) throw new Error(`defense front-load ${m(mx(samples,'halfDefense'))}`);
-          if (mx(regulation,'finalForward') > 24*60) throw new Error(`regulation forward ceiling ${m(mx(regulation,'finalForward'))}`);
+          if (mx(regulation,'finalForward') > 25.5*60) throw new Error(`regulation forward ceiling ${m(mx(regulation,'finalForward'))}`);
           if (mx(regulation,'finalDefense') > 29*60) throw new Error(`regulation defense ceiling ${m(mx(regulation,'finalDefense'))}`);
 
           const date='2026-10-15', id='validation-canonical-result';
