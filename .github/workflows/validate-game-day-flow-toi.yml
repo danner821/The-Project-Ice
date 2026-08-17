@@ -28,8 +28,9 @@ jobs:
           const home = teams[0];
           const away = teams[1];
 
+          const maxOrZero = values => values.length ? Math.max(...values) : 0;
           const samples = [];
-          for (let gameIndex = 0; gameIndex < 40; gameIndex++) {
+          for (let gameIndex = 0; gameIndex < 60; gameIndex++) {
             const event = {
               id: `validation-live-${gameIndex}`,
               gameId: `validation-live-${gameIndex}`,
@@ -44,10 +45,14 @@ jobs:
               throw new Error(`createLiveGameSimulationState failed: ${JSON.stringify(created)}`);
             }
             const sim = created.simulation;
-            let halfway = null;
+            let halfAll = 0;
+            let halfForward = 0;
+            let halfDefense = 0;
+            let halfwayCaptured = false;
             let steps = 0;
             let consecutiveFailures = 0;
             let totalRecoveredFailures = 0;
+
             while (!sim.gameComplete && steps < 5000) {
               const step = W.advanceLiveGameStep(sim);
               steps += 1;
@@ -60,33 +65,63 @@ jobs:
                 continue;
               }
               consecutiveFailures = 0;
+
               const regulationElapsed =
                 Math.max(0, Math.min(3600,
                   (Math.max(1, Number(sim.period) || 1) - 1) * 1200 +
                   (1200 - Math.max(0, Number(sim.clockSecondsRemaining) || 0))
                 ));
-              if (!halfway && regulationElapsed >= 1800) {
+
+              if (!halfwayCaptured && regulationElapsed >= 1800) {
                 const all = [...sim.home.skaters, ...sim.away.skaters];
-                halfway = Math.max(...all.map(p => Number(p.timeOnIceSeconds) || 0));
+                const forwards = all.filter(p => p?.lineupAssignment?.unit === 'forward');
+                const defense = all.filter(p => p?.lineupAssignment?.unit === 'defense');
+                halfAll = maxOrZero(all.map(p => Number(p.timeOnIceSeconds) || 0));
+                halfForward = maxOrZero(forwards.map(p => Number(p.timeOnIceSeconds) || 0));
+                halfDefense = maxOrZero(defense.map(p => Number(p.timeOnIceSeconds) || 0));
+                halfwayCaptured = true;
               }
             }
+
             if (!sim.gameComplete) throw new Error('Live game hit validation step limit');
             const all = [...sim.home.skaters, ...sim.away.skaters];
-            const finalMax = Math.max(...all.map(p => Number(p.timeOnIceSeconds) || 0));
-            samples.push({halfway: halfway || 0, finalMax, totalRecoveredFailures});
+            const forwards = all.filter(p => p?.lineupAssignment?.unit === 'forward');
+            const defense = all.filter(p => p?.lineupAssignment?.unit === 'defense');
+            samples.push({
+              halfAll,
+              halfForward,
+              halfDefense,
+              finalAll: maxOrZero(all.map(p => Number(p.timeOnIceSeconds) || 0)),
+              finalForward: maxOrZero(forwards.map(p => Number(p.timeOnIceSeconds) || 0)),
+              finalDefense: maxOrZero(defense.map(p => Number(p.timeOnIceSeconds) || 0)),
+              totalRecoveredFailures,
+            });
           }
 
           const avg = key => samples.reduce((s, x) => s + x[key], 0) / samples.length;
           const max = key => Math.max(...samples.map(x => x[key]));
-          console.log('TOI pacing validation (seconds)', {
-            halfAverageMax: avg('halfway').toFixed(1),
-            halfWorstMax: max('halfway'),
-            finalAverageMax: avg('finalMax').toFixed(1),
-            finalWorstMax: max('finalMax'),
+          const minutes = seconds => (seconds / 60).toFixed(2);
+          console.log('TOI pacing validation (minutes)', {
+            halfForwardAverageMax: minutes(avg('halfForward')),
+            halfForwardWorstMax: minutes(max('halfForward')),
+            halfDefenseAverageMax: minutes(avg('halfDefense')),
+            halfDefenseWorstMax: minutes(max('halfDefense')),
+            finalForwardAverageMax: minutes(avg('finalForward')),
+            finalForwardWorstMax: minutes(max('finalForward')),
+            finalDefenseAverageMax: minutes(avg('finalDefense')),
+            finalDefenseWorstMax: minutes(max('finalDefense')),
+            finalAllWorstMax: minutes(max('finalAll')),
             averageRecoveredFailures: avg('totalRecoveredFailures').toFixed(2),
           });
-          if (max('halfway') > 15 * 60) {
-            throw new Error(`TOI still front-loads: halfway max ${max('halfway')}s`);
+
+          if (max('halfForward') > 13 * 60) {
+            throw new Error(`Forward TOI still front-loads: halfway max ${minutes(max('halfForward'))}m`);
+          }
+          if (max('halfDefense') > 15 * 60) {
+            throw new Error(`Defense TOI still front-loads: halfway max ${minutes(max('halfDefense'))}m`);
+          }
+          if (max('finalForward') > 24 * 60) {
+            throw new Error(`Forward TOI ceiling is too high: ${minutes(max('finalForward'))}m`);
           }
 
           // Canonical supplied-result application, including an already-processed date retry.
@@ -101,18 +136,15 @@ jobs:
           W.setCurrentDate(date, {save: false});
           W.state.season.processedDates = W.state.season.processedDates.filter(d => d !== date);
 
-          let resolved = null;
-          let resolveAttempts = 0;
-          while (resolveAttempts < 4) {
-            resolved = W.resolveLiveGameToFinalResult(scheduled);
-            if (resolved?.success && resolved.gameResult) break;
-            resolveAttempts += 1;
-          }
+          const resolved = W.resolveLiveGameToFinalResult(scheduled);
           if (!resolved?.success || !resolved.gameResult) {
-            throw new Error(`Direct resolver failed after retries: ${JSON.stringify(resolved)}`);
+            throw new Error(`Direct resolver failed: ${JSON.stringify(resolved)}`);
           }
+          console.log('Instant resolver validation passed', {
+            recoveredFailures: Array.isArray(resolved.failures) ? resolved.failures.length : 0,
+          });
 
-          // Force the retry branch deliberately.
+          // Force the already-processed-date retry branch deliberately.
           W.state.season.processedDates.push(date);
           const applied = W.advanceToDate(date, {
             processCurrentDate: true,
