@@ -1,0 +1,1536 @@
+
+### renderLeagueProspectsPreview
+
+LINE 3591
+{
+      const isActive =
+        panel.id === `hub-tab-${tabId}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isActive
+      );
+
+      panel.setAttribute(
+        'aria-hidden',
+        String(!isActive)
+      );
+    });
+
+  const hubInfoBar =
+    document.getElementById('hub-info-bar');
+
+  if (hubInfoBar) {
+    hubInfoBar.style.display =
+      tabId === 'home' ? '' : 'none';
+  }
+
+  if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
+// ── Hockey Background screen ────────────────────────────────
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
+  });
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBackIdentity.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Archetype screen ────────────────────────────────────────
+document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.archetype = card.dataset.archetype;
+    btnContinueArchetype.disabled = false;
+    btnContinueArchetype.classList.remove('btn--secondary');
+    btnContinueArchetype.classList.add('btn--primary');
+  });
+});
+
+btnIdentityArchetype.addEventListener('click', () => {
+  showScreen('archetype');
+});
+
+btnBackIdentityArchetype.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueArchetype.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── NHL Team screen ─────────────────────────────────────────
+document.querySelectorAll('#nhlteam-screen .team-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#nhlteam-screen .team-card').forEach((c) =>
+      c.classList.remove('team-card--selected')
+    );
+    card.classList.add('team-card--selected');
+    Game.player.nhlTeam = card.dataset.team;
+    btnContinueNhlTeam.disabled = false;
+    btnContinueNhlTeam.classList.remove('btn--secondary');
+    btnContinueNhlTeam.classList.add('btn--primary');
+  });
+});
+
+btnIdentityNhlTeam.addEventListener('click', () => {
+  showScreen('nhlteam');
+});
+
+btnBackIdentityNhlTeam.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueNhlTeam.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Motivation screen ───────────────────────────────────────
+document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#motivation-screen .motivation-card').forEach((c) =>
+      c.classList.remove('motivation-card--selected')
+    );
+    card.classList.add('motivation-card--selected');
+    Game.player.motivation = card.dataset.motivation;
+    btnContinueMotivation.disabled = false;
+    btnContinueMotivation.classList.remove('btn--secondary');
+    btnContinueMotivation.classList.add('btn--primary');
+  });
+});
+
+btnIdentityMotivation.addEventListener('click', () => {
+  showScreen('motivation');
+});
+
+btnBackIdentityMotivation.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueMotivation.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('iden
+
+
+### league-prospects-preview
+
+
+### currentProspectRankings
+
+LINE 3586
+     tab.dataset.hubTab === tabId
+      );
+    });
+
+  document
+    .querySelectorAll('.hub-tab-panel')
+    .forEach(panel => {
+      const isActive =
+        panel.id === `hub-tab-${tabId}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isActive
+      );
+
+      panel.setAttribute(
+        'aria-hidden',
+        String(!isActive)
+      );
+    });
+
+  const hubInfoBar =
+    document.getElementById('hub-info-bar');
+
+  if (hubInfoBar) {
+    hubInfoBar.style.display =
+      tabId === 'home' ? '' : 'none';
+  }
+
+  if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
+// ── Hockey Background screen ────────────────────────────────
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
+  });
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBackIdentity.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Archetype screen ────────────────────────────────────────
+document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.archetype = card.dataset.archetype;
+    btnContinueArchetype.disabled = false;
+    btnContinueArchetype.classList.remove('btn--secondary');
+    btnContinueArchetype.classList.add('btn--primary');
+  });
+});
+
+btnIdentityArchetype.addEventListener('click', () => {
+  showScreen('archetype');
+});
+
+btnBackIdentityArchetype.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueArchetype.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── NHL Team screen ─────────────────────────────────────────
+document.querySelectorAll('#nhlteam-screen .team-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#nhlteam-screen .team-card').forEach((c) =>
+      c.classList.remove('team-card--selected')
+    );
+    card.classList.add('team-card--selected');
+    Game.player.nhlTeam = card.dataset.team;
+    btnContinueNhlTeam.disabled = false;
+    btnContinueNhlTeam.classList.remove('btn--secondary');
+    btnContinueNhlTeam.classList.add('btn--primary');
+  });
+});
+
+btnIdentityNhlTeam.addEventListener('click', () => {
+  showScreen('nhlteam');
+});
+
+btnBackIdentityNhlTeam.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueNhlTeam.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Motivation screen ───────────────────────────────────────
+document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#motivation-screen .motivation-card').forEach((c) =>
+      c.classList.remove('motivation-card--selected')
+    );
+    card.classList.add('motivation-card--selected');
+    Game.player.motivation = card.dataset.motivation;
+    btnContinueMotivation.disabled = false;
+    btnContinueMotivation.classList.remove('btn--secondary');
+    btnContinueMotivation.classList.add('btn--primary');
+  });
+});
+
+btnIdentityMotivation.addEventListener('click', () => {
+  showScreen('motivation');
+});
+
+btnBackIdentityMotivation.addEventListener('click', () => {
+  s
+
+LINE 3587
+ );
+    });
+
+  document
+    .querySelectorAll('.hub-tab-panel')
+    .forEach(panel => {
+      const isActive =
+        panel.id === `hub-tab-${tabId}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isActive
+      );
+
+      panel.setAttribute(
+        'aria-hidden',
+        String(!isActive)
+      );
+    });
+
+  const hubInfoBar =
+    document.getElementById('hub-info-bar');
+
+  if (hubInfoBar) {
+    hubInfoBar.style.display =
+      tabId === 'home' ? '' : 'none';
+  }
+
+  if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
+// ── Hockey Background screen ────────────────────────────────
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
+  });
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBackIdentity.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Archetype screen ────────────────────────────────────────
+document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.archetype = card.dataset.archetype;
+    btnContinueArchetype.disabled = false;
+    btnContinueArchetype.classList.remove('btn--secondary');
+    btnContinueArchetype.classList.add('btn--primary');
+  });
+});
+
+btnIdentityArchetype.addEventListener('click', () => {
+  showScreen('archetype');
+});
+
+btnBackIdentityArchetype.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueArchetype.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── NHL Team screen ─────────────────────────────────────────
+document.querySelectorAll('#nhlteam-screen .team-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#nhlteam-screen .team-card').forEach((c) =>
+      c.classList.remove('team-card--selected')
+    );
+    card.classList.add('team-card--selected');
+    Game.player.nhlTeam = card.dataset.team;
+    btnContinueNhlTeam.disabled = false;
+    btnContinueNhlTeam.classList.remove('btn--secondary');
+    btnContinueNhlTeam.classList.add('btn--primary');
+  });
+});
+
+btnIdentityNhlTeam.addEventListener('click', () => {
+  showScreen('nhlteam');
+});
+
+btnBackIdentityNhlTeam.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueNhlTeam.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Motivation screen ───────────────────────────────────────
+document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#motivation-screen .motivation-card').forEach((c) =>
+      c.classList.remove('motivation-card--selected')
+    );
+    card.classList.add('motivation-card--selected');
+    Game.player.motivation = card.dataset.motivation;
+    btnContinueMotivation.disabled = false;
+    btnContinueMotivation.classList.remove('btn--secondary');
+    btnContinueMotivation.classList.add('btn--primary');
+  });
+});
+
+btnIdentityMotivation.addEventListener('click', () => {
+  showScreen('motivation');
+});
+
+btnBackIdentityMotivation.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinue
+
+LINE 5142
+l + reputation.
+   *
+   * The legacy generator below remains only as a pre-ranking fallback for old
+   * saves / brand-new careers before the first scouting week has published.
+   */
+  const canonicalRankedProspects = teams
+    .flatMap(team => {
+      const roster = Array.isArray(team?.roster) ? team.roster : [];
+      return roster.map(player => ({
+        player,
+        team,
+        rank: Math.max(0, Number(player?.scoutingProfile?.publicRank) || 0),
+      }));
+    })
+    .filter(entry => entry.rank > 0)
+    .sort((a, b) => a.rank - b.rank);
+
+  if (canonicalRankedProspects.length > 0) {
+    const canonicalRows = canonicalRankedProspects.map(({ player, team, rank }) => {
+      const previousRank = Math.max(
+        0,
+        Number(player?.scoutingProfile?.previousRank) || 0
+      );
+      const rankChange = previousRank > 0 ? previousRank - rank : 0;
+      const teamAbbreviation =
+        team?.abbreviation ||
+        `${team?.schoolName || ''} ${team?.teamName || ''}`
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0])
+          .join('')
+          .toUpperCase() ||
+        '—';
+
+      const playerId = player?.id || player?.playerId || '';
+      const careerId = Game.player?.id || Game.player?.playerId || 'career-player';
+      const isUser = Boolean(
+        player?.isCareerPlayer ||
+        (playerId && String(playerId) === String(careerId))
+      );
+
+      return {
+        ...player,
+        currentRank: rank,
+        previousRank: previousRank || null,
+        rankChange,
+        sourceType: 'world',
+        isUser,
+        schoolName: team?.schoolName || '',
+        teamName: team?.teamName || '',
+        teamAbbreviation,
+        league: player?.league || player?.teamLevel || 'HS',
+      };
+    });
+
+    Game.currentProspectRankings = canonicalRows;
+    Game.visibleProspects = canonicalRows.slice(0, 100);
+
+    const careerCanonicalRow = canonicalRows.find(player => player.isUser);
+    Game.player.prospectRank = careerCanonicalRow?.currentRank || null;
+
+    container.innerHTML = Game.visibleProspects
+      .map(player => {
+        const rank = Number(player.currentRank) || 0;
+        const fullName =
+          `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+          'Unknown Prospect';
+        const badgeCls = posBadgeClass(player.position);
+        const teamDisplay = player.teamAbbreviation || '—';
+        const leagueDisplay = player.league || 'HS';
+        const draftYear = Number(player.draftYear) || '—';
+        const rankChange = Number(player.rankChange) || 0;
+        const trend =
+          rankChange > 0
+            ? '🔼'
+            : rankChange < 0
+              ? '🔽'
+              : '➖';
+        const reputationStars = Math.max(
+          1,
+          Math.min(5, Number(player.reputationStars) || 1)
+        );
+        const stars =
+          '★'.repeat(reputationStars) +
+          '☆'.repeat(5 - reputationStars);
+
+        return `
+          <div
+            class="pr-row pr-row--data${player.isUser ? ' pr-row--user' : ''}"
+            role="listitem"
+            data-rank="${rank}"
+            data-player-id="${player.id || player.playerId || ''}"
+            data-player-source="world"
+          >
+            <span class="pr-col pr-col--rank">${rank}</span>
+            <span class="pr-col pr-col--name">
+              <span class="pr-player-name">${fullName}</span>
+              <span class="pr-player-reputation">${stars}</span>
+            </span>
+            <span class="pr-col pr-col--pos">
+              <span class="pr-pos-badge ${badgeCls}">${player.position || '—'}</span>
+            </span>
+            <span class="pr-col pr-col--team">${teamDisplay}</span>
+            <span class="pr-col pr-col--league">${leagueDisplay}</span>
+            <span class="pr-col pr-col--draft">${draftYear}</span>
+            <span class="pr-col pr-col--trend">${trend}</span>
+          </div>
+        `;
+      })
+      .join('');
+
+    prospectsReady = true;
+    return;
+  }
+
+  // Determine which generated roster slot is occupied by the career player.
+  function getUserRosterSlot() {
+    const rawPosition = String(Game.player.position || 'C').toUpperCase();
+    const rawLine = String(Game.player.startingLine || '3rd Line');
+
+    const lineMatch = rawLine.match(/\d+/);
+    const lineNumber = lineMatch
+      ? Math.max(1, Math.min(4, Number(lineMatch[0])))
+      : 3;
+
+    if (rawPosition === 'C' || rawPosition.includes('CENTER')) {
+      return `fwd-${lineNumber}-c`;
+    }
+
+    if (rawPosition === 'LW' || rawPosition.includes('LEFT WING')) {
+      return `fwd-${lineNumber}-lw`;
+    }
+
+    if (rawPosition === 'RW' || rawPosition.includes('RIGHT WING')) {
+      return `fwd-${lineNumber}-rw`;
+    }
+
+    if (
+      rawPosition === 'D' ||
+      rawPosition === 'LD' ||
+      rawPosition === 'RD' ||
+      rawPosition.includes('DEFENSE')
+    ) {
+      const pairNumber = Math.max(1, Math.min(3, lineNumber));
+      const side = rawPosition === 'RD' ? 'rd' : 'ld';
+
+      return `def-${pairNumber}-${side}`;
+    }
+
+    if (rawPosition === 'G' || rawPosition.includes('GOAL')) {
+      return lineNumber === 1 ? 'g-starter' : 'g-backup';
+    }
+
+    return `fwd-${lineNumber}-c`;
+  }
+
+  const userRosterSlot = getUserRosterSlot();
+
+  // Add all fictional high-school roster players.
+  const generatedProspects = teams.flatMap(team => {
+    const roster = Array.isArray(team.roster) ? team.roster : [];
+
+    return roster
+      .filter(player => {
+        // Hide the fictional player occupying the user's roster slot.
+        const isReplacedByUser =
+          team.teamId === playerTeamId &&
+          player.rosterSlot === userRosterSlot;
+
+        return !isReplacedByUser;
+      })
+      .map(player => ({
+        ...player,
+
+        sourceType: 'fictional-hs',
+        isUser: false,
+        realPlayer: false,
+
+        schoolName: team.schoolName,
+        teamName: team.teamName,
+        teamAbbreviation: `${team.schoolName} ${team.teamName}`
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0])
+          .join('')
+          .toUpperCase(),
+
+        league: 'HS',
+      }));
+  });
+
+  // Add all real 2027-and-younger prospects.
+  const realProspects =
+    typeof REAL_PROSPECTS !== 'undefined' &&
+    Array.isArray(REAL_PROSPECTS)
+      ? REAL_PROSPECTS.map(player => ({
+          ...player,
+
+          sourceType: 'real',
+          isUser: false,
+          realPlayer: true,
+
+          // These allow the same renderer to handle every player type.
+          schoolName: '',
+          teamName: player.currentTeam || '',
+          teamAbbreviation:
+            player.teamAbbreviation ||
+            String(player.currentTeam || '—')
+              .split(/\s+/)
+              .filter(Boolean)
+              .map(wor
+
+LINE 5470
+f (Number.isFinite(Number(player.draftYear))) {
+      return Number(player.draftYear);
+    }
+
+    if (player.year === 'Senior') return 2024;
+    if (player.year === 'Junior') return 2025;
+    if (player.year === 'Sophomore') return 2026;
+
+    return 2027;
+  }
+
+  function getTrend(player) {
+    const seed = Number(player.developmentSeed) || 0.5;
+
+    if (seed >= 0.67) return '🔼';
+    if (seed <= 0.33) return '🔽';
+
+    return '➖';
+  }
+
+  function getProspectScore(player) {
+    const overall = Number(player.overall) || 60;
+    const potential = Number(player.potential) || overall;
+    const reputation = getReputationPoints(player);
+
+    // Current ability: 50%
+    // Potential ceiling: 30%
+    // Reputation/exposure: 20%
+    return (
+      overall * 0.5 +
+      potential * 0.3 +
+      reputation * 0.2
+    );
+  }
+
+  const rankedProspects = prospectPool
+    .map(player => ({
+      ...player,
+
+      prospectScore: getProspectScore(player),
+      reputationStars: getReputationStars(player),
+      reputationPoints: getReputationPoints(player),
+      draftYear: getDraftYear(player),
+    }))
+    
+    .sort((a, b) => {
+      if (b.prospectScore !== a.prospectScore) {
+        return b.prospectScore - a.prospectScore;
+      }
+
+      if (b.overall !== a.overall) {
+        return b.overall - a.overall;
+      }
+
+      if (b.potential !== a.potential) {
+        return b.potential - a.potential;
+      }
+
+      return a.lastName.localeCompare(b.lastName);
+    });
+
+  // Save the user's real rank, even when outside the visible Top 100.
+  const userIndex = rankedProspects.findIndex(
+    player => player.isUser
+  );
+
+  Game.player.prospectRank =
+    userIndex >= 0 ? userIndex + 1 : null;
+
+  const topProspects = rankedProspects.slice(0, 100);
+  
+  Game.visibleProspects = topProspects;
+
+  Game.currentProspectRankings =
+    rankedProspects.map((player, index) => ({
+      ...player,
+      currentRank: index + 1
+    }));
+
+  container.innerHTML = topProspects
+    .map((player, index) => {
+      const rank = index + 1;
+
+      const fullName =
+        `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+        'Unknown Prospect';
+
+      const badgeCls = posBadgeClass(player.position);
+
+      const stars =
+        '★'.repeat(player.reputationStars) +
+        '☆'.repeat(5 - player.reputationStars);
+
+      const teamDisplay =
+        player.teamAbbreviation || '—';
+
+      const leagueDisplay =
+        player.league || 'HS';
+
+      return `
+        <div
+          class="pr-row pr-row--data${player.isUser ? ' pr-row--user' : ''}"
+          role="listitem"
+          data-rank="${rank}"
+          data-player-id="${player.id}"
+          data-player-source="${player.sourceType || 'unknown'}"
+        >
+          <span class="pr-col pr-col--rank">
+            ${rank}
+          </span>
+
+          <span class="pr-col pr-col--name">
+            <span class="pr-player-name">
+              ${fullName}
+            </span>
+
+            <span class="pr-player-reputation">
+              ${stars}
+            </span>
+          </span>
+
+          <span class="pr-col pr-col--pos">
+            <span class="pr-pos-badge ${badgeCls}">
+              ${player.position}
+            </span>
+          </span>
+
+          <span class="pr-col pr-col--team">
+            ${teamDisplay}
+          </span>
+
+          <span class="pr-col pr-col--league">
+            ${leagueDisplay}
+          </span>
+
+          <span class="pr-col pr-col--draft">
+            ${player.draftYear}
+          </span>
+
+          <span class="pr-col pr-col--trend">
+            ${getTrend(player)}
+          </span>
+        </div>
+      `;
+    })
+    .join('');
+
+  prospectsReady = true;
+}
+
+
+// ── Standings ────────────────────────────────────────────────
+// Shared sort used by both the hub preview card and the full standings screen.
+// Sort order: Points desc → Wins desc → Goal Differential desc.
+function getSortedStandings() {
+  return [...WorldEngine.state.teams].sort((a, b) => {
+    if (b.points !== a.points)           return b.points - a.points;
+    if (b.wins   !== a.wins)             return b.wins   - a.wins;
+    const gdA = a.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
+    return gdB - gdA;
+  });
+}
+
+// Renders the top-4 preview inside the hub home tab standings card.
+// Each data row carries data-team-id so click delegation can open the team profile.
+function renderHubStandings() {
+  const container = document.getElementById('hub-standings-preview');
+  if (!container) return;
+
+  const teams = getSortedStandings().slice(0, 4);
+  const playerTeamId = Game.player.teamId || '';
+
+  // Keep the existing header row, replace everything after it.
+  const header = container.querySelector('.hub-standings__row--header');
+  container.innerHTML = '';
+  if (header) container.appendChild(header);
+
+  teams.forEach((t, i) => {
+    const isPlayerTeam =
+      playerTeamId &&
+      t.teamId === playerTeamId;
+
+    const row = document.createElement('div');
+
+    row.className = [
+      'hub-standings__row',
+      'hub-standings__row--clickable',
+      isPlayerTeam ? 'hub-standings__row--player-team' : '',
+    ].filter(Boolean).join(' ');
+
+    row.dataset.teamId = t.teamId;
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+
+    row.innerHTML = `
+      <span class="hub-standings__pos">${i + 1}</span>
+
+      <span class="hub-standings__team">
+        <span>${t.schoolName} ${t.teamName}</span>
+        
+      </span>
+
+      <span class="hub-standings__stat">${t.wins}</span>
+      <span class="hub-standings__stat">${t.losses}</span>
+      <span class="hub-standings__stat hub-standings__stat--pts">${t.points}</span>
+    `;
+
+    container.appendChild(row);
+  });
+}
+function renderLeagueLeadersPreview() {
+  const container =
+    document.getElementById(
+      'league-leaders-preview'
+    );
+
+  if (!container) return;
+
+  const teams =
+    Array.isArray(WorldEngine.state.teams)
+      ? WorldEngine.state.teams
+      : [];
+
+  const players =
+    getLivePlayersFromTeams(teams);
+
+  const skaters =
+    players.filter(player => {
+      const position =
+        String(player.position || '')
+          .trim()
+          .toUpperCase();
+
+      return (
+        position !== 'G' &&
+        !position.includes('GOAL')
+      );
+    });
+
+  const goalies =
+    players.filter(player => {
+      const position =
+        String(player.position || '')
+          .trim()
+          .toUpperCase();
+
+      return (
+        position === 'G' ||
+        position.includes('GOAL')
+      );
+    });
+
+  const getTopThree = (
+    playerList,
+    statKey,
+    secondaryKey = 'points'
+  ) => {
+    return [...playerList]
+      .filter(player =>
+        Number(player[statKey] || 0) > 0
+      )
+      .sort((a, b) => {
+        const primaryDifference =
+          Number(b
+
+
+### btn-league-full-prospects
+
+LINE 18209
+ whichever drill called open() — never hardcode a specific instance.
+  if (_activeDrill) _activeDrill.beginDrill();
+});
+
+// ── Skating Results navigation ────────────────────────────────────
+document.getElementById('btn-sr-continue').addEventListener('click', () => {
+  // Routes to the next drill or the tryout summary, depending on which drill just finished.
+  if (_drillContinueCallback) _drillContinueCallback();
+});
+document
+  .getElementById('schedule-prev-month')
+  ?.addEventListener('click', () => {
+    scheduleViewMonth--;
+
+    if (scheduleViewMonth < 0) {
+      scheduleViewMonth = 11;
+      scheduleViewYear--;
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+  });
+
+document
+  .getElementById('schedule-next-month')
+  ?.addEventListener('click', () => {
+    scheduleViewMonth++;
+
+    if (scheduleViewMonth > 11) {
+      scheduleViewMonth = 0;
+      scheduleViewYear++;
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+  });
+document
+.querySelectorAll('.hub-nav__tab')
+.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const id = tab.dataset.hubTab;
+
+    if (id === 'team') {
+      openTeamTab(null, 'hub');
+      return;
+    }
+
+    openHubTab(id);
+  });
+});
+
+// ── Player profile accordion ─────────────────────────────────
+document.querySelectorAll('.pp-attr-cat__header').forEach(header => {
+  header.addEventListener('click', () => {
+    const cat = header.closest('.pp-attr-cat');
+    cat.classList.toggle('pp-attr-cat--open');
+  });
+});
+document
+.getElementById('btn-league-full-stats')
+?.addEventListener('click', () => {
+  Game.fullStatsOrigin = 'league';
+  Game.fullStatsTeamId = null;
+  Game.fullStatsSelectedTeamId = null;
+
+  showScreen('full-stats');
+});
+document
+.getElementById('btn-league-full-prospects')
+?.addEventListener('click', () => {
+  Game.prospectScreenOrigin = 'league';
+  showScreen('prospects');
+});
+document
+  .getElementById('team-view-full-stats')
+  ?.addEventListener('click', () => {
+    Game.fullStatsOrigin = 'team';
+
+    Game.fullStatsTeamId =
+      Game.player.teamId ||
+      Game.player.highSchoolTeamId ||
+      null;
+    Game.fullStatsSelectedTeamId =
+      Game.fullStatsTeamId;
+
+    showScreen('full-stats');
+  });
+
+document
+  .getElementById('btn-back-full-stats')
+  ?.addEventListener('click', () => {
+    if (Game.fullStatsOrigin === 'team-profile') {
+      showScreen('team-profile');
+      return;
+    }
+    if (Game.fullStatsOrigin === 'team') {
+      openHubTab('team');
+      return;
+    }
+
+    if (Game.fullStatsOrigin === 'league') {
+      openHubTab('league');
+      return;
+    }
+
+    openHubTab('home');
+  });
+document
+.getElementById('full-stats-team-filter')
+?.addEventListener('change', event => {
+  Game.fullStatsSelectedTeamId =
+    event.target.value;
+
+  renderFullStatsScreen();
+});
+document
+.querySelectorAll('.full-stats-type-toggle__button')
+.forEach(button => {
+  button.addEventListener('click', () => {
+    Game.fullStatsView =
+      button.dataset.statsType || 'skaters';
+
+    document
+      .querySelectorAll('.full-stats-type-toggle__button')
+      .forEach(toggleButton => {
+        toggleButton.classList.toggle(
+          'full-stats-type-toggle__button--active',
+          toggleButton === button
+        );
+      });
+
+    renderFullStatsScreen();
+  });
+});
+// ── Cinematic intro sequence ────────────────────────────────
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runIntroSequence() {
+  const overlay = document.getElementById('cinematic-overlay');
+  const text    = document.getElementById('cinematic-text');
+
+  // Step 1 — fade to black over 1 s
+  overlay.classList.add('is-active');
+  await sleep(1100);
+
+  async function showCard(html) {
+    text.innerHTML = html;
+    text.style.opacity = '1';
+    await sleep(2200);
+    text.style.opacity = '0';
+    await sleep(580);
+    text.innerHTML = '';
+  }
+
+  // Step 2 — date
+  await showCard('September 3, 2022');
+
+  // Step 3 — age / year
+  await showCard('Age 14<br>Freshman Year');
+
+  // Step 4 — story beat
+  await showCard('Tomorrow is freshman hockey tryouts.');
+
+  // Step 5 — reveal bedroom, fade overlay out
+  showScreen('bedroom');
+  overlay.classList.remove('is-active');
+  await sleep(1100);
+}
+
+btnDeleteSave.addEventListener('click', () => {
+  deleteCareerPreview();
+});
+
+playerForm.addEventListener('submit', handlePlayerFormSubmit);
+if (playerWeightInput && playerWeightValue) {
+  const updateWeightDisplay = () => {
+    playerWeightValue.textContent =
+      `${playerWeightInput.value} lbs`;
+  };
+
+  playerWeightInput.addEventListener(
+    'input',
+    updateWeightDisplay
+  );
+
+  updateWeightDisplay();
+}
+
+document.querySelectorAll('.choice-card').forEach((button) => {
+  button.addEventListener('click', () => {
+    handleChoiceButton(button);
+  });
+});
+document.addEventListener('click', event => {
+  const button = event.target.closest('.tp-player-link');
+  if (!button) return;
+
+  const playerId = button.dataset.playerId;
+
+  let player = null;
+  if (playerId === 'career-player') {
+    const assignedTeam = (WorldEngine.state.teams || [])
+      .find(team => team.teamId === Game.player.teamId);
+
+    player = {
+      ...Game.player,
+      id: 'career-player',
+      firstName: Game.player.firstName || '',
+      lastName: Game.player.lastName || '',
+      position: Game.player.position || 'C',
+      overall: Number(Game.player.overall) || 60,
+      age: Number(Game.player.age) || 14,
+      year: Game.player.year || 'Freshman',
+      teamId: Game.player.teamId || '',
+      teamName: assignedTeam?.teamName || '',
+      schoolName: assignedTeam?.schoolName || '',
+      attributes: Game.player.attributes || {},
+      reputationStars: Number(Game.player.reputationStars) || 1,
+      potential: Number(Game.player.potential) || 78,
+    };
+  } else {
+
+  for (const team of WorldEngine.state.teams || []) {
+    const foundPlayer = (team.roster || []).find(
+      p => String(p.id) === String(playerId)
+    );
+
+    if (foundPlayer) {
+      player = {
+        ...foundPlayer,
+        teamId: team.teamId,
+      };
+      break;
+    }
+  }
+}
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = 'team-profile';
+  renderPlayerProfile();
+  showScreen('player-profile');
+});
+
+function recoverCareerPreviewFromWorld() {
+  /*
+   * If the small player preview still exists, nothing to recover.
+   */
+  if (
+    localStorage.getItem(
+      SAVE_KEY
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * The canonical World Engine roster is the source of truth.
+   * Find the career player that survived in IndexedDB.
+   */
+  let careerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    ) ||
+    null;
+
+  if (!careerPlayer) {
+    for (
+      const team of
+      WorldE
