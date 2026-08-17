@@ -3228,6 +3228,15 @@ btnNewCareer.addEventListener('pointerdown', (event) => {
   spawnRipple(btnNewCareer, event);
 });
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 async function renderCareerSaveSelection() {
   const saves = await WorldEngine.listCareerSaves();
   careerSaveList.innerHTML = '';
