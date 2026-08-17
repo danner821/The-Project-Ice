@@ -1,0 +1,24 @@
+name: Fix Freshman Award Syntax
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-freshman-award-syntax.yml'
+      - '.github/scripts/fix_freshman_award_syntax.py'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_freshman_award_syntax.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "freshman_of_year" artifacts/project-ice/public/world.js
+      - run: grep -q "Freshman of the Year" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Fix Freshman of the Year award screen syntax' || exit 0
+          git push
