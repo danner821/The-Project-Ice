@@ -1,0 +1,8478 @@
+
+### player-profile-screen
+--- 24-173 ---
+    age: 14,
+    careerStart: 2022,
+    // ── Career progression ─────────────────────────────────────
+    // stage: 'creation' | 'hub'
+    //   'creation' → player is still in the intro sequence
+    //   'hub'      → tryouts complete; save loads directly to Career Hub
+    stage: 'creation',
+    tryoutsComplete: false,
+  },
+};
+
+// ── Screen references ───────────────────────────────────────
+const titleScreen          = document.getElementById('title-screen');
+const creationScreen       = document.getElementById('creation-screen');
+const careerSavesScreen    = document.getElementById('career-saves-screen');
+const careerSaveList       = document.getElementById('career-save-list');
+const careerSaveCount      = document.getElementById('career-save-count');
+const btnBackCareerSaves   = document.getElementById('btn-back-career-saves');
+const summaryScreen        = document.getElementById('summary-screen');
+const identityScreen       = document.getElementById('identity-screen');
+const careerOverviewScreen = document.getElementById('career-overview-screen');
+const bedroomScreen        = document.getElementById('bedroom-screen');
+const nhlTeamScreen        = document.getElementById('nhlteam-screen');
+const motivationScreen     = document.getElementById('motivation-screen');
+const archetypeScreen      = document.getElementById('archetype-screen');
+const backgroundScreen     = document.getElementById('background-screen');
+const arenaScreen          = document.getElementById('arena-screen');
+const hubScreen            = document.getElementById('hub-screen');
+const standingsScreen      = document.getElementById('standings-screen');
+const teamProfileScreen    = document.getElementById('team-profile-screen');
+const playerProfileScreen = document.getElementById('player-profile-screen');
+const fullStatsScreen =
+  document.getElementById('full-stats-screen');
+const prospectsScreen      = document.getElementById('prospects-screen');
+const eventScreen =
+  document.getElementById('event-screen');
+const pregameMatchupScreen =
+  document.getElementById(
+    'pregame-matchup-screen'
+  );
+const liveGameScreen =
+  document.getElementById(
+    'live-game-screen'
+  );
+
+const trainingScreen =
+  document.getElementById(
+    'training-screen'
+  );
+
+const trainingOptions =
+  document.getElementById(
+    'training-options'
+  );
+
+const btnBackTraining =
+  document.getElementById(
+    'btn-back-training'
+  );
+
+const eventResultsScreen =
+  document.getElementById(
+    'event-results-screen'
+  );
+
+const postgameSummaryScreen =
+  document.getElementById(
+    'postgame-summary-screen'
+  );
+
+const boxScoreScreen =
+  document.getElementById(
+    'box-score-screen'
+  );
+
+const tryoutSummaryScreen =
+  document.getElementById(
+    'tryout-summary-screen'
+  );
+const rosterRevealScreen = document.getElementById('roster-reveal-screen');
+const coachIntroScreen     = document.getElementById('coach-intro-screen');
+const coachResultsScreen = document.getElementById('coach-results-screen');
+const skatingEvalScreen    = document.getElementById('skating-eval-screen');
+const skatingResultsScreen = document.getElementById('skating-results-screen');
+
+
+/*
+ * ============================================================
+ * DEV — LIVE GAME DIAGNOSTIC
+ * ============================================================
+ */
+function runLiveGameDiagnosticFromUI() {
+  const result =
+    WorldEngine
+      .runLiveGameSimulationDiagnostic();
+
+  if (
+    !result ||
+    result.success !== true
+  ) {
+    console.error(
+      '[Project Ice] Live game diagnostic failed:',
+      result
+    );
+
+    alert(
+      `Live game diagnostic failed: ${
+        result?.reason ||
+        'unknown-error'
+      }`
+    );
+
+    return;
+  }
+
+  const diagnostic =
+    result.diagnostic;
+
+  const home =
+    diagnostic
+      .teams
+      .home
+      .abbreviation ||
+    diagnostic
+      .teams
+      .home
+      .teamId;
+
+  const away =
+    diagnostic
+      .teams
+      .away
+      .abbreviation ||
+    diagnostic
+      .teams
+      .away
+      .teamId;
+
+  const homeStats =
+    diagnostic
+      .teamStats
+      .home;
+
+  const awayStats =
+    diagnostic
+      .teamStats
+      .away;
+
+  alert(
+    [
+
+### renderPlayerProfile
+--- 3544-3693 ---
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
+// ── Hockey Background screen ────────────────────────────────
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
+  });
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBackIdentity.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Archetype screen ────────────────────────────────────────
+document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.archetype = card.dataset.archetype;
+    btnContinueArchetype.disabled = false;
+    btnContinueArchetype.classList.remove('btn--secondary');
+    btnContinueArchetype.classList.add('btn--primary');
+  });
+});
+
+btnIdentityArchetype.addEventListener('click', () => {
+--- 4924-5073 ---
+              ${playerName}
+            </button>
+          </span>
+
+          <span class="tp-roster-player-ovr">
+            ${playerOverall} OVR
+          </span>
+        `;
+      }
+    }
+  }
+}
+
+/**
+ * Open the team profile for the given teamId.
+ * @param {string} teamId  - WorldEngine teamId
+ * @param {'hub'|'standings'} origin - where Back should return to
+ */
+function openTeamProfile(teamId, origin) {
+  _teamProfileOrigin = origin;
+  renderTeamProfile(teamId);
+  showScreen('team-profile');
+}
+
+function openPlayerProfile(player, origin = 'team-profile') {
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = origin;
+
+  renderPlayerProfile();
+  showScreen('player-profile');
+}
+// ── Top 100 Prospects ─────────────────────────────────────────
+// Position groups and trend patterns cycle across 100 placeholder rows.
+// Swap the loop body for WorldEngine.state.prospectRankings when real data exists.
+
+const PR_POSITIONS = ['C','LW','RW','LD','RD','C','LW','RW','G','LD','RD','LW'];
+const PR_TRENDS    = ['➖','🔼','➖','🔽','➖','🔼','➖','➖','🔽','🔼','➖','🔼'];
+
+function posBadgeClass(pos) {
+  if (pos === 'G')                  return 'pr-pos-badge--g';
+  if (pos === 'LD' || pos === 'RD') return 'pr-pos-badge--def';
+  return 'pr-pos-badge--fwd';
+}
+
+let prospectsReady = false;
+
+function renderProspectsScreen() {
+  const container = document.getElementById('pr-rows');
+  if (!container) return;
+
+  const teams = WorldEngine.state.teams || [];
+  const playerTeamId = Game.player.teamId || '';
+
+  // Determine which generated roster slot is occupied by the career player.
+  function getUserRosterSlot() {
+    const rawPosition = String(Game.player.position || 'C').toUpperCase();
+    const rawLine = String(Game.player.startingLine || '3rd Line');
+
+    const lineMatch = rawLine.match(/\d+/);
+    const lineNumber = lineMatch
+      ? Math.max(1, Math.min(4, Number(lineMatch[0])))
+      : 3;
+
+    if (rawPosition === 'C' || rawPosition.includes('CENTER')) {
+      return `fwd-${lineNumber}-c`;
+    }
+
+    if (rawPosition === 'LW' || rawPosition.includes('LEFT WING')) {
+      return `fwd-${lineNumber}-lw`;
+    }
+
+    if (rawPosition === 'RW' || rawPosition.includes('RIGHT WING')) {
+      return `fwd-${lineNumber}-rw`;
+    }
+
+    if (
+      rawPosition === 'D' ||
+      rawPosition === 'LD' ||
+      rawPosition === 'RD' ||
+      rawPosition.includes('DEFENSE')
+    ) {
+      const pairNumber = Math.max(1, Math.min(3, lineNumber));
+      const side = rawPosition === 'RD' ? 'rd' : 'ld';
+
+      return `def-${pairNumber}-${side}`;
+    }
+
+    if (rawPosition === 'G' || rawPosition.includes('GOAL')) {
+      return lineNumber === 1 ? 'g-starter' : 'g-backup';
+    }
+
+    return `fwd-${lineNumber}-c`;
+  }
+
+  const userRosterSlot = getUserRosterSlot();
+
+  // Add all fictional high-school roster players.
+  const generatedProspects = teams.flatMap(team => {
+    const roster = Array.isArray(team.roster) ? team.roster : [];
+
+    return roster
+      .filter(player => {
+        // Hide the fictional player occupying the user's roster slot.
+        const isReplacedByUser =
+          team.teamId === playerTeamId &&
+          player.rosterSlot === userRosterSlot;
+
+        return !isReplacedByUser;
+      })
+      .map(player => ({
+        ...player,
+
+        sourceType: 'fictional-hs',
+        isUser: false,
+        realPlayer: false,
+
+        schoolName: team.schoolName,
+        teamName: team.teamName,
+        teamAbbreviation: `${team.schoolName} ${team.teamName}`
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0])
+          .join('')
+          .toUpperCase(),
+
+        league: 'HS',
+      }));
+  });
+
+  // Add all real 2027-and-younger prospects.
+  const realProspects =
+    typeof REAL_PROSPECTS !== 'undefined' &&
+    Array.isArray(REAL_PROSPECTS)
+      ? REAL_PROSPECTS.map(player => ({
+          ...player,
+
+          sourceType: 'real',
+          isUser: false,
+          realPlayer: true,
+
+          // These allow the same renderer to handle every player type.
+          schoolName: '',
+          teamName: player.currentTeam || '',
+          teamAbbreviation:
+            player.teamAbbreviation ||
+            String(player.currentTeam || '—')
+              .split(/\s+/)
+              .filter(Boolean)
+--- 10820-10969 ---
+        targetDate.getMonth();
+
+      renderScheduleCalendar(
+        scheduleViewYear,
+        scheduleViewMonth
+      );
+
+      const targetCell =
+        document.querySelector(
+          `.schedule-day[data-date="${eventDate}"]`
+        );
+
+      if (!targetCell) return;
+
+      targetCell.click();
+
+      const selectedPanel =
+        document.getElementById(
+          'schedule-selected-day-panel'
+        );
+
+      if (selectedPanel) {
+        selectedPanel.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+      }
+    });
+  });
+}
+function renderPlayerProfile() {
+  const p = _activePlayerProfile;
+  if (!p) return;
+
+  const name = `${p.firstName} ${p.lastName}`.trim() || '—';
+  const age = p.age || 14;
+  const pos = p.position || '—';
+
+  const assignedTeam =
+    (WorldEngine.state.teams || [])
+      .find(team => team.teamId === p.teamId);
+
+  const fullTeamName = assignedTeam
+    ? `${assignedTeam.schoolName} ${assignedTeam.teamName}`
+    : 'Freshman Tryouts';
+  const nameEl = document.getElementById('player-profile-name');
+if (nameEl) {
+  nameEl.textContent = name;
+}
+  const posEl = document.getElementById('player-profile-pos');
+  if (posEl) {
+    const jersey = p.jerseyNumber || '--';
+    if (p.jerseyNumber) {
+      posEl.textContent = `${pos} #${p.jerseyNumber}`;
+    } else {
+      posEl.textContent = pos;
+    }
+  }
+
+  const ageEl = document.getElementById('player-profile-age');
+  if (ageEl) {
+    const playerYear = p.year || 'Freshman';
+
+    ageEl.textContent = `${age} years old · ${playerYear}`;
+  }
+
+  const teamEl = document.getElementById('player-profile-team');
+  if (teamEl) {
+    teamEl.textContent = fullTeamName;
+  }
+  const archetypeEl =
+    document.getElementById('player-profile-archetype');
+
+  if (archetypeEl) {
+    const rawArchetype = String(p.archetype || 'Balanced');
+
+    const archetypeLabels = {
+      Sniper: 'Sniper',
+      Playmaker: 'Playmaker',
+      PowerForward: 'Power Forward',
+      TwoWayForward: 'Two-Way Forward',
+      Grinder: 'Grinder',
+      Enforcer: 'Enforcer',
+      OffensiveDefenseman: 'Offensive Defenseman',
+      DefensiveDefenseman: 'Defensive Defenseman',
+      TwoWayDefenseman: 'Two-Way Defenseman',
+      PuckMovingDefenseman: 'Puck-Moving Defenseman',
+      ButterflyGoalie: 'Butterfly Goalie',
+      HybridGoalie: 'Hybrid Goalie',
+      StandUpGoalie: 'Stand-Up Goalie',
+      Balanced: 'Balanced',
+    };
+
+    archetypeEl.textContent =
+      archetypeLabels[rawArchetype] || rawArchetype;
+  }
+  const heightEl =
+    document.getElementById('player-profile-height');
+
+  if (heightEl) {
+    heightEl.textContent = p.height || `5'10"`;
+  }
+
+  const weightEl =
+    document.getElementById('player-profile-weight');
+
+  if (weightEl) {
+    const weight = Number(p.weight) || 175;
+    weightEl.textContent = `${weight} lbs`;
+  }
+
+  const shootsEl =
+    document.getElementById('player-profile-shoots');
+
+  if (shootsEl) {
+    shootsEl.textContent = `Shoots ${p.shoots || 'L'}`;
+  }
+
+  const ovrEl = document.getElementById('pp-player-ovr');
+  if (ovrEl) {
+    ovrEl.textContent = p.overall;
+  }
+  const reputationStars = Math.max(
+    1,
+    Math.min(5, Number(p.reputationStars) || 1)
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+--- 22426-22575 ---
+      overall: Number(Game.player.overall) || 60,
+      age: Number(Game.player.age) || 14,
+      year: Game.player.year || 'Freshman',
+      teamId: Game.player.teamId || '',
+      teamName: assignedTeam?.teamName || '',
+      schoolName: assignedTeam?.schoolName || '',
+      attributes: Game.player.attributes || {},
+      reputationStars: Number(Game.player.reputationStars) || 1,
+      potential: Number(Game.player.potential) || 78,
+    };
+  } else {
+
+  for (const team of WorldEngine.state.teams || []) {
+    const foundPlayer = (team.roster || []).find(
+      p => String(p.id) === String(playerId)
+    );
+
+    if (foundPlayer) {
+      player = {
+        ...foundPlayer,
+        teamId: team.teamId,
+      };
+      break;
+    }
+  }
+}
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = 'team-profile';
+  renderPlayerProfile();
+  showScreen('player-profile');
+});
+
+function recoverCareerPreviewFromWorld() {
+  /*
+   * If the small player preview still exists, nothing to recover.
+   */
+  if (
+    localStorage.getItem(
+      SAVE_KEY
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * The canonical World Engine roster is the source of truth.
+   * Find the career player that survived in IndexedDB.
+   */
+  let careerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    ) ||
+    null;
+
+  if (!careerPlayer) {
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      const found =
+        (
+          team.roster ||
+          []
+        ).find(
+          player =>
+            player?.isCareerPlayer ===
+            true
+        );
+
+      if (found) {
+        careerPlayer = {
+          ...found,
+          teamId:
+            found.teamId ||
+            team.teamId,
+          schoolName:
+            found.schoolName ||
+            team.schoolName,
+          teamName:
+            found.teamName ||
+            team.teamName,
+        };
+
+        break;
+      }
+    }
+  }
+
+  if (!careerPlayer) {
+    const rosterCareerPlayers = [];
+
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      for (
+        const player of
+        team.roster ||
+        []
+      ) {
+        if (
+          player?.isCareerPlayer === true ||
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          ) === 'career-player'
+        ) {
+          rosterCareerPlayers.push({
+            id:
+              player?.id ||
+              player?.playerId ||
+              'missing',
+
+            name:
+              `${player?.firstName || ''} ${player?.lastName || ''}`.trim(),
+
+            teamId:
+              team.teamId,
+          });
+        }
+      }
+    }
+
+    alert(
+      [
+        'CAREER RECOVERY DIAGNOSTIC',
+        '',
+        `World player id: ${
+          WorldEngine.state
+            ?.player
+            ?.id ||
+          'missing'
+        }`,
+        `World player playerId: ${
+          WorldEngine.state
+            ?.player
+            ?.playerId ||
+          'missing'
+        }`,
+        '',
+        `Teams: ${
+          (
+            WorldEngine.state.teams ||
+            []
+          ).length
+
+### potentialRole
+--- 10937-11086 ---
+
+  const ovrEl = document.getElementById('pp-player-ovr');
+  if (ovrEl) {
+    ovrEl.textContent = p.overall;
+  }
+  const reputationStars = Math.max(
+    1,
+    Math.min(5, Number(p.reputationStars) || 1)
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+--- 10940-11089 ---
+    ovrEl.textContent = p.overall;
+  }
+  const reputationStars = Math.max(
+    1,
+    Math.min(5, Number(p.reputationStars) || 1)
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+--- 10941-11090 ---
+  }
+  const reputationStars = Math.max(
+    1,
+    Math.min(5, Number(p.reputationStars) || 1)
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+--- 10942-11091 ---
+  const reputationStars = Math.max(
+    1,
+    Math.min(5, Number(p.reputationStars) || 1)
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+--- 12259-12408 ---
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+--- 12260-12409 ---
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+--- 12261-12410 ---
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+--- 12360-12509 ---
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+--- 12491-12640 ---
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+      (WorldEngine.state.teams || [])
+        .find(
+          team =>
+            team.teamId ===
+            player.teamId
+        );
+
+    const teamAbbreviation =
+      assignedTeam?.abbreviation ||
+      '—';
+
+    const currentYear =
+      Number(
+        WorldEngine.state
+          ?.season?.startYear ??
+        player.careerStart ??
+        2022
+      ) || 2022;
+
+    const seasonLabel =
+      `${String(currentYear).slice(-2)}-${String(
+        currentYear + 1
+      ).slice(-2)}`;
+
+    const rawLevel =
+      String(
+        player.teamLevel ||
+        player.year ||
+        'HS'
+      )
+        .trim()
+        .toUpperCase();
+
+    const levelLabels = {
+      'JUNIOR VARSITY': 'JV',
+      'VARSITY': 'V',
+      'FRESHMAN': 'FR',
+      'SOPHOMORE': 'SO',
+      'JUNIOR': 'JR',
+      'SENIOR': 'SR',
+      'HIGH SCHOOL': 'HS',
+    };
+
+    const level =
+      levelLabels[rawLevel] ||
+      rawLevel.slice(0, 3);
+
+    const seasonStats =
+      player.seasonStats || {};
+
+    const careerStats =
+      player.careerStats || {};
+
+    /*
+     * Completed seasons are permanent snapshots stored in
+     * player.history.seasons. They render above the live,
+     * highlighted current-season row.
+     */
+    const completedSeasons =
+      Array.isArray(
+        player.history?.seasons
+      )
+        ? player.history.seasons
+            .filter(
+              season =>
+                season &&
+                typeof season === 'object'
+            )
+            .map(season => {
+              const stats =
+                season.stats ||
+                season.seasonStats ||
+                {};
+
+              const startYear =
+                Number(
+                  season.startYear ??
+
+### potentialAccuracy
+--- 10945-11094 ---
+  );
+
+  const starsEl = document.getElementById('pp-player-stars');
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+--- 10948-11097 ---
+  if (starsEl) {
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+
+      const positioningStats = [
+        ['Positioning', Number(attributes.positioning) || 50],
+--- 10949-11098 ---
+    starsEl.textContent =
+      '★'.repeat(reputationStars) +
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+
+      const positioningStats = [
+        ['Positioning', Number(attributes.positioning) || 50],
+        ['Angles', Number(attributes.angles) || 50],
+--- 10951-11100 ---
+      '☆'.repeat(5 - reputationStars);
+  }
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+
+      const positioningStats = [
+        ['Positioning', Number(attributes.positioning) || 50],
+        ['Angles', Number(attributes.angles) || 50],
+        ['Puck Tracking', Number(attributes.puckTracking) || 50],
+        ['Anticipation', Number(attributes.anticipation) || 50],
+--- 10953-11102 ---
+
+  const labelEl = document.getElementById('pp-player-label');
+  if (labelEl) {
+    const reputationLabels = {
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    labelEl.textContent =
+      reputationLabels[reputationStars] || 'Local Prospect';
+  }
+  const potentialRoleEl =
+    document.getElementById('player-profile-potential-role');
+
+  if (potentialRoleEl) {
+    potentialRoleEl.textContent =
+      p.potentialRole || 'Top 9 F';
+  }
+
+  const potentialAccuracyEl =
+    document.getElementById('player-profile-potential-accuracy');
+
+  if (potentialAccuracyEl) {
+    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+
+    potentialAccuracyEl.textContent =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+    potentialAccuracyEl.dataset.accuracy =
+      accuracy === 'MEDIUM' ? 'MED' : accuracy;
+  }
+  const attributesEl = document.getElementById('pp-attributes');
+
+  if (attributesEl) {
+    const attributes = p.attributes || {};
+
+    const normalizedProfilePosition =
+      String(p.position || '')
+        .trim()
+        .toUpperCase();
+
+    const isGoalieProfile =
+      normalizedProfilePosition === 'G' ||
+      normalizedProfilePosition.includes('GOAL');
+
+    function getAttributeBarClass(value) {
+      if (value >= 70) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+
+      const positioningStats = [
+        ['Positioning', Number(attributes.positioning) || 50],
+        ['Angles', Number(attributes.angles) || 50],
+        ['Puck Tracking', Number(attributes.puckTracking) || 50],
+        ['Anticipation', Number(attributes.anticipation) || 50],
+      ];
+
+--- 12363-12512 ---
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+--- 12364-12513 ---
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+--- 12365-12514 ---
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+--- 12374-12523 ---
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+--- 12375-12524 ---
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+--- 12379-12528 ---
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+--- 12384-12533 ---
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+      'pp-development-potential',
+      potentialRole
+    );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+
+### potentialTrend
+--- 12211-12360 ---
+  }
+
+  function updatePlayerDevelopmentCards(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const development =
+      player.development || {};
+
+    const potentialTrend =
+      String(
+        development.potentialTrend ??
+        player.potentialTrend ??
+        'stable'
+      )
+        .trim()
+        .toLowerCase();
+
+    const potentialTrendDisplay = {
+      rising: {
+        text: '▲ Rising',
+        className:
+          'pp-career-card__value--trend-rising',
+      },
+
+      falling: {
+        text: '▼ Falling',
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+--- 12213-12362 ---
+  function updatePlayerDevelopmentCards(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const development =
+      player.development || {};
+
+    const potentialTrend =
+      String(
+        development.potentialTrend ??
+        player.potentialTrend ??
+        'stable'
+      )
+        .trim()
+        .toLowerCase();
+
+    const potentialTrendDisplay = {
+      rising: {
+        text: '▲ Rising',
+        className:
+          'pp-career-card__value--trend-rising',
+      },
+
+      falling: {
+        text: '▼ Falling',
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+--- 12214-12363 ---
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const development =
+      player.development || {};
+
+    const potentialTrend =
+      String(
+        development.potentialTrend ??
+        player.potentialTrend ??
+        'stable'
+      )
+        .trim()
+        .toLowerCase();
+
+    const potentialTrendDisplay = {
+      rising: {
+        text: '▲ Rising',
+        className:
+          'pp-career-card__value--trend-rising',
+      },
+
+      falling: {
+        text: '▼ Falling',
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+--- 12220-12369 ---
+      return;
+    }
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const development =
+      player.development || {};
+
+    const potentialTrend =
+      String(
+        development.potentialTrend ??
+        player.potentialTrend ??
+        'stable'
+      )
+        .trim()
+        .toLowerCase();
+
+    const potentialTrendDisplay = {
+      rising: {
+        text: '▲ Rising',
+        className:
+          'pp-career-card__value--trend-rising',
+      },
+
+      falling: {
+        text: '▼ Falling',
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+--- 12239-12388 ---
+      player.development || {};
+
+    const potentialTrend =
+      String(
+        development.potentialTrend ??
+        player.potentialTrend ??
+        'stable'
+      )
+        .trim()
+        .toLowerCase();
+
+    const potentialTrendDisplay = {
+      rising: {
+        text: '▲ Rising',
+        className:
+          'pp-career-card__value--trend-rising',
+      },
+
+      falling: {
+        text: '▼ Falling',
+        className:
+          'pp-career-card__value--trend-falling',
+      },
+
+      stable: {
+        text: 'Stable',
+        className:
+          'pp-career-card__value--trend-stable',
+      },
+    }[
+      potentialTrend
+    ] || {
+      text: 'Stable',
+      className:
+        'pp-career-card__value--trend-stable',
+    };
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(
+            development.potential ??
+            player.potential ??
+            player.overall
+          ) || 60
+        )
+      );
+
+    const potentialRole =
+      development.potentialRole ||
+      player.potentialRole ||
+      'Developing Prospect';
+
+    const coachTrust =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          Number(
+            player.coachTrust
+          ) || 0
+        )
+      );
+
+    const reputationStars =
+      Math.max(
+        0,
+        Math.min(
+          5,
+          Number(
+            player.reputationStars
+          ) || 0
+        )
+      );
+
+    const reputationDisplay =
+      '★'.repeat(
+        reputationStars
+      ) +
+      '☆'.repeat(
+        5 - reputationStars
+      );
+
+    const currentOverall =
+      Number(player.overall) || 0;
+
+    const startingOverall =
+      Number(
+        player.startingOverall
+      ) || currentOverall;
+
+    const careerGrowth =
+      Number.isFinite(
+        Number(
+          development
+            .totalOverallGrowth
+        )
+      )
+        ? Number(
+            development
+              .totalOverallGrowth
+          )
+        : Math.max(
+            0,
+            currentOverall -
+            startingOverall
+          );
+
+    /*
+     * Until season-transition snapshots exist, current overall
+     * growth is also the safest first-season growth value.
+     * Later seasons will use the saved season-start overall.
+     */
+    const seasonStartingOverall =
+      Number(
+        development
+          .seasonStartingOverall
+      ) || startingOverall;
+
+    const seasonGrowth =
+      currentOverall -
+      seasonStartingOverall;
+
+    const formatGrowth =
+      value => {
+        const safeValue =
+          Number(value) || 0;
+
+        return `${
+          safeValue > 0
+            ? '+'
+            : ''
+        }${safeValue} OVR`;
+      };
+
+    const isGoalie =
+      String(
+        player.position || ''
+      )
+        .toUpperCase()
+        .includes('G');
+
+    const primeWindow =
+      isGoalie
+        ? '27–32'
+        : '24–28';
+
+    setText(
+--- 12411-12560 ---
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+--- 12414-12563 ---
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+--- 12419-12568 ---
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+      (WorldEngine.state.teams || [])
+        .find(
+          team =>
+            team.teamId ===
+            player.teamId
+--- 12420-12569 ---
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+      (WorldEngine.state.teams || [])
+        .find(
+          team =>
+            team.teamId ===
+            player.teamId
+        );
+--- 12426-12575 ---
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+      (WorldEngine.state.teams || [])
+        .find(
+          team =>
+            team.teamId ===
+            player.teamId
+        );
+
+    const teamAbbreviation =
+      assignedTeam?.abbreviation ||
+      '—';
+
+    const currentYear =
+--- 12427-12576 ---
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
+    setText(
+      'pp-development-trend',
+      potentialTrendDisplay.text
+    );
+
+    const potentialTrendElement =
+      document.getElementById(
+        'pp-development-trend'
+      );
+
+    if (potentialTrendElement) {
+      potentialTrendElement.classList.remove(
+        'pp-career-card__value--trend-rising',
+        'pp-career-card__value--trend-falling',
+        'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
+      );
+    }
+
+    setText(
+      'pp-development-trust',
+      `${coachTrust}%`
+    );
+
+    setText(
+      'pp-development-reputation',
+      reputationDisplay
+    );
+
+    setText(
+      'career-player-reputation-stars',
+      reputationDisplay
+    );
+
+    const reputationLabels = {
+      0: 'Unranked Prospect',
+      1: 'Local Prospect',
+      2: 'Regional Prospect',
+      3: 'National Prospect',
+      4: 'Elite Prospect',
+      5: 'Generational Prospect',
+    };
+
+    setText(
+      'career-player-reputation-label',
+      reputationLabels[reputationStars] ||
+        'Unranked Prospect'
+    );
+
+    setText(
+      'pp-growth-season',
+      formatGrowth(
+        seasonGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-career',
+      formatGrowth(
+        careerGrowth
+      )
+    );
+
+    setText(
+      'pp-growth-prime',
+      primeWindow
+    );
+
+    /*
+     * Keep the numeric potential available in the tooltip
+     * without cluttering the visible card.
+     */
+    const potentialElement =
+      document.getElementById(
+        'pp-development-potential'
+      );
+
+    if (potentialElement) {
+      potentialElement.title =
+        `${potentialRole} projection`;
+    }
+  }
+
+    function renderCareerPlayerStatistics(
+      player = {},
+      {
+        headId = 'pp-statistics-head',
+        bodyId = 'pp-statistics-body',
+        footId = 'pp-statistics-foot'
+      } = {}
+    ) {
+      const head =
+        document.getElementById(headId);
+
+      const body =
+        document.getElementById(bodyId);
+
+      const foot =
+        document.getElementById(footId);
+
+    if (
+      !head ||
+      !body ||
+      !foot ||
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const rawPosition =
+      String(
+        player.position || ''
+      )
+        .trim()
+        .toUpperCase();
+
+    const isGoalie =
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL');
+
+    const assignedTeam =
+      (WorldEngine.state.teams || [])
+        .find(
+          team =>
+            team.teamId ===
+            player.teamId
+        );
+
+    const teamAbbreviation =
+      assignedTeam?.abbreviation ||
+      '—';
+
+    const currentYear =
+      Number(
+
+### scoutingProfile
+--- 12888-13037 ---
+      Number(value) || 0
+    ).toFixed(2);
+  }
+
+  function formatSavePercentage(
+    value
+  ) {
+    const number =
+      Number(value) || 0;
+
+    if (number <= 0) {
+      return '.000';
+    }
+
+    return number
+      .toFixed(3)
+      .replace(/^0/, '');
+  }
+
+  function updatePlayerScoutingSection(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const scouting =
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+
+### strengthsKnown
+--- 13233-13382 ---
+
+    setText(
+      'pp-scouting-games-observed',
+      Number(
+        scouting.gamesObserved
+      ) || 0
+    );
+
+    setText(
+      'pp-scouting-accuracy',
+      evaluationAccuracy
+    );
+
+    setText(
+      'pp-scouting-confidence-detail',
+      `Potential certainty • ${Math.round(confidence)}%`
+    );
+
+    setText(
+      'pp-scouting-report-date',
+      reportDate
+    );
+
+    setText(
+      'pp-scouting-report-text',
+      reportText
+    );
+
+    renderTraitList(
+      'pp-scouting-strengths',
+      scouting.strengthsKnown
+    );
+
+    renderTraitList(
+      'pp-scouting-weaknesses',
+      scouting.weaknessesKnown
+    );
+  }
+
+  function updatePlayerAwardsSection(
+      player = {},
+      {
+        listId = 'pp-awards-list'
+      } = {}
+    ) {
+      const awardsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!awardsList) return;
+
+    const history =
+      player.history || {};
+
+    const awards = [
+      ...(history.awards || []),
+      ...(history.championships || [])
+    ];
+
+    awards.sort((a, b) => {
+      return (
+        (b.year || 0) -
+        (a.year || 0)
+      );
+    });
+
+    if (!awards.length) {
+
+      awardsList.innerHTML = `
+        <div class="pp-awards-empty">
+
+          <span class="pp-awards-empty__icon">
+            🏆
+          </span>
+
+          <div>
+
+            <strong class="pp-awards-empty__title">
+              No Awards Yet
+            </strong>
+
+            <p class="pp-awards-empty__text">
+              Individual awards and championships will appear here throughout your career.
+            </p>
+
+          </div>
+
+        </div>
+      `;
+
+      return;
+    }
+
+    awardsList.innerHTML =
+      awards.map(award => `
+
+        <div class="pp-award-card">
+
+          <div class="pp-award-card__icon">
+            ${award.icon || "🏆"}
+          </div>
+
+          <div class="pp-award-card__info">
+
+            <div class="pp-award-card__title">
+              ${award.name}
+            </div>
+
+            <div class="pp-award-card__meta">
+              ${award.season || ""}
+              •
+              ${award.level || ""}
+              •
+              ${award.team || ""}
+            </div>
+
+          </div>
+
+        </div>
+
+      `).join("");
+
+  }
+
+  function updatePlayerRecordsSection(
+      player = {},
+      {
+        listId = 'pp-records-list'
+      } = {}
+    ) {
+      const recordsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!recordsList) {
+      return;
+    }
+
+    const records =
+      Array.isArray(
+        player.history?.records
+      )
+        ? [...player.history.records]
+        : [];
+
+    records.sort(
+      (firstRecord, secondRecord) => {
+        const firstYear =
+
+### weaknessesKnown
+--- 13238-13387 ---
+      ) || 0
+    );
+
+    setText(
+      'pp-scouting-accuracy',
+      evaluationAccuracy
+    );
+
+    setText(
+      'pp-scouting-confidence-detail',
+      `Potential certainty • ${Math.round(confidence)}%`
+    );
+
+    setText(
+      'pp-scouting-report-date',
+      reportDate
+    );
+
+    setText(
+      'pp-scouting-report-text',
+      reportText
+    );
+
+    renderTraitList(
+      'pp-scouting-strengths',
+      scouting.strengthsKnown
+    );
+
+    renderTraitList(
+      'pp-scouting-weaknesses',
+      scouting.weaknessesKnown
+    );
+  }
+
+  function updatePlayerAwardsSection(
+      player = {},
+      {
+        listId = 'pp-awards-list'
+      } = {}
+    ) {
+      const awardsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!awardsList) return;
+
+    const history =
+      player.history || {};
+
+    const awards = [
+      ...(history.awards || []),
+      ...(history.championships || [])
+    ];
+
+    awards.sort((a, b) => {
+      return (
+        (b.year || 0) -
+        (a.year || 0)
+      );
+    });
+
+    if (!awards.length) {
+
+      awardsList.innerHTML = `
+        <div class="pp-awards-empty">
+
+          <span class="pp-awards-empty__icon">
+            🏆
+          </span>
+
+          <div>
+
+            <strong class="pp-awards-empty__title">
+              No Awards Yet
+            </strong>
+
+            <p class="pp-awards-empty__text">
+              Individual awards and championships will appear here throughout your career.
+            </p>
+
+          </div>
+
+        </div>
+      `;
+
+      return;
+    }
+
+    awardsList.innerHTML =
+      awards.map(award => `
+
+        <div class="pp-award-card">
+
+          <div class="pp-award-card__icon">
+            ${award.icon || "🏆"}
+          </div>
+
+          <div class="pp-award-card__info">
+
+            <div class="pp-award-card__title">
+              ${award.name}
+            </div>
+
+            <div class="pp-award-card__meta">
+              ${award.season || ""}
+              •
+              ${award.level || ""}
+              •
+              ${award.team || ""}
+            </div>
+
+          </div>
+
+        </div>
+
+      `).join("");
+
+  }
+
+  function updatePlayerRecordsSection(
+      player = {},
+      {
+        listId = 'pp-records-list'
+      } = {}
+    ) {
+      const recordsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!recordsList) {
+      return;
+    }
+
+    const records =
+      Array.isArray(
+        player.history?.records
+      )
+        ? [...player.history.records]
+        : [];
+
+    records.sort(
+      (firstRecord, secondRecord) => {
+        const firstYear =
+          Number(
+            firstRecord.year ??
+            firstRecord.seasonStartYear
+          ) || 0;
+
+
+### organizationsWatching
+--- 12950-13099 ---
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+      const teamName = rival.teamName || null;
+      const movement = Number(rival.rankChange) || 0;
+      const movementText =
+        movement > 0
+          ? `▲ ${movement}`
+          : movement < 0
+--- 12952-13101 ---
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+      const teamName = rival.teamName || null;
+      const movement = Number(rival.rankChange) || 0;
+      const movementText =
+        movement > 0
+          ? `▲ ${movement}`
+          : movement < 0
+            ? `▼ ${Math.abs(movement)}`
+            : null;
+--- 12954-13103 ---
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+      const teamName = rival.teamName || null;
+      const movement = Number(rival.rankChange) || 0;
+      const movementText =
+        movement > 0
+          ? `▲ ${movement}`
+          : movement < 0
+            ? `▼ ${Math.abs(movement)}`
+            : null;
+
+      metaElement.textContent = [
+--- 12958-13107 ---
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+      const teamName = rival.teamName || null;
+      const movement = Number(rival.rankChange) || 0;
+      const movementText =
+        movement > 0
+          ? `▲ ${movement}`
+          : movement < 0
+            ? `▼ ${Math.abs(movement)}`
+            : null;
+
+      metaElement.textContent = [
+        rank > 0 ? `#${rank}` : null,
+        position,
+        movementText,
+        teamName,
+--- 12959-13108 ---
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+      const teamName = rival.teamName || null;
+      const movement = Number(rival.rankChange) || 0;
+      const movementText =
+        movement > 0
+          ? `▲ ${movement}`
+          : movement < 0
+            ? `▼ ${Math.abs(movement)}`
+            : null;
+
+      metaElement.textContent = [
+        rank > 0 ? `#${rank}` : null,
+        position,
+        movementText,
+        teamName,
+      ].filter(Boolean).join(' • ');
+
+### publicRank
+--- 12905-13054 ---
+  }
+
+  function updatePlayerScoutingSection(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const scouting =
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+--- 12907-13056 ---
+  function updatePlayerScoutingSection(
+    player = {}
+  ) {
+    if (
+      !player ||
+      typeof player !== 'object'
+    ) {
+      return;
+    }
+
+    const scouting =
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+--- 12916-13065 ---
+
+    const scouting =
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+--- 12917-13066 ---
+    const scouting =
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+--- 12918-13067 ---
+      player.scoutingProfile || {};
+
+    const setText = (
+      elementId,
+      value
+    ) => {
+      const element =
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+--- 12925-13074 ---
+        document.getElementById(
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+--- 12926-13075 ---
+          elementId
+        );
+
+      if (element) {
+        element.textContent =
+          value;
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+--- 12932-13081 ---
+      }
+    };
+
+    const publicRank =
+      Number(
+        scouting.publicRank
+      );
+
+    const previousRank =
+      Number(
+        scouting.previousRank
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+--- 12943-13092 ---
+      );
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+--- 12944-13093 ---
+
+    const rankingText =
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+        ? `#${publicRank}`
+        : 'Not Ranked';
+
+    let rankingChangeText =
+      'No ranking history';
+
+    if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0 &&
+      Number.isFinite(previousRank) &&
+      previousRank > 0
+    ) {
+      const rankDifference =
+        previousRank -
+        publicRank;
+
+      rankingChangeText =
+        rankDifference > 0
+          ? `▲ Up ${rankDifference}`
+          : rankDifference < 0
+            ? `▼ Down ${Math.abs(
+                rankDifference
+              )}`
+            : 'No change';
+    } else if (
+      Number.isFinite(publicRank) &&
+      publicRank > 0
+    ) {
+      rankingChangeText =
+        'First published ranking';
+    }
+
+    const organizationsWatching =
+      Array.isArray(
+        scouting.organizationsWatching
+      )
+        ? scouting.organizationsWatching
+        : [];
+
+    const watchersText =
+      organizationsWatching.length > 0
+        ? organizationsWatching
+            .map(organization => {
+              if (
+                typeof organization ===
+                'string'
+              ) {
+                return organization;
+              }
+
+              return (
+                organization.name ||
+                organization.label ||
+                organization.teamName ||
+                organization.schoolName ||
+                'Organization'
+              );
+            })
+            .join(', ')
+        : 'No organizations watching';
+
+    const confidence =
+      Math.max(
+        25,
+        Math.min(
+          100,
+          Number(
+            player.development
+              ?.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50
+        )
+      );
+
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
+    const evaluationAccuracy =
+      canonicalAccuracy ||
+      (
+        confidence >= 75
+          ? 'High'
+          : confidence >= 50
+            ? 'Medium'
+            : 'Low'
+      );
+
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+
+### gamesObserved
+--- 13207-13356 ---
+              }
+            </span>
+          `)
+          .join('');
+    };
+
+    setText(
+      'pp-scouting-ranking',
+      rankingText
+    );
+
+    setText(
+      'pp-scouting-ranking-change',
+      rankingChangeText
+    );
+
+    setText(
+      'pp-scouting-interest',
+      scouting.interestLevel ||
+      'None'
+    );
+
+    setText(
+      'pp-scouting-watchers',
+      watchersText
+    );
+
+    setText(
+      'pp-scouting-games-observed',
+      Number(
+        scouting.gamesObserved
+      ) || 0
+    );
+
+    setText(
+      'pp-scouting-accuracy',
+      evaluationAccuracy
+    );
+
+    setText(
+      'pp-scouting-confidence-detail',
+      `Potential certainty • ${Math.round(confidence)}%`
+    );
+
+    setText(
+      'pp-scouting-report-date',
+      reportDate
+    );
+
+    setText(
+      'pp-scouting-report-text',
+      reportText
+    );
+
+    renderTraitList(
+      'pp-scouting-strengths',
+      scouting.strengthsKnown
+    );
+
+    renderTraitList(
+      'pp-scouting-weaknesses',
+      scouting.weaknessesKnown
+    );
+  }
+
+  function updatePlayerAwardsSection(
+      player = {},
+      {
+        listId = 'pp-awards-list'
+      } = {}
+    ) {
+      const awardsList =
+        document.getElementById(
+          listId
+        );
+
+    if (!awardsList) return;
+
+    const history =
+      player.history || {};
+
+    const awards = [
+      ...(history.awards || []),
+      ...(history.championships || [])
+    ];
+
+    awards.sort((a, b) => {
+      return (
+        (b.year || 0) -
+        (a.year || 0)
+      );
+    });
+
+    if (!awards.length) {
+
+      awardsList.innerHTML = `
+        <div class="pp-awards-empty">
+
+          <span class="pp-awards-empty__icon">
+            🏆
+          </span>
+
+          <div>
+
+            <strong class="pp-awards-empty__title">
+              No Awards Yet
+            </strong>
+
+            <p class="pp-awards-empty__text">
+              Individual awards and championships will appear here throughout your career.
+            </p>
+
+          </div>
+
+        </div>
+      `;
+
+      return;
+    }
+
+    awardsList.innerHTML =
+      awards.map(award => `
+
+        <div class="pp-award-card">
+
+          <div class="pp-award-card__icon">
+            ${award.icon || "🏆"}
+          </div>
+
+          <div class="pp-award-card__info">
+
+            <div class="pp-award-card__title">
+              ${award.name}
+            </div>
+
+            <div class="pp-award-card__meta">
+              ${award.season || ""}
+              •
+              ${award.level || ""}
+              •
+              ${award.team || ""}
+            </div>
+
+          </div>
+
+        </div>
+
+      `).join("");
+
+  }
