@@ -2521,7 +2521,7 @@ function updateSummary() {
 
 // ── Save system ─────────────────────────────────────────────
 function saveCareerPreview() {
-  if (isDevSession) return;
+  if (window.PROJECT_ICE_DEV_SESSION === true) return;
   try {
     const playerPreview = {
       playerId:
@@ -3445,7 +3445,6 @@ btnDevHub.addEventListener('click', () => {
     scheduleViewYear = 2026;
     scheduleViewMonth = 8;
 
-    isDevSession = true;
     window.PROJECT_ICE_DEV_SESSION = true;
 
     
