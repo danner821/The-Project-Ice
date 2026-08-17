@@ -1,0 +1,14 @@
+name: Inspect Potential Distribution UI
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-potential-distribution-ui.yml'
+      - '.github/scripts/inspect_potential_distribution_ui.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_potential_distribution_ui.py
