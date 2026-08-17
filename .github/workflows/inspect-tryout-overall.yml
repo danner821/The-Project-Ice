@@ -1,0 +1,13 @@
+name: Inspect Tryout Overall
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-tryout-overall.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_tryout_overall.py
