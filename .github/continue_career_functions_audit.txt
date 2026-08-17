@@ -1,0 +1,3079 @@
+
+FILE artifacts/project-ice/public/game.js
+
+### loadCareerPreview @ 77915
+istingEvent?.awayTeamId ||
+              ''
+            ) ===
+              String(
+                newEvent?.awayTeamId ||
+                ''
+              )
+        ) ||
+        null
+      );
+    };
+
+  WorldEngine.state.schedule =
+    rebuiltSchedule.map(
+      newEvent => {
+        const existingEvent =
+          findExistingEvent(
+            newEvent
+          );
+
+        if (!existingEvent) {
+          return newEvent;
+        }
+
+        /*
+         * Keep the regenerated event definition, but preserve
+         * all saved progress/results from the old record.
+         */
+        return {
+          ...newEvent,
+          ...existingEvent,
+
+          /*
+           * Preserve canonical identity fields from the new
+           * schedule when the old save did not contain them.
+           */
+          eventId:
+            existingEvent.eventId ||
+            newEvent.eventId,
+
+          gameId:
+            existingEvent.gameId ||
+            newEvent.gameId,
+
+          id:
+            existingEvent.id ||
+            newEvent.id,
+        };
+      }
+    );
+
+  WorldEngine.save();
+
+  console.log(
+    '[Career Load] Expanded schedule migrated successfully.'
+  );
+
+  return true;
+}
+
+    function loadCareerPreview() {
+      try {
+        const savedCareer =
+          localStorage.getItem(
+            SAVE_KEY
+          );
+
+        if (savedCareer) {
+          const parsedCareer =
+            JSON.parse(
+              savedCareer
+            );
+
+          if (
+            parsedCareer?.player
+          ) {
+            Game.player = {
+              ...Game.player,
+              ...parsedCareer.player,
+            };
+          }
+        } else {
+          /*
+           * No localStorage preview exists.
+           *
+           * Recover directly from the canonical IndexedDB world.
+           */
+          const recovered =
+            recoverCareerPreviewFromWorld();
+
+          if (!recovered) {
+            console.error(
+              '[Project Ice] No recoverable career exists in the loaded world.'
+            );
+
+            return;
+          }
+        }
+    Game.player.currentDate =
+      WorldEngine.state.player?.currentDate ||
+      Game.player.currentDate ||
+      '2026-09-01';
+
+    syncCareerPlayerWithWorld();
+
+    /*
+     * Make normal Continue Career use the same complete
+     * season architecture as a newly initialized career.
+     */
+    ensureCareerScheduleEventsOnLoad();
+
+    refreshScheduleEvents();
+
+    // ── Route based on career stage ───────────────────────────
+    // 'hub' stage → tryouts are done; skip the intro sequence.
+    if (Game.player.stage === 'hub') {
+        refreshCareerUI();
+        showScreen('hub');
+
+        ensureHubLiveGameDiagnosticButton();
+
+        return;
+    }
+
+    // Still in creation flow — restore form state and resume at summary.
+    firstNameInput.value = Game.player.firstName || '';
+    lastNameInput.value = Game.player.lastName || '';
+    hometownInput.value = Game.player.hometown || '';
+
+    restoreSelectedChoice('position', Game.player.position);
+    restoreSelectedChoice('handedness', Game.player.handedness);
+
+    updateSummary();
+    showScreen('summary');
+  } catch (error) {
+    console.error('[Project Ice] Load failed:', error);
+  }
+}
+
+function deleteCareerPreview() {
+  const confirmed = window.confirm(
+    'Delete your saved Project Ice career preview?'
+  );
+
+  if (!confirmed) return;
+
+  localStorage.removeItem(SAVE_KEY);
+  resetPlayer();
+  updateContinueButton();
+  updateDevShortcut(); // DEV SHORTCUT — remove with dev shortcut
+  showScreen('title');
+}
+
+function restoreSelectedChoice(groupName, selectedValue) {
+  const choices = document.querySelectorAll(
+    `[data-choice-group="${groupName}"]`
+  );
+
+  choices.forEach((choice) => {
+    const isSelected = choice.dataset.value === selectedValue;
+
+    choice.classList.toggle('choice-card--selected', isSelected);
+  });
+}
+
+/*
+ * ============================================================
+ * CAREER EXISTENCE — CANONICAL WORLD CHECK
+ * ============================================================
+ *
+ * IndexedDB / WorldEngine is now the source of truth.
+ *
+ * The old projectice_save localStorage record is only a
+ * compatibility/preview cache and must never be required in
+ * order to continue an existing career.
+ */
+function hasCanonicalCareerWorld() {
+  const directCareerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    );
+
+  if (directCareerPlayer) {
+    return true;
+  }
+
+  for (
+    const team of
+    WorldEngine.state.teams || []
+  ) {
+    const found =
+      (
+        team.roster || []
+      ).some(
+        player =>
+          player?.isCareerPlayer ===
+            true ||
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          ) ===
+            'career-player'
+      );
+
+    if (found) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+  function updateContinueButton() {
+    const hasSave =
+      Boolean(
+        localStorage.getItem(
+          SAVE_KEY
+        )
+      ) ||
+      hasCanonicalCareerWorld() ||
+      (() => {
+        try {
+          const saves = JSON.parse(localStorage.getItem('projectice_career_save_index_v1') || '[]');
+          return Array.isArray(saves) && saves.length > 0;
+        } catch (_) {
+          return false;
+        }
+      })();
+
+  btnContinue.disabled = !hasSave;
+
+  if (hasSave) {
+    btnContinue.classList.remove('btn--secondary');
+    btnContinue.classList.add('btn--primary');
+
+    btnContinue.innerHTML = `
+      <span class="btn__icon">📁</span>
+      <span class="btn__label">Continue Career</span>
+      <span class="btn__arrow">›</span>
+    `;
+  } else {
+    btnContinue.classList.remove('btn--primary');
+    btnContinue.classList.add('btn--secondary');
+
+    btnContinue.innerHTML = `
+      <span class="btn__icon">📁</span>
+      <span class="btn__label">Continue Career</span>
+      <span class="btn__tag">No Save Found</span>
+    `;
+  }
+}
+
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+// Enables the "Skip to Career Hub" button only when a saved career exists.
+// Does not alter save data, career stage, or tryout completion state.
+function updateDevShortcut() {
+  const hasSave = Boolean(localStorage.getItem(SAVE_KEY));
+  btnDevHub.disabled = !hasSave;
+  devShortcutHint.classList.toggle('is-visible', !hasSave);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function resetPlayer() {
+  Game.player = {
+    firstName: '',
+    lastName: '',
+    hometown: '',
+    position: '',
+    handedness: '',
+    background: '',
+    archetype: '',
+    motivation: '',
+    nhlTeam: '',
+    age: 14,
+    careerStart: 2022,
+  };
+
+  playerForm.reset();
+
+  document.querySelectorAll('.choice-card').forEach((choice) => {
+    choice.classList.remove('choice-card--selected');
+  });
+
+  formError.textContent = '';
+}
+
+// ── Event listeners ─────────────────────────────────────────
+btnNewCareer.addEventListener('pointerdown', (event) => {
+  spawnRipple(btnNewCareer, event);
+});
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function renderCareerSaveSelection() {
+  let saves = await WorldEngine.listCareerSaves();
+
+  /*
+   * The old lightweight preview is a last-resort recovery source only.
+   * If a career reached Hub but its IndexedDB/index write was interrupted,
+   * rebuild that official career instead of forcing the player to redo tryouts.
+   */
+  try {
+    const rawPreview = localStorage.getItem(SAVE_KEY);
+    const previewPlayer = rawPreview
+      ? JSON.parse(rawPreview)?.player
+      : null;
+
+    const previewName = previewPlayer
+      ? `${previewPlayer.firstName || ''} ${previewPlayer.lastName || ''}`.trim()
+      : '';
+    const previewTeamId = previewPlayer?.teamId || previewPlayer?.highSchoolTeamId || null;
+    const previewIsOfficial = Boolean(
+      previewName &&
+      previewTeamId &&
+      (
+        previewPlayer?.stage === 'hub' ||
+        previewPlayer?.tryoutsComplete === true
+      )
+    );
+    const previewAlreadyListed = previewIsOfficial && saves.some(save =>
+      String(save?.playerName || '').trim().toLowerCase() === previewName.toLowerCase()
+    );
+
+    if (
+      previewIsOfficial &&
+      !previewAlreadyListed &&
+      typeof WorldEngine.recoverOfficialCareerFromPreview === 'function'
+    ) {
+      const recovered = await WorldEngine.recoverOfficialCareerFromPreview(previewPlayer);
+      if (recovered) {
+        saves = await WorldEngine.listCareerSaves();
+      }
+    }
+  } catch (error) {
+    console.warn('[Project Ice] Career preview recovery was unavailable:', error);
+  }
+
+  careerSaveList.innerHTML = '';
+  careerSaveCount.textContent = `${saves.length} ${saves.length === 1 ? 'Save' : 'Saves'}`;
+
+  saves.forEach(save => {
+    const shell = document.createElement('div');
+    shell.className = 'career-save-card-shell';
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'career-save-card';
+    const dateLabel = save.currentDate ? new Date(`${save.currentDate}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Career in progress';
+    const details = [save.position, save.teamName, save.overall ? `${save.overall} OVR` : ''].filter(Boolean).join(' • ');
+    card.innerHTML = `
+      <div class="career-save-card__top">
+        <div>
+          <p class="career-save-card__name">${escapeHtml(save.playerName || 'Project Ice Career')}</p>
+          <p class="career-save-card__details">${escapeHtml(details || 'High School Career')}</p>
+        </div>
+        <span class="career-save-card__arrow">›</span>
+      </div>
+      <div class="career-save-card__meta">
+        <span>${escapeHtml(save.seasonLabel || 'Season 1')}</span>
+        <span>${escapeHtml(dateLabel)}</span>
+      </div>
+    `;
+    card.addEventListener('click', async () => {
+      card.disabled = true;
+      const loaded = await WorldEngine.selectCareerSave(save.id);
+      if (!loaded) { card.disabled = false; return; }
+      localStorage.removeItem(SAVE_
+
+### recoverCareerPreviewFromWorld @ 446681
+edTeam = (WorldEngine.state.teams || [])
+      .find(team => team.teamId === Game.player.teamId);
+
+    player = {
+      ...Game.player,
+      id: 'career-player',
+      firstName: Game.player.firstName || '',
+      lastName: Game.player.lastName || '',
+      position: Game.player.position || 'C',
+      overall: Number(Game.player.overall) || 60,
+      age: Number(Game.player.age) || 14,
+      year: Game.player.year || 'Freshman',
+      teamId: Game.player.teamId || '',
+      teamName: assignedTeam?.teamName || '',
+      schoolName: assignedTeam?.schoolName || '',
+      attributes: Game.player.attributes || {},
+      reputationStars: Number(Game.player.reputationStars) || 1,
+      potential: Number(Game.player.potential) || 78,
+    };
+  } else {
+
+  for (const team of WorldEngine.state.teams || []) {
+    const foundPlayer = (team.roster || []).find(
+      p => String(p.id) === String(playerId)
+    );
+
+    if (foundPlayer) {
+      player = {
+        ...foundPlayer,
+        teamId: team.teamId,
+      };
+      break;
+    }
+  }
+}
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = 'team-profile';
+  renderPlayerProfile();
+  showScreen('player-profile');
+});
+
+function recoverCareerPreviewFromWorld() {
+  /*
+   * If the small player preview still exists, nothing to recover.
+   */
+  if (
+    localStorage.getItem(
+      SAVE_KEY
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * The canonical World Engine roster is the source of truth.
+   * Find the career player that survived in IndexedDB.
+   */
+  let careerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    ) ||
+    null;
+
+  if (!careerPlayer) {
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      const found =
+        (
+          team.roster ||
+          []
+        ).find(
+          player =>
+            player?.isCareerPlayer ===
+            true
+        );
+
+      if (found) {
+        careerPlayer = {
+          ...found,
+          teamId:
+            found.teamId ||
+            team.teamId,
+          schoolName:
+            found.schoolName ||
+            team.schoolName,
+          teamName:
+            found.teamName ||
+            team.teamName,
+        };
+
+        break;
+      }
+    }
+  }
+
+  if (!careerPlayer) {
+    const rosterCareerPlayers = [];
+
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      for (
+        const player of
+        team.roster ||
+        []
+      ) {
+        if (
+          player?.isCareerPlayer === true ||
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          ) === 'career-player'
+        ) {
+          rosterCareerPlayers.push({
+            id:
+              player?.id ||
+              player?.playerId ||
+              'missing',
+
+            name:
+              `${player?.firstName || ''} ${player?.lastName || ''}`.trim(),
+
+            teamId:
+              team.teamId,
+          });
+        }
+      }
+    }
+
+    alert(
+      [
+        'CAREER RECOVERY DIAGNOSTIC',
+        '',
+        `World player id: ${
+          WorldEngine.state
+            ?.player
+            ?.id ||
+          'missing'
+        }`,
+        `World player playerId: ${
+          WorldEngine.state
+            ?.player
+            ?.playerId ||
+          'missing'
+        }`,
+        '',
+        `Teams: ${
+          (
+            WorldEngine.state.teams ||
+            []
+          ).length
+        }`,
+        `Career players found in rosters: ${
+          rosterCareerPlayers.length
+        }`,
+        '',
+        rosterCareerPlayers.length
+          ? JSON.stringify(
+              rosterCareerPlayers,
+              null,
+              2
+            )
+          : 'No canonical career player found.',
+      ].join('\n')
+    );
+
+    return false;
+  }
+
+  /*
+   * Reconstruct Game.player from the canonical player.
+   * upsertCareerPlayer originally received the full Game.player,
+   * so these identity/career fields should already be preserved.
+   */
+  Game.player = {
+    ...Game.player,
+    ...careerPlayer,
+
+    playerId:
+      careerPlayer.playerId ||
+      careerPlayer.id ||
+      'career-player',
+
+    id:
+      careerPlayer.id ||
+      careerPlayer.playerId ||
+      'career-player',
+
+    teamId:
+      careerPlayer.teamId ||
+      null,
+
+    stage:
+      'hub',
+
+    tryoutsComplete:
+      true,
+
+    currentDate:
+      WorldEngine.state
+        .season
+        ?.currentDate ||
+      careerPlayer.currentDate ||
+      Game.player.currentDate,
+  };
+
+  /*
+   * Recreate only the small Continue Career record.
+   * The actual universe remains in IndexedDB.
+   */
+  /*
+   * Try to rebuild the lightweight preview cache, but the
+   * canonical world no longer depends on that write succeeding.
+   */
+  saveCareerPreview();
+
+  return true;
+}
+
+// ── App initialization ──────────────────────────────────────
+async function init() {
+  await WorldEngine.load();
+
+  WorldEngine.ensureGeneratedRosters();
+
+  /*
+   * Careers created before the IndexedDB migration may have lost
+   * their small localStorage preview when the old giant world hit
+   * the storage quota. Recover it from the canonical world.
+   */
+  recoverCareerPreviewFromWorld();
+
+  updateContinueButton();
+  updateDevShortcut();
+
+  showScreen('title');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+### selectCareerSave @ 86799
+orEach(save => {
+    const shell = document.createElement('div');
+    shell.className = 'career-save-card-shell';
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'career-save-card';
+    const dateLabel = save.currentDate ? new Date(`${save.currentDate}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Career in progress';
+    const details = [save.position, save.teamName, save.overall ? `${save.overall} OVR` : ''].filter(Boolean).join(' • ');
+    card.innerHTML = `
+      <div class="career-save-card__top">
+        <div>
+          <p class="career-save-card__name">${escapeHtml(save.playerName || 'Project Ice Career')}</p>
+          <p class="career-save-card__details">${escapeHtml(details || 'High School Career')}</p>
+        </div>
+        <span class="career-save-card__arrow">›</span>
+      </div>
+      <div class="career-save-card__meta">
+        <span>${escapeHtml(save.seasonLabel || 'Season 1')}</span>
+        <span>${escapeHtml(dateLabel)}</span>
+      </div>
+    `;
+    card.addEventListener('click', async () => {
+      card.disabled = true;
+      const loaded = await WorldEngine.selectCareerSave(save.id);
+      if (!loaded) { card.disabled = false; return; }
+      localStorage.removeItem(SAVE_KEY);
+      recoverCareerPreviewFromWorld();
+      loadCareerPreview();
+    });
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'career-save-delete';
+    deleteButton.setAttribute('aria-label', `Delete ${save.playerName || 'career'}`);
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const playerName = save.playerName || 'this career';
+      const confirmed = window.confirm(`Delete ${playerName}? This cannot be undone.`);
+      if (!confirmed) return;
+
+      deleteButton.disabled = true;
+      card.disabled = true;
+      const deleted = await WorldEngine.deleteCareerSave(save.id);
+      if (!deleted) {
+        deleteButton.disabled = false;
+        card.disabled = false;
+        return;
+      }
+
+      await renderCareerSaveSelection();
+      updateContinueButton();
+    });
+
+    shell.appendChild(card);
+    shell.appendChild(deleteButton);
+    careerSaveList.appendChild(shell);
+  });
+
+  showScreen('career-saves');
+}
+
+btnNewCareer.addEventListener('click', async () => {
+  btnNewCareer.disabled = true;
+  await WorldEngine.beginNewCareerSave();
+  localStorage.removeItem(SAVE_KEY);
+  resetPlayer();
+  btnNewCareer.disabled = false;
+  showScreen('creation');
+});
+
+btnContinue.addEventListener('click', () => {
+  renderCareerSaveSelection();
+});
+
+if (btnBackCareerSaves) {
+  btnBackCareerSaves.addEventListener('click', () => {
+    updateContinueButton();
+    showScreen('title');
+  });
+}
+
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+// Loads the saved career and jumps straight to Career Hub without running
+// any cinematic sequences or altering career stage / tryout state.
+btnDevHub.addEventListener('click', () => {
+  const savedCareer = localStorage.getItem(SAVE_KEY);
+  if (!savedCareer) return;
+
+  try {
+    const parsed = JSON.parse(savedCareer);
+    if (!parsed.player) return;
+
+    Game.player = {
+      ...Game.player,
+      ...parsed.player,
+    };
+
+    const devDate =
+      '2026-09-17';
+
+    /*
+     * DEV SHORTCUT
+     *
+     * Jump directly to the intended testing date.
+     *
+     * Do not rewind the canonical world to season start and
+     * re-simulate already processed history. Rewinding only the
+     * clock while retaining completed games/events creates an
+     * internally inconsistent world and can stop early on a
+     * player-controlled event such as Training.
+     */
+    WorldEngine.setCurrentDate(
+      devDate,
+      {
+        save: false,
+      }
+    );
+
+    Game.player.currentDate =
+      devDate;
+
+    const canonicalPlayer =
+      syncCareerPlayerWithWorld();
+
+    if (!canonicalPlayer) {
+      console.error(
+        '[DEV] Career player could not be synchronized with the World Engine.'
+      );
+
+      return;
+    }
+
+    WorldEngine.state.schedule =
+      WorldEngine.createHighSchoolCareerSchedule(
+        WorldEngine.state.teams
+      );
+
+    scheduleViewYear = 2026;
+    scheduleViewMonth = 8;
+
+    window.PROJECT_ICE_DEV_SESSION = true;
+
+    
+
+    refreshScheduleEvents();
+    refreshCareerUI();
+    showScreen('hub');
+  } catch (err) {
+    console.error('[DEV] Skip to Hub failed:', err);
+  }
+});
+
+if (btnLiveGameDiagnostic) {
+  btnLiveGameDiagnostic
+    .addEventListener(
+      'click',
+      () => {
+        runLiveGameDiagnosticFromUI();
+      }
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+btnBackTitle.addEventListener('click', () => {
+  showScreen('title');
+});
+
+btnBackCreation.addEventListener('click', () => {
+  showScreen('creation');
+});
+
+btnBackSummary.addEventListener('click', () => {
+  showScreen('summary');
+});
+function openHubTab(tabId) {
+  const validTabs = [
+    'home',
+    'schedule',
+    'player',
+    'team',
+    'league'
+  ];
+
+  if (!validTabs.includes(tabId)) return;
+
+  showScreen('hub');
+
+  document
+    .querySelectorAll('.hub-nav__tab')
+    .forEach(tab => {
+      tab.classList.toggle(
+        'hub-nav__tab--active',
+        tab.dataset.hubTab === tabId
+      );
+    });
+
+  document
+    .querySelectorAll('.hub-tab-panel')
+    .forEach(panel => {
+      const isActive =
+        panel.id === `hub-tab-${tabId}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isActive
+      );
+
+      panel.setAttribute(
+        'aria-hidden',
+        String(!isActive)
+      );
+    });
+
+  const hubInfoBar =
+    document.getElementById('hub-info-bar');
+
+  if (hubInfoBar) {
+    hubInfoBar.style.display =
+      tabId === 'home' ? '' : 'none';
+  }
+
+  if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
+// ── Hockey Background screen ────────────────────────────────
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
+  });
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBackIdentity.addEventListener('click', () => {
+  showScreen('identity');
+});
+
+btnContinueBackground.addEventListener('click', () => {
+  saveCareerPreview();
+  showScreen('identity');
+});
+
+// ── Archetype screen ────────────────────────────────────────
+document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.archetype = card.dataset.archetype;
+    btnContinueArchetype.disabled = false;
+    btnContinueAr
+
+### listCareerSaves @ 84024
+ save data, career stage, or tryout completion state.
+function updateDevShortcut() {
+  const hasSave = Boolean(localStorage.getItem(SAVE_KEY));
+  btnDevHub.disabled = !hasSave;
+  devShortcutHint.classList.toggle('is-visible', !hasSave);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function resetPlayer() {
+  Game.player = {
+    firstName: '',
+    lastName: '',
+    hometown: '',
+    position: '',
+    handedness: '',
+    background: '',
+    archetype: '',
+    motivation: '',
+    nhlTeam: '',
+    age: 14,
+    careerStart: 2022,
+  };
+
+  playerForm.reset();
+
+  document.querySelectorAll('.choice-card').forEach((choice) => {
+    choice.classList.remove('choice-card--selected');
+  });
+
+  formError.textContent = '';
+}
+
+// ── Event listeners ─────────────────────────────────────────
+btnNewCareer.addEventListener('pointerdown', (event) => {
+  spawnRipple(btnNewCareer, event);
+});
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function renderCareerSaveSelection() {
+  let saves = await WorldEngine.listCareerSaves();
+
+  /*
+   * The old lightweight preview is a last-resort recovery source only.
+   * If a career reached Hub but its IndexedDB/index write was interrupted,
+   * rebuild that official career instead of forcing the player to redo tryouts.
+   */
+  try {
+    const rawPreview = localStorage.getItem(SAVE_KEY);
+    const previewPlayer = rawPreview
+      ? JSON.parse(rawPreview)?.player
+      : null;
+
+    const previewName = previewPlayer
+      ? `${previewPlayer.firstName || ''} ${previewPlayer.lastName || ''}`.trim()
+      : '';
+    const previewTeamId = previewPlayer?.teamId || previewPlayer?.highSchoolTeamId || null;
+    const previewIsOfficial = Boolean(
+      previewName &&
+      previewTeamId &&
+      (
+        previewPlayer?.stage === 'hub' ||
+        previewPlayer?.tryoutsComplete === true
+      )
+    );
+    const previewAlreadyListed = previewIsOfficial && saves.some(save =>
+      String(save?.playerName || '').trim().toLowerCase() === previewName.toLowerCase()
+    );
+
+    if (
+      previewIsOfficial &&
+      !previewAlreadyListed &&
+      typeof WorldEngine.recoverOfficialCareerFromPreview === 'function'
+    ) {
+      const recovered = await WorldEngine.recoverOfficialCareerFromPreview(previewPlayer);
+      if (recovered) {
+        saves = await WorldEngine.listCareerSaves();
+      }
+    }
+  } catch (error) {
+    console.warn('[Project Ice] Career preview recovery was unavailable:', error);
+  }
+
+  careerSaveList.innerHTML = '';
+  careerSaveCount.textContent = `${saves.length} ${saves.length === 1 ? 'Save' : 'Saves'}`;
+
+  saves.forEach(save => {
+    const shell = document.createElement('div');
+    shell.className = 'career-save-card-shell';
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'career-save-card';
+    const dateLabel = save.currentDate ? new Date(`${save.currentDate}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Career in progress';
+    const details = [save.position, save.teamName, save.overall ? `${save.overall} OVR` : ''].filter(Boolean).join(' • ');
+    card.innerHTML = `
+      <div class="career-save-card__top">
+        <div>
+          <p class="career-save-card__name">${escapeHtml(save.playerName || 'Project Ice Career')}</p>
+          <p class="career-save-card__details">${escapeHtml(details || 'High School Career')}</p>
+        </div>
+        <span class="career-save-card__arrow">›</span>
+      </div>
+      <div class="career-save-card__meta">
+        <span>${escapeHtml(save.seasonLabel || 'Season 1')}</span>
+        <span>${escapeHtml(dateLabel)}</span>
+      </div>
+    `;
+    card.addEventListener('click', async () => {
+      card.disabled = true;
+      const loaded = await WorldEngine.selectCareerSave(save.id);
+      if (!loaded) { card.disabled = false; return; }
+      localStorage.removeItem(SAVE_KEY);
+      recoverCareerPreviewFromWorld();
+      loadCareerPreview();
+    });
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'career-save-delete';
+    deleteButton.setAttribute('aria-label', `Delete ${save.playerName || 'career'}`);
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const playerName = save.playerName || 'this career';
+      const confirmed = window.confirm(`Delete ${playerName}? This cannot be undone.`);
+      if (!confirmed) return;
+
+      deleteButton.disabled = true;
+      card.disabled = true;
+      const deleted = await WorldEngine.deleteCareerSave(save.id);
+      if (!deleted) {
+        deleteButton.disabled = false;
+        card.disabled = false;
+        return;
+      }
+
+      await renderCareerSaveSelection();
+      updateContinueButton();
+    });
+
+    shell.appendChild(card);
+    shell.appendChild(deleteButton);
+    careerSaveList.appendChild(shell);
+  });
+
+  showScreen('career-saves');
+}
+
+btnNewCareer.addEventListener('click', async () => {
+  btnNewCareer.disabled = true;
+  await WorldEngine.beginNewCareerSave();
+  localStorage.removeItem(SAVE_KEY);
+  resetPlayer();
+  btnNewCareer.disabled = false;
+  showScreen('creation');
+});
+
+btnContinue.addEventListener('click', () => {
+  renderCareerSaveSelection();
+});
+
+if (btnBackCareerSaves) {
+  btnBackCareerSaves.addEventListener('click', () => {
+    updateContinueButton();
+    showScreen('title');
+  });
+}
+
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+// Loads the saved career and jumps straight to Career Hub without running
+// any cinematic sequences or altering career stage / tryout state.
+btnDevHub.addEventListener('click', () => {
+  const savedCareer = localStorage.getItem(SAVE_KEY);
+  if (!savedCareer) return;
+
+  try {
+    const parsed = JSON.parse(savedCareer);
+    if (!parsed.player) return;
+
+    Game.player = {
+      ...Game.player,
+      ...parsed.player,
+    };
+
+    const devDate =
+      '2026-09-17';
+
+    /*
+     * DEV SHORTCUT
+     *
+     * Jump directly to the intended testing date.
+     *
+     * Do not rewind the canonical world to season start and
+     * re-simulate already processed history. Rewinding only the
+     * clock while retaining completed games/events creates an
+     * internally inconsistent world and can stop early on a
+     * player-controlled event such as Training.
+     */
+    WorldEngine.setCurrentDate(
+      devDate,
+      {
+        save: false,
+      }
+    );
+
+    Game.player.currentDate =
+      devDate;
+
+    const canonicalPlayer =
+      syncCareerPlayerWithWorld();
+
+    if (!canonicalPlayer) {
+      console.error(
+        '[DEV] Career player could not be synchronized with the World Engine.'
+      );
+
+      return;
+    }
+
+    WorldEngine.state.schedule =
+      WorldEngine.createHighSchoolCareerSchedule(
+        WorldEngine.state.teams
+      );
+
+    scheduleViewYear = 2026;
+    scheduleViewMonth = 8;
+
+    window.PROJECT_ICE_DEV_SESSION = true;
+
+    
+
+    refreshScheduleEvents();
+    refreshCareerUI();
+    showScreen('hub');
+  } catch (err) {
+    console.error('[DEV] Skip to Hub failed:', err);
+  }
+});
+
+if (btnLiveGameDiagnostic) {
+  btnLiveGameDiagnostic
+    .addEventListener(
+      'click',
+      () => {
+        runLiveGameDiagnosticFromUI();
+      }
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+btnBackTitle.addEventListener('click', () => {
+  showScreen('title');
+});
+
+btnBackCreation.addEventListener('click', () => {
+  showScreen('creation');
+});
+
+btnBackSummary.addEventListener('click', () => {
+  showScreen('summary');
+});
+function openHubTab(tabId) {
+  const validTabs = [
+    'home',
+    'schedule',
+    'player',
+    'team',
+    'league'
+  ];
+
+  if (!validTabs.includes(tabId)) return;
+
+  showScreen('hub');
+
+  document
+    .querySelectorAll('.hub-nav__tab')
+    .forEach(tab => {
+      tab.classList.toggle(
+        'hub-nav__tab--active',
+        tab.dataset.hubTab === tabId
+      );
+    });
+
+  document
+    .querySelectorAll('.hub-tab-panel')
+    .forEach(panel => {
+      const isActive =
+        panel.id === `hub-tab-${tabId}`;
+
+      panel.classList.toggle(
+        'hub-tab-panel--active',
+        isActive
+      );
+
+      panel.setAttribute(
+        'aria-hidden',
+        String(!isActive)
+      );
+    });
+
+  const hubInfoBar =
+    document.getElementById('hub-info-bar');
+
+  if (hubInfoBar) {
+    hubInfoBar.style.display =
+      tabId === 'home' ? '' : 'none';
+  }
+
+  if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementB
+
+### loadCareerSave @ -1
+
+### commitActiveCareerSave @ 439810
+l
+   * World Engine record created from the tryout results.
+   */
+  Game.player = {
+    ...Game.player,
+
+    playerId:
+      canonicalPlayer.playerId,
+
+    id:
+      canonicalPlayer.id,
+
+    position:
+      canonicalPlayer.position,
+
+    attributes: {
+      ...canonicalPlayer.attributes,
+    },
+
+    overall:
+      canonicalPlayer.overall,
+
+    startingOverall:
+      canonicalPlayer.startingOverall,
+
+    tryoutProfile:
+      canonicalPlayer.tryoutProfile,
+
+    rosterSlot:
+      canonicalPlayer.rosterSlot,
+
+    lineupAssignment:
+      canonicalPlayer.lineupAssignment,
+
+    lineupStatus:
+      canonicalPlayer.lineupStatus,
+
+    coachTrust:
+      canonicalPlayer.coachTrust,
+
+    recentForm:
+      canonicalPlayer.recentForm,
+
+    morale:
+      canonicalPlayer.morale,
+
+    reputationStars:
+      canonicalPlayer.reputationStars,
+
+    reputationPoints:
+      canonicalPlayer.reputationPoints,
+
+    stage: 'hub',
+    tryoutsComplete: true,
+    currentDate: '2026-09-02',
+  };
+
+  /* The career becomes an official selectable save only now: tryouts are complete and Career Hub is unlocked. */
+  if (typeof WorldEngine.commitActiveCareerSave === 'function') {
+    const committed = await WorldEngine.commitActiveCareerSave();
+    if (!committed) {
+      console.error('[Project Ice] Career could not be durably committed after tryouts.');
+      return;
+    }
+  }
+
+  saveCareerPreview();
+  showScreen('hub');
+});
+
+// ── Coach Intro navigation ────────────────────────────────────────
+document.getElementById('btn-back-coach-intro').addEventListener('click', () => {
+  // Return to the event screen so the player can re-read the tryout brief
+  showScreen('event');
+});
+
+document.getElementById('btn-begin-skating').addEventListener('click', () => {
+  // Delegate to whichever drill called open() — never hardcode a specific instance.
+  if (_activeDrill) _activeDrill.beginDrill();
+});
+
+// ── Skating Results navigation ────────────────────────────────────
+document.getElementById('btn-sr-continue').addEventListener('click', () => {
+  // Routes to the next drill or the tryout summary, depending on which drill just finished.
+  if (_drillContinueCallback) _drillContinueCallback();
+});
+document
+  .getElementById('schedule-prev-month')
+  ?.addEventListener('click', () => {
+    scheduleViewMonth--;
+
+    if (scheduleViewMonth < 0) {
+      scheduleViewMonth = 11;
+      scheduleViewYear--;
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+  });
+
+document
+  .getElementById('schedule-next-month')
+  ?.addEventListener('click', () => {
+    scheduleViewMonth++;
+
+    if (scheduleViewMonth > 11) {
+      scheduleViewMonth = 0;
+      scheduleViewYear++;
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+  });
+document
+.querySelectorAll('.hub-nav__tab')
+.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const id = tab.dataset.hubTab;
+
+    if (id === 'team') {
+      openTeamTab(null, 'hub');
+      return;
+    }
+
+    openHubTab(id);
+  });
+});
+
+// ── Player profile accordion ─────────────────────────────────
+document.querySelectorAll('.pp-attr-cat__header').forEach(header => {
+  header.addEventListener('click', () => {
+    const cat = header.closest('.pp-attr-cat');
+    cat.classList.toggle('pp-attr-cat--open');
+  });
+});
+document
+.getElementById('btn-league-full-stats')
+?.addEventListener('click', () => {
+  Game.fullStatsOrigin = 'league';
+  Game.fullStatsTeamId = null;
+  Game.fullStatsSelectedTeamId = null;
+
+  showScreen('full-stats');
+});
+document
+.getElementById('btn-league-full-prospects')
+?.addEventListener('click', () => {
+  Game.prospectScreenOrigin = 'league';
+  showScreen('prospects');
+});
+document
+  .getElementById('team-view-full-stats')
+  ?.addEventListener('click', () => {
+    Game.fullStatsOrigin = 'team';
+
+    Game.fullStatsTeamId =
+      Game.player.teamId ||
+      Game.player.highSchoolTeamId ||
+      null;
+    Game.fullStatsSelectedTeamId =
+      Game.fullStatsTeamId;
+
+    showScreen('full-stats');
+  });
+
+document
+  .getElementById('btn-back-full-stats')
+  ?.addEventListener('click', () => {
+    if (Game.fullStatsOrigin === 'team-profile') {
+      showScreen('team-profile');
+      return;
+    }
+    if (Game.fullStatsOrigin === 'team') {
+      openHubTab('team');
+      return;
+    }
+
+    if (Game.fullStatsOrigin === 'league') {
+      openHubTab('league');
+      return;
+    }
+
+    openHubTab('home');
+  });
+document
+.getElementById('full-stats-team-filter')
+?.addEventListener('change', event => {
+  Game.fullStatsSelectedTeamId =
+    event.target.value;
+
+  renderFullStatsScreen();
+});
+document
+.querySelectorAll('.full-stats-type-toggle__button')
+.forEach(button => {
+  button.addEventListener('click', () => {
+    Game.fullStatsView =
+      button.dataset.statsType || 'skaters';
+
+    document
+      .querySelectorAll('.full-stats-type-toggle__button')
+      .forEach(toggleButton => {
+        toggleButton.classList.toggle(
+          'full-stats-type-toggle__button--active',
+          toggleButton === button
+        );
+      });
+
+    renderFullStatsScreen();
+  });
+});
+// ── Cinematic intro sequence ────────────────────────────────
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runIntroSequence() {
+  const overlay = document.getElementById('cinematic-overlay');
+  const text    = document.getElementById('cinematic-text');
+
+  // Step 1 — fade to black over 1 s
+  overlay.classList.add('is-active');
+  await sleep(1100);
+
+  async function showCard(html) {
+    text.innerHTML = html;
+    text.style.opacity = '1';
+    await sleep(2200);
+    text.style.opacity = '0';
+    await sleep(580);
+    text.innerHTML = '';
+  }
+
+  // Step 2 — date
+  await showCard('September 3, 2022');
+
+  // Step 3 — age / year
+  await showCard('Age 14<br>Freshman Year');
+
+  // Step 4 — story beat
+  await showCard('Tomorrow is freshman hockey tryouts.');
+
+  // Step 5 — reveal bedroom, fade overlay out
+  showScreen('bedroom');
+  overlay.classList.remove('is-active');
+  await sleep(1100);
+}
+
+btnDeleteSave.addEventListener('click', () => {
+  deleteCareerPreview();
+});
+
+playerForm.addEventListener('submit', handlePlayerFormSubmit);
+if (playerWeightInput && playerWeightValue) {
+  const updateWeightDisplay = () => {
+    playerWeightValue.textContent =
+      `${playerWeightInput.value} lbs`;
+  };
+
+  playerWeightInput.addEventListener(
+    'input',
+    updateWeightDisplay
+  );
+
+  updateWeightDisplay();
+}
+
+document.querySelectorAll('.choice-card').forEach((button) => {
+  button.addEventListener('click', () => {
+    handleChoiceButton(button);
+  });
+});
+document.addEventListener('click', event => {
+  const button = event.target.closest('.tp-player-link');
+  if (!button) return;
+
+  const playerId = button.dataset.playerId;
+
+  let player = null;
+  if (playerId === 'career-player') {
+    const assignedTeam = (WorldEngine.state.teams || [])
+      .find(team => team.teamId === Game.player.teamId);
+
+    player = {
+      ...Game.player,
+      id: 'career-player',
+      firstName: Game.player.firstName || '',
+      lastName: Game.player.lastName || '',
+      position: Game.player.position || 'C',
+      overall: Number(Game.player.overall) || 60,
+      age: Number(Game.player.age) || 14,
+      year: Game.player.year || 'Freshman',
+      teamId: Game.player.teamId || '',
+      teamName: assignedTeam?.teamName || '',
+      schoolName: assignedTeam?.schoolName || '',
+      attributes: Game.player.attributes || {},
+      reputationStars: Number(Game.player.reputationStars) || 1,
+      potential: Number(Game.player.potential) || 78,
+    };
+  } else {
+
+  for (const team of WorldEngine.state.teams || []) {
+    const foundPlayer = (team.roster || []).find(
+      p => String(p.id) === String(playerId)
+    );
+
+    if (foundPlayer) {
+      player = {
+        ...foundPlayer,
+        teamId: team.teamId,
+      };
+      break;
+    }
+  }
+}
+  if (!player) return;
+
+  _activePlayerProfile = player;
+  _playerProfileOrigin = 'team-profile';
+  renderPlayerProfile();
+  showScreen('player-profile');
+});
+
+function recoverCareerPreviewFromWorld() {
+  /*
+   * If the small player preview still exists, nothing to recover.
+   */
+  if (
+    localStorage.getItem(
+      SAVE_KEY
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * The canonical World Engine roster is the source of truth.
+   * Find the career player that survived in IndexedDB.
+   */
+  let careerPlayer =
+    WorldEngine.getPlayerById(
+      'career-player'
+    ) ||
+    null;
+
+  if (!careerPlayer) {
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      const found =
+        (
+          team.roster ||
+          []
+        ).find(
+          player =>
+            player?.isCareerPlayer ===
+            true
+        );
+
+      if (found) {
+        careerPlayer = {
+          ...found,
+          teamId:
+            found.teamId ||
+            team.teamId,
+          schoolName:
+            found.schoolName ||
+            team.schoolName,
+          teamName:
+            found.teamName ||
+            team.teamName,
+        };
+
+        break;
+      }
+    }
+  }
+
+  if (!careerPlayer) {
+    const rosterCareerPlayers = [];
+
+    for (
+      const team of
+      WorldEngine.state.teams ||
+      []
+    ) {
+      for (
+        const player of
+        team.roster ||
+        []
+      ) {
+        if (
+          player?.isCareerPlayer === true ||
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          ) === 'career-player'
+        ) {
+          rosterCareerPlayers.push({
+            id:
+              player?.id ||
+              player?.playerId ||
+              'missing',
+
+            name:
+              `${player?.firstName || ''} ${player?.lastName || ''}`.trim(),
+
+            teamId:
+              team.teamId,
+          });
+        }
+      }
+    }
+
+    alert(
+      [
+        'CAREER RECOVERY DIAGNOSTIC',
+        '',
+        `World player id: ${
+          WorldEngine.state
+            ?.player
+            ?.id ||
+          'missing'
+        }`,
+        `World player playerId: ${
+          WorldEngine.state
+            ?.player
+            ?.playerId ||
+          'missing'
+        }`,
+        '
+
+FILE artifacts/project-ice/public/world.js
+
+### loadCareerPreview @ -1
+
+### recoverCareerPreviewFromWorld @ -1
+
+### selectCareerSave @ 891217
+ingWorld?.player?.stage === 'hub' ||
+            existingWorld?.player?.tryoutsComplete === true
+          )
+        );
+
+        if (existingHasDifferentOfficialCareer) {
+          careerId = null;
+        }
+      } catch (error) {
+        console.warn('[WorldEngine] Could not verify recovery career id; using a new slot.', error);
+        careerId = null;
+      }
+    }
+
+    if (!careerId) {
+      careerId = createCareerSaveId();
+    }
+
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.removeItem(PENDING_CAREER_ID_KEY);
+
+    _state = buildDefaults();
+    configureFreshCareerSeason('2026-09-02');
+
+    (_state.teams || []).forEach(team => {
+      if (!Array.isArray(team.roster) || team.roster.length !== 20) {
+        team.roster = generateTeamRoster(team);
+      }
+    });
+
+    const canonicalPlayer = finalizeFreshCareerAfterTryouts({
+      ...previewPlayer,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    });
+
+    if (!canonicalPlayer) return null;
+
+    const saved = await save();
+    if (!saved) return null;
+
+    upsertCareerSaveMetadata(careerId, _state);
+    return buildCareerSaveMetadata(careerId, _state);
+  }
+
+  async function selectCareerSave(careerId) {
+    if (!careerId) return false;
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    const loaded = await load();
+    if (loaded) {
+      repairMalformedFreshCareerIfNeeded();
+    }
+    return loaded;
+  }
+
+  async function beginNewCareerSave() {
+    /*
+     * A New Career is a draft until tryouts are completed and the
+     * player reaches Career Hub. This prevents backing out of creation
+     * from filling Continue Career with empty/unnamed save slots.
+     */
+    const previousPendingId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+
+    if (previousPendingId) {
+      try {
+        const database = await openWorldDatabase();
+        const previousRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(getWorldRecordId(previousPendingId));
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+
+        const previousWorld = previousRecord?.world || null;
+        const previousPlayer = previousWorld?.player || null;
+        let previousCareerPlayer = null;
+
+        for (const team of previousWorld?.teams || []) {
+          previousCareerPlayer = (team?.roster || []).find(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === String(previousPlayer?.playerId || previousPlayer?.id || 'career-player')
+          );
+          if (previousCareerPlayer) break;
+        }
+
+        const previousPendingWasOfficial = Boolean(
+          previousWorld &&
+          (
+            previousPlayer?.stage === 'hub' ||
+            previousPlayer?.tryoutsComplete === true ||
+            previousCareerPlayer?.stage === 'hub' ||
+            previousCareerPlayer?.tryoutsComplete === true ||
+            (
+              (previousCareerPlayer?.firstName || previousPlayer?.firstName) &&
+              (previousCareerPlayer?.teamId || previousPlayer?.teamId) &&
+              Number(previousCareerPlayer?.overall || previousPlayer?.overall) > 0
+            )
+          )
+        );
+
+        if (previousPendingWasOfficial) {
+          upsertCareerSaveMetadata(previousPendingId, previousWorld);
+          localStorage.removeItem(PENDING_CAREER_ID_KEY);
+        } else {
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(previousPendingId));
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+        }
+
+        database.close();
+      } catch (error) {
+        console.warn('[WorldEngine] Could not inspect/clean abandoned pending career:', error);
+      }
+    }
+
+    const careerId = createCareerSaveId();
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.setItem(PENDING_CAREER_ID_KEY, careerId);
+
+    _state = buildDefaults();
+    configureFreshCareerSeason('2026-09-01');
+
+    return careerId;
+  }
+
+  async function commitActiveCareerSave() {
+    const careerId = getActiveCareerId();
+    if (!careerId) return false;
+
+    const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+    if (pendingCareerId === careerId) {
+      localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    }
+
+    const saved = await save();
+    if (!saved) return false;
+
+    upsertCareerSaveMetadata(careerId, _state);
+    return true;
+  }
+
+  async function deleteCareerSave(careerId) {
+    if (!careerId) return false;
+    const database = await openWorldDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+      transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(careerId));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+    writeCareerSaveIndex(readCareerSaveIndex().filter(item => item?.id !== careerId));
+    if (getActiveCareerId() === careerId) localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
+    if (localStorage.getItem(PENDING_CAREER_ID_KEY) === careerId) localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    return true;
+  }
+
+  /** Reset only the currently active career to defaults. Other career slots are preserved. */
+  function reset() {
+    _state = buildDefaults();
+
+    ensureCanonicalSeasonState(
+      _state
+    );
+
+    if (!_state.player) {
+      _state.player = {};
+    }
+
+    _state.player.currentDate = '2026-09-01';
+
+    localStorage.removeItem(WORLD_KEY);
+    save();
+  }
+  function setCurrentDate(
+    dateString,
+    options = {}
+  ) {
+    if (
+      typeof dateString !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        dateString
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Invalid date: ${dateString}`
+      );
+
+      return null;
+    }
+
+    const parsedDate =
+      new Date(
+        `${dateString}T12:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Unusable date: ${dateString}`
+      );
+
+      return null;
+    }
+
+    if (
+      !_state.season ||
+      typeof _state.season !== 'object'
+    ) {
+      ensureCanonicalSeasonState(
+        _state
+      );
+    }
+
+    /*
+     * The Season Engine is the permanent source of truth.
+     */
+    _state.season.currentDate =
+      dateString;
+
+    const calculatedWeek =
+      getSeasonWeekForDate(
+        dateString,
+        _state.season.seasonStartYear
+      );
+
+    _state.season.currentWeek =
+      calculatedWeek;
+
+    /*
+     * Compatibility fields remain synchronized while
+     * existing Schedule and Hub code are migrated.
+     */
+    _state.currentDate =
+      dateString;
+
+    _state.currentYear =
+      Number(
+        dateString.slice(0, 4)
+      );
+
+    _state.currentWeek =
+      calculatedWeek;
+
+    if (
+      !_state.player ||
+      typeof _state.player !== 'object'
+    ) {
+      _state.player = {};
+    }
+
+    _state.player.currentDate =
+      dateString;
+
+    /*
+     * Keep the canonical roster version of the career player
+     * synchronized with the Season Engine. game.js renders from
+     * this player through syncCareerPlayerWithWorld().
+     */
+    const careerPlayer =
+      getPlayerById(
+        _state.player?.playerId ||
+        _state.player?.id ||
+        'career-player'
+      );
+
+    if (careerPlayer) {
+      careerPlayer.currentDate =
+        dateString;
+    }
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return dateString;
+  }
+
+  function advanceDay(
+    options = {}
+  ) {
+    const currentDate =
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate;
+
+    if (
+      typeof currentDate !== 'string'
+    ) {
+      console.warn(
+        '[WorldEngine] Cannot advance an invalid current date.'
+      );
+
+      return null;
+    }
+
+    const nextDate =
+      new Date(
+        `${currentDate}T12:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        nextDate.getTime()
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Cannot advance date: ${currentDate}`
+      );
+
+      return null;
+    }
+
+    nextDate.setDate(
+      nextDate.getDate() + 1
+    );
+
+    const nextDateString = [
+      nextDate.getFullYear(),
+
+      String(
+        nextDate.getMonth() + 1
+      ).padStart(2, '0'),
+
+      String(
+        nextDate.getDate()
+      ).padStart(2, '0'),
+    ].join('-');
+
+    return setCurrentDate(
+      nextDateString,
+      options
+    );
+  }
+
+  function buildSimulationSummary({
+    daysAdvanced = 0,
+    dateProcessingResults = [],
+    crossedWeeks = [],
+    weeklyProcessingResults = [],
+  }) {
+
+    const summary = {
+      daysAdvanced,
+
+      processedDates:
+        dateProcessingResults.length,
+
+      totalEvents: 0,
+
+      completedEvents: 0,
+
+      pendingEvents: 0,
+
+      eventTypes: {},
+
+      crossedWeeks,
+
+      weeklyProcessingResults,
+    };
+
+    dateProcessingResults.forEach(
+      day => {
+
+        (day.eventResults || []).forEach(
+          event => {
+
+            summary.totalEvents += 1;
+
+            if (event.resolved) {
+              summary.completedEvents += 1;
+            } else {
+              summary.pendingEvents += 1;
+            }
+
+            summary.eventTypes[
+              event.type
+            ] =
+              (summary.eventTypes[
+                event.type
+              ] || 0) + 1;
+          }
+        );
+
+      }
+    );
+
+    return summary;
+  }
+
+  function advanceToDate(
+    targetDate,
+    options = {}
+  ) {
+    const currentDate =
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate;
+
+    const startingWeek =
+      Math.max(
+        1,
+        Number(
+       
+
+### listCareerSaves @ 879044
+ {
+          ...(world.player || {}),
+          overall: 66,
+          startingOverall: 66,
+          startingLine: '2nd Line',
+          rosterSlot: targetSlot,
+          attributes: JSON.parse(JSON.stringify(attributes)),
+          recoveryRepairs: {
+            ...(world?.player?.recoveryRepairs || {}),
+            meghanTryoutSnapshotV1: true,
+          },
+        };
+
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).put({
+            ...record,
+            world,
+            savedAt: new Date().toISOString(),
+          });
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+
+        const careerId = String(record.id).slice('career:'.length);
+        upsertCareerSaveMetadata(careerId, world);
+        repaired = true;
+      }
+
+      database.close();
+      return repaired;
+    } catch (error) {
+      console.warn('[WorldEngine] Meghan tryout snapshot recovery failed:', error);
+      return false;
+    }
+  }
+
+  async function listCareerSaves() {
+    await repairKnownMeghanTryoutSnapshot();
+    let index = readCareerSaveIndex();
+
+    /* Recover the original single-save world before any synthetic preview fallback. */
+    const legacyRecovered = await recoverLegacyDefaultCareerRecord();
+    if (legacyRecovered?.id) {
+      index = readCareerSaveIndex();
+    }
+
+    /*
+     * Recover the visible save index from the authoritative IndexedDB
+     * career records before filtering anything. Older careers created
+     * before the pending-save lifecycle may have incomplete metadata in
+     * localStorage even though their full world is valid and safely stored.
+     */
+    try {
+      const database = await openWorldDatabase();
+      const records = await new Promise((resolve, reject) => {
+        const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+        const request = transaction.objectStore(WORLD_STORE_NAME).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error);
+      });
+      database.close();
+
+      const recovered = [];
+      for (const record of records) {
+        const recordId = String(record?.id || '');
+        if (!recordId.startsWith('career:') || !record?.world) continue;
+
+        const careerId = recordId.slice('career:'.length);
+        const world = record.world;
+        const playerId = world?.player?.playerId || world?.player?.id || 'career-player';
+        let careerPlayer = null;
+        for (const team of world?.teams || []) {
+          careerPlayer = (team?.roster || []).find(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === String(playerId)
+          );
+          if (careerPlayer) break;
+        }
+
+        const isOfficial =
+          world?.player?.stage === 'hub' ||
+          world?.player?.tryoutsComplete === true ||
+          careerPlayer?.stage === 'hub' ||
+          careerPlayer?.tryoutsComplete === true ||
+          Boolean(careerPlayer?.teamId && careerPlayer?.overall && (careerPlayer?.firstName || world?.player?.firstName));
+
+        if (!isOfficial) continue;
+        recovered.push(buildCareerSaveMetadata(careerId, world));
+      }
+
+      if (recovered.length > 0) {
+        const merged = new Map();
+        for (const item of index) if (item?.id) merged.set(item.id, item);
+        for (const item of recovered) if (item?.id) merged.set(item.id, item);
+        index = Array.from(merged.values());
+        writeCareerSaveIndex(index);
+      }
+    } catch (error) {
+      console.warn('[WorldEngine] Could not rebuild career save index from IndexedDB:', error);
+    }
+
+    /*
+     * LEGACY SINGLE-SAVE → MULTI-SAVE MIGRATION
+     */
+    if (index.length === 0) {
+      const hasCareerPlayer =
+        Boolean(
+          getPlayerById(
+            _state.player?.playerId ||
+            _state.player?.id ||
+            'career-player'
+          )
+        ) ||
+        (_state.teams || []).some(team =>
+          (team?.roster || []).some(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === 'career-player'
+          )
+        );
+
+      if (hasCareerPlayer) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+        const migrated = await save();
+        if (migrated) index = readCareerSaveIndex();
+      }
+    }
+
+    const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+
+    /*
+     * A pending id only means "hide this unfinished draft" while the
+     * player is still in onboarding. If that same save already contains
+     * an official Hub/tryout-complete career, it survived the old
+     * bootstrap bug and must be recovered instead of hidden forever.
+     */
+    const pendingOfficialSave =
+      pendingCareerId
+        ? index.find(item =>
+            String(item?.id || '') === String(pendingCareerId) &&
+            (
+              item?.stage === 'hub' ||
+              item?.tryoutsComplete === true ||
+              Boolean(
+                item?.playerName &&
+                item.playerName !== 'Unnamed Career' &&
+                item?.teamName
+              )
+            )
+          )
+        : null;
+
+    if (pendingOfficialSave) {
+      localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    }
+
+    const activePendingCareerId =
+      pendingOfficialSave
+        ? null
+        : pendingCareerId;
+
+    const officialIndex = index.filter(item =>
+      String(item?.id || '') !== String(activePendingCareerId || '') &&
+      (
+        item?.stage === 'hub' ||
+        item?.tryoutsComplete === true ||
+        Boolean(
+          item?.playerName &&
+          item.playerName !== 'Unnamed Career' &&
+          item?.teamName
+        )
+      )
+    );
+
+    if (officialIndex.length !== index.length || pendingOfficialSave) {
+      writeCareerSaveIndex(officialIndex);
+    }
+
+    return officialIndex
+      .slice()
+      .sort((a, b) =>
+        String(b?.savedAt || '')
+          .localeCompare(
+            String(a?.savedAt || '')
+          )
+      );
+  }
+
+  function configureFreshCareerSeason(startDate = '2026-09-01') {
+    const seasonStartYear = 2026;
+    const seasonEndYear = 2027;
+
+    _state.currentSeason = '2026-27';
+    _state.currentYear = seasonStartYear;
+    _state.currentWeek = 1;
+    _state.currentDate = startDate;
+
+    _state.season = {
+      id: 'season-2026-2027',
+      label: '2026-27',
+      seasonNumber: 1,
+      careerYear: 1,
+      seasonStartYear,
+      seasonEndYear,
+      currentDate: startDate,
+      currentWeek: 1,
+      phase: 'regular-season',
+      status: 'active',
+      level: 'high-school',
+      regularSeason: {
+        started: false,
+        completed: false,
+        gamesPerTeam: 28,
+      },
+      postseason: {
+        qualified: false,
+        started: false,
+        completed: false,
+      },
+      processedDates: [],
+      processedWeeks: [],
+      weeklyHistory: [],
+      unresolvedEventIds: [],
+      completedEventIds: [],
+      lastProcessedDate: null,
+      lastProcessedWeek: 0,
+    };
+
+    if (!_state.player || typeof _state.player !== 'object') {
+      _state.player = {};
+    }
+    _state.player.currentDate = startDate;
+
+    _state.schedule = createHighSchoolCareerSchedule(
+      Array.isArray(_state.teams) ? _state.teams : []
+    );
+
+    setCurrentDate(startDate, { save: false });
+    return _state.season;
+  }
+
+  function finalizeFreshCareerAfterTryouts(playerData = {}) {
+    configureFreshCareerSeason('2026-09-02');
+
+    (_state.teams || []).forEach(team => {
+      if (!Array.isArray(team.roster) || team.roster.length !== 20) {
+        team.roster = generateTeamRoster(team);
+      }
+    });
+
+    const canonicalPlayer = upsertCareerPlayer({
+      ...playerData,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    });
+
+    if (!canonicalPlayer) return null;
+
+    _state.player = {
+      ..._state.player,
+      ...playerData,
+      id: canonicalPlayer.id,
+      playerId: canonicalPlayer.playerId,
+      teamId: canonicalPlayer.teamId,
+      highSchoolTeamId: canonicalPlayer.teamId,
+      firstName: canonicalPlayer.firstName,
+      lastName: canonicalPlayer.lastName,
+      position: canonicalPlayer.position,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    };
+
+    canonicalPlayer.stage = 'hub';
+    canonicalPlayer.tryoutsComplete = true;
+    canonicalPlayer.currentDate = '2026-09-02';
+
+    if (!_state.season.processedDates.includes('2026-09-01')) {
+      _state.season.processedDates.push('2026-09-01');
+    }
+    if (!_state.season.completedEventIds.includes('tryout-freshman')) {
+      _state.season.completedEventIds.push('tryout-freshman');
+    }
+    _state.season.lastProcessedDate = '2026-09-01';
+
+    setCurrentDate('2026-09-02', { save: false });
+    refreshTeamRosterManagement(canonicalPlayer.teamId, { save: false });
+    save();
+
+    return canonicalPlayer;
+  }
+
+  function repairMalformedFreshCareerIfNeeded() {
+    const careerPlayerId =
+      _state.player?.playerId ||
+      _state.player?.id ||
+      'career-player';
+    const careerPlayer = getPlayerById(careerPlayerId);
+    if (!careerPlayer) return false;
+
+    const isOfficial =
+      _state.player?.stage === 'hub' ||
+      _state.player?.tryoutsComplete === true ||
+      careerPlayer.stage === 'hub' ||
+      careerPlayer.tryoutsComplete === true;
+    const gamesPlayed = Number(careerPlayer.gamesPlayed) || 0;
+    const currentDate = String(
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate ||
+      ''
+    );
+    const populatedRosterCount = (_state.teams || []).reduce(
+      (total, team) => total + (Array.isArray(team.roster) ? team.roster.length : 0),
+      0
+    );
+    const expectedRosterCount = Math.max(1, (_state.teams || []).length) * 18;
+
+    const malformedFreshBootstrap =
+      isOfficial &&
+      
+
+### loadCareerSave @ -1
+
+### commitActiveCareerSave @ 894502
+Player?.teamId) &&
+              Number(previousCareerPlayer?.overall || previousPlayer?.overall) > 0
+            )
+          )
+        );
+
+        if (previousPendingWasOfficial) {
+          upsertCareerSaveMetadata(previousPendingId, previousWorld);
+          localStorage.removeItem(PENDING_CAREER_ID_KEY);
+        } else {
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(previousPendingId));
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+        }
+
+        database.close();
+      } catch (error) {
+        console.warn('[WorldEngine] Could not inspect/clean abandoned pending career:', error);
+      }
+    }
+
+    const careerId = createCareerSaveId();
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.setItem(PENDING_CAREER_ID_KEY, careerId);
+
+    _state = buildDefaults();
+    configureFreshCareerSeason('2026-09-01');
+
+    return careerId;
+  }
+
+  async function commitActiveCareerSave() {
+    const careerId = getActiveCareerId();
+    if (!careerId) return false;
+
+    const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+    if (pendingCareerId === careerId) {
+      localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    }
+
+    const saved = await save();
+    if (!saved) return false;
+
+    upsertCareerSaveMetadata(careerId, _state);
+    return true;
+  }
+
+  async function deleteCareerSave(careerId) {
+    if (!careerId) return false;
+    const database = await openWorldDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+      transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(careerId));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+    writeCareerSaveIndex(readCareerSaveIndex().filter(item => item?.id !== careerId));
+    if (getActiveCareerId() === careerId) localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
+    if (localStorage.getItem(PENDING_CAREER_ID_KEY) === careerId) localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    return true;
+  }
+
+  /** Reset only the currently active career to defaults. Other career slots are preserved. */
+  function reset() {
+    _state = buildDefaults();
+
+    ensureCanonicalSeasonState(
+      _state
+    );
+
+    if (!_state.player) {
+      _state.player = {};
+    }
+
+    _state.player.currentDate = '2026-09-01';
+
+    localStorage.removeItem(WORLD_KEY);
+    save();
+  }
+  function setCurrentDate(
+    dateString,
+    options = {}
+  ) {
+    if (
+      typeof dateString !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        dateString
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Invalid date: ${dateString}`
+      );
+
+      return null;
+    }
+
+    const parsedDate =
+      new Date(
+        `${dateString}T12:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Unusable date: ${dateString}`
+      );
+
+      return null;
+    }
+
+    if (
+      !_state.season ||
+      typeof _state.season !== 'object'
+    ) {
+      ensureCanonicalSeasonState(
+        _state
+      );
+    }
+
+    /*
+     * The Season Engine is the permanent source of truth.
+     */
+    _state.season.currentDate =
+      dateString;
+
+    const calculatedWeek =
+      getSeasonWeekForDate(
+        dateString,
+        _state.season.seasonStartYear
+      );
+
+    _state.season.currentWeek =
+      calculatedWeek;
+
+    /*
+     * Compatibility fields remain synchronized while
+     * existing Schedule and Hub code are migrated.
+     */
+    _state.currentDate =
+      dateString;
+
+    _state.currentYear =
+      Number(
+        dateString.slice(0, 4)
+      );
+
+    _state.currentWeek =
+      calculatedWeek;
+
+    if (
+      !_state.player ||
+      typeof _state.player !== 'object'
+    ) {
+      _state.player = {};
+    }
+
+    _state.player.currentDate =
+      dateString;
+
+    /*
+     * Keep the canonical roster version of the career player
+     * synchronized with the Season Engine. game.js renders from
+     * this player through syncCareerPlayerWithWorld().
+     */
+    const careerPlayer =
+      getPlayerById(
+        _state.player?.playerId ||
+        _state.player?.id ||
+        'career-player'
+      );
+
+    if (careerPlayer) {
+      careerPlayer.currentDate =
+        dateString;
+    }
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return dateString;
+  }
+
+  function advanceDay(
+    options = {}
+  ) {
+    const currentDate =
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate;
+
+    if (
+      typeof currentDate !== 'string'
+    ) {
+      console.warn(
+        '[WorldEngine] Cannot advance an invalid current date.'
+      );
+
+      return null;
+    }
+
+    const nextDate =
+      new Date(
+        `${currentDate}T12:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        nextDate.getTime()
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Cannot advance date: ${currentDate}`
+      );
+
+      return null;
+    }
+
+    nextDate.setDate(
+      nextDate.getDate() + 1
+    );
+
+    const nextDateString = [
+      nextDate.getFullYear(),
+
+      String(
+        nextDate.getMonth() + 1
+      ).padStart(2, '0'),
+
+      String(
+        nextDate.getDate()
+      ).padStart(2, '0'),
+    ].join('-');
+
+    return setCurrentDate(
+      nextDateString,
+      options
+    );
+  }
+
+  function buildSimulationSummary({
+    daysAdvanced = 0,
+    dateProcessingResults = [],
+    crossedWeeks = [],
+    weeklyProcessingResults = [],
+  }) {
+
+    const summary = {
+      daysAdvanced,
+
+      processedDates:
+        dateProcessingResults.length,
+
+      totalEvents: 0,
+
+      completedEvents: 0,
+
+      pendingEvents: 0,
+
+      eventTypes: {},
+
+      crossedWeeks,
+
+      weeklyProcessingResults,
+    };
+
+    dateProcessingResults.forEach(
+      day => {
+
+        (day.eventResults || []).forEach(
+          event => {
+
+            summary.totalEvents += 1;
+
+            if (event.resolved) {
+              summary.completedEvents += 1;
+            } else {
+              summary.pendingEvents += 1;
+            }
+
+            summary.eventTypes[
+              event.type
+            ] =
+              (summary.eventTypes[
+                event.type
+              ] || 0) + 1;
+          }
+        );
+
+      }
+    );
+
+    return summary;
+  }
+
+  function advanceToDate(
+    targetDate,
+    options = {}
+  ) {
+    const currentDate =
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate;
+
+    const startingWeek =
+      Math.max(
+        1,
+        Number(
+          _state.season?.currentWeek ??
+          _state.currentWeek
+        ) || 1
+      );
+
+    if (
+      typeof targetDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        targetDate
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Invalid target date: ${targetDate}`
+      );
+
+      return {
+        success: false,
+        currentDate,
+        targetDate,
+        daysAdvanced: 0,
+        crossedWeeks: [],
+        dateProcessingResults: [],
+        reason: 'invalid-target-date',
+      };
+    }
+
+    if (
+      typeof currentDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        currentDate
+      )
+    ) {
+      console.warn(
+        '[WorldEngine] Cannot advance from an invalid current date.'
+      );
+
+      return {
+        success: false,
+        currentDate,
+        targetDate,
+        daysAdvanced: 0,
+        crossedWeeks: [],
+        dateProcessingResults: [],
+        reason: 'invalid-current-date',
+      };
+    }
+
+    if (targetDate < currentDate) {
+      return {
+        success: false,
+
+        currentDate,
+        targetDate,
+
+        daysAdvanced: 0,
+
+        crossedWeeks: [],
+
+        dateProcessingResults: [],
+
+        reason:
+          'target-before-current-date',
+      };
+    }
+
+    /*
+     * ROADMAP 6 — SAME-DAY CAREER GAME SIM
+     *
+     * Normally advancing to the current date is a no-op.
+     *
+     * Pregame Sim Game is the one exception: the calendar has
+     * already arrived on game day and the career game was held
+     * unresolved while waiting for the user's Play/Sim choice.
+     */
+    if (
+      targetDate === currentDate
+    ) {
+      if (
+        options
+          ?.processCurrentDate !==
+        true
+      ) {
+        return {
+          success: true,
+
+          currentDate,
+          targetDate,
+
+          daysAdvanced: 0,
+
+          crossedWeeks: [],
+
+          dateProcessingResults: [],
+
+          reason:
+            'already-current-date',
+        };
+      }
+
+      const currentDateResult =
+        processSeasonDate(
+          currentDate,
+          options
+        );
+
+      return {
+        success:
+          currentDateResult
+            ?.success !== false,
+
+        currentDate,
+        targetDate,
+
+        daysAdvanced: 0,
+
+        crossedWeeks: [],
+
+        dateProcessingResults: [
+          currentDateResult,
+        ],
+
+        stopSimulation:
+          currentDateResult
+            ?.stopSimulation === true,
+
+        blockingEventResult:
+          currentDateResult
+            ?.stopSimulation === true
+            ? currentDateResult
+            : null,
+
+        reason:
+          'current-date-processed',
+      };
+    }
+
+    let nextDate =
+      currentDate;
+
+    let daysAdvanced = 0;
+
+    const dateProcessingResults = [];
+
+    const crossedWeeks = [];
+
+    const weeklyProcessingResults = [];
+
+    let activeWeek =
+      startingWeek;
+
+    let blockingDateResult = null;
+
+    /*
+     * Safety guard prevents a malformed request from
+     * advancing through an unlimited number of days.
+     */
+    const maximumDays =
+      Math.max(
+        1,
+        Number(options.maximumDays) ||
+        730
+      );
+
+    while (
+      nextDate < targetDate &&
+      daysAdvanced < maximumDays
+    ) {
+      const previousDate =
+        nextDate;
+
+      const advancedDate =
+    
