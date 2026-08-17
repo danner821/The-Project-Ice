@@ -2102,6 +2102,7 @@ const EventSystem = (() => {
 // ── Screen navigation ───────────────────────────────────────
 function showScreen(screenName) {
   titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
   creationScreen.classList.add('screen--hidden');
   summaryScreen.classList.add('screen--hidden');
   identityScreen.classList.add('screen--hidden');
@@ -2150,6 +2151,7 @@ function showScreen(screenName) {
   skatingResultsScreen.classList.add('screen--hidden');
 
   if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
   if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
   if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
   if (screenName === 'identity') {
