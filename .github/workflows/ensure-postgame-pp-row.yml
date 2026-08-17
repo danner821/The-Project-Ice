@@ -1,0 +1,27 @@
+name: Ensure Postgame PP Row
+
+on:
+  push:
+    paths:
+      - '.github/workflows/ensure-postgame-pp-row.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/ensure_postgame_pp_row.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: |
+          grep -q "postgame-away-power-play" artifacts/project-ice/index.html
+          grep -q "postgame-away-power-play" artifacts/project-ice/public/game.js
+          grep -q "powerPlayOpportunities" artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/project-ice/public/game.js
+          git commit -m "Make postgame power play row resilient"
+          git push
