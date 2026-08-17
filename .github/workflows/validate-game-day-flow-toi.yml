@@ -1,3 +1,4 @@
+# Validation rerun after total-workload distribution patch
 name: Validate Game Day Flow TOI
 
 on:
@@ -124,7 +125,6 @@ jobs:
             throw new Error(`Forward TOI ceiling is too high: ${minutes(max('finalForward'))}m`);
           }
 
-          // Canonical supplied-result application, including an already-processed date retry.
           const date = '2026-10-15';
           const id = 'validation-canonical-result';
           const scheduled = {
@@ -144,7 +144,6 @@ jobs:
             recoveredFailures: Array.isArray(resolved.failures) ? resolved.failures.length : 0,
           });
 
-          // Force the already-processed-date retry branch deliberately.
           W.state.season.processedDates.push(date);
           const applied = W.advanceToDate(date, {
             processCurrentDate: true,
