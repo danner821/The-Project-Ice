@@ -38528,6 +38528,9 @@ case 'career-defense':
       nextDate < targetDate &&
       daysAdvanced < maximumDays
     ) {
+      const previousDate =
+        nextDate;
+
       const advancedDate =
         advanceDay({
           save: false,
@@ -38540,20 +38543,6 @@ case 'career-defense':
       nextDate =
         advancedDate;
 
-      const dateProcessingResult =
-        processSeasonDate(
-          advancedDate,
-          {
-            save: false,
-          }
-        );
-
-      dateProcessingResults.push(
-        dateProcessingResult
-      );
-
-      daysAdvanced += 1;
-
       const enteredWeek =
         Math.max(
           1,
@@ -38564,15 +38553,11 @@ case 'career-defense':
         );
 
       /*
-       * Process a completed week at the moment its boundary is
-       * crossed. This is essential when Sim To Date spans several
-       * weeks: each snapshot must reflect that week's real state,
-       * not the final state at the end of the entire skip.
-       *
-       * The new day's scheduled event is resolved first, so results
-       * on that date are canonical before any presentation reads the
-       * world again. A blocking interaction still preserves the week
-       * boundary because the calendar has genuinely entered it.
+       * Entering a new week closes the previous one BEFORE events
+       * on the new week's first date are resolved. That keeps each
+       * snapshot historically exact: Week N contains only results
+       * through the final date of Week N, even when Sim To Date
+       * crosses several boundaries in one request.
        */
       if (enteredWeek > activeWeek) {
         const enteredWeeks = [];
@@ -38592,7 +38577,7 @@ case 'career-defense':
             {
               save: false,
               completedAtDate:
-                advancedDate,
+                previousDate,
             }
           );
 
@@ -38602,6 +38587,20 @@ case 'career-defense':
 
         activeWeek = enteredWeek;
       }
+
+      const dateProcessingResult =
+        processSeasonDate(
+          advancedDate,
+          {
+            save: false,
+          }
+        );
+
+      dateProcessingResults.push(
+        dateProcessingResult
+      );
+
+      daysAdvanced += 1;
 
       if (
         dateProcessingResult
