@@ -1,4 +1,4 @@
-# trigger
+# trigger v2
 name: Patch Multi Career Saves
 on:
   push:
@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_multisave_patcher.py
       - run: python .github/scripts/patch_multisave.py
       - run: node --check artifacts/project-ice/public/world.js
       - run: node --check artifacts/project-ice/public/game.js
