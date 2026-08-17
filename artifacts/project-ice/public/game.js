@@ -12387,12 +12387,23 @@ function updateHubScreen() {
 
     setText(
       'pp-development-potential',
-      `${potentialRole} • ${potential} POT`
+      potentialRole
     );
+
+    const potentialAccuracy =
+      development.potentialAccuracy ||
+      player.potentialAccuracy ||
+      (
+        Number(development.potentialConfidence ?? player.potentialConfidence) >= 75
+          ? 'High'
+          : Number(development.potentialConfidence ?? player.potentialConfidence) >= 45
+            ? 'Medium'
+            : 'Low'
+      );
 
     setText(
       'pp-development-trend',
-      potentialTrendDisplay.text
+      String(potentialAccuracy).toUpperCase()
     );
 
     const potentialTrendElement =
@@ -12405,10 +12416,6 @@ function updateHubScreen() {
         'pp-career-card__value--trend-rising',
         'pp-career-card__value--trend-falling',
         'pp-career-card__value--trend-stable'
-      );
-
-      potentialTrendElement.classList.add(
-        potentialTrendDisplay.className
       );
     }
 
@@ -12472,12 +12479,7 @@ function updateHubScreen() {
 
     if (potentialElement) {
       potentialElement.title =
-        `${potentialRole} projection • ${Math.round(
-          Math.max(25, Math.min(100, Number(
-            development.potentialConfidence ??
-            player.potentialConfidence
-          ) || 50))
-        )}% scouting confidence`;
+        `${potentialRole} projection`;
     }
   }
 

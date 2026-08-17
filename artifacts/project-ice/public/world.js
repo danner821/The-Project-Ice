@@ -36505,26 +36505,57 @@ case 'career-defense':
     const oldRole = development.potentialRole || getPotentialRole(player.position, oldPotential);
     const oldConfidence = Math.max(25, Math.min(100, Number(development.potentialConfidence) || 50));
 
-    /* Confidence rises with accumulated evaluation evidence. */
+    /*
+     * Public scouting certainty is deliberately the ONLY clue that the
+     * projection may be getting stale. When sustained performance/growth no
+     * longer fits the current projection, certainty erodes. When the evidence
+     * fits again, observation slowly rebuilds confidence. We never expose the
+     * hidden signal or distance to a potential change.
+     */
     const observedGames = Math.max(0, Number(player.scoutingProfile?.gamesObserved) || 0);
-    const confidenceGain = 0.35 + Math.min(0.65, observedGames * 0.035);
-    const newConfidence = Math.max(25, Math.min(100, oldConfidence + confidenceGain));
-    const threshold = 2.15 + ((newConfidence - 25) / 75) * 0.95;
+    const mismatchStrength = Math.max(0, Math.abs(signal) - 0.85);
+    const evidenceStrength = Math.abs(Number(evidence.evidence) || 0);
+    const meaningfulMismatch = evidenceStrength >= 0.22 && mismatchStrength > 0;
+
+    let confidenceDelta;
+    if (meaningfulMismatch) {
+      confidenceDelta = -Math.min(2.4, 0.35 + mismatchStrength * 0.72);
+    } else {
+      confidenceDelta = 0.18 + Math.min(0.52, observedGames * 0.025);
+    }
+
+    let newConfidence = Math.max(25, Math.min(100, oldConfidence + confidenceDelta));
+
+    /*
+     * Actual potential movement should feel like NHL Franchise: rare, delayed,
+     * and impossible to time precisely. Strong sustained evidence first has to
+     * destabilize the scouting projection, then clear a long cooldown, then
+     * survive a hidden reevaluation roll.
+     */
+    const threshold = 3.05 + ((newConfidence - 25) / 75) * 0.70;
 
     const currentWeek = Math.max(1, Number(_state.season?.currentWeek) || 1);
     const lastChangedWeek = Number(development.lastPotentialChangeWeek) || -999;
     const weeksSinceChange = currentWeek - lastChangedWeek;
-    const cooldownMet = weeksSinceChange >= 4;
+    const cooldownMet = weeksSinceChange >= 10;
+
+    const thresholdExcess = Math.max(0, Math.abs(signal) - threshold);
+    const reevaluationChance = Math.min(0.28, 0.08 + thresholdExcess * 0.11);
+    const reevaluationRoll = Math.random();
 
     let delta = 0;
-    if (cooldownMet && signal >= threshold) delta = 1;
-    if (cooldownMet && signal <= -threshold) delta = -1;
+    if (cooldownMet && signal >= threshold && reevaluationRoll < reevaluationChance) delta = 1;
+    if (cooldownMet && signal <= -threshold && reevaluationRoll < reevaluationChance) delta = -1;
 
     /* Never let a projected ceiling fall below demonstrated current ability. */
     const minimumPotential = Math.min(99, Math.max(25, evidence.overall + (evidence.age <= 23 ? 2 : 0)));
     const newPotential = Math.max(minimumPotential, Math.min(99, oldPotential + delta));
     const changed = newPotential !== oldPotential;
     const appliedDelta = newPotential - oldPotential;
+
+    if (changed) {
+      newConfidence = Math.max(38, Math.min(62, newConfidence));
+    }
 
     development.potential = newPotential;
     development.potentialRole = getPotentialRole(player.position, newPotential);
@@ -36586,6 +36617,8 @@ case 'career-defense':
       accuracy: development.potentialAccuracy,
       signal: development.potentialSignal,
       threshold: Number(threshold.toFixed(4)),
+      reevaluationChance: Number(reevaluationChance.toFixed(4)),
+      reevaluationRoll: Number(reevaluationRoll.toFixed(4)),
       evidence,
     };
   }
