@@ -1,0 +1,20 @@
+name: Audit Weekly Living World Final
+on:
+  push:
+    paths:
+      - '.github/workflows/audit-weekly-living-world-final.yml'
+      - '.github/scripts/audit_weekly_living_world_final.py'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/audit_weekly_living_world_final.py
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/weekly_living_world_final_audit.txt
+          git commit -m 'Persist final Weekly Living World audit' || exit 0
+          git push
