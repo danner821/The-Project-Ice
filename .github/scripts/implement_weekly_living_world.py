@@ -3,7 +3,35 @@ import re
 p=Path('artifacts/project-ice/public/world.js')
 s=p.read_text()
 
-helpers=r'''  function ensureLivingWorldState() {
+helpers=r'''  function normalizeLivingWorldDateKey(value) {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    if (value && typeof value === 'object') {
+      const year = Number(value.year);
+      const month = Number(value.month);
+      const day = Number(value.day);
+      if (year && month && day) {
+        return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+    return null;
+  }
+
+  function livingWorldDateFromKey(value) {
+    const key = normalizeLivingWorldDateKey(value);
+    if (!key) return null;
+    const [year, month, day] = key.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function livingWorldDateKeyFromDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+    return `${String(date.getUTCFullYear()).padStart(4, '0')}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  }
+
+  function ensureLivingWorldState() {
     if (!_state.livingWorld || typeof _state.livingWorld !== 'object') {
       _state.livingWorld = {};
     }
@@ -16,19 +44,19 @@ helpers=r'''  function ensureLivingWorldState() {
   }
 
   function getWeekStartDate(dateString) {
-    const date = parseDateKey(dateString);
+    const date = livingWorldDateFromKey(dateString);
     if (!date) return null;
     const copy = new Date(date.getTime());
     const day = copy.getUTCDay();
     copy.setUTCDate(copy.getUTCDate() - ((day + 6) % 7));
-    return toDateKey(copy);
+    return livingWorldDateKeyFromDate(copy);
   }
 
   function getWeekEndDate(dateString) {
-    const start = parseDateKey(getWeekStartDate(dateString));
+    const start = livingWorldDateFromKey(getWeekStartDate(dateString));
     if (!start) return null;
     start.setUTCDate(start.getUTCDate() + 6);
-    return toDateKey(start);
+    return livingWorldDateKeyFromDate(start);
   }
 
   function getLivingWorldWeekKey(dateString) {
@@ -80,8 +108,11 @@ helpers=r'''  function ensureLivingWorldState() {
 
   function getCareerPlayerWeeklyStats(player, weekStart, weekEnd) {
     const stats = player?.stats || player?.seasonStats || {};
-    const games = (_state?.season?.schedule || []).filter(game => {
-      const gameDate = normalizeDateKey(game?.date);
+    const seasonSchedule = Array.isArray(_state?.season?.schedule)
+      ? _state.season.schedule
+      : (Array.isArray(_state?.schedule) ? _state.schedule : []);
+    const games = seasonSchedule.filter(game => {
+      const gameDate = normalizeLivingWorldDateKey(game?.date);
       if (!gameDate || gameDate < weekStart || gameDate > weekEnd) return false;
       if (!(game?.played === true || game?.completed === true || game?.status === 'final')) return false;
       return String(game?.homeTeamId || '') === String(player?.teamId || '') ||
@@ -150,7 +181,7 @@ helpers=r'''  function ensureLivingWorldState() {
       weekKey,
       startDate: weekStart,
       endDate: weekEnd,
-      processedAtDate: normalizeDateKey(processedAtDate),
+      processedAtDate: normalizeLivingWorldDateKey(processedAtDate),
       standings,
       leader: standings[0] || null,
       careerTeam: careerStanding,
@@ -169,7 +200,7 @@ helpers=r'''  function ensureLivingWorldState() {
   }
 
   function processLivingWorldWeek(dateString) {
-    const normalizedDate = normalizeDateKey(dateString);
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
     if (!normalizedDate) return null;
     const livingWorld = ensureLivingWorldState();
     const weekKey = getLivingWorldWeekKey(normalizedDate);
@@ -187,8 +218,8 @@ helpers=r'''  function ensureLivingWorldState() {
   }
 
   function processLivingWorldForDate(dateString) {
-    const normalizedDate = normalizeDateKey(dateString);
-    const date = parseDateKey(normalizedDate);
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
+    const date = livingWorldDateFromKey(normalizedDate);
     if (!date) return null;
     const livingWorld = ensureLivingWorldState();
     const shouldProcess = date.getUTCDay() === 1 || livingWorld.processedWeeks.length === 0;
@@ -203,27 +234,32 @@ if 'function ensureLivingWorldState()' not in s:
         raise SystemExit('processSeasonDate function not found')
     s=s[:match.start()]+helpers+s[match.start():]
 
-# Integrate once into the central date processor by finding its processedDates push.
-if 'processLivingWorldForDate(normalizedDate);' not in s:
-    start=re.search(r'(?:async[ \t]+)?function[ \t]+processSeasonDate\b', s)
-    if not start:
-        raise SystemExit('processSeasonDate not found after helper insertion')
-    tail=s[start.start():]
-    push=re.search(r'[^\n]*processedDates\.push\(normalizedDate\);', tail)
-    if not push:
-        raise SystemExit('processedDates push not found inside processSeasonDate')
-    absolute=start.start()+push.end()
-    s=s[:absolute]+'\n\n    processLivingWorldForDate(normalizedDate);'+s[absolute:]
+if 'processLivingWorldForDate(dateString);' not in s:
+    needle='''    _state.season.lastProcessedDate =
+      dateString;
 
-# Export public APIs immediately after processSeasonDate entry, independent of formatting.
-if not re.search(r'\bensureLivingWorldState\s*,', s[s.rfind('return {'):]):
-    # Use last occurrence of processSeasonDate, which is expected in public API object.
+    if (options.save !== false) {'''
+    replacement='''    _state.season.lastProcessedDate =
+      dateString;
+
+    processLivingWorldForDate(dateString);
+
+    if (options.save !== false) {'''
+    if needle not in s:
+        raise SystemExit('lastProcessedDate integration anchor missing')
+    s=s.replace(needle, replacement, 1)
+
+# Export read/process hooks for upcoming scouting/news/Home consumers.
+last_return=s.rfind('return {')
+export_tail=s[last_return:] if last_return >= 0 else ''
+if 'ensureLivingWorldState,' not in export_tail:
     matches=list(re.finditer(r'(^[ \t]*processSeasonDate\s*,)', s, re.M))
-    if not matches:
-        raise SystemExit('public processSeasonDate export not found')
-    m=matches[-1]
-    insertion=m.group(0)+'\n    ensureLivingWorldState,\n    processLivingWorldWeek,\n    processLivingWorldForDate,\n    getLivingWorldWeekKey,'
-    s=s[:m.start()]+insertion+s[m.end():]
+    if matches:
+        m=matches[-1]
+        insertion=m.group(0)+'\n    ensureLivingWorldState,\n    processLivingWorldWeek,\n    processLivingWorldForDate,\n    getLivingWorldWeekKey,'
+        s=s[:m.start()]+insertion+s[m.end():]
+    else:
+        print('warning: public processSeasonDate export not found; helpers remain internal')
 
 p.write_text(s)
 print('implemented weekly living world foundation')
