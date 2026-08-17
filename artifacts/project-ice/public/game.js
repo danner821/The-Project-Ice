@@ -5027,6 +5027,7 @@ function renderProspectsScreen() {
       return {
         ...player,
         currentRank: rank,
+        previousRank: previousRank || null,
         rankChange,
         sourceType: 'world',
         isUser,

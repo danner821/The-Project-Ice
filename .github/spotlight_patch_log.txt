@@ -1,0 +1,4 @@
+deepened scouting spotlight impact and fixed canonical prospect movement
+PATCH_STATUS=0
+WORLD_CHECK=0
+GAME_CHECK=0

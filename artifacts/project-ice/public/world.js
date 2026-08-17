@@ -36363,6 +36363,86 @@ case 'career-defense':
     return { gp, goals, assists, points };
   }
 
+  function getScoutingGameSpotlightWeight(game = {}) {
+    const scouts = Math.max(0, Number(game?.scoutsAttending) || 0);
+    if (scouts <= 0) return 0;
+
+    const contextText = [
+      game.specialGameType,
+      game.specialType,
+      game.eventType,
+      game.milestoneType,
+      game.label,
+      game.title,
+      game.banner,
+      game.context?.specialGameType,
+      game.context?.milestoneType,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const isProspectClash = Boolean(
+      game.isTopProspectClash ||
+      game.topProspectClash ||
+      /top\s*prospect|prospect\s*clash/.test(contextText)
+    );
+
+    const isGameOfWeek = Boolean(
+      game.isGameOfWeek ||
+      /game\s*of\s*the\s*week/.test(contextText)
+    );
+
+    /*
+     * gamesObserved remains a literal count of games. This separate exposure
+     * score represents how intense the evaluation environment was.
+     */
+    let weight = 1 + Math.min(2.5, Math.max(0, scouts - 1) * 0.35);
+    if (isGameOfWeek) weight += 0.35;
+    if (isProspectClash) weight += 1.5;
+
+    return Number(weight.toFixed(2));
+  }
+
+  function getScoutingSpotlightPerformanceMomentum(player = {}) {
+    const profile = player.scoutingProfile || {};
+    const exposure = Math.max(0, Number(profile.scoutingExposureScore) || 0);
+    if (exposure <= 0) return 0;
+
+    const stats = getScoutingPlayerStats(player);
+    const overall = Number(player.overall) || 50;
+    const position = normalizeAttributePosition(player.position);
+    let performanceSignal = 0;
+
+    if (position === 'G') {
+      const seasonStats = player.stats || player.seasonStats || {};
+      const savePercentage = Number(
+        seasonStats.savePercentage ?? seasonStats.svPct ?? player.savePercentage
+      ) || 0;
+      if (savePercentage > 0) {
+        performanceSignal = Math.max(-1, Math.min(1, (savePercentage - 0.900) / 0.055));
+      }
+    } else if (stats.gp > 0) {
+      const pointsPerGame = stats.points / Math.max(1, stats.gp);
+      const expectedPpg = Math.max(
+        0.18,
+        Math.min(1.35, 0.30 + ((overall - 55) * 0.025))
+      );
+      performanceSignal = Math.max(
+        -1,
+        Math.min(1, (pointsPerGame - expectedPpg) / 0.65)
+      );
+    }
+
+    /*
+     * Exposure amplifies what scouts are seeing; it never rewards attendance
+     * by itself. Strong play under a brighter spotlight can move a ranking
+     * faster, while poor play can do the opposite.
+     */
+    const exposureFactor = Math.min(1, exposure / 12);
+    return Number((performanceSignal * exposureFactor * 4).toFixed(3));
+  }
+
   function calculateWeeklyScoutingScore(player = {}) {
     const overall = Number(player.overall) || 50;
     const potential = Number(
@@ -36375,13 +36455,16 @@ case 'career-defense':
     const coachTrust = Number(player.coachTrust) || 50;
     const reputation = Number(player.reputationPoints) ||
       ((Number(player.reputationStars) || 1) * 20);
+    const spotlightMomentum =
+      getScoutingSpotlightPerformanceMomentum(player);
 
     return Number((
       overall * 0.48 +
       potential * 0.28 +
       Math.min(20, pointsPerGame * 10) * 0.10 +
       Math.min(100, reputation) * 0.09 +
-      Math.min(100, coachTrust) * 0.05
+      Math.min(100, coachTrust) * 0.05 +
+      spotlightMomentum
     ).toFixed(3));
   }
 
@@ -37230,6 +37313,23 @@ case 'career-defense':
       return { success: false, processed: false, reason: 'invalid-scouting-week' };
     }
 
+    const livingWorldState = ensureLivingWorldState();
+    if (!Array.isArray(livingWorldState.scoutingProcessedWeeks)) {
+      livingWorldState.scoutingProcessedWeeks = [];
+    }
+
+    if (livingWorldState.scoutingProcessedWeeks.includes(weekKey)) {
+      return {
+        success: true,
+        processed: false,
+        reason: 'scouting-week-already-processed',
+        weekKey,
+        rankings: Array.isArray(_state.prospectRankings) ? _state.prospectRankings : [],
+        changes: [],
+        careerChange: null,
+      };
+    }
+
     const players = (_state?.teams || []).flatMap(team =>
       (Array.isArray(team?.roster) ? team.roster : []).map(player => {
         ensureCanonicalPlayerContract(player);
@@ -37263,6 +37363,13 @@ case 'career-defense':
       const previousRank = Number(profile.publicRank) || null;
       const scoutedGames = getScoutedGamesForPlayer(player, weekStart, weekEnd);
       const additionalObserved = scoutedGames.length;
+      const weeklyExposure = scoutedGames.reduce(
+        (sum, game) => sum + getScoutingGameSpotlightWeight(game),
+        0
+      );
+      const spotlightGames = scoutedGames.filter(game =>
+        getScoutingGameSpotlightWeight(game) >= 2.5
+      ).length;
       const priorInterest = profile.interestLevel || 'None';
 
       profile.previousRank = previousRank;
@@ -37270,17 +37377,28 @@ case 'career-defense':
       profile.rankChange = previousRank ? previousRank - newRank : 0;
       profile.lastRankedWeek = weekKey;
       profile.gamesObserved = (Number(profile.gamesObserved) || 0) + additionalObserved;
+      profile.scoutingExposureScore = Number((
+        (Number(profile.scoutingExposureScore) || 0) + weeklyExposure
+      ).toFixed(2));
+      profile.spotlightGamesObserved =
+        (Number(profile.spotlightGamesObserved) || 0) + spotlightGames;
+      profile.lastScoutedWeek = additionalObserved > 0
+        ? weekKey
+        : (profile.lastScoutedWeek || null);
       profile.evaluationAccuracy = getScoutingEvaluationAccuracy(profile.gamesObserved);
       profile.interestLevel = getScoutingInterestLevel(newRank, profile.gamesObserved);
 
       if (additionalObserved > 0) {
         profile.scoutingHistory.push({
-          type: 'games-observed',
+          type: spotlightGames > 0 ? 'spotlight-games-observed' : 'games-observed',
           weekKey,
           startDate: weekStart,
           endDate: weekEnd,
           gamesObserved: additionalObserved,
           totalGamesObserved: profile.gamesObserved,
+          exposureAdded: Number(weeklyExposure.toFixed(2)),
+          totalExposure: profile.scoutingExposureScore,
+          spotlightGames,
           rank: newRank,
         });
       }
@@ -37294,6 +37412,8 @@ case 'career-defense':
           interestBefore: priorInterest,
           interestAfter: profile.interestLevel,
           gamesObserved: additionalObserved,
+          exposureAdded: Number(weeklyExposure.toFixed(2)),
+          spotlightGames,
         });
       }
     });
@@ -37310,6 +37430,9 @@ case 'career-defense':
       score: entry.score,
       interestLevel: entry.player?.scoutingProfile?.interestLevel || 'None',
       rankChange: Number(entry.player?.scoutingProfile?.rankChange) || 0,
+      previousRank: Number(entry.player?.scoutingProfile?.previousRank) || null,
+      scoutingExposureScore: Number(entry.player?.scoutingProfile?.scoutingExposureScore) || 0,
+      spotlightGamesObserved: Number(entry.player?.scoutingProfile?.spotlightGamesObserved) || 0,
       weekKey,
     }));
 
@@ -37334,6 +37457,12 @@ case 'career-defense':
       processPersistentScoutingReports(
         normalizedDate
       );
+
+    livingWorldState.scoutingProcessedWeeks.push(weekKey);
+    if (livingWorldState.scoutingProcessedWeeks.length > 120) {
+      livingWorldState.scoutingProcessedWeeks =
+        livingWorldState.scoutingProcessedWeeks.slice(-120);
+    }
 
     return {
       success: true,
