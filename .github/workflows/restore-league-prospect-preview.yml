@@ -1,0 +1,24 @@
+name: Restore League Prospect Preview
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-league-prospect-preview.yml'
+      - '.github/scripts/restore_league_prospect_preview.py'
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/restore_league_prospect_preview.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "function renderLeagueProspectsPreview" artifacts/project-ice/public/game.js
+      - run: grep -q "previousRank" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Restore canonical League prospect preview' || exit 0
+          git push
