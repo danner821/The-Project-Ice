@@ -22,3 +22,4 @@ jobs:
           git add artifacts/project-ice/public/world.js
           git commit -m 'Add weekly living world foundation' || exit 0
           git push
+# retry 2
