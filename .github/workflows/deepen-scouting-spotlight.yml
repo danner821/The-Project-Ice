@@ -1,0 +1,25 @@
+name: Deepen Scouting Spotlight
+on:
+  push:
+    paths:
+      - '.github/workflows/deepen-scouting-spotlight.yml'
+      - '.github/scripts/deepen_scouting_spotlight.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/deepen_scouting_spotlight.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "function getScoutingGameSpotlightWeight" artifacts/project-ice/public/world.js
+      - run: grep -q "scoutingProcessedWeeks" artifacts/project-ice/public/world.js
+      - run: grep -q "previousRank: previousRank || null" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
+          git commit -m 'Make scouting spotlight games matter' || exit 0
+          git push
