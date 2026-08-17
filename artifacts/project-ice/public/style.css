@@ -14034,3 +14034,53 @@ live-game-marker-pop {
 .career-save-card__details { margin: 0; color: rgba(220,232,255,.72); font-size: 12px; line-height: 1.4; }
 .career-save-card__arrow { font-size: 30px; line-height: 1; color: #78b8ff; }
 .career-save-card__meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(111,157,224,.12); color: rgba(220,232,255,.55); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+
+
+/* NHL-style potential certainty pill used beside the visible role tier. */
+.pp-career-card__potential-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pp-career-card__potential-line .pp-career-card__value {
+  min-width: 0;
+}
+
+.pp-potential-certainty-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgba(237, 191, 98, 0.6);
+  border-radius: 999px;
+  background: rgba(181, 128, 36, 0.12);
+  color: #f0c66c;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+.pp-potential-certainty-pill--low {
+  border-color: rgba(222, 106, 106, 0.58);
+  background: rgba(151, 54, 54, 0.14);
+  color: #e89b9b;
+}
+
+.pp-potential-certainty-pill--medium {
+  border-color: rgba(237, 191, 98, 0.6);
+  background: rgba(181, 128, 36, 0.12);
+  color: #f0c66c;
+}
+
+.pp-potential-certainty-pill--high {
+  border-color: rgba(104, 193, 151, 0.58);
+  background: rgba(48, 132, 92, 0.14);
+  color: #83d5ad;
+}

@@ -36476,6 +36476,82 @@ case 'career-defense':
     };
   }
 
+  function getPotentialRoleBoundary(position, currentPotential, direction = 1) {
+    const safePotential = Math.max(25, Math.min(99, Number(currentPotential) || 60));
+    const currentRole = getPotentialRole(position, safePotential);
+    const step = direction >= 0 ? 1 : -1;
+
+    for (
+      let candidate = safePotential + step;
+      candidate >= 25 && candidate <= 99;
+      candidate += step
+    ) {
+      if (getPotentialRole(position, candidate) !== currentRole) {
+        return candidate;
+      }
+    }
+
+    return safePotential;
+  }
+
+  function isNHLLevelPlayer(player = {}) {
+    const levelText = [
+      player.teamLevel,
+      player.level,
+      player.league,
+      player.currentLeague,
+      player.careerLevel,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toUpperCase();
+
+    return /(^|\s)NHL($|\s)/.test(levelText);
+  }
+
+  function isFranchisePotentialRole(role = '') {
+    return String(role).toLowerCase().includes('franchise');
+  }
+
+  function isElitePotentialRole(role = '') {
+    return String(role).toLowerCase().includes('elite');
+  }
+
+  /*
+   * Project Ice draft-potential calibration.
+   * EA does not publish its hidden per-tier generation table, so these are
+   * our own targets chosen to reproduce the Franchise-mode feel: virtually no
+   * generated Franchise prospects, a useful handful of Elite prospects, then
+   * a much larger middle of Top-6/Top-4 and Top-9/Top-6D projections.
+   *
+   * This contract is intentionally centralized now so the later NHL Entry
+   * Draft generator cannot invent a different potential economy.
+   */
+  const PROJECT_ICE_DRAFT_POTENTIAL_CALIBRATION = Object.freeze({
+    classSize: 224,
+    franchise: Object.freeze({
+      minimumYearsBetween: 3,
+      forcedByYearsSinceLast: 5,
+      chanceAtYear3: 0.40,
+      chanceAtYear4: 0.68,
+      targetPerClass: Object.freeze([0, 1]),
+    }),
+    elite: Object.freeze({ min: 10, max: 15 }),
+    topRole: Object.freeze({ min: 48, max: 64 }),
+    middleRole: Object.freeze({ min: 72, max: 92 }),
+    depthRole: Object.freeze({ min: 54, max: 84 }),
+    confidenceWeights: Object.freeze({
+      franchise: Object.freeze({ low: 0.08, medium: 0.77, high: 0.15 }),
+      elite: Object.freeze({ low: 0.18, medium: 0.68, high: 0.14 }),
+      topRole: Object.freeze({ low: 0.27, medium: 0.68, high: 0.05 }),
+      middleRole: Object.freeze({ low: 0.38, medium: 0.60, high: 0.02 }),
+    }),
+  });
+
+  function getProjectIceDraftPotentialCalibration() {
+    return PROJECT_ICE_DRAFT_POTENTIAL_CALIBRATION;
+  }
+
   function evaluatePlayerPotentialWeek(player = {}, dateString) {
     /*
      * CANONICAL DYNAMIC POTENTIAL ENGINE.
@@ -36543,13 +36619,47 @@ case 'career-defense':
     const reevaluationChance = Math.min(0.28, 0.08 + thresholdExcess * 0.11);
     const reevaluationRoll = Math.random();
 
-    let delta = 0;
-    if (cooldownMet && signal >= threshold && reevaluationRoll < reevaluationChance) delta = 1;
-    if (cooldownMet && signal <= -threshold && reevaluationRoll < reevaluationChance) delta = -1;
+    let targetPotential = oldPotential;
+    const upwardBoundary = getPotentialRoleBoundary(player.position, oldPotential, 1);
+    const downwardBoundary = getPotentialRoleBoundary(player.position, oldPotential, -1);
+    const upwardRole = getPotentialRole(player.position, upwardBoundary);
+    const upwardIsFranchise = isFranchisePotentialRole(upwardRole);
+    const currentlyElite = isElitePotentialRole(oldRole);
+    const nhlLevel = isNHLLevelPlayer(player);
+
+    /*
+     * Elite is an attainable high-end outcome for a genuinely dominant young
+     * career player. Franchise is different: draft-age/HS players almost never
+     * receive it, while an already-Elite player proving himself as one of the
+     * NHL's dominant stars has a materially better (still rare) path there.
+     */
+    let upwardChance = reevaluationChance;
+    let upwardThreshold = threshold;
+
+    if (upwardIsFranchise) {
+      upwardThreshold += nhlLevel && currentlyElite ? 0.35 : 0.95;
+      upwardChance = nhlLevel && currentlyElite
+        ? Math.min(0.16, reevaluationChance * 0.72)
+        : Math.min(0.025, reevaluationChance * 0.12);
+    }
+
+    if (
+      cooldownMet &&
+      signal >= upwardThreshold &&
+      reevaluationRoll < upwardChance
+    ) {
+      targetPotential = upwardBoundary;
+    } else if (
+      cooldownMet &&
+      signal <= -threshold &&
+      reevaluationRoll < reevaluationChance
+    ) {
+      targetPotential = downwardBoundary;
+    }
 
     /* Never let a projected ceiling fall below demonstrated current ability. */
     const minimumPotential = Math.min(99, Math.max(25, evidence.overall + (evidence.age <= 23 ? 2 : 0)));
-    const newPotential = Math.max(minimumPotential, Math.min(99, oldPotential + delta));
+    const newPotential = Math.max(minimumPotential, Math.min(99, targetPotential));
     const changed = newPotential !== oldPotential;
     const appliedDelta = newPotential - oldPotential;
 
@@ -36619,6 +36729,8 @@ case 'career-defense':
       threshold: Number(threshold.toFixed(4)),
       reevaluationChance: Number(reevaluationChance.toFixed(4)),
       reevaluationRoll: Number(reevaluationRoll.toFixed(4)),
+      upwardThreshold: Number(upwardThreshold.toFixed(4)),
+      upwardChance: Number(upwardChance.toFixed(4)),
       evidence,
     };
   }

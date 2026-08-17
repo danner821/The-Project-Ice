@@ -12401,9 +12401,44 @@ function updateHubScreen() {
             : 'Low'
       );
 
+    const potentialAccuracyKey =
+      String(potentialAccuracy || 'Medium')
+        .trim()
+        .toLowerCase();
+
+    const potentialAccuracyElement =
+      document.getElementById(
+        'pp-development-potential-accuracy'
+      );
+
+    if (potentialAccuracyElement) {
+      potentialAccuracyElement.textContent =
+        potentialAccuracyKey === 'high'
+          ? 'HIGH'
+          : potentialAccuracyKey === 'low'
+            ? 'LOW'
+            : 'MED';
+
+      potentialAccuracyElement.classList.remove(
+        'pp-potential-certainty-pill--low',
+        'pp-potential-certainty-pill--medium',
+        'pp-potential-certainty-pill--high'
+      );
+
+      potentialAccuracyElement.classList.add(
+        `pp-potential-certainty-pill--${
+          potentialAccuracyKey === 'high'
+            ? 'high'
+            : potentialAccuracyKey === 'low'
+              ? 'low'
+              : 'medium'
+        }`
+      );
+    }
+
     setText(
       'pp-development-trend',
-      String(potentialAccuracy).toUpperCase()
+      potentialTrendDisplay.text
     );
 
     const potentialTrendElement =
@@ -12416,6 +12451,10 @@ function updateHubScreen() {
         'pp-career-card__value--trend-rising',
         'pp-career-card__value--trend-falling',
         'pp-career-card__value--trend-stable'
+      );
+
+      potentialTrendElement.classList.add(
+        potentialTrendDisplay.className
       );
     }
 
