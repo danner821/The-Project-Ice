@@ -38377,6 +38377,107 @@ case 'career-defense':
     }
   }
 
+  async function getCareerRecoveryDiagnostics() {
+    const summarizeWorld = (recordId, world, savedAt = null) => {
+      if (!world || typeof world !== 'object') {
+        return { recordId, missing: true };
+      }
+
+      const careerPlayer = getWorldCareerPlayer(world);
+      const player = careerPlayer || world?.player || {};
+      const attrs = player?.attributes && typeof player.attributes === 'object'
+        ? Object.entries(player.attributes)
+            .filter(([, value]) => Number.isFinite(Number(value)))
+        : [];
+      const tryoutResults = player?.tryoutResults || player?.tryoutProfile?.results || null;
+      const line =
+        player?.startingLine ||
+        player?.rosterSlot ||
+        player?.lineupAssignment?.line ||
+        player?.lineupAssignment?.lineLabel ||
+        player?.lineupStatus ||
+        null;
+
+      return {
+        recordId,
+        savedAt: savedAt || null,
+        name: `${player?.firstName || world?.player?.firstName || ''} ${player?.lastName || world?.player?.lastName || ''}`.trim() || 'Unnamed',
+        teamId: player?.teamId || world?.player?.teamId || null,
+        overall: Number(player?.overall) || null,
+        startingOverall: Number(player?.startingOverall) || null,
+        line,
+        overallTryoutScore: Number(player?.overallTryoutScore ?? player?.tryoutProfile?.score) || null,
+        overallTryoutGrade: player?.overallTryoutGrade || player?.tryoutProfile?.grade || null,
+        tryoutResultKeys: tryoutResults && typeof tryoutResults === 'object' ? Object.keys(tryoutResults) : [],
+        attributeCount: attrs.length,
+        attributeSample: attrs.slice(0, 6).map(([key, value]) => `${key}:${value}`),
+        coachTrust: Number(player?.coachTrust) || null,
+        stage: player?.stage || world?.player?.stage || null,
+        tryoutsComplete: player?.tryoutsComplete === true || world?.player?.tryoutsComplete === true,
+      };
+    };
+
+    const diagnostics = {
+      activeCareerId: getActiveCareerId(),
+      pendingCareerId: localStorage.getItem(PENDING_CAREER_ID_KEY),
+      saveIndex: readCareerSaveIndex(),
+      indexedDbRecords: [],
+      localStorage: {},
+    };
+
+    try {
+      const database = await openWorldDatabase();
+      const records = await new Promise((resolve, reject) => {
+        const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+        const request = transaction.objectStore(WORLD_STORE_NAME).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error);
+      });
+      database.close();
+      diagnostics.indexedDbRecords = records.map(record =>
+        summarizeWorld(record?.id || 'unknown', record?.world, record?.savedAt)
+      );
+    } catch (error) {
+      diagnostics.indexedDbError = error?.message || String(error);
+    }
+
+    for (const key of [WORLD_KEY, 'projectice_save', CAREER_SAVE_INDEX_KEY, ACTIVE_CAREER_ID_KEY, PENDING_CAREER_ID_KEY]) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw == null) {
+          diagnostics.localStorage[key] = null;
+          continue;
+        }
+        if (key === WORLD_KEY) {
+          const parsed = JSON.parse(raw);
+          diagnostics.localStorage[key] = summarizeWorld(key, parsed, null);
+        } else if (key === 'projectice_save') {
+          const parsed = JSON.parse(raw);
+          const p = parsed?.player || parsed || {};
+          diagnostics.localStorage[key] = {
+            name: `${p?.firstName || ''} ${p?.lastName || ''}`.trim() || 'Unnamed',
+            overall: Number(p?.overall) || null,
+            startingOverall: Number(p?.startingOverall) || null,
+            line: p?.startingLine || p?.rosterSlot || p?.lineupAssignment?.line || p?.lineupStatus || null,
+            overallTryoutScore: Number(p?.overallTryoutScore ?? p?.tryoutProfile?.score) || null,
+            overallTryoutGrade: p?.overallTryoutGrade || p?.tryoutProfile?.grade || null,
+            tryoutResultKeys: p?.tryoutResults && typeof p.tryoutResults === 'object' ? Object.keys(p.tryoutResults) : [],
+            attributeCount: p?.attributes && typeof p.attributes === 'object' ? Object.keys(p.attributes).length : 0,
+            coachTrust: Number(p?.coachTrust) || null,
+            stage: p?.stage || null,
+            tryoutsComplete: p?.tryoutsComplete === true,
+          };
+        } else {
+          diagnostics.localStorage[key] = raw;
+        }
+      } catch (error) {
+        diagnostics.localStorage[key] = { error: error?.message || String(error) };
+      }
+    }
+
+    return diagnostics;
+  }
+
   async function listCareerSaves() {
     let index = readCareerSaveIndex();
 
@@ -41571,6 +41672,7 @@ case 'career-defense':
     save,
     load,
     listCareerSaves,
+    getCareerRecoveryDiagnostics,
     selectCareerSave,
     beginNewCareerSave,
     commitActiveCareerSave,
