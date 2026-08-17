@@ -1,0 +1,30 @@
+name: Validate Weekly Living World Complete
+on:
+  push:
+    paths:
+      - '.github/workflows/validate-weekly-living-world-complete.yml'
+      - '.github/scripts/validate_weekly_living_world_complete.py'
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run completion validation
+        shell: bash
+        run: |
+          set +e
+          python .github/scripts/validate_weekly_living_world_complete.py > .github/weekly_living_world_completion_run.txt 2>&1
+          echo PY_STATUS=$? >> .github/weekly_living_world_completion_run.txt
+          node --check artifacts/project-ice/public/world.js >> .github/weekly_living_world_completion_run.txt 2>&1
+          echo WORLD_NODE_STATUS=$? >> .github/weekly_living_world_completion_run.txt
+          node --check artifacts/project-ice/public/game.js >> .github/weekly_living_world_completion_run.txt 2>&1
+          echo GAME_NODE_STATUS=$? >> .github/weekly_living_world_completion_run.txt
+      - name: Persist validation report
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/weekly_living_world_completion_report.txt .github/weekly_living_world_completion_run.txt
+          git commit -m 'Persist Weekly Living World completion validation' || exit 0
+          git push
