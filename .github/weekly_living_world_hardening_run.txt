@@ -1,0 +1,4 @@
+one or more Weekly Living World hardening checks failed
+PY_STATUS=1
+WORLD_NODE_STATUS=0
+GAME_NODE_STATUS=0

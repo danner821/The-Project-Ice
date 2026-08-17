@@ -6010,7 +6010,6 @@ function renderLeagueAwardsPreview() {
   });
 }
 
-}
 function simulateToDate(
   targetDate
 ) {

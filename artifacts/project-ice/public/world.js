@@ -36857,6 +36857,16 @@ case 'career-defense':
     return PROJECT_ICE_DRAFT_POTENTIAL_CALIBRATION;
   }
 
+  function getDeterministicLivingWorldRoll(seedText = '') {
+    const text = String(seedText || 'project-ice');
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967296;
+  }
+
   function evaluatePlayerPotentialWeek(player = {}, dateString) {
     /*
      * CANONICAL DYNAMIC POTENTIAL ENGINE.
@@ -36922,7 +36932,12 @@ case 'career-defense':
 
     const thresholdExcess = Math.max(0, Math.abs(signal) - threshold);
     const reevaluationChance = Math.min(0.28, 0.08 + thresholdExcess * 0.11);
-    const reevaluationRoll = Math.random();
+    const reevaluationRoll = getDeterministicLivingWorldRoll([
+      _state.season?.seasonId || _state.season?.year || 'season',
+      weekKey,
+      player.id || player.playerId || 'player',
+      'potential-reevaluation',
+    ].join(':'));
 
     let targetPotential = oldPotential;
     const upwardBoundary = getPotentialRoleBoundary(player.position, oldPotential, 1);
@@ -37607,7 +37622,14 @@ case 'career-defense':
       profile.lastScoutedWeek = additionalObserved > 0
         ? weekKey
         : (profile.lastScoutedWeek || null);
-      profile.evaluationAccuracy = getScoutingEvaluationAccuracy(profile.gamesObserved);
+      profile.evaluationAccuracy =
+        player.development?.potentialAccuracy ||
+        player.potentialAccuracy ||
+        getPotentialAccuracyFromConfidence(
+          player.development?.potentialConfidence ??
+          player.potentialConfidence ??
+          50
+        );
       profile.interestLevel = getScoutingInterestLevel(newRank, profile.gamesObserved);
 
       if (additionalObserved > 0) {
