@@ -1,0 +1,26 @@
+name: Calibrate NHL Potential System
+on:
+  push:
+    paths:
+      - '.github/workflows/calibrate-nhl-potential-system.yml'
+      - '.github/scripts/calibrate_nhl_potential_system.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/calibrate_nhl_potential_system.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "pp-development-potential-accuracy" artifacts/project-ice/index.html
+      - run: grep -q "pp-potential-certainty-pill--medium" artifacts/project-ice/public/style.css
+      - run: grep -q "PROJECT_ICE_DRAFT_POTENTIAL_CALIBRATION" artifacts/project-ice/public/world.js
+      - run: grep -q "getPotentialRoleBoundary" artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css artifacts/project-ice/index.html
+          git commit -m 'Calibrate NHL-style potential tiers and draft rarity' || exit 0
+          git push
