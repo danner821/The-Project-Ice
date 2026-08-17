@@ -1,0 +1,14 @@
+name: Inspect Potential System
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-potential-system.yml'
+      - '.github/scripts/inspect_potential_system.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_potential_system.py
