@@ -18034,7 +18034,7 @@ const WorldEngine = (() => {
             0,
             unitHottestPlayerTOI -
             expectedTOIThroughNow -
-            75
+            45
           );
 
         const periodAheadPenalty =
@@ -26408,16 +26408,93 @@ function resolveLiveGameCareerPass(
       homeSkaterCount;
 
     /*
-     * Rotate special-teams units during extended penalties.
-     * Unit 1 starts the sequence; Unit 2 takes the next ~45-second window.
-     * This prevents PP1/PK1 skaters from playing an entire two-minute minor.
+     * SPECIAL-TEAMS ROTATION CLOCK
+     *
+     * This must be independent from deploymentAgeSeconds. The normal shift
+     * clock resets every 35-55 seconds, which previously kept restarting
+     * penalties on PP1/PK1 and caused severe early-game TOI front-loading.
      */
+    if (
+      !flow.specialTeamsRotation ||
+      typeof flow.specialTeamsRotation !==
+        'object'
+    ) {
+      flow.specialTeamsRotation = {
+        active: false,
+        unit: 1,
+        ageSeconds: 0,
+        manpowerKey: '',
+      };
+    }
+
+    const specialTeamsActive =
+      homeHasAdvantage ||
+      awayHasAdvantage;
+
+    const specialTeamsManpowerKey =
+      specialTeamsActive
+        ? `${homeSkaterCount}v${awaySkaterCount}`
+        : '';
+
+    if (!specialTeamsActive) {
+      flow.specialTeamsRotation.active =
+        false;
+      flow.specialTeamsRotation.unit =
+        1;
+      flow.specialTeamsRotation.ageSeconds =
+        0;
+      flow.specialTeamsRotation.manpowerKey =
+        '';
+    } else if (
+      flow.specialTeamsRotation.active !==
+        true ||
+      flow.specialTeamsRotation.manpowerKey !==
+        specialTeamsManpowerKey
+    ) {
+      flow.specialTeamsRotation.active =
+        true;
+      flow.specialTeamsRotation.unit =
+        1;
+      flow.specialTeamsRotation.ageSeconds =
+        0;
+      flow.specialTeamsRotation.manpowerKey =
+        specialTeamsManpowerKey;
+    }
+
+    while (
+      specialTeamsActive &&
+      Number(
+        flow.specialTeamsRotation
+          .ageSeconds
+      ) >= 45
+    ) {
+      flow.specialTeamsRotation.ageSeconds =
+        Math.max(
+          0,
+          Number(
+            flow.specialTeamsRotation
+              .ageSeconds
+          ) - 45
+        );
+
+      flow.specialTeamsRotation.unit =
+        Number(
+          flow.specialTeamsRotation.unit
+        ) === 1
+          ? 2
+          : 1;
+    }
+
     const specialTeamsShiftUnit =
-      (
-        Math.floor(
-          (Number(flow.deploymentAgeSeconds) || 0) / 45
-        ) % 2
-      ) + 1;
+      Math.max(
+        1,
+        Math.min(
+          2,
+          Number(
+            flow.specialTeamsRotation.unit
+          ) || 1
+        )
+      );
 
     /*
      * ========================================================
@@ -26715,6 +26792,21 @@ function resolveLiveGameCareerPass(
     addTOIToDeployment(
       flow.awayDeployment
     );
+
+    if (
+      specialTeamsActive &&
+      flow.specialTeamsRotation
+        ?.active === true
+    ) {
+      flow.specialTeamsRotation.ageSeconds =
+        (
+          Number(
+            flow.specialTeamsRotation
+              .ageSeconds
+          ) || 0
+        ) +
+        elapsedSeconds;
+    }
 
     /*
      * Penalties count down using actual hockey seconds, completely
@@ -31630,10 +31722,15 @@ case 'career-defense':
 
     const scheduledGame =
       schedule.find(event =>
-        (
-          event?.id === gameId ||
-          event?.eventId === gameId ||
-          event?.gameId === gameId
+        [
+          event?.id,
+          event?.eventId,
+          event?.gameId,
+        ].some(alias =>
+          alias !== null &&
+          alias !== undefined &&
+          String(alias) ===
+            String(gameId)
         )
       );
 
@@ -35262,7 +35359,17 @@ case 'career-defense':
       _state.season.processedDates
         .includes(dateString);
 
-    if (wasAlreadyProcessed) {
+    const hasSuppliedResolvedGameResult =
+      Boolean(
+        options?.resolvedGameResult &&
+        typeof options.resolvedGameResult ===
+          'object'
+      );
+
+    if (
+      wasAlreadyProcessed &&
+      !hasSuppliedResolvedGameResult
+    ) {
       return {
         success: true,
         processed: false,
@@ -35317,8 +35424,27 @@ case 'career-defense':
         ?.eventId ||
       null;
 
+    const eventsForProcessing =
+      wasAlreadyProcessed &&
+      suppliedGameResult
+        ? scheduledEvents.filter(event => {
+            const eventId =
+              event?.gameId ||
+              event?.eventId ||
+              event?.id ||
+              null;
+
+            return Boolean(
+              suppliedGameId &&
+              eventId &&
+              String(eventId) ===
+                String(suppliedGameId)
+            );
+          })
+        : scheduledEvents;
+
     const eventResults =
-      scheduledEvents.map(
+      eventsForProcessing.map(
         event => {
           const eventId =
             event?.gameId ||

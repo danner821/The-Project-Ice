@@ -7000,26 +7000,33 @@ function openPostgameSummary(gameId) {
         .repairCompletedGameDevelopment ===
           'function'
     ) {
-      const repairResult =
-        WorldEngine
-          .repairCompletedGameDevelopment(
-            canonicalPostgameGameId
-          );
+      /*
+       * Development repair is optional display maintenance. It must never
+       * prevent a completed hockey game from opening its Postgame Summary.
+       */
+      try {
+        const repairResult =
+          WorldEngine
+            .repairCompletedGameDevelopment(
+              canonicalPostgameGameId
+            );
 
-      if (
-        repairResult?.success === true
-      ) {
-        /*
-         * The repair mutates the canonical scheduled game.
-         * Re-read its summary before rendering the screen.
-         */
-        summary =
-          scheduledGame.postgameSummary ||
-          summary;
-      } else {
+        if (
+          repairResult?.success === true
+        ) {
+          summary =
+            scheduledGame.postgameSummary ||
+            summary;
+        } else {
+          console.warn(
+            '[Postgame Summary] Development repair failed.',
+            repairResult
+          );
+        }
+      } catch (error) {
         console.warn(
-          '[Postgame Summary] Development repair failed.',
-          repairResult
+          '[Postgame Summary] Development repair threw; continuing to summary.',
+          error
         );
       }
     }
@@ -7038,6 +7045,15 @@ function openPostgameSummary(gameId) {
 
     return false;
   }
+
+  /*
+   * Navigate FIRST. Everything below is presentation-only rendering. If a
+   * malformed optional stat ever throws, the player still leaves the rink
+   * and reaches the completed-game screen instead of seeing a dead button.
+   */
+  showScreen(
+    'postgame-summary'
+  );
 
   const homeTeam =
     WorldEngine.getTeamById(
@@ -8629,24 +8645,23 @@ function openPostgameSummary(gameId) {
       String(gameId);
   }
 
-  showScreen(
-    'postgame-summary'
-  );
-
-  if (postgameSummaryScreen) {
+  if (
+    postgameSummaryScreen &&
+    typeof postgameSummaryScreen.scrollTo ===
+      'function'
+  ) {
     postgameSummaryScreen.scrollTo({
       top: 0,
       left: 0,
-      behavior: 'instant',
     });
   }
 
-  window.scrollTo(
-    {
-      top: 0,
-      behavior: 'instant',
-    }
-  );
+  if (
+    typeof window.scrollTo ===
+      'function'
+  ) {
+    window.scrollTo(0, 0);
+  }
 
   return true;
 }
@@ -16701,6 +16716,13 @@ function openPregameMatchup(
       scheduledGame.eventId ||
       '';
 
+  if (
+    typeof bindPregameSimButton ===
+      'function'
+  ) {
+    bindPregameSimButton();
+  }
+
   showScreen(
     'pregame-matchup'
   );
@@ -20113,11 +20135,11 @@ function pauseLiveGamePlayback() {
           'Continue';
 
         continueButton.style.cssText = `
-          position: absolute;
+          position: fixed;
           left: 50%;
-          bottom: 24px;
+          bottom: calc(24px + env(safe-area-inset-bottom, 0px));
           transform: translateX(-50%);
-          z-index: 80;
+          z-index: 2147483647;
           pointer-events: auto;
           touch-action: manipulation;
 
@@ -20143,7 +20165,7 @@ function pauseLiveGamePlayback() {
             transform 180ms ease;
         `;
 
-        liveGameScreen.appendChild(
+        document.body.appendChild(
           continueButton
         );
 
@@ -20242,13 +20264,17 @@ function pauseLiveGamePlayback() {
               );
           } catch (error) {
             console.error(
-              '[Project Ice] Final-horn Postgame Summary handoff threw an error.',
+              '[Project Ice] Final-horn Postgame Summary renderer threw an error.',
               {
                 postgameGameId,
                 gameId,
                 error,
               }
             );
+
+            opened =
+              Game.screen ===
+              'postgame-summary';
           }
 
           if (!opened) {
@@ -20551,137 +20577,261 @@ document
  * the existing postgame-summary pathway.
  */
 
-document
-  .getElementById(
-    'btn-pregame-sim'
-  )
-  ?.addEventListener(
-      'click',
-      async () => {
-      const gameId =
-        pregameMatchupScreen
-          ?.dataset
-          ?.gameId ||
-        null;
+async function simulatePregameMatchupGame(
+  requestedGameId
+) {
+  const gameId =
+    String(requestedGameId || '');
 
-      if (!gameId) {
+  const simButton =
+    document.getElementById(
+      'btn-pregame-sim'
+    );
+
+  if (!gameId) {
+    console.error(
+      '[Project Ice] Sim Game is missing its scheduled game ID.'
+    );
+    return false;
+  }
+
+  const schedule =
+    Array.isArray(
+      WorldEngine.state?.schedule
+    )
+      ? WorldEngine.state.schedule
+      : [];
+
+  const scheduledGame =
+    schedule.find(game =>
+      [
+        game?.gameId,
+        game?.id,
+        game?.eventId,
+        game?.postgameSummary?.gameId,
+      ].some(alias =>
+        alias !== null &&
+        alias !== undefined &&
+        String(alias) === gameId
+      )
+    ) || null;
+
+  if (!scheduledGame) {
+    console.error(
+      '[Project Ice] Sim Game could not find the scheduled matchup.',
+      { gameId }
+    );
+    return false;
+  }
+
+  if (simButton) {
+    simButton.disabled = true;
+    simButton.dataset.originalLabel =
+      simButton.textContent || 'Sim Game';
+    simButton.textContent = 'Simulating…';
+  }
+
+  try {
+    /*
+     * Do not re-enter the Season Engine's user-choice gate. Resolve the exact
+     * scheduled game directly with the universal hockey engine, then hand its
+     * completed result to the canonical date/application pipeline.
+     */
+    let completedResult =
+      scheduledGame.gameResult &&
+      (scheduledGame.played === true ||
+       scheduledGame.completed === true)
+        ? structuredClone(
+            scheduledGame.gameResult
+          )
+        : null;
+
+    if (!completedResult) {
+      const resolution =
+        WorldEngine
+          .resolveLiveGameToFinalResult(
+            scheduledGame
+          );
+
+      if (
+        !resolution ||
+        resolution.success !== true ||
+        !resolution.gameResult
+      ) {
         console.error(
-          '[Project Ice] Sim Game is missing its scheduled game ID.'
+          '[Project Ice] Sim Game universal resolver failed.',
+          resolution
         );
-
-        return;
+        return false;
       }
 
-      /*
-       * Mark this exact career game as approved for immediate
-       * simulation. world.js will consume this flag once and then
-       * return to the normal user-decision behavior for future
-       * career games.
-       */
-      WorldEngine.state
-        .season
-        .careerGameSimApproval =
-          String(gameId);
+      completedResult =
+        resolution.gameResult;
 
-      const currentDate =
+      const gameDate =
+        completedResult.date ||
+        scheduledGame.date ||
         WorldEngine.state
           .season
           ?.currentDate ||
         Game.player.currentDate ||
         null;
 
-      if (!currentDate) {
+      if (!gameDate) {
         console.error(
-          '[Project Ice] Sim Game could not determine the current date.'
+          '[Project Ice] Sim Game could not determine the game date.'
         );
-
-        return;
+        return false;
       }
 
-      /*
-       * We are already ON game day, so simulateToDate(currentDate) can be a
-       * no-op depending on date-advance semantics. Process the current date
-       * explicitly; the one-shot approval above allows this exact career game
-       * to resolve instead of stopping for the Play/Sim choice again.
-       */
-      const simulationResult =
+      const application =
         WorldEngine.advanceToDate(
-          currentDate,
+          gameDate,
           {
             processCurrentDate: true,
+            resolvedGameResult:
+              completedResult,
           }
         );
 
       if (
-        !simulationResult ||
-        simulationResult.success !== true
+        !application ||
+        application.success !== true
       ) {
         console.error(
-          '[Project Ice] Sim Game failed to resolve the current game day.',
-          simulationResult
+          '[Project Ice] Sim Game canonical result application failed.',
+          application
         );
-
-        return;
-      }
-
-      const worldSaved =
-        await WorldEngine.save();
-
-      if (!worldSaved) {
-        console.error(
-          '[Project Ice] Sim Game result could not be persisted.'
-        );
-
-        return;
-      }
-
-      if (
-        typeof syncCareerPlayerWithWorld ===
-        'function'
-      ) {
-        syncCareerPlayerWithWorld();
-      }
-
-      refreshScheduleEvents();
-
-      const completedGame =
-        (Array.isArray(
-          WorldEngine.state?.schedule
-        )
-          ? WorldEngine.state.schedule
-          : []
-        ).find(game =>
-          [
-            game?.gameId,
-            game?.id,
-            game?.eventId,
-            game?.postgameSummary?.gameId,
-          ].some(alias =>
-            alias !== null &&
-            alias !== undefined &&
-            String(alias) === String(gameId)
-          )
-        ) || null;
-
-      const postgameId =
-        completedGame?.gameId ||
-        completedGame?.id ||
-        completedGame?.eventId ||
-        completedGame?.postgameSummary?.gameId ||
-        gameId;
-
-      if (!openPostgameSummary(postgameId)) {
-        console.error(
-          '[Project Ice] Sim Game completed but Postgame Summary could not open.',
-          {
-            postgameId,
-            completedGame,
-            simulationResult,
-          }
-        );
+        return false;
       }
     }
-  );
+
+    const worldSaved =
+      await WorldEngine.save();
+
+    if (!worldSaved) {
+      console.error(
+        '[Project Ice] Sim Game result could not be persisted.'
+      );
+      return false;
+    }
+
+    if (
+      typeof syncCareerPlayerWithWorld ===
+        'function'
+    ) {
+      syncCareerPlayerWithWorld();
+    }
+
+    if (
+      typeof refreshScheduleEvents ===
+        'function'
+    ) {
+      refreshScheduleEvents();
+    }
+
+    const completedGame =
+      (Array.isArray(
+        WorldEngine.state?.schedule
+      )
+        ? WorldEngine.state.schedule
+        : []
+      ).find(game =>
+        [
+          game?.gameId,
+          game?.id,
+          game?.eventId,
+          game?.postgameSummary?.gameId,
+        ].some(alias =>
+          alias !== null &&
+          alias !== undefined &&
+          String(alias) === gameId
+        )
+      ) || scheduledGame;
+
+    const postgameId =
+      completedGame?.gameId ||
+      completedGame?.id ||
+      completedGame?.eventId ||
+      completedGame?.postgameSummary?.gameId ||
+      completedResult?.gameId ||
+      gameId;
+
+    let opened = false;
+
+    try {
+      opened =
+        openPostgameSummary(
+          postgameId
+        );
+    } catch (error) {
+      /*
+       * openPostgameSummary navigates before optional rendering. If an
+       * optional renderer throws after navigation, treat the handoff itself
+       * as successful instead of bouncing back to the matchup screen.
+       */
+      console.error(
+        '[Project Ice] Sim Game Postgame renderer threw.',
+        error
+      );
+
+      opened =
+        Game.screen ===
+        'postgame-summary';
+    }
+
+    if (!opened) {
+      console.error(
+        '[Project Ice] Sim Game completed but Postgame Summary could not open.',
+        {
+          postgameId,
+          completedGame,
+        }
+      );
+      return false;
+    }
+
+    return true;
+  } finally {
+    if (
+      simButton &&
+      Game.screen !==
+        'postgame-summary'
+    ) {
+      simButton.disabled = false;
+      simButton.textContent =
+        simButton.dataset.originalLabel ||
+        'Sim Game';
+    }
+  }
+}
+
+/*
+ * Bind when the matchup is actually opened as well as here at startup.
+ * Assigning onclick (instead of stacking listeners) guarantees one handler.
+ */
+const bindPregameSimButton = () => {
+  const button =
+    document.getElementById(
+      'btn-pregame-sim'
+    );
+
+  if (!button) {
+    return;
+  }
+
+  button.onclick =
+    () =>
+      simulatePregameMatchupGame(
+        pregameMatchupScreen
+          ?.dataset
+          ?.gameId ||
+        null
+      );
+};
+
+bindPregameSimButton();
+
 
 // Begin Event — complete supported career events or route
 // into an existing dedicated event screen.
