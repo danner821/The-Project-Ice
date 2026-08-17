@@ -1,0 +1,117 @@
+name: Validate Game Day Flow TOI
+
+on:
+  push:
+    paths:
+      - '.github/workflows/validate-game-day-flow-toi.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run engine integration checks
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const source = fs.readFileSync('artifacts/project-ice/public/world.js', 'utf8');
+          vm.runInThisContext(source + '\n;globalThis.__ProjectIceWorldEngine = WorldEngine;');
+          const W = globalThis.__ProjectIceWorldEngine;
+
+          W.ensureGeneratedRosters();
+          const teams = W.state.teams;
+          if (!Array.isArray(teams) || teams.length < 2) throw new Error('Need two generated teams');
+          const home = teams[0];
+          const away = teams[1];
+
+          const samples = [];
+          for (let gameIndex = 0; gameIndex < 40; gameIndex++) {
+            const event = {
+              id: `validation-live-${gameIndex}`,
+              gameId: `validation-live-${gameIndex}`,
+              eventId: `validation-live-${gameIndex}`,
+              type: 'game',
+              date: '2026-09-20',
+              homeTeamId: home.teamId,
+              awayTeamId: away.teamId,
+            };
+            const created = W.createLiveGameSimulationState(event);
+            if (!created?.success || !created.simulation) {
+              throw new Error(`createLiveGameSimulationState failed: ${JSON.stringify(created)}`);
+            }
+            const sim = created.simulation;
+            let halfway = null;
+            let steps = 0;
+            while (!sim.gameComplete && steps < 5000) {
+              const step = W.advanceLiveGameStep(sim);
+              if (!step?.success) {
+                throw new Error(`advance step failed: ${JSON.stringify(step)}`);
+              }
+              steps += 1;
+              const regulationElapsed =
+                Math.max(0, Math.min(3600,
+                  (Math.max(1, Number(sim.period) || 1) - 1) * 1200 +
+                  (1200 - Math.max(0, Number(sim.clockSecondsRemaining) || 0))
+                ));
+              if (!halfway && regulationElapsed >= 1800) {
+                const all = [...sim.home.skaters, ...sim.away.skaters];
+                halfway = Math.max(...all.map(p => Number(p.timeOnIceSeconds) || 0));
+              }
+            }
+            if (!sim.gameComplete) throw new Error('Live game hit validation step limit');
+            const all = [...sim.home.skaters, ...sim.away.skaters];
+            const finalMax = Math.max(...all.map(p => Number(p.timeOnIceSeconds) || 0));
+            samples.push({halfway: halfway || 0, finalMax});
+          }
+
+          const avg = key => samples.reduce((s, x) => s + x[key], 0) / samples.length;
+          const max = key => Math.max(...samples.map(x => x[key]));
+          console.log('TOI pacing validation (seconds)', {
+            halfAverageMax: avg('halfway').toFixed(1),
+            halfWorstMax: max('halfway'),
+            finalAverageMax: avg('finalMax').toFixed(1),
+            finalWorstMax: max('finalMax'),
+          });
+          if (max('halfway') > 15 * 60) {
+            throw new Error(`TOI still front-loads: halfway max ${max('halfway')}s`);
+          }
+
+          // Canonical supplied-result application, including an already-processed date retry.
+          const date = '2026-10-15';
+          const id = 'validation-canonical-result';
+          const scheduled = {
+            id, gameId: id, eventId: id, type: 'game', date,
+            homeTeamId: home.teamId, awayTeamId: away.teamId,
+            played: false, completed: false,
+          };
+          W.state.schedule.push(scheduled);
+          W.setCurrentDate(date, {save: false});
+          W.state.season.processedDates = W.state.season.processedDates.filter(d => d !== date);
+          const resolved = W.resolveLiveGameToFinalResult(scheduled);
+          if (!resolved?.success || !resolved.gameResult) {
+            throw new Error(`Direct resolver failed: ${JSON.stringify(resolved)}`);
+          }
+          // Force the retry branch deliberately.
+          W.state.season.processedDates.push(date);
+          const applied = W.advanceToDate(date, {
+            processCurrentDate: true,
+            resolvedGameResult: resolved.gameResult,
+            save: false,
+          });
+          if (!applied?.success) {
+            throw new Error(`Supplied-result application failed: ${JSON.stringify(applied)}`);
+          }
+          const saved = W.state.schedule.find(g => String(g.id || g.gameId) === id);
+          if (!saved?.played || !saved?.completed || !saved?.postgameSummary) {
+            throw new Error(`Canonical game did not persist in memory: ${JSON.stringify(saved)}`);
+          }
+          console.log('Canonical result retry validation passed', {
+            played: saved.played,
+            hasSummary: Boolean(saved.postgameSummary),
+            score: `${saved.awayScore}-${saved.homeScore}`,
+          });
+          NODE
