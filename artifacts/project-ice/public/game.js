@@ -21895,7 +21895,7 @@ document
 .getElementById('btn-begin-season')
 .addEventListener('click', () => {
   const canonicalPlayer =
-    WorldEngine.upsertCareerPlayer({
+    WorldEngine.finalizeFreshCareerAfterTryouts({
       ...Game.player,
 
       playerId:
@@ -21967,6 +21967,7 @@ document
 
     stage: 'hub',
     tryoutsComplete: true,
+    currentDate: '2026-09-02',
   };
 
   /* The career becomes an official selectable save only now: tryouts are complete and Career Hub is unlocked. */
