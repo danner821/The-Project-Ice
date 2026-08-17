@@ -1,0 +1,21 @@
+PASS | one weekly processor declaration
+PASS | weekly idempotence guard
+PASS | weekly processor canonical order
+PASS | deterministic potential reevaluation
+PASS | potential same-week guard
+PASS | scouting same-week guard
+PASS | scouting does not overwrite certainty from games observed
+PASS | weekly scouting rankings exist
+PASS | Freshman of the Year backend
+PASS | Freshman mixed-position scoring
+PASS | award races canonical UI
+PASS | Freshman award UI support
+PASS | League prospect preview declaration
+PASS | League prospect canonical movement
+PASS | lineup weekly snapshots
+PASS | major game beats
+PASS | dynamic news translator
+PASS | League news renderer
+PASS | full news renderer
+FAIL | Home View All news control
+FAIL | League View All news control
