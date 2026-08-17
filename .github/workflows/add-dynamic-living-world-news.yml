@@ -1,0 +1,25 @@
+name: Add Dynamic Living World News
+on:
+  push:
+    paths:
+      - '.github/workflows/add-dynamic-living-world-news.yml'
+      - '.github/scripts/add_dynamic_living_world_news.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/add_dynamic_living_world_news.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "function publishLivingWorldNewsForWeek" artifacts/project-ice/public/world.js
+      - run: grep -q "function renderLeagueNewsPreview" artifacts/project-ice/public/game.js
+      - run: grep -q "Dynamic League News" artifacts/project-ice/public/style.css
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css
+          git commit -m 'Drive league news from the living world' || exit 0
+          git push
