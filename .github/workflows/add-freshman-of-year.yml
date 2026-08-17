@@ -1,0 +1,24 @@
+name: Add Freshman of the Year
+on:
+  push:
+    paths:
+      - '.github/workflows/add-freshman-of-year.yml'
+      - '.github/scripts/add_freshman_of_year.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/add_freshman_of_year.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "freshman_of_year" artifacts/project-ice/public/world.js
+      - run: grep -q "Freshman of the Year" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
+          git commit -m 'Add Freshman of the Year award' || exit 0
+          git push
