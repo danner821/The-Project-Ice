@@ -1,14 +1,96 @@
 from pathlib import Path
+import re
 
 path = Path('artifacts/project-ice/public/world.js')
 text = path.read_text()
 
-old = """      let resolvedRecord = storedRecord;\n\n      /* Legacy single-world migration: preserve the user's existing career as slot #1. */\n      if (!resolvedRecord?.world) {\n        const legacyDatabase = database;\n        const legacyRecord = await new Promise((resolve, reject) => {\n          const transaction = legacyDatabase.transaction(WORLD_STORE_NAME, 'readonly');\n          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);\n          request.onsuccess = () => resolve(request.result || null);\n          request.onerror = () => reject(request.error);\n        });\n        if (legacyRecord?.world) {\n          let careerId = getActiveCareerId();\n          if (!careerId) {\n            careerId = createCareerSaveId();\n            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);\n          }\n          await new Promise((resolve, reject) => {\n            const transaction = legacyDatabase.transaction(WORLD_STORE_NAME, 'readwrite');\n            transaction.objectStore(WORLD_STORE_NAME).put({ ...legacyRecord, id: getWorldRecordId(careerId) });\n            transaction.oncomplete = resolve;\n            transaction.onerror = () => reject(transaction.error);\n          });\n          resolvedRecord = { ...legacyRecord, id: getWorldRecordId(careerId) };\n          upsertCareerSaveMetadata(careerId, legacyRecord.world);\n        }\n      }\n\n      database.close();\n\n      if (\n        resolvedRecord?.world &&\n        typeof storedRecord.world ===\n          'object'\n      ) {\n"""
+pattern = re.compile(
+    r"      let resolvedRecord = storedRecord;\n.*?      database\.close\(\);\n\n      if \(\n        resolvedRecord\?\.world &&\n        typeof storedRecord\.world ===\n          'object'\n      \) \{\n",
+    re.S,
+)
 
-new = """      let resolvedRecord = storedRecord;\n\n      /*\n       * Legacy single-world migration: preserve the user's existing\n       * pre-multi-save career as the first selectable career slot.\n       *\n       * With no active career ID, getWorldRecordId() intentionally\n       * points at the old `default` record. That record still needs\n       * to be copied into a career-specific record and indexed, even\n       * though the initial read succeeded.\n       */\n      if (!getActiveCareerId() && resolvedRecord?.world) {\n        const careerId = createCareerSaveId();\n        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);\n\n        await new Promise((resolve, reject) => {\n          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');\n          transaction.objectStore(WORLD_STORE_NAME).put({\n            ...resolvedRecord,\n            id: getWorldRecordId(careerId),\n          });\n          transaction.oncomplete = resolve;\n          transaction.onerror = () => reject(transaction.error);\n          transaction.onabort = () => reject(transaction.error);\n        });\n\n        resolvedRecord = {\n          ...resolvedRecord,\n          id: getWorldRecordId(careerId),\n        };\n        upsertCareerSaveMetadata(careerId, resolvedRecord.world);\n      }\n\n      /*\n       * If a career-specific record was requested but is missing,\n       * make one final compatibility check for the old default record.\n       */\n      if (!resolvedRecord?.world) {\n        const legacyRecord = await new Promise((resolve, reject) => {\n          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');\n          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);\n          request.onsuccess = () => resolve(request.result || null);\n          request.onerror = () => reject(request.error);\n        });\n\n        if (legacyRecord?.world) {\n          let careerId = getActiveCareerId();\n          if (!careerId) {\n            careerId = createCareerSaveId();\n            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);\n          }\n\n          await new Promise((resolve, reject) => {\n            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');\n            transaction.objectStore(WORLD_STORE_NAME).put({\n              ...legacyRecord,\n              id: getWorldRecordId(careerId),\n            });\n            transaction.oncomplete = resolve;\n            transaction.onerror = () => reject(transaction.error);\n            transaction.onabort = () => reject(transaction.error);\n          });\n\n          resolvedRecord = {\n            ...legacyRecord,\n            id: getWorldRecordId(careerId),\n          };\n          upsertCareerSaveMetadata(careerId, legacyRecord.world);\n        }\n      }\n\n      database.close();\n\n      if (\n        resolvedRecord?.world &&\n        typeof resolvedRecord.world ===\n          'object'\n      ) {\n"""
+replacement = """      let resolvedRecord = storedRecord;
 
-if old not in text:
-    raise SystemExit('multi-save migration block not found')
+      /*
+       * Legacy single-world migration: preserve the user's existing
+       * pre-multi-save career as the first selectable career slot.
+       *
+       * With no active career ID, getWorldRecordId() points at the old
+       * `default` record. A successful read still has to be copied into
+       * a career-specific record and added to the save index.
+       */
+      if (!getActiveCareerId() && resolvedRecord?.world) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
 
-path.write_text(text.replace(old, new, 1))
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).put({
+            ...resolvedRecord,
+            id: getWorldRecordId(careerId),
+          });
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+
+        resolvedRecord = {
+          ...resolvedRecord,
+          id: getWorldRecordId(careerId),
+        };
+        upsertCareerSaveMetadata(careerId, resolvedRecord.world);
+      }
+
+      /*
+       * If a career-specific record was requested but is missing,
+       * make one final compatibility check for the old default record.
+       */
+      if (!resolvedRecord?.world) {
+        const legacyRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+
+        if (legacyRecord?.world) {
+          let careerId = getActiveCareerId();
+          if (!careerId) {
+            careerId = createCareerSaveId();
+            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+          }
+
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).put({
+              ...legacyRecord,
+              id: getWorldRecordId(careerId),
+            });
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+
+          resolvedRecord = {
+            ...legacyRecord,
+            id: getWorldRecordId(careerId),
+          };
+          upsertCareerSaveMetadata(careerId, legacyRecord.world);
+        }
+      }
+
+      database.close();
+
+      if (
+        resolvedRecord?.world &&
+        typeof resolvedRecord.world ===
+          'object'
+      ) {
+"""
+
+updated, count = pattern.subn(replacement, text, count=1)
+if count != 1:
+    raise SystemExit(f'multi-save migration block matches: {count}')
+
+path.write_text(updated)
 print('fixed multi-save legacy migration')
