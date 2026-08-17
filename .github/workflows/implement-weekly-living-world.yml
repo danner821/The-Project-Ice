@@ -1,0 +1,24 @@
+name: Implement Weekly Living World
+on:
+  push:
+    paths:
+      - '.github/workflows/implement-weekly-living-world.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/implement_weekly_living_world.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: |
+          grep -q "function processLivingWorldWeek" artifacts/project-ice/public/world.js
+          grep -q "processLivingWorldForDate(normalizedDate)" artifacts/project-ice/public/world.js
+          grep -q "ensureLivingWorldState" artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Add weekly living world foundation' || exit 0
+          git push
