@@ -1,0 +1,23 @@
+name: Fix isDevSession Regression
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-isdevsession-regression.yml'
+      - '.github/scripts/fix_isdevsession_regression.py'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_isdevsession_regression.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "PROJECT_ICE_DEV_SESSION" artifacts/project-ice/public/game.js
+      - run: '! grep -q "isDevSession" artifacts/project-ice/public/game.js'
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Fix career load dev session regression' || exit 0
+          git push
