@@ -5,10 +5,16 @@ on:
       - '.github/workflows/inspect-scouting-event-hooks.yml'
       - '.github/scripts/inspect_scouting_event_hooks.py'
 permissions:
-  contents: read
+  contents: write
 jobs:
   inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python .github/scripts/inspect_scouting_event_hooks.py
+      - run: python .github/scripts/inspect_scouting_event_hooks.py > .github/scouting_event_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/scouting_event_audit.txt
+          git commit -m 'Persist temporary scouting event audit' || exit 0
+          git push
