@@ -1,0 +1,23 @@
+name: Add Scouting Interest Watchers
+on:
+  push:
+    paths:
+      - '.github/workflows/add-scouting-interest-watchers.yml'
+      - '.github/scripts/add_scouting_interest_watchers.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/add_scouting_interest_watchers.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q "function updateScoutingOrganizationsWatching" artifacts/project-ice/public/world.js
+      - run: grep -q "organizationInterestHistory" artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Add persistent scouting organization interest' || exit 0
+          git push
