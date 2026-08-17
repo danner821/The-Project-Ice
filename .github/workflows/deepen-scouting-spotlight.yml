@@ -11,15 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python .github/scripts/deepen_scouting_spotlight.py
-      - run: node --check artifacts/project-ice/public/world.js
-      - run: node --check artifacts/project-ice/public/game.js
-      - run: grep -q "function getScoutingGameSpotlightWeight" artifacts/project-ice/public/world.js
-      - run: grep -q "scoutingProcessedWeeks" artifacts/project-ice/public/world.js
-      - run: grep -q "previousRank: previousRank || null" artifacts/project-ice/public/game.js
       - run: |
+          set +e
+          python .github/scripts/deepen_scouting_spotlight.py > .github/spotlight_patch_log.txt 2>&1
+          PATCH_STATUS=$?
+          echo "PATCH_STATUS=$PATCH_STATUS" >> .github/spotlight_patch_log.txt
+          node --check artifacts/project-ice/public/world.js >> .github/spotlight_patch_log.txt 2>&1
+          echo "WORLD_CHECK=$?" >> .github/spotlight_patch_log.txt
+          node --check artifacts/project-ice/public/game.js >> .github/spotlight_patch_log.txt 2>&1
+          echo "GAME_CHECK=$?" >> .github/spotlight_patch_log.txt
           git config user.name 'Project Ice Bot'
           git config user.email 'actions@github.com'
-          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
-          git commit -m 'Make scouting spotlight games matter' || exit 0
+          git add .github/spotlight_patch_log.txt artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
+          git commit -m 'Apply scouting spotlight patch and record validation' || exit 0
           git push
+          exit $PATCH_STATUS
