@@ -1,0 +1,24 @@
+name: Inspect World Bootstrap
+on:
+  push:
+    paths: ['.github/workflows/inspect-world-bootstrap.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          lines=Path('artifacts/project-ice/public/world.js').read_text().splitlines()
+          terms=['ensureHighSchoolTeamsExist','createHighSchoolCareerSchedule','upsertCareerPlayer','populateTeamRoster','generateTeamRoster','roster = generate','SEED_TEAMS','createGenerated']
+          for term in terms:
+            print('\nTERM',term)
+            hits=[i for i,l in enumerate(lines) if term in l]
+            for i in hits[:4]:
+              a=max(0,i-70); b=min(len(lines),i+180)
+              for j in range(a,b): print(f'{j+1}:{lines[j]}')
+              print('---')
+          PY
