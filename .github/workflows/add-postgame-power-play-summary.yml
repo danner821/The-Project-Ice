@@ -1,3 +1,4 @@
+# Retry PP summary validation through the known canonical supplied-result path
 name: Add Postgame Power Play Summary
 
 on:
@@ -27,7 +28,7 @@ jobs:
           W.ensureGeneratedRosters();
           const [home, away] = W.state.teams;
           const id = 'pp-summary-validation';
-          const date = '2026-11-01';
+          const date = '2026-10-15';
           const scheduled = { id, gameId:id, eventId:id, type:'game', date, homeTeamId:home.teamId, awayTeamId:away.teamId, played:false, completed:false };
           W.state.schedule.push(scheduled);
           W.setCurrentDate(date,{save:false});
@@ -38,11 +39,12 @@ jobs:
             if (resolved?.success && resolved.gameResult) break;
           }
           if (!resolved?.success || !resolved.gameResult) throw new Error('live resolver failed');
+          W.state.season.processedDates.push(date);
           const applied = W.advanceToDate(date,{processCurrentDate:true,resolvedGameResult:resolved.gameResult,save:false});
-          if (!applied?.success) throw new Error('result apply failed');
+          if (!applied?.success) throw new Error(`result apply failed ${JSON.stringify(applied)}`);
           const saved = W.state.schedule.find(g => String(g.id || g.gameId) === id);
           const s = saved?.postgameSummary;
-          if (!s) throw new Error('postgame summary missing');
+          if (!s) throw new Error(`postgame summary missing ${JSON.stringify(saved)}`);
           for (const side of ['home','away']) {
             if (!Object.prototype.hasOwnProperty.call(s[side] || {}, 'powerPlayGoals')) throw new Error(`${side} PP goals missing`);
             if (!Object.prototype.hasOwnProperty.call(s[side] || {}, 'powerPlayOpportunities')) throw new Error(`${side} PP opportunities missing`);
