@@ -10848,8 +10848,31 @@ function renderScheduleKeyEvents() {
   });
 }
 function renderPlayerProfile() {
-  const p = _activePlayerProfile;
-  if (!p) return;
+  const selectedPlayer = _activePlayerProfile;
+  if (!selectedPlayer) return;
+
+  /*
+   * Standalone Player Profiles are presentation-only views over the same
+   * canonical world-player backend used by the career Player tab. Prospect
+   * lists and stat tables sometimes pass copied snapshot objects, so resolve
+   * back to the saved roster player before rendering whenever possible.
+   */
+  const selectedPlayerId = String(
+    selectedPlayer.id || selectedPlayer.playerId || ''
+  );
+
+  const canonicalPlayer = (WorldEngine.state.teams || [])
+    .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
+    .find(player =>
+      selectedPlayerId &&
+      String(player?.id || player?.playerId || '') === selectedPlayerId
+    );
+
+  const p = canonicalPlayer || selectedPlayer;
+
+  if (canonicalPlayer) {
+    _activePlayerProfile = canonicalPlayer;
+  }
 
   const name = `${p.firstName} ${p.lastName}`.trim() || '—';
   const age = p.age || 14;
@@ -10969,14 +10992,21 @@ if (nameEl) {
 
   if (potentialRoleEl) {
     potentialRoleEl.textContent =
-      p.potentialRole || 'Top 9 F';
+      p.development?.potentialRole ||
+      p.potentialRole ||
+      'Top 9 F';
   }
 
   const potentialAccuracyEl =
     document.getElementById('player-profile-potential-accuracy');
 
   if (potentialAccuracyEl) {
-    const accuracy = (p.potentialAccuracy || 'Medium').toUpperCase();
+    const accuracy = String(
+      p.development?.potentialAccuracy ||
+      p.potentialAccuracy ||
+      p.scoutingProfile?.evaluationAccuracy ||
+      'Medium'
+    ).toUpperCase();
 
     potentialAccuracyEl.textContent =
       accuracy === 'MEDIUM' ? 'MED' : accuracy;
@@ -11455,22 +11485,39 @@ if (nameEl) {
     }))
     .sort((a, b) => b.value - a.value);
 
-  const strengths = rankedAttributes.slice(0, 3);
-  const weaknesses = [...rankedAttributes]
-    .sort((a, b) => a.value - b.value)
-    .slice(0, 3);
+  const scoutingProfile =
+    p.scoutingProfile && typeof p.scoutingProfile === 'object'
+      ? p.scoutingProfile
+      : {};
+
+  const knownStrengths = Array.isArray(scoutingProfile.strengthsKnown)
+    ? scoutingProfile.strengthsKnown.filter(Boolean)
+    : [];
+
+  const knownWeaknesses = Array.isArray(scoutingProfile.weaknessesKnown)
+    ? scoutingProfile.weaknessesKnown.filter(Boolean)
+    : [];
+
+  const strengths = knownStrengths.map(trait => ({
+    label: typeof trait === 'string' ? trait : (trait.label || trait.name || 'Strength'),
+  }));
+
+  const weaknesses = knownWeaknesses.map(trait => ({
+    label: typeof trait === 'string' ? trait : (trait.label || trait.name || 'Weakness'),
+  }));
 
   const strengthsEl = document.getElementById('pp-strengths');
 
   if (strengthsEl) {
-    strengthsEl.innerHTML = strengths
-      .map(attribute => `
-        <li class="pp-dev-list__item">
-          ${attribute.label}
-          <span>${attribute.value}</span>
-        </li>
-      `)
-      .join('');
+    strengthsEl.innerHTML = strengths.length > 0
+      ? strengths
+          .map(attribute => `
+            <li class="pp-dev-list__item">
+              ${attribute.label}
+            </li>
+          `)
+          .join('')
+      : '<li class="pp-dev-list__item">Not evaluated</li>';
   }
 
   const weaknessesEl =
@@ -11479,14 +11526,15 @@ if (nameEl) {
     );
 
   if (weaknessesEl) {
-    weaknessesEl.innerHTML = weaknesses
-      .map(attribute => `
-        <li class="pp-dev-list__item">
-          ${attribute.label}
-          <span>${attribute.value}</span>
-        </li>
-      `)
-      .join('');
+    weaknessesEl.innerHTML = weaknesses.length > 0
+      ? weaknesses
+          .map(attribute => `
+            <li class="pp-dev-list__item">
+              ${attribute.label}
+            </li>
+          `)
+          .join('')
+      : '<li class="pp-dev-list__item">Not evaluated</li>';
   }
 
   /*
@@ -11558,7 +11606,15 @@ if (nameEl) {
     );
 
   if (scoutTextEl) {
-    scoutTextEl.textContent = getScoutReport(p);
+    const scoutingHistory = Array.isArray(p.scoutingProfile?.scoutingHistory)
+      ? p.scoutingProfile.scoutingHistory
+      : [];
+    const latestScoutingReport = scoutingHistory[scoutingHistory.length - 1] || null;
+
+    scoutTextEl.textContent =
+      latestScoutingReport?.summary ||
+      latestScoutingReport?.reportText ||
+      getScoutReport(p);
   }
 }
 function getScoutReport(player) {
@@ -11649,7 +11705,9 @@ function getScoutReport(player) {
   ].sort((a, b) => a.value - b.value);
 
   const overall = Number(player.overall) || 60;
-  const potential = Number(player.potential) || overall;
+  const potential = Number(
+    player.development?.potential ?? player.potential
+  ) || overall;
   const age = Number(player.age) || 14;
 
   let projection;
