@@ -1,0 +1,31 @@
+name: Patch Weekly Living World
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-weekly-living-world.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch weekly living world
+        run: python .github/scripts/patch_weekly_living_world.py
+      - name: Check JavaScript syntax
+        run: node --check artifacts/project-ice/public/world.js
+      - name: Validate weekly hooks
+        run: |
+          grep -q 'weeklyHistory' artifacts/project-ice/public/world.js
+          grep -q 'buildWeeklyLivingWorldSnapshot' artifacts/project-ice/public/world.js
+          grep -q 'completedAtDate' artifacts/project-ice/public/world.js
+      - name: Commit gameplay change
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Build Weekly Living World snapshots'
+          git push
