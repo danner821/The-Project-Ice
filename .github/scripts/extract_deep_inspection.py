@@ -17,22 +17,24 @@ parts=[]
 for title,key,needle,b,a in [
     ('SHOWSCREEN','game','function showScreen',1200,6000),
     ('OPEN PREGAME','game','function openPregameMatchup',1200,9000),
+    ('PREGAME LISTENER','game',"'btn-pregame-sim'",2500,9000),
     ('PREGAME HTML','html','btn-pregame-sim',2500,5000),
     ('LIVE HTML','html','live-game-screen',2500,9000),
     ('POSTGAME HTML','html','postgame-summary-screen',2500,6000),
     ('SIM APPROVAL','world','careerGameSimApproval',5000,10000),
     ('ADVANCE DATE','world','function advanceToDate',2500,14000),
-    ('PROCESS SEASON DATE','world','function processSeasonDate',3500,22000),
+    ('PROCESS SEASON DATE','world','function processSeasonDate',3500,26000),
+    ('APPLY GAME RESULT','world','function applyGameResultToTeamsAndSchedule',4000,18000),
     ('RESOLVED GAME RESULT','world','resolvedGameResult',7000,18000),
     ('TOI ACCRUAL PLUS','world','timeOnIceSeconds +=',9000,14000),
     ('TOI ACCRUAL ASSIGN','world','timeOnIceSeconds =',9000,14000),
-    ('SPECIAL TEAMS SHIFT','world','specialTeamsShiftUnit',7000,15000),
-    ('DEPLOYMENT AGE RESET','world','flow.deploymentAgeSeconds =',7000,13000),
+    ('SPECIAL TEAMS SHIFT','world','specialTeamsShiftUnit',7000,16000),
+    ('DEPLOYMENT AGE RESET','world','flow.deploymentAgeSeconds =',7000,14000),
 ]:
     parts.append(f'\n\n===== {title} =====\n'+block(files[key],needle,b,a))
 
 css=files['css']
-for needle in ['#pregame-matchup-screen','#live-game-screen','#postgame-summary-screen','.screen','live-game-career-decision','live-game-career-outcome']:
-    parts.append(f'\n\n===== CSS {needle} =====\n'+block(css,needle,1500,4500))
+for needle in ['#pregame-matchup-screen','#live-game-screen','#postgame-summary-screen','.screen','live-game-career-decision','live-game-career-outcome','pointer-events']:
+    parts.append(f'\n\n===== CSS {needle} =====\n'+block(css,needle,1800,5500))
 
 Path('.github/deep-inspection.txt').write_text(''.join(parts))
