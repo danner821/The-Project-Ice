@@ -1,0 +1,1914 @@
+
+### async function load( @ 861851
+ansaction =
+            database.transaction(
+              WORLD_STORE_NAME,
+              'readwrite'
+            );
+
+          const store =
+            transaction.objectStore(
+              WORLD_STORE_NAME
+            );
+
+          const activeCareerId = getActiveCareerId();
+
+          store.put({
+            id:
+              getWorldRecordId(activeCareerId),
+
+            savedAt:
+              new Date()
+                .toISOString(),
+
+            world:
+              worldSnapshot,
+          });
+
+          transaction.oncomplete =
+            () => {
+              resolve();
+            };
+
+          transaction.onerror =
+            () => {
+              reject(
+                transaction.error ||
+                new Error(
+                  'Project Ice world save transaction failed.'
+                )
+              );
+            };
+
+          transaction.onabort =
+            () => {
+              reject(
+                transaction.error ||
+                new Error(
+                  'Project Ice world save transaction was aborted.'
+                )
+              );
+            };
+        }
+      );
+
+      database.close();
+
+      const activeCareerId = getActiveCareerId();
+      const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+      if (activeCareerId && activeCareerId !== pendingCareerId) {
+        upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
+      }
+    } catch (error) {
+      console.error(
+        '[WorldEngine] IndexedDB save failed:',
+        error
+      );
+
+      return false;
+    }
+
+
+    return true;
+  }
+
+  /**
+   * Load a persisted world. Merges stored data over defaults so
+   * missing fields from older save versions are back-filled.
+   * @returns {boolean} true if a stored world was found and loaded.
+   */
+  async function load() {
+    /*
+     * ============================================================
+     * PRIMARY LOAD — INDEXEDDB
+     * ============================================================
+     */
+    try {
+      const database =
+        await openWorldDatabase();
+
+      const storedRecord =
+        await new Promise(
+          (resolve, reject) => {
+            const transaction =
+              database.transaction(
+                WORLD_STORE_NAME,
+                'readonly'
+              );
+
+            const store =
+              transaction.objectStore(
+                WORLD_STORE_NAME
+              );
+
+            const request =
+              store.get(
+                getWorldRecordId()
+              );
+
+            request.onsuccess =
+              () => {
+                resolve(
+                  request.result ||
+                  null
+                );
+              };
+
+            request.onerror =
+              () => {
+                reject(
+                  request.error ||
+                  new Error(
+                    'Project Ice IndexedDB world load failed.'
+                  )
+                );
+              };
+          }
+        );
+
+      let resolvedRecord = storedRecord;
+
+      /*
+       * Legacy single-world migration: preserve the user's existing
+       * pre-multi-save career as the first selectable career slot.
+       *
+       * With no active career ID, getWorldRecordId() points at the old
+       * `default` record. A successful read still has to be copied into
+       * a career-specific record and added to the save index.
+       */
+      if (!getActiveCareerId() && resolvedRecord?.world) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).put({
+            ...resolvedRecord,
+            id: getWorldRecordId(careerId),
+          });
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+
+        resolvedRecord = {
+          ...resolvedRecord,
+          id: getWorldRecordId(careerId),
+        };
+        upsertCareerSaveMetadata(careerId, resolvedRecord.world);
+      }
+
+      /* If a career-specific record is missing, fall back to the old default record once. */
+      if (!resolvedRecord?.world) {
+        const legacyRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+
+        if (legacyRecord?.world) {
+          let careerId = getActiveCareerId();
+          if (!careerId) {
+            careerId = createCareerSaveId();
+            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+          }
+
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).put({
+              ...legacyRecord,
+              id: getWorldRecordId(careerId),
+            });
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+
+          resolvedRecord = {
+            ...legacyRecord,
+            id: getWorldRecordId(careerId),
+          };
+          upsertCareerSaveMetadata(careerId, legacyRecord.world);
+        }
+      }
+
+      database.close();
+
+      if (
+        resolvedRecord?.world &&
+        typeof resolvedRecord.world ===
+          'object'
+      ) {
+        _state = {
+          ...buildDefaults(),
+          ...resolvedRecord.world,
+        };
+
+        if (
+          !Array.isArray(
+            _state.newsItems
+          ) ||
+          _state.newsItems.length === 0
+        ) {
+          _state.newsItems =
+            SEED_NEWS.map(
+              item => ({
+                ...item,
+              })
+            );
+        }
+
+        ensureCanonicalSeasonState(
+          _state
+        );
+
+        /*
+         * IndexedDB is now authoritative.
+         * Remove the obsolete giant localStorage world so it cannot
+         * consume the browser quota needed by the small career preview.
+         */
+        localStorage.removeItem(
+          WORLD_KEY
+        );
+
+        return true;
+      }
+    } catch (error) {
+      console.warn(
+        '[WorldEngine] IndexedDB load unavailable, trying legacy localStorage:',
+        error
+      );
+    }
+
+    /*
+     * ============================================================
+     * LEGACY MIGRATION — LOCALSTORAGE
+     * ============================================================
+     *
+     * If IndexedDB does not have a world yet, import the existing
+     * localStorage world once so current careers are preserved.
+     */
+    try {
+      const stored =
+        localStorage.getItem(
+          WORLD_KEY
+        );
+
+      if (!stored) {
+        return false;
+      }
+
+      const parsed =
+        JSON.parse(stored);
+
+      _state = {
+        ...buildDefaults(),
+        ...parsed,
+      };
+
+      if (
+        !Array.isArray(
+          _state.newsItems
+        ) ||
+        _state.newsItems.length === 0
+      ) {
+        _state.newsItems =
+          SEED_NEWS.map(
+            item => ({
+              ...item,
+            })
+          );
+      }
+
+      ensureCanonicalSeasonState(
+        _state
+      );
+
+      /*
+       * Immediately migrate the legacy world into IndexedDB.
+       */
+      await save();
+
+      /*
+       * Migration succeeded. The old localStorage world is no longer
+       * needed and was the source of our quota problem.
+       */
+      localStorage.removeItem(
+        WORLD_KEY
+      );
+
+      return true;
+    } catch (error) {
+      console.error(
+        '[WorldEngine] Load failed:',
+        error
+      );
+
+      return false;
+    }
+  }
+
+  function getWorldCareerPlayer(world) {
+    if (!world || typeof world !== 'object') return null;
+    const playerId = world?.player?.playerId || world?.player?.id || 'career-player';
+    for (const team of world?.teams || []) {
+      const found = (team?.roster || []).find(player =>
+        player?.isCareerPlayer === true ||
+        String(player?.id || player?.playerId || '') === String(playerId)
+      );
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function getCareerIdentity(world) {
+    const player = getWorldCareerPlayer(world) || world?.player || {};
+    const firstName = String(player?.firstName || world?.player?.firstName || '').trim().toLowerCase();
+    const lastName = String(player?.lastName || world?.player?.lastName || '').trim().toLowerCase();
+    const teamId = String(player?.teamId || world?.player?.teamId || world?.player?.highSchoolTeamId || '').trim().toLowerCase();
+    return { firstName, lastName, teamId };
+  }
+
+  function sameCareerIdentity(a, b) {
+    const x = getCareerIdentity(a);
+    const y = getCareerIdentity(b);
+    return Boolean(
+      x.firstName && x.lastName && x.teamId &&
+      x.firstName === y.firstName &&
+      x.lastName === y.lastName &&
+      x.teamId === y.teamId
+    );
+  }
+
+  function getCareerWorldFidelity(world) {
+    const player = getWorldCareerPlayer(world) || world?.player || {};
+    let score = 0;
+    const attrs = player?.attributes && typeof player.attributes === 'object'
+      ? Object.values(player.attributes).filter(value => Number.isFinite(Number(value)))
+      : [];
+    const results = player?.tryoutResults || player?.tryoutProfile?.results || {};
+    if (attrs.length >= 8) score += 20;
+    if (Number(player?.startingOverall) > 0) score += 12;
+    if (Number(player?.overallTryoutScore ?? player?.tryoutProfile?.score) > 0) score += 24;
+    if (results && typeof results === 'object' && Object.keys(results).length > 0) score += 24;
+    if (player?.startingLine || player?.rosterSlot) score += 12;
+    if (player?.lineupAssignment) score += 8;
+    if (Number(player?.coachTrust) > 0) score += 6;
+    if (world?.season?.processedDates?.length > 0) score += 4;
+    return score;
+  }
+
+  async function recoverLegacyDefaultCareerRecord() {
+    try {
+      const database = await openWorldDatabase();
+      const records = await new Promise((resolve, reject) => {
+        const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+        const request = transaction.objectStore(WORLD_STORE_NAME).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error);
+      });
+
+      const legacyRecord = records.find(record =>
+     
+
+### function getWorldRecordId @ 1764
+/* ============================================================
+   PROJECT ICE — world.js
+   Build 0.0.1
+
+   World Engine — foundational data layer.
+   Holds all game-world state separately from the player save.
+   Player saves reference the world via worldRef: 'default'.
+
+   Future systems (simulation, scheduling, roster generation)
+   read and write through this object. This file has zero
+   knowledge of game.js or the DOM; it is pure data + logic.
+   ============================================================ */
+
+'use strict';
+
+/* global WorldEngine */
+
+const WorldEngine = (() => {
+
+  // ── Storage key (separate from the player SAVE_KEY) ────────
+  const WORLD_KEY = 'projectice_world';
+
+  /*
+   * ============================================================
+   * WORLD STORAGE — INDEXEDDB
+   * ============================================================
+   *
+   * The Project Ice world has outgrown localStorage.
+   *
+   * localStorage remains available temporarily as a migration
+   * source for older saves, but the full world state will now live
+   * in IndexedDB so large rosters, schedules, stats and history can
+   * persist safely.
+   */
+
+  const WORLD_DB_NAME =
+    'projectice_database';
+
+  const WORLD_DB_VERSION =
+    1;
+
+  const WORLD_STORE_NAME =
+    'worlds';
+
+  const WORLD_RECORD_ID =
+    'default';
+
+  const CAREER_SAVE_INDEX_KEY =
+    'projectice_career_save_index_v1';
+
+  const ACTIVE_CAREER_ID_KEY =
+    'projectice_active_career_id_v1';
+
+  const PENDING_CAREER_ID_KEY =
+    'projectice_pending_career_id_v1';
+
+  function createCareerSaveId() {
+    return `career-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function getActiveCareerId() {
+    return localStorage.getItem(ACTIVE_CAREER_ID_KEY) || null;
+  }
+
+  function getWorldRecordId(careerId = getActiveCareerId()) {
+    return careerId ? `career:${careerId}` : WORLD_RECORD_ID;
+  }
+
+  function readCareerSaveIndex() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CAREER_SAVE_INDEX_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeCareerSaveIndex(entries) {
+    localStorage.setItem(CAREER_SAVE_INDEX_KEY, JSON.stringify(Array.isArray(entries) ? entries : []));
+  }
+
+  function buildCareerSaveMetadata(careerId, state = _state) {
+    const playerId = state?.player?.playerId || state?.player?.id || 'career-player';
+    let careerPlayer = null;
+    for (const team of state?.teams || []) {
+      careerPlayer = (team?.roster || []).find(player =>
+        String(player?.id || player?.playerId || '') === String(playerId) || player?.isCareerPlayer === true
+      );
+      if (careerPlayer) break;
+    }
+    const team = (state?.teams || []).find(item => String(item?.teamId || '') === String(careerPlayer?.teamId || state?.player?.teamId || ''));
+    return {
+      id: careerId,
+      playerName: `${careerPlayer?.firstName || state?.player?.firstName || ''} ${careerPlayer?.lastName || state?.player?.lastName || ''}`.trim() || 'Unnamed Career',
+      position: careerPlayer?.position || state?.player?.position || '',
+      overall: Number(careerPlayer?.overall) || Number(state?.player?.overall) || null,
+      teamName: team ? `${team.schoolName || ''} ${team.teamName || ''}`.trim() : (careerPlayer?.teamName || state?.player?.teamName || ''),
+      teamAbbreviation: team?.abbreviation || '',
+      currentDate: state?.season?.currentDate || state?.player?.currentDate || state?.currentDate || null,
+      seasonLabel: state?.season?.label || state?.currentSeason || '',
+      stage: careerPlayer?.stage || state?.player?.stage || '',
+      tryoutsComplete: careerPlayer?.tryoutsComplete === true || state?.player?.tryoutsComplete === true,
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  function upsertCareerSaveMetadata(careerId, state = _state) {
+    if (!careerId) return;
+    const index = readCareerSaveIndex();
+    const metadata = buildCareerSaveMetadata(careerId, state);
+    const existing = index.findIndex(item => item?.id === careerId);
+    if (existing >= 0) index[existing] = metadata; else index.unshift(metadata);
+    writeCareerSaveIndex(index);
+  }
+
+  function openWorldDatabase() {
+    return new Promise(
+      (resolve, reject) => {
+        const request =
+          indexedDB.open(
+            WORLD_DB_NAME,
+            WORLD_DB_VERSION
+          );
+
+        request.onupgradeneeded =
+          event => {
+            const database =
+              event.target.result;
+
+            if (
+              !database.objectStoreNames
+                .contains(
+                  WORLD_STORE_NAME
+                )
+            ) {
+              database.createObjectStore(
+                WORLD_STORE_NAME,
+                {
+                  keyPath: 'id',
+                }
+              );
+            }
+          };
+
+        request.onsuccess =
+          () => {
+            resolve(
+              request.result
+            );
+          };
+
+        request.onerror =
+          () => {
+            reject(
+              request.error ||
+              new Error(
+                'Could not open Project Ice IndexedDB.'
+              )
+            );
+          };
+      }
+    );
+  }
+
+  // ── Seed teams ──────────────────────────────────────────────
+  // Eight fictional high-school programs for the 2022-23 season.
+  // Future systems populate each team's roster array and update
+  // the stats fields (wins, losses, etc.) after simulated games.
+  // Add new teams here; buildDefaults() deep-copies the array.
+  const SEED_TEAMS = [
+    {
+      teamId:          'team-summit-academy',
+      schoolName:      'Summit Academy',
+      teamName:        'Titans',
+      abbreviation: 'TIT',
+      primaryColor:    '#1a1a2e',
+      secondaryColor:  '#c9a84c',
+      prestige:        5,
+      identity:        'Elite powerhouse with strong scout attention.',
+      coach: {
+        name: 'Marcus Hale',
+
+        style:
+          'Offensive-minded coach with championship expectations.',
+
+        /*
+         * Internal coaching philosophy.
+         * These values guide deployment decisions but are never
+         * displayed as public coach ratings.
+         */
+        deploymentPreferences: {
+          abilityWeight: 1.08,
+          coachTrustWeight: 0.15,
+          recentFormWeight: 0.13,
+          disciplineWeight: 0.05,
+          developmentWeight: 0.05,
+          roleStabilityWeight: 0.08,
+
+          evenStrengthEmphasis: 1.04,
+          powerPlayEmphasis: 1.12,
+          penaltyKillEmphasis: 0.92,
+          goalieEmphasis: 1.00,
+
+          favorsOffense: true,
+          favorsDefense: false,
+          favorsVeterans: false,
+          favorsDevelopment: false,
+        },
+      },
+
+      arena: {
+
+        name: 'Summit Ice Center',
+
+        capacity: 2400,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-iron-peak',
+      schoolName:      'Iron Peak',
+      teamName:        'Wolves',
+      abbreviation: 'IPW',
+      primaryColor:    '#2b2d2f',
+      secondaryColor:  '#8b0000',
+      prestige:        3,
+      identity:        'Physical, defense-first team.',
+      coach: {
+
+        name: 'Derek Mercer',
+
+        style: 'Demanding defensive coach who values physical play.',
+
+      },
+
+      arena: {
+
+        name: 'The Wolf Den',
+
+        capacity: 2100,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-north-ridge',
+      schoolName:      'North Ridge',
+      teamName:        'Falcons',
+      abbreviation: 'NRF',
+      primaryColor:    '#003366',
+      secondaryColor:  '#c0c0c0',
+      prestige:        4,
+      identity:        'Fast, skilled, disciplined team.',
+      coach: {
+
+        name: 'Ryan Callahan',
+
+        style: 'Detail-oriented coach focused on speed and discipline.',
+
+      },
+
+      arena: {
+
+        name: 'Falcon Ice Pavilion',
+
+        capacity: 1950,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-cedar-valley',
+      schoolName:      'Cedar Valley',
+      teamName:        'Storm',
+      abbreviation: 'CVS',
+      primaryColor:    '#1b4332',
+      secondaryColor:  '#52b788',
+      prestige:        2,
+      identity:        'Underdog program known for player development.',
+      coach: {
+
+        name: 'Evan Brooks',
+
+        style: 'Patient development coach known for improving young players.',
+
+      },
+
+      arena: {
+
+        name: 'Cedar Valley Community Rink',
+
+        capacity: 1450,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-westbrook',
+      schoolName:      'Westbrook',
+      teamName:        'Knights',
+      abbreviation: 'WBK',
+      primaryColor:    '#1c1c3a',
+      secondaryColor:  '#e8e8e8',
+      prestige:        3,
+      identity:        'Structured defensive team with strong goaltending.',
+      coach: {
+
+        name: 'Thomas Keane',
+
+        style: 'Structured coach who emphasizes defense and goaltending.',
+
+      },
+
+      arena: {
+
+        name: 'Westbrook Ice Hall',
+
+        capacity: 1800,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-granite-falls',
+      schoolName:      'Granite Falls',
+      teamName:        'Bears',
+      abbreviation: 'GFB',
+      primaryColor:    '#3b1f0a',
+      secondaryColor:  '#d4a96a',
+      prestige:        2,
+      identity:        'Physical, blue-collar team.',
+      coach: {
+
+        name: 'Cole Davidson',
+
+        style: 'Blue-collar coach who demands effort and physicality.',
+
+      },
+
+      arena: {
+
+        name: 'Granite Ice Pavilion',
+
+        capacity: 2200,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-lakeview',
+      schoolName:      'Lakeview',
+      teamName:        'Lynx',
+      abbreviation: 'LVL',
+      primaryColor:    '#00416a',
+      seconda
+
+### function readCareerSaveIndex @ 1893
+Build 0.0.1
+
+   World Engine — foundational data layer.
+   Holds all game-world state separately from the player save.
+   Player saves reference the world via worldRef: 'default'.
+
+   Future systems (simulation, scheduling, roster generation)
+   read and write through this object. This file has zero
+   knowledge of game.js or the DOM; it is pure data + logic.
+   ============================================================ */
+
+'use strict';
+
+/* global WorldEngine */
+
+const WorldEngine = (() => {
+
+  // ── Storage key (separate from the player SAVE_KEY) ────────
+  const WORLD_KEY = 'projectice_world';
+
+  /*
+   * ============================================================
+   * WORLD STORAGE — INDEXEDDB
+   * ============================================================
+   *
+   * The Project Ice world has outgrown localStorage.
+   *
+   * localStorage remains available temporarily as a migration
+   * source for older saves, but the full world state will now live
+   * in IndexedDB so large rosters, schedules, stats and history can
+   * persist safely.
+   */
+
+  const WORLD_DB_NAME =
+    'projectice_database';
+
+  const WORLD_DB_VERSION =
+    1;
+
+  const WORLD_STORE_NAME =
+    'worlds';
+
+  const WORLD_RECORD_ID =
+    'default';
+
+  const CAREER_SAVE_INDEX_KEY =
+    'projectice_career_save_index_v1';
+
+  const ACTIVE_CAREER_ID_KEY =
+    'projectice_active_career_id_v1';
+
+  const PENDING_CAREER_ID_KEY =
+    'projectice_pending_career_id_v1';
+
+  function createCareerSaveId() {
+    return `career-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function getActiveCareerId() {
+    return localStorage.getItem(ACTIVE_CAREER_ID_KEY) || null;
+  }
+
+  function getWorldRecordId(careerId = getActiveCareerId()) {
+    return careerId ? `career:${careerId}` : WORLD_RECORD_ID;
+  }
+
+  function readCareerSaveIndex() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CAREER_SAVE_INDEX_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeCareerSaveIndex(entries) {
+    localStorage.setItem(CAREER_SAVE_INDEX_KEY, JSON.stringify(Array.isArray(entries) ? entries : []));
+  }
+
+  function buildCareerSaveMetadata(careerId, state = _state) {
+    const playerId = state?.player?.playerId || state?.player?.id || 'career-player';
+    let careerPlayer = null;
+    for (const team of state?.teams || []) {
+      careerPlayer = (team?.roster || []).find(player =>
+        String(player?.id || player?.playerId || '') === String(playerId) || player?.isCareerPlayer === true
+      );
+      if (careerPlayer) break;
+    }
+    const team = (state?.teams || []).find(item => String(item?.teamId || '') === String(careerPlayer?.teamId || state?.player?.teamId || ''));
+    return {
+      id: careerId,
+      playerName: `${careerPlayer?.firstName || state?.player?.firstName || ''} ${careerPlayer?.lastName || state?.player?.lastName || ''}`.trim() || 'Unnamed Career',
+      position: careerPlayer?.position || state?.player?.position || '',
+      overall: Number(careerPlayer?.overall) || Number(state?.player?.overall) || null,
+      teamName: team ? `${team.schoolName || ''} ${team.teamName || ''}`.trim() : (careerPlayer?.teamName || state?.player?.teamName || ''),
+      teamAbbreviation: team?.abbreviation || '',
+      currentDate: state?.season?.currentDate || state?.player?.currentDate || state?.currentDate || null,
+      seasonLabel: state?.season?.label || state?.currentSeason || '',
+      stage: careerPlayer?.stage || state?.player?.stage || '',
+      tryoutsComplete: careerPlayer?.tryoutsComplete === true || state?.player?.tryoutsComplete === true,
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  function upsertCareerSaveMetadata(careerId, state = _state) {
+    if (!careerId) return;
+    const index = readCareerSaveIndex();
+    const metadata = buildCareerSaveMetadata(careerId, state);
+    const existing = index.findIndex(item => item?.id === careerId);
+    if (existing >= 0) index[existing] = metadata; else index.unshift(metadata);
+    writeCareerSaveIndex(index);
+  }
+
+  function openWorldDatabase() {
+    return new Promise(
+      (resolve, reject) => {
+        const request =
+          indexedDB.open(
+            WORLD_DB_NAME,
+            WORLD_DB_VERSION
+          );
+
+        request.onupgradeneeded =
+          event => {
+            const database =
+              event.target.result;
+
+            if (
+              !database.objectStoreNames
+                .contains(
+                  WORLD_STORE_NAME
+                )
+            ) {
+              database.createObjectStore(
+                WORLD_STORE_NAME,
+                {
+                  keyPath: 'id',
+                }
+              );
+            }
+          };
+
+        request.onsuccess =
+          () => {
+            resolve(
+              request.result
+            );
+          };
+
+        request.onerror =
+          () => {
+            reject(
+              request.error ||
+              new Error(
+                'Could not open Project Ice IndexedDB.'
+              )
+            );
+          };
+      }
+    );
+  }
+
+  // ── Seed teams ──────────────────────────────────────────────
+  // Eight fictional high-school programs for the 2022-23 season.
+  // Future systems populate each team's roster array and update
+  // the stats fields (wins, losses, etc.) after simulated games.
+  // Add new teams here; buildDefaults() deep-copies the array.
+  const SEED_TEAMS = [
+    {
+      teamId:          'team-summit-academy',
+      schoolName:      'Summit Academy',
+      teamName:        'Titans',
+      abbreviation: 'TIT',
+      primaryColor:    '#1a1a2e',
+      secondaryColor:  '#c9a84c',
+      prestige:        5,
+      identity:        'Elite powerhouse with strong scout attention.',
+      coach: {
+        name: 'Marcus Hale',
+
+        style:
+          'Offensive-minded coach with championship expectations.',
+
+        /*
+         * Internal coaching philosophy.
+         * These values guide deployment decisions but are never
+         * displayed as public coach ratings.
+         */
+        deploymentPreferences: {
+          abilityWeight: 1.08,
+          coachTrustWeight: 0.15,
+          recentFormWeight: 0.13,
+          disciplineWeight: 0.05,
+          developmentWeight: 0.05,
+          roleStabilityWeight: 0.08,
+
+          evenStrengthEmphasis: 1.04,
+          powerPlayEmphasis: 1.12,
+          penaltyKillEmphasis: 0.92,
+          goalieEmphasis: 1.00,
+
+          favorsOffense: true,
+          favorsDefense: false,
+          favorsVeterans: false,
+          favorsDevelopment: false,
+        },
+      },
+
+      arena: {
+
+        name: 'Summit Ice Center',
+
+        capacity: 2400,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-iron-peak',
+      schoolName:      'Iron Peak',
+      teamName:        'Wolves',
+      abbreviation: 'IPW',
+      primaryColor:    '#2b2d2f',
+      secondaryColor:  '#8b0000',
+      prestige:        3,
+      identity:        'Physical, defense-first team.',
+      coach: {
+
+        name: 'Derek Mercer',
+
+        style: 'Demanding defensive coach who values physical play.',
+
+      },
+
+      arena: {
+
+        name: 'The Wolf Den',
+
+        capacity: 2100,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-north-ridge',
+      schoolName:      'North Ridge',
+      teamName:        'Falcons',
+      abbreviation: 'NRF',
+      primaryColor:    '#003366',
+      secondaryColor:  '#c0c0c0',
+      prestige:        4,
+      identity:        'Fast, skilled, disciplined team.',
+      coach: {
+
+        name: 'Ryan Callahan',
+
+        style: 'Detail-oriented coach focused on speed and discipline.',
+
+      },
+
+      arena: {
+
+        name: 'Falcon Ice Pavilion',
+
+        capacity: 1950,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-cedar-valley',
+      schoolName:      'Cedar Valley',
+      teamName:        'Storm',
+      abbreviation: 'CVS',
+      primaryColor:    '#1b4332',
+      secondaryColor:  '#52b788',
+      prestige:        2,
+      identity:        'Underdog program known for player development.',
+      coach: {
+
+        name: 'Evan Brooks',
+
+        style: 'Patient development coach known for improving young players.',
+
+      },
+
+      arena: {
+
+        name: 'Cedar Valley Community Rink',
+
+        capacity: 1450,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-westbrook',
+      schoolName:      'Westbrook',
+      teamName:        'Knights',
+      abbreviation: 'WBK',
+      primaryColor:    '#1c1c3a',
+      secondaryColor:  '#e8e8e8',
+      prestige:        3,
+      identity:        'Structured defensive team with strong goaltending.',
+      coach: {
+
+        name: 'Thomas Keane',
+
+        style: 'Structured coach who emphasizes defense and goaltending.',
+
+      },
+
+      arena: {
+
+        name: 'Westbrook Ice Hall',
+
+        capacity: 1800,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-granite-falls',
+      schoolName:      'Granite Falls',
+      teamName:        'Bears',
+      abbreviation: 'GFB',
+      primaryColor:    '#3b1f0a',
+      secondaryColor:  '#d4a96a',
+      prestige:        2,
+      identity:        'Physical, blue-collar team.',
+      coach: {
+
+        name: 'Cole Davidson',
+
+        style: 'Blue-collar coach who demands effort and physicality.',
+
+      },
+
+      arena: {
+
+        name: 'Granite Ice Pavilion',
+
+        capacity: 2200,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-lakeview',
+      schoolName:      'Lakeview',
+      teamName:        'Lynx',
+      abbreviation: 'LVL',
+      primaryColor:    '#00416a',
+      secondaryColor:  '#e4003a',
+      prestige:        4,
+      identity:        'High-tempo offensive team.',
+      coach: {
+
+        name:
+
+### function buildCareerSaveMetadata @ 2272
+============================================== */
+
+'use strict';
+
+/* global WorldEngine */
+
+const WorldEngine = (() => {
+
+  // ── Storage key (separate from the player SAVE_KEY) ────────
+  const WORLD_KEY = 'projectice_world';
+
+  /*
+   * ============================================================
+   * WORLD STORAGE — INDEXEDDB
+   * ============================================================
+   *
+   * The Project Ice world has outgrown localStorage.
+   *
+   * localStorage remains available temporarily as a migration
+   * source for older saves, but the full world state will now live
+   * in IndexedDB so large rosters, schedules, stats and history can
+   * persist safely.
+   */
+
+  const WORLD_DB_NAME =
+    'projectice_database';
+
+  const WORLD_DB_VERSION =
+    1;
+
+  const WORLD_STORE_NAME =
+    'worlds';
+
+  const WORLD_RECORD_ID =
+    'default';
+
+  const CAREER_SAVE_INDEX_KEY =
+    'projectice_career_save_index_v1';
+
+  const ACTIVE_CAREER_ID_KEY =
+    'projectice_active_career_id_v1';
+
+  const PENDING_CAREER_ID_KEY =
+    'projectice_pending_career_id_v1';
+
+  function createCareerSaveId() {
+    return `career-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function getActiveCareerId() {
+    return localStorage.getItem(ACTIVE_CAREER_ID_KEY) || null;
+  }
+
+  function getWorldRecordId(careerId = getActiveCareerId()) {
+    return careerId ? `career:${careerId}` : WORLD_RECORD_ID;
+  }
+
+  function readCareerSaveIndex() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CAREER_SAVE_INDEX_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writeCareerSaveIndex(entries) {
+    localStorage.setItem(CAREER_SAVE_INDEX_KEY, JSON.stringify(Array.isArray(entries) ? entries : []));
+  }
+
+  function buildCareerSaveMetadata(careerId, state = _state) {
+    const playerId = state?.player?.playerId || state?.player?.id || 'career-player';
+    let careerPlayer = null;
+    for (const team of state?.teams || []) {
+      careerPlayer = (team?.roster || []).find(player =>
+        String(player?.id || player?.playerId || '') === String(playerId) || player?.isCareerPlayer === true
+      );
+      if (careerPlayer) break;
+    }
+    const team = (state?.teams || []).find(item => String(item?.teamId || '') === String(careerPlayer?.teamId || state?.player?.teamId || ''));
+    return {
+      id: careerId,
+      playerName: `${careerPlayer?.firstName || state?.player?.firstName || ''} ${careerPlayer?.lastName || state?.player?.lastName || ''}`.trim() || 'Unnamed Career',
+      position: careerPlayer?.position || state?.player?.position || '',
+      overall: Number(careerPlayer?.overall) || Number(state?.player?.overall) || null,
+      teamName: team ? `${team.schoolName || ''} ${team.teamName || ''}`.trim() : (careerPlayer?.teamName || state?.player?.teamName || ''),
+      teamAbbreviation: team?.abbreviation || '',
+      currentDate: state?.season?.currentDate || state?.player?.currentDate || state?.currentDate || null,
+      seasonLabel: state?.season?.label || state?.currentSeason || '',
+      stage: careerPlayer?.stage || state?.player?.stage || '',
+      tryoutsComplete: careerPlayer?.tryoutsComplete === true || state?.player?.tryoutsComplete === true,
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  function upsertCareerSaveMetadata(careerId, state = _state) {
+    if (!careerId) return;
+    const index = readCareerSaveIndex();
+    const metadata = buildCareerSaveMetadata(careerId, state);
+    const existing = index.findIndex(item => item?.id === careerId);
+    if (existing >= 0) index[existing] = metadata; else index.unshift(metadata);
+    writeCareerSaveIndex(index);
+  }
+
+  function openWorldDatabase() {
+    return new Promise(
+      (resolve, reject) => {
+        const request =
+          indexedDB.open(
+            WORLD_DB_NAME,
+            WORLD_DB_VERSION
+          );
+
+        request.onupgradeneeded =
+          event => {
+            const database =
+              event.target.result;
+
+            if (
+              !database.objectStoreNames
+                .contains(
+                  WORLD_STORE_NAME
+                )
+            ) {
+              database.createObjectStore(
+                WORLD_STORE_NAME,
+                {
+                  keyPath: 'id',
+                }
+              );
+            }
+          };
+
+        request.onsuccess =
+          () => {
+            resolve(
+              request.result
+            );
+          };
+
+        request.onerror =
+          () => {
+            reject(
+              request.error ||
+              new Error(
+                'Could not open Project Ice IndexedDB.'
+              )
+            );
+          };
+      }
+    );
+  }
+
+  // ── Seed teams ──────────────────────────────────────────────
+  // Eight fictional high-school programs for the 2022-23 season.
+  // Future systems populate each team's roster array and update
+  // the stats fields (wins, losses, etc.) after simulated games.
+  // Add new teams here; buildDefaults() deep-copies the array.
+  const SEED_TEAMS = [
+    {
+      teamId:          'team-summit-academy',
+      schoolName:      'Summit Academy',
+      teamName:        'Titans',
+      abbreviation: 'TIT',
+      primaryColor:    '#1a1a2e',
+      secondaryColor:  '#c9a84c',
+      prestige:        5,
+      identity:        'Elite powerhouse with strong scout attention.',
+      coach: {
+        name: 'Marcus Hale',
+
+        style:
+          'Offensive-minded coach with championship expectations.',
+
+        /*
+         * Internal coaching philosophy.
+         * These values guide deployment decisions but are never
+         * displayed as public coach ratings.
+         */
+        deploymentPreferences: {
+          abilityWeight: 1.08,
+          coachTrustWeight: 0.15,
+          recentFormWeight: 0.13,
+          disciplineWeight: 0.05,
+          developmentWeight: 0.05,
+          roleStabilityWeight: 0.08,
+
+          evenStrengthEmphasis: 1.04,
+          powerPlayEmphasis: 1.12,
+          penaltyKillEmphasis: 0.92,
+          goalieEmphasis: 1.00,
+
+          favorsOffense: true,
+          favorsDefense: false,
+          favorsVeterans: false,
+          favorsDevelopment: false,
+        },
+      },
+
+      arena: {
+
+        name: 'Summit Ice Center',
+
+        capacity: 2400,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-iron-peak',
+      schoolName:      'Iron Peak',
+      teamName:        'Wolves',
+      abbreviation: 'IPW',
+      primaryColor:    '#2b2d2f',
+      secondaryColor:  '#8b0000',
+      prestige:        3,
+      identity:        'Physical, defense-first team.',
+      coach: {
+
+        name: 'Derek Mercer',
+
+        style: 'Demanding defensive coach who values physical play.',
+
+      },
+
+      arena: {
+
+        name: 'The Wolf Den',
+
+        capacity: 2100,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-north-ridge',
+      schoolName:      'North Ridge',
+      teamName:        'Falcons',
+      abbreviation: 'NRF',
+      primaryColor:    '#003366',
+      secondaryColor:  '#c0c0c0',
+      prestige:        4,
+      identity:        'Fast, skilled, disciplined team.',
+      coach: {
+
+        name: 'Ryan Callahan',
+
+        style: 'Detail-oriented coach focused on speed and discipline.',
+
+      },
+
+      arena: {
+
+        name: 'Falcon Ice Pavilion',
+
+        capacity: 1950,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-cedar-valley',
+      schoolName:      'Cedar Valley',
+      teamName:        'Storm',
+      abbreviation: 'CVS',
+      primaryColor:    '#1b4332',
+      secondaryColor:  '#52b788',
+      prestige:        2,
+      identity:        'Underdog program known for player development.',
+      coach: {
+
+        name: 'Evan Brooks',
+
+        style: 'Patient development coach known for improving young players.',
+
+      },
+
+      arena: {
+
+        name: 'Cedar Valley Community Rink',
+
+        capacity: 1450,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-westbrook',
+      schoolName:      'Westbrook',
+      teamName:        'Knights',
+      abbreviation: 'WBK',
+      primaryColor:    '#1c1c3a',
+      secondaryColor:  '#e8e8e8',
+      prestige:        3,
+      identity:        'Structured defensive team with strong goaltending.',
+      coach: {
+
+        name: 'Thomas Keane',
+
+        style: 'Structured coach who emphasizes defense and goaltending.',
+
+      },
+
+      arena: {
+
+        name: 'Westbrook Ice Hall',
+
+        capacity: 1800,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-granite-falls',
+      schoolName:      'Granite Falls',
+      teamName:        'Bears',
+      abbreviation: 'GFB',
+      primaryColor:    '#3b1f0a',
+      secondaryColor:  '#d4a96a',
+      prestige:        2,
+      identity:        'Physical, blue-collar team.',
+      coach: {
+
+        name: 'Cole Davidson',
+
+        style: 'Blue-collar coach who demands effort and physicality.',
+
+      },
+
+      arena: {
+
+        name: 'Granite Ice Pavilion',
+
+        capacity: 2200,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+    {
+      teamId:          'team-lakeview',
+      schoolName:      'Lakeview',
+      teamName:        'Lynx',
+      abbreviation: 'LVL',
+      primaryColor:    '#00416a',
+      secondaryColor:  '#e4003a',
+      prestige:        4,
+      identity:        'High-tempo offensive team.',
+      coach: {
+
+        name: 'Jordan Price',
+
+        style: 'Aggressive coach who encourages high-tempo offense.',
+
+      },
+
+      arena: {
+
+        name: 'Lakeview Events Center',
+
+        capacity: 2050,
+
+      },
+      roster:          [],
+      wins:            0,
+      losses:          0,
+      overtimeLosses:  0,
+      goalsFor:        0,
+      goalsAgainst:    0,
+      points:          0,
+    },
+
+### async function listCareerSaves @ 879038
+sterSlot = targetSlot;
+        if ('slot' in careerPlayer) careerPlayer.slot = targetSlot;
+        if ('lineupStatus' in careerPlayer) careerPlayer.lineupStatus = '2nd Line';
+        if (careerPlayer.lineupAssignment && typeof careerPlayer.lineupAssignment === 'object') {
+          careerPlayer.lineupAssignment = {
+            ...careerPlayer.lineupAssignment,
+            line: 2,
+            lineNumber: 2,
+            lineLabel: '2nd Line',
+            slot: targetSlot,
+            rosterSlot: targetSlot,
+            unit: 2,
+            position: 'C',
+          };
+        }
+
+        world.player = {
+          ...(world.player || {}),
+          overall: 66,
+          startingOverall: 66,
+          startingLine: '2nd Line',
+          rosterSlot: targetSlot,
+          attributes: JSON.parse(JSON.stringify(attributes)),
+          recoveryRepairs: {
+            ...(world?.player?.recoveryRepairs || {}),
+            meghanTryoutSnapshotV1: true,
+          },
+        };
+
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).put({
+            ...record,
+            world,
+            savedAt: new Date().toISOString(),
+          });
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+
+        const careerId = String(record.id).slice('career:'.length);
+        upsertCareerSaveMetadata(careerId, world);
+        repaired = true;
+      }
+
+      database.close();
+      return repaired;
+    } catch (error) {
+      console.warn('[WorldEngine] Meghan tryout snapshot recovery failed:', error);
+      return false;
+    }
+  }
+
+  async function listCareerSaves() {
+    await repairKnownMeghanTryoutSnapshot();
+    let index = readCareerSaveIndex();
+
+    /* Recover the original single-save world before any synthetic preview fallback. */
+    const legacyRecovered = await recoverLegacyDefaultCareerRecord();
+    if (legacyRecovered?.id) {
+      index = readCareerSaveIndex();
+    }
+
+    /*
+     * Recover the visible save index from the authoritative IndexedDB
+     * career records before filtering anything. Older careers created
+     * before the pending-save lifecycle may have incomplete metadata in
+     * localStorage even though their full world is valid and safely stored.
+     */
+    try {
+      const database = await openWorldDatabase();
+      const records = await new Promise((resolve, reject) => {
+        const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+        const request = transaction.objectStore(WORLD_STORE_NAME).getAll();
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+        request.onerror = () => reject(request.error);
+      });
+      database.close();
+
+      const recovered = [];
+      for (const record of records) {
+        const recordId = String(record?.id || '');
+        if (!recordId.startsWith('career:') || !record?.world) continue;
+
+        const careerId = recordId.slice('career:'.length);
+        const world = record.world;
+        const playerId = world?.player?.playerId || world?.player?.id || 'career-player';
+        let careerPlayer = null;
+        for (const team of world?.teams || []) {
+          careerPlayer = (team?.roster || []).find(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === String(playerId)
+          );
+          if (careerPlayer) break;
+        }
+
+        const isOfficial =
+          world?.player?.stage === 'hub' ||
+          world?.player?.tryoutsComplete === true ||
+          careerPlayer?.stage === 'hub' ||
+          careerPlayer?.tryoutsComplete === true ||
+          Boolean(careerPlayer?.teamId && careerPlayer?.overall && (careerPlayer?.firstName || world?.player?.firstName));
+
+        if (!isOfficial) continue;
+        recovered.push(buildCareerSaveMetadata(careerId, world));
+      }
+
+      if (recovered.length > 0) {
+        const merged = new Map();
+        for (const item of index) if (item?.id) merged.set(item.id, item);
+        for (const item of recovered) if (item?.id) merged.set(item.id, item);
+        index = Array.from(merged.values());
+        writeCareerSaveIndex(index);
+      }
+    } catch (error) {
+      console.warn('[WorldEngine] Could not rebuild career save index from IndexedDB:', error);
+    }
+
+    /*
+     * LEGACY SINGLE-SAVE → MULTI-SAVE MIGRATION
+     */
+    if (index.length === 0) {
+      const hasCareerPlayer =
+        Boolean(
+          getPlayerById(
+            _state.player?.playerId ||
+            _state.player?.id ||
+            'career-player'
+          )
+        ) ||
+        (_state.teams || []).some(team =>
+          (team?.roster || []).some(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === 'career-player'
+          )
+        );
+
+      if (hasCareerPlayer) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+        const migrated = await save();
+        if (migrated) index = readCareerSaveIndex();
+      }
+    }
+
+    const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+
+    /*
+     * A pending id only means "hide this unfinished draft" while the
+     * player is still in onboarding. If that same save already contains
+     * an official Hub/tryout-complete career, it survived the old
+     * bootstrap bug and must be recovered instead of hidden forever.
+     */
+    const pendingOfficialSave =
+      pendingCareerId
+        ? index.find(item =>
+            String(item?.id || '') === String(pendingCareerId) &&
+            (
+              item?.stage === 'hub' ||
+              item?.tryoutsComplete === true ||
+              Boolean(
+                item?.playerName &&
+                item.playerName !== 'Unnamed Career' &&
+                item?.teamName
+              )
+            )
+          )
+        : null;
+
+    if (pendingOfficialSave) {
+      localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    }
+
+    const activePendingCareerId =
+      pendingOfficialSave
+        ? null
+        : pendingCareerId;
+
+    const officialIndex = index.filter(item =>
+      String(item?.id || '') !== String(activePendingCareerId || '') &&
+      (
+        item?.stage === 'hub' ||
+        item?.tryoutsComplete === true ||
+        Boolean(
+          item?.playerName &&
+          item.playerName !== 'Unnamed Career' &&
+          item?.teamName
+        )
+      )
+    );
+
+    if (officialIndex.length !== index.length || pendingOfficialSave) {
+      writeCareerSaveIndex(officialIndex);
+    }
+
+    return officialIndex
+      .slice()
+      .sort((a, b) =>
+        String(b?.savedAt || '')
+          .localeCompare(
+            String(a?.savedAt || '')
+          )
+      );
+  }
+
+  function configureFreshCareerSeason(startDate = '2026-09-01') {
+    const seasonStartYear = 2026;
+    const seasonEndYear = 2027;
+
+    _state.currentSeason = '2026-27';
+    _state.currentYear = seasonStartYear;
+    _state.currentWeek = 1;
+    _state.currentDate = startDate;
+
+    _state.season = {
+      id: 'season-2026-2027',
+      label: '2026-27',
+      seasonNumber: 1,
+      careerYear: 1,
+      seasonStartYear,
+      seasonEndYear,
+      currentDate: startDate,
+      currentWeek: 1,
+      phase: 'regular-season',
+      status: 'active',
+      level: 'high-school',
+      regularSeason: {
+        started: false,
+        completed: false,
+        gamesPerTeam: 28,
+      },
+      postseason: {
+        qualified: false,
+        started: false,
+        completed: false,
+      },
+      processedDates: [],
+      processedWeeks: [],
+      weeklyHistory: [],
+      unresolvedEventIds: [],
+      completedEventIds: [],
+      lastProcessedDate: null,
+      lastProcessedWeek: 0,
+    };
+
+    if (!_state.player || typeof _state.player !== 'object') {
+      _state.player = {};
+    }
+    _state.player.currentDate = startDate;
+
+    _state.schedule = createHighSchoolCareerSchedule(
+      Array.isArray(_state.teams) ? _state.teams : []
+    );
+
+    setCurrentDate(startDate, { save: false });
+    return _state.season;
+  }
+
+  function finalizeFreshCareerAfterTryouts(playerData = {}) {
+    configureFreshCareerSeason('2026-09-02');
+
+    (_state.teams || []).forEach(team => {
+      if (!Array.isArray(team.roster) || team.roster.length !== 20) {
+        team.roster = generateTeamRoster(team);
+      }
+    });
+
+    const canonicalPlayer = upsertCareerPlayer({
+      ...playerData,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    });
+
+    if (!canonicalPlayer) return null;
+
+    _state.player = {
+      ..._state.player,
+      ...playerData,
+      id: canonicalPlayer.id,
+      playerId: canonicalPlayer.playerId,
+      teamId: canonicalPlayer.teamId,
+      highSchoolTeamId: canonicalPlayer.teamId,
+      firstName: canonicalPlayer.firstName,
+      lastName: canonicalPlayer.lastName,
+      position: canonicalPlayer.position,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    };
+
+    canonicalPlayer.stage = 'hub';
+    canonicalPlayer.tryoutsComplete = true;
+    canonicalPlayer.currentDate = '2026-09-02';
+
+    if (!_state.season.processedDates.includes('2026-09-01')) {
+      _state.season.processedDates.push('2026-09-01');
+    }
+    if (!_state.season.completedEventIds.includes('tryout-freshman')) {
+      _state.season.completedEventIds.push('tryout-freshman');
+    }
+    _state.season.lastProcessedDate = '2026-09-01';
+
+    setCurrentDate('2026-09-02', { save: false });
+    refreshTeamRosterManagement(canonicalPlayer.teamId, { save: false });
+    save();
+
+    return canonicalPlayer;
+  }
+
+  function repairMalformedFreshCareerIfNeeded() {
+    const careerPlayerId =
+      _state.player?.playerId ||
+      _state.player?.id ||
+      'career-player';
+    const careerPlayer = getPlayerById(careerPlayerId);
+    if (!careerPlayer) return false;
+
+    const isOfficial =
+      _state.player?.stage === 'hub' ||
+      _state.player?.tryoutsComplete === true ||
+      careerPlayer.stage === 'hub' ||
+      careerPlayer.tryoutsComplete === true;
+    const gamesPlayed = Number(careerPlayer.gamesPlayed) || 0;
+    const currentDate = String(
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate ||
+      ''
+    );
+    const populatedRosterCount = (_state.teams || []).reduce(
+      (total, team) => total + (Array.isArray(team.roster) ? team.roster.length : 0),
+      0
+    );
+    const expectedRosterCount = Math.max(1, (_state.teams || []).length) * 18;
+
+    const malformedFreshBootstrap =
+      isOfficial &&
+
