@@ -32273,6 +32273,16 @@ case 'career-defense':
             gameResult.home?.shots
           ) || 0,
 
+        powerPlayGoals:
+          Number(
+            gameResult.home?.powerPlayGoals
+          ) || 0,
+
+        powerPlayOpportunities:
+          Number(
+            gameResult.home?.powerPlayOpportunities
+          ) || 0,
+
         skaters:
           Array.isArray(
             gameResult.home?.skaters
@@ -32306,6 +32316,16 @@ case 'career-defense':
         shots:
           Number(
             gameResult.away?.shots
+          ) || 0,
+
+        powerPlayGoals:
+          Number(
+            gameResult.away?.powerPlayGoals
+          ) || 0,
+
+        powerPlayOpportunities:
+          Number(
+            gameResult.away?.powerPlayOpportunities
           ) || 0,
 
         skaters:

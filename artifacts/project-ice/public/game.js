@@ -7248,6 +7248,32 @@ function openPostgameSummary(gameId) {
   );
 
   setText(
+    'postgame-away-power-play',
+    `${
+      Number(
+        summary.away?.powerPlayGoals
+      ) || 0
+    }/${
+      Number(
+        summary.away?.powerPlayOpportunities
+      ) || 0
+    }`
+  );
+
+  setText(
+    'postgame-home-power-play',
+    `${
+      Number(
+        summary.home?.powerPlayGoals
+      ) || 0
+    }/${
+      Number(
+        summary.home?.powerPlayOpportunities
+      ) || 0
+    }`
+  );
+
+  setText(
     'postgame-player-name',
     [
       Game.player.firstName,
