@@ -3976,12 +3976,76 @@ function renderLeagueNewsPreview() {
   `;
 }
 
+
+function renderFullNewsScreen() {
+  const container = document.getElementById('full-news-list');
+  const countEl = document.getElementById('full-news-count');
+  if (!container) return;
+
+  const items = NewsSystem.getRecent(100);
+  if (countEl) countEl.textContent = String(items.length);
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="full-news-list__empty">
+        No league stories yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = items.map(item => `
+    <article class="full-news-item">
+      <div class="full-news-item__meta">
+        <span class="full-news-item__tag">${item.tag || 'LEAGUE'}</span>
+        <span class="full-news-item__date">${item.date || ''}</span>
+      </div>
+      <strong class="full-news-item__headline">
+        ${item.headline || ''}
+      </strong>
+    </article>
+  `).join('');
+}
+
+function openFullNewsScreen() {
+  const screen = document.getElementById('full-news-screen');
+  if (!screen) return;
+  renderFullNewsScreen();
+  screen.classList.add('is-open');
+  screen.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('full-news-open');
+}
+
+function closeFullNewsScreen() {
+  const screen = document.getElementById('full-news-screen');
+  if (!screen) return;
+  screen.classList.remove('is-open');
+  screen.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('full-news-open');
+}
+
+['btn-hub-view-all-news', 'btn-league-view-all-news']
+  .forEach(id => {
+    const button = document.getElementById(id);
+    if (button) button.addEventListener('click', openFullNewsScreen);
+  });
+
+const fullNewsBackButton = document.getElementById('btn-back-full-news');
+if (fullNewsBackButton) {
+  fullNewsBackButton.addEventListener('click', closeFullNewsScreen);
+}
+
 // Register the hub re-render callback with the World Engine news system.
 // WorldEngine.news.publish() will call renderHubNews() automatically
 // whenever a new headline is added — without world.js touching the DOM.
 WorldEngine.news.onNewsChange(() => {
   renderHubNews();
   renderLeagueNewsPreview();
+
+  const fullNewsScreen = document.getElementById('full-news-screen');
+  if (fullNewsScreen?.classList.contains('is-open')) {
+    renderFullNewsScreen();
+  }
 });
 
 // ── Team Profile ─────────────────────────────────────────────

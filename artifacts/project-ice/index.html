@@ -805,6 +805,13 @@
             <div class="hub-dash-card">
               <div class="hub-dash-card__header">
                 <span class="hub-dash-card__title">League News</span>
+                <button
+                  class="hub-dash-card__action news-view-all-button"
+                  id="btn-hub-view-all-news"
+                  type="button"
+                >
+                  View All ›
+                </button>
               </div>
               <div class="hub-dash-card__body">
                 <div class="hub-news" id="hub-news-list">
@@ -2022,6 +2029,14 @@
                     <p class="eyebrow">League News</p>
                     <h3>Around the League</h3>
                   </div>
+
+                  <button
+                    class="league-section__action news-view-all-button"
+                    id="btn-league-view-all-news"
+                    type="button"
+                  >
+                    View All
+                  </button>
                 </div>
 
                 <div id="league-news-preview"></div>
@@ -2074,6 +2089,35 @@
           </button>
         </nav>
 
+      </section>
+
+      <!-- FULL NEWS SCREEN -->
+      <section
+        id="full-news-screen"
+        class="full-news-screen"
+        aria-hidden="true"
+      >
+        <header class="full-news-screen__header">
+          <button
+            class="back-button"
+            id="btn-back-full-news"
+            type="button"
+            aria-label="Back to Career Hub"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">Living World</p>
+            <h2>League News</h2>
+          </div>
+
+          <span class="full-news-screen__count" id="full-news-count">0</span>
+        </header>
+
+        <div class="full-news-screen__scroll">
+          <div id="full-news-list" class="full-news-list"></div>
+        </div>
       </section>
 
       <!-- STANDINGS SCREEN -->
