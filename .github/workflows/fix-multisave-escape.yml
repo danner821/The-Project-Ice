@@ -1,0 +1,20 @@
+name: Fix Multi Save Escape Helper
+on:
+  push:
+    paths: ['.github/workflows/fix-multisave-escape.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_multisave_escape.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q 'function escapeHtml(value)' artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Fix career save list rendering'
+          git push
