@@ -14084,3 +14084,101 @@ live-game-marker-pop {
   background: rgba(48, 132, 92, 0.14);
   color: #83d5ad;
 }
+
+
+/* Player Scouting — Rival Watch */
+.pp-scouting-rival {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.035);
+}
+
+.pp-scouting-rival__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pp-scouting-rival__header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.pp-scouting-rival__eyebrow {
+  color: rgba(255,255,255,0.48);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pp-scouting-rival__header strong {
+  color: #f5f7fb;
+  font-size: 0.98rem;
+}
+
+.pp-scouting-rival__rank {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(109,168,255,0.36);
+  border-radius: 999px;
+  background: rgba(69,124,208,0.12);
+  color: #9dc5ff;
+  font-size: 0.74rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.pp-scouting-rival__empty {
+  margin: 0;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.pp-scouting-rival__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.pp-scouting-rival__grid[hidden] {
+  display: none;
+}
+
+.pp-scouting-rival-card {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  background: rgba(6,10,18,0.34);
+}
+
+.pp-scouting-rival-card--position {
+  border-color: rgba(214,174,92,0.22);
+  background: rgba(151,107,38,0.07);
+}
+
+.pp-scouting-rival-card__label {
+  color: rgba(255,255,255,0.42);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pp-scouting-rival-card strong {
+  color: #eef4ff;
+  font-size: 0.9rem;
+}
+
+.pp-scouting-rival-card > span:last-child {
+  color: rgba(255,255,255,0.56);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}

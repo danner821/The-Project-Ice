@@ -13034,6 +13034,109 @@ function updateHubScreen() {
             : 'Low'
       );
 
+    const rivalWatch =
+      scouting.rivalWatch &&
+      typeof scouting.rivalWatch === 'object'
+        ? scouting.rivalWatch
+        : null;
+
+    const rivalCurrentRank =
+      document.getElementById(
+        'pp-scouting-rival-current-rank'
+      );
+
+    const rivalEmpty =
+      document.getElementById(
+        'pp-scouting-rival-empty'
+      );
+
+    const rivalGrid =
+      document.getElementById(
+        'pp-scouting-rival-grid'
+      );
+
+    const escapeScoutingText = value =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const renderRival = (
+      prefix,
+      rival
+    ) => {
+      const nameElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-name`
+        );
+      const metaElement =
+        document.getElementById(
+          `pp-scouting-rival-${prefix}-meta`
+        );
+
+      if (!nameElement || !metaElement) return;
+
+      if (!rival) {
+        nameElement.textContent = 'No nearby prospect';
+        metaElement.textContent = '—';
+        return;
+      }
+
+      nameElement.textContent =
+        rival.name ||
+        'Prospect';
+
+      const rank =
+        Math.max(0, Number(rival.rank) || 0);
+      const position = rival.position || '—';
+      const teamName = rival.teamName || null;
+      const movement = Number(rival.rankChange) || 0;
+      const movementText =
+        movement > 0
+          ? `▲ ${movement}`
+          : movement < 0
+            ? `▼ ${Math.abs(movement)}`
+            : null;
+
+      metaElement.textContent = [
+        rank > 0 ? `#${rank}` : null,
+        position,
+        movementText,
+        teamName,
+      ].filter(Boolean).join(' • ');
+    };
+
+    const rankedForRivalWatch =
+      Boolean(
+        rivalWatch &&
+        Number(rivalWatch.currentRank) > 0
+      );
+
+    if (rivalCurrentRank) {
+      rivalCurrentRank.textContent =
+        rankedForRivalWatch
+          ? `#${Number(rivalWatch.currentRank)}`
+          : 'Not Ranked';
+    }
+
+    if (rivalEmpty) {
+      rivalEmpty.hidden =
+        rankedForRivalWatch;
+    }
+
+    if (rivalGrid) {
+      rivalGrid.hidden =
+        !rankedForRivalWatch;
+    }
+
+    if (rankedForRivalWatch) {
+      renderRival('above', rivalWatch.above);
+      renderRival('position', rivalWatch.positionRival);
+      renderRival('below', rivalWatch.below);
+    }
+
     const scoutingHistory =
       Array.isArray(
         scouting.scoutingHistory
