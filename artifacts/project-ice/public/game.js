@@ -7247,6 +7247,44 @@ function openPostgameSummary(gameId) {
     ) || 0
   );
 
+  /*
+   * Be resilient to an already-open/stale Vite document after a Git pull.
+   * If the HTML shell was loaded before the Power Play row existed,
+   * create the row from the current game.js so the stat still appears
+   * without requiring a brand-new browser tab/session.
+   */
+  if (
+    !document.getElementById(
+      'postgame-away-power-play'
+    ) ||
+    !document.getElementById(
+      'postgame-home-power-play'
+    )
+  ) {
+    const teamStatsContainer =
+      document.querySelector(
+        '.postgame-team-stats'
+      );
+
+    if (teamStatsContainer) {
+      const powerPlayRow =
+        document.createElement('div');
+
+      powerPlayRow.className =
+        'postgame-team-stat-row';
+
+      powerPlayRow.innerHTML = `
+        <strong id="postgame-away-power-play">0/0</strong>
+        <span>Power Play</span>
+        <strong id="postgame-home-power-play">0/0</strong>
+      `;
+
+      teamStatsContainer.appendChild(
+        powerPlayRow
+      );
+    }
+  }
+
   setText(
     'postgame-away-power-play',
     `${
