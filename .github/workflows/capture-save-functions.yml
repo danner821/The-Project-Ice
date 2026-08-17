@@ -1,0 +1,24 @@
+name: Capture Save Functions
+on:
+  push:
+    paths: ['.github/workflows/capture-save-functions.yml']
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          {
+            echo '=== WORLD SAVE/LOAD ==='
+            grep -n -B 50 -A 180 -E '^  (async )?function (save|load|reset|init|initialize)|WORLD_RECORD_ID|objectStore\(|\.put\(|\.get\(' artifacts/project-ice/public/world.js
+            echo '=== GAME START BUTTONS ==='
+            grep -n -B 70 -A 180 -E 'Continue Career|New Career|btnContinue|btnNew|continueCareer|newCareer|start-screen|landing' artifacts/project-ice/public/game.js artifacts/project-ice/index.html
+          } > .github/save-functions.txt || true
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add .github/save-functions.txt
+          git commit -m 'Capture save functions'
+          git push
