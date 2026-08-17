@@ -1,0 +1,24 @@
+name: Unify Player Profile Backend
+on:
+  push:
+    paths:
+      - '.github/workflows/unify-player-profile-backend.yml'
+      - '.github/scripts/unify_player_profile_backend.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/unify_player_profile_backend.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "Standalone Player Profiles are presentation-only" artifacts/project-ice/public/game.js
+      - run: grep -q "latestScoutingReport" artifacts/project-ice/public/game.js
+      - run: grep -q "scoutingProfile.strengthsKnown" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Unify player profiles with canonical scouting backend' || exit 0
+          git push
