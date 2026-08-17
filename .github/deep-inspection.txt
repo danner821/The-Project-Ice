@@ -3429,11 +3429,149 @@ layer = {};
       coachTrustWeight:
         Number(prefer
 
-===== TOI ACCRUAL =====
-    _state.season
-            .lastProcessedWeek
+===== PROCESS SEASON DATE =====
+  )
+      ) {
+        teamResult.goalies.forEach(
+          goalieLine => {
+            if (!goalieLine) {
+              return;
+            }
+
+            if (
+              goalieLine.started === true
+            ) {
+              goalieLine.gamesPlayed = 1;
+            }
+          }
+        );
+      }
+    });
+
+    const careerPerformance =
+      getCareerPlayerGamePerformance(
+        savedGameResult
+      );
+
+    if (
+      careerPerformance.success !== true ||
+      careerPerformance.found !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          careerPerformance.reason ||
+          'career-player-performance-not-found',
+        gameId,
+        careerPerformance,
+      };
+    }
+
+    const performanceScore =
+      calculateCareerGamePerformanceScore(
+        careerPerformance
+      );
+
+    if (
+      performanceScore.success !== true ||
+      performanceScore.scored !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          performanceScore.reason ||
+          'career-performance-score-not-created',
+        gameId,
+        careerPerformance,
+        performanceScore,
+      };
+    }
+
+    const progressionResult =
+      createPostGameProgressionResult(
+        careerPerformance,
+        performanceScore
+      );
+
+    if (
+      progressionResult.success !== true ||
+      progressionResult.created !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          progressionResult.reason ||
+          'progression-result-not-created',
+        gameId,
+        careerPerformance,
+        performanceScore,
+        progressionResult,
+      };
+    }
+
+    /*
+     * applyPostGameProgression already contains the permanent
+     * game-log duplicate guard, so an old game can never award
+     * its XP twice.
+     */
+    const progressionApplication =
+      applyPostGameProgression(
+        progressionResult
+      );
+
+    const savedDevelopment = {
+      progressionResult:
+        structuredClone(
+          progressionResult
+        ),
+
+      progressionApplication:
+        progressionApplication &&
+        typeof progressionApplication ===
+          'object'
+          ? structuredClone(
+              progressionApplication
+            )
+          : null,
+
+      performanceScore:
+        Number(
+          performanceScore.score
         ) || 0,
-        safeCompletedWeek
+
+      playerId:
+        careerPerformance.playerId ||
+        null,
+
+      repaired:
+        true,
+
+      repairedAt:
+        new Date().toISOString(),
+    };
+
+    scheduledGame.postgameSummary =
+      scheduledGame.postgameSummary &&
+      typeof scheduledGame
+        .postgameSummary === 'object'
+        ? scheduledGame.postgameSummary
+        : {};
+
+    scheduledGame
+      .postgameSummary
+      .development =
+      structuredClone(
+        savedDevelopment
+      );
+
+    scheduledGame
+      .gameResult
+      .development =
+      structuredClone(
+        savedDevelopment
       );
 
     if (options.save !== false) {
@@ -3442,845 +3580,3370 @@ layer = {};
 
     return {
       success: true,
-
-      processed: true,
-
-      week:
-        safeCompletedWeek,
-
+      repaired: true,
       reason:
-        'week-processed',
+        progressionApplication
+          ?.reason ===
+          'post-game-progression-already-applied'
+          ? 'development-display-repaired'
+          : 'development-repaired-and-applied',
 
-      leagueDevelopment,
+      gameId,
 
-      teamDeploymentResults,
+      careerPerformance,
+      performanceScore,
+      progressionResult,
+      progressionApplication,
+
+      development:
+        savedDevelopment,
     };
   }
 
-  function processCrossedSeasonWeeks(
-    crossedWeeks = [],
+  function processSeasonDate(
+    dateString,
     options = {}
   ) {
-    const safeCrossedWeeks =
-      Array.isArray(crossedWeeks)
-        ? crossedWeeks
-        : [];
-
-    const results = [];
-
-    safeCrossedWeeks.forEach(
-      enteredWeek => {
-        const completedWeek =
-          Number(enteredWeek) - 1;
-
-        if (completedWeek < 1) {
-          return;
-        }
-
-        const result =
-          processCompletedSeasonWeek(
-            completedWeek,
-            {
-              save: false,
-            }
-          );
-
-        results.push(result);
-      }
-    );
-
     if (
-      options.save !== false &&
-      results.some(
-        result => result.processed
-      )
+      !_state.season ||
+      typeof _state.season !== 'object'
     ) {
-      save();
+      ensureCanonicalSeasonState(
+        _state
+      );
     }
 
-    return results;
-  }
-
-  function getScheduledEventsForDate(
-    dateString
-  ) {
     if (
       typeof dateString !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}$/.test(
         dateString
       )
     ) {
-      return [];
-    }
-
-    const schedule =
-      Array.isArray(_state.schedule)
-        ? _state.schedule
-        : [];
-
-    return schedule
-      .filter(event =>
-        String(event.date) ===
-        String(dateString)
-      )
-      .map(event => {
-        const eventId =
-          event.id ||
-          `event-${dateString}`;
-
-        const isGame =
-          Boolean(
-            event.homeTeamId &&
-            event.awayTeamId
-          );
-
-        return {
-          id: eventId,
-
-          sourceId: eventId,
-
-          date:
-            event.date,
-
-          type:
-            isGame
-              ? 'game'
-              : event.type || 'event',
-
-          status:
-            event.played ||
-            event.completed
-              ? 'completed'
-              : 'scheduled',
-
-          requiresPlayerInteraction:
-            Boolean(
-              event.requiresPlayerInteraction
-            ),
-
-          homeTeamId:
-            event.homeTeamId || null,
-
-          awayTeamId:
-            event.awayTeamId || null,
-
-          isRivalry:
-            Boolean(event.isRivalry),
-
-          isGameOfWeek:
-            Boolean(event.isGameOfWeek),
-
-          isMilestone:
-            Boolean(event.isMilestone),
-
-          milestoneType:
-            event.milestoneType || null,
-
-          scoutsAttending:
-            Number(
-              event.scoutsAttending
-            ) || 0,
-
-          rawEvent:
-            event,
-        };
-      });
-  }
-
-  function resolveScheduledEvent(
-    event,
-    options = {}
-  ) {
-    if (
-      !event ||
-      typeof event !== 'object'
-    ) {
       return {
         success: false,
-        resolved: false,
-        reason: 'invalid-event',
+        processed: false,
+        date: dateString,
+        reason: 'invalid-date',
       };
     }
 
-    switch (event.type) {
-      case EVENT_TYPES.GAME:
-        return resolveGameEvent(
-          event,
-          options
-        );
+    if (
+      !Array.isArray(
+        _state.season.processedDates
+      )
+    ) {
+      _state.season.processedDates = [];
+    }
 
-      case EVENT_TYPES.PRACTICE:
-        return resolvePracticeEvent(
-          event,
-          options
-        );
+    const wasAlreadyProcessed =
+      _state.season.processedDates
+        .includes(dateString);
 
-        case EVENT_TYPES.TRAINING:
-        /*
-         * Training is a player-controlled weekly development event.
-         * Never auto-resolve it while advancing the calendar.
-         *
-         * Stop simulation and allow game.js to open the Training
-         * selection screen, where the career player chooses a focus.
-         */
-        return {
-          success: true,
-          resolved: false,
-          stopSimulation: true,
+    if (wasAlreadyProcessed) {
+      return {
+        success: true,
+        processed: false,
+        date: dateString,
+        reason: 'already-processed',
+        eventResults: [],
+      };
+    }
 
-          reason:
-            'training-selection-required',
+    /*
+     * Future date-specific systems will plug in here:
+     *
+     * - Scheduled games
+     * - Practices
+     * - Recovery sessions
+     * - Coach meetings
+     * - Media interviews
+     * - Scout interviews
+     * - Injury decisions
+     * - Story events
+     *
+     * For now, the coordinator records the date exactly once.
+     */
+    const scheduledEvents =
+      getScheduledEventsForDate(
+        dateString
+      );
 
-          eventId:
-            event?.id ||
+    /*
+     * ROADMAP 6 — LIVE GAME RESULT HANDOFF
+     *
+     * A career game played through the live experience has
+     * already been completely resolved by the canonical live
+     * simulator.
+     *
+     * When that finished gameResult is supplied here, inject it
+     * into the NORMAL permanent game-result application pipeline
+     * instead of simulating the same scheduled game again.
+     */
+    const suppliedGameResult =
+      options?.resolvedGameResult &&
+      typeof options
+        .resolvedGameResult ===
+          'object'
+        ? options.resolvedGameResult
+        : null;
+
+    const suppliedGameId =
+      suppliedGameResult
+        ?.gameId ||
+      suppliedGameResult
+        ?.eventId ||
+      null;
+
+    const eventResults =
+      scheduledEvents.map(
+        event => {
+          const eventId =
+            event?.gameId ||
             event?.eventId ||
+            event?.id ||
+            null;
+
+          const isSuppliedLiveGame =
+            Boolean(
+              suppliedGameResult &&
+              suppliedGameId &&
+              eventId &&
+              String(eventId) ===
+                String(
+                  suppliedGameId
+                )
+            );
+
+          if (
+            isSuppliedLiveGame
+          ) {
+            return {
+              success: true,
+
+              resolved: true,
+
+              type:
+                EVENT_TYPES.GAME,
+
+              eventId,
+
+              date:
+                dateString,
+
+              reason:
+                'completed-live-game-result-supplied',
+
+              gameResult:
+                structuredClone(
+                  suppliedGameResult
+                ),
+            };
+          }
+
+          return resolveScheduledEvent(
+            event,
+            {
+              date:
+                dateString,
+            }
+          );
+        }
+      );
+
+    const blockingEventResult =
+      eventResults.find(
+        result =>
+          result?.stopSimulation === true
+      ) || null;
+
+    if (blockingEventResult) {
+      return {
+        success: true,
+        processed: false,
+        date: dateString,
+
+        reason:
+          'player-interaction-required',
+
+        stopSimulation: true,
+
+        blockingEventResult,
+
+        eventResults,
+      };
+    }
+
+    /*
+     * Apply every resolved game to the canonical teams and
+     * schedule before finalizing the date.
+     *
+     * Game results use their own application layer because
+     * they affect the entire league rather than only the
+     * career player.
+     */
+    const appliedGameResults =
+      eventResults
+        .filter(result =>
+          result?.resolved === true &&
+          result?.type ===
+            EVENT_TYPES.GAME
+        )
+        .map(result => {
+          const teamAndScheduleApplication =
+            applyGameResultToTeamsAndSchedule(
+              result.gameResult
+            );
+
+          /*
+           * Do not attempt player-stat application when the
+           * team or schedule write itself failed.
+           */
+          if (
+            teamAndScheduleApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                teamAndScheduleApplication
+                  .reason ||
+                'team-and-schedule-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication:
+                null,
+            };
+          }
+
+          const skaterStatApplication =
+            applyGameResultToSkaterStats(
+              result.gameResult
+            );
+
+          if (
+            skaterStatApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                skaterStatApplication
+                  .reason ||
+                'skater-stat-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication:
+                null,
+            };
+          }
+
+          /*
+           * Apply the simulated goalie box scores only after
+           * the team, schedule and skater writes succeeded.
+           */
+          const goalieStatApplication =
+            applyGameResultToGoalieStats(
+              result.gameResult
+            );
+
+          if (
+            goalieStatApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                goalieStatApplication
+                  .reason ||
+                'goalie-stat-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+            };
+          }
+
+          /*
+           * Find the career player in this game's box score.
+           * NPC-only games correctly continue without creating
+           * a progression package.
+           */
+          const careerPerformance =
+            getCareerPlayerGamePerformance(
+              result.gameResult
+            );
+
+          if (
+            careerPerformance
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                careerPerformance
+                  .reason ||
+                'career-performance-lookup-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore:
+                null,
+
+              progressionResult:
+                null,
+
+              progressionApplication:
+                null,
+            };
+          }
+
+          const performanceScore =
+            calculateCareerGamePerformanceScore(
+              careerPerformance
+            );
+
+          if (
+            performanceScore
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                performanceScore
+                  .reason ||
+                'career-performance-score-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore,
+
+              progressionResult:
+                null,
+
+              progressionApplication:
+                null,
+            };
+          }
+
+          const progressionResult =
+            createPostGameProgressionResult(
+              careerPerformance,
+              performanceScore
+            );
+
+          if (
+            progressionResult
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                progressionResult
+                  .reason ||
+                'post-game-progression-creation-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore,
+
+              progressionResult,
+
+              progressionApplication:
+                null,
+            };
+          }
+
+          const progressionApplication =
+            applyPostGameProgression(
+              progressionResult
+            );
+
+          /*
+           * Freeze the already-applied career development result
+           * onto both the canonical game result and the permanently
+           * saved schedule entry. Team/schedule application happens
+           * earlier, so its postgameSummary must be updated directly.
+           */
+          const savedDevelopment = {
+            progressionResult:
+              progressionResult &&
+              typeof progressionResult ===
+                'object'
+                ? structuredClone(
+                    progressionResult
+                  )
+                : null,
+
+            progressionApplication:
+              progressionApplication &&
+              typeof progressionApplication ===
+                'object'
+                ? structuredClone(
+                    progressionApplication
+                  )
+                : null,
+
+            performanceScore:
+              Number(
+                performanceScore
+              ) || 0,
+
+            playerId:
+              careerPerformance
+                ?.playerId ||
+              null,
+          };
+
+          if (
+            result.gameResult &&
+            typeof result.gameResult ===
+              'object'
+          ) {
+            result.gameResult.development =
+              structuredClone(
+                savedDevelopment
+              );
+          }
+
+          const completedScheduledGame =
+            teamAndScheduleApplication
+              ?.scheduledGame ||
+            null;
+
+          if (
+            completedScheduledGame
+              ?.postgameSummary &&
+            typeof completedScheduledGame
+              .postgameSummary ===
+                'object'
+          ) {
+            completedScheduledGame
+              .postgameSummary
+              .development =
+              structuredClone(
+                savedDevelopment
+              );
+          }
+
+          save();
+
+          if (
+            progressionApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                progressionApplication
+                  .reason ||
+                'post-game-progression-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore,
+
+              progressionResult,
+
+              progressionApplication,
+            };
+          }
+
+          return {
+            eventId:
+              result.eventId ||
+              result.gameResult?.gameId ||
+              null,
+
+            success: true,
+
+            applied:
+              Boolean(
+                teamAndScheduleApplication
+                  .applied ||
+                skaterStatApplication
+                  .applied ||
+                goalieStatApplication
+                  .applied ||
+                progressionApplication
+                  .applied
+              ),
+
+            reason:
+              careerPerformance.found
+                ? 'complete-game-and-career-progression-applied'
+                : 'complete-npc-game-result-applied',
+
+            teamAndScheduleApplication,
+
+            skaterStatApplication,
+
+            goalieStatApplication,
+
+            careerPerformance,
+
+            performanceScore,
+
+            progressionResult,
+
+            progressionApplication,
+          };
+        });
+
+    const failedGameApplication =
+      appliedGameResults.find(
+        application =>
+          application?.success !== true
+      ) || null;
+
+    /*
+     * Never mark the date as processed when a resolved game
+     * could not be written permanently. This keeps the date
+     * available for a safe retry instead of losing the result.
+     */
+    if (failedGameApplication) {
+      return {
+        success: false,
+
+        processed: false,
+
+        date:
+          dateString,
+
+        reason:
+          'game-result-application-failed',
+
+        stopSimulation:
+          true,
+
+        failedGameApplication,
+
+        eventResults,
+
+        appliedGameResults,
+      };
+    }
+
+    /*
+     * Apply every successfully resolved event result to the
+     * canonical career player before the date is finalized.
+     *
+     * Unresolved placeholders and blocking events are ignored.
+     */
+    const careerPlayer =
+      getPlayerById(
+        _state.player?.playerId ||
+        _state.player?.id ||
+        'career-player'
+      );
+
+    const appliedEventResults =
+      eventResults
+        .filter(result =>
+          result?.resolved === true
+        )
+        .map(result => ({
+          eventId:
+            result.eventId ||
             null,
 
-          event,
-        };
+          type:
+            result.type ||
+            null,
 
-      case EVENT_TYPES.RECOVERY:
-        return resolveRecoveryEvent(
-          event,
-          options
-        );
+          applied:
+            careerPlayer
+              ? applyEventResult(
+                  careerPlayer,
+                  result
+                )
+              : false,
+        }));
 
-      case EVENT_TYPES.COACH_MEETING:
-        return resolveCoachMeetingEvent(
-          event,
-          options
-        );
+    _state.season.processedDates.push(
+      dateString
+    );
 
-      case EVENT_TYPES.MEDIA:
-        return resolveMediaEvent(
-          event,
-          options
-        );
+    _state.season.processedDates.sort(
+      (a, b) =>
+        String(a).localeCompare(
+          String(b)
+        )
+    );
 
-      default:
-        return {
-          success: true,
-          resolved: false,
-          reason: 'resolver-not-implemented',
+    _state.season.lastProcessedDate =
+      dateString;
 
-          event,
-        };
+    if (options.save !== false) {
+      save();
     }
-  }
 
-  // ── Canonical Game Result Contract ──────────────────────────
-
-  function createEmptySkaterGameLine(
-    player = null
-  ) {
     return {
-      playerId:
-        player?.id ||
-        player?.playerId ||
-        null,
+      success: true,
+      processed: true,
+      date: dateString,
+      reason: 'date-processed',
 
-      teamId:
-        player?.teamId ||
-        null,
+      eventResults,
 
-      name:
-        player
-          ? `${player.firstName || ''} ${player.lastName || ''}`.trim()
-          : '',
+      appliedGameResults,
 
-      position:
-        player?.position ||
-        null,
+      appliedEventResults,
+    };
+  }
+  
+  // ── Hockey Player Blueprint ──────────────────────────────────
 
-      overall:
-        Number(
-          player?.overall
-        ) || 50,
+  function createGeneratedPlayer(slot) {
 
-      archetype:
-        player?.archetype ||
-        null,
+    const nationality =
+      generatePlayerNationality();
 
-      lineupAssignment:
-        player?.lineupAssignment
-          ? {
-              ...player.lineupAssignment,
-            }
-          : null,
+    const namePool =
+      PLAYER_NAME_POOLS[nationality] || {
+        firstNames:
+          PLAYER_FIRST_NAMES,
 
-      started:
-        false,
+        lastNames:
+          PLAYER_LAST_NAMES,
+      };
 
-      dressed:
-        true,
+    const firstName =
+      namePool.firstNames[
+        Math.floor(
+          Math.random() *
+          namePool.firstNames.length
+        )
+      ];
+
+    const lastName =
+      namePool.lastNames[
+        Math.floor(
+          Math.random() *
+          namePool.lastNames.length
+        )
+      ];
+
+    const overall =
+      Math.floor(Math.random() * 13) + 58; // 58–70
+
+    const potential =
+      overall + Math.floor(Math.random() * 16) + 8;
+    
+
+    const archetypes =
+      PLAYER_ARCHETYPES[slot.position] || ['Balanced'];
+    const archetype =
+      archetypes[
+        Math.floor(Math.random() * archetypes.length)
+      ];
+    const potentialRole = getPotentialRole(
+      slot.position,
+      Math.min(99, potential)
+    );
+
+      const potentialAccuracy =
+        generatePotentialAccuracy();
+
+      const attributes =
+        slot.position === 'G'
+          ? createGoalieAttributesFromOverall(
+              overall,
+              archetype
+            )
+          : createAttributesFromOverall(
+              overall,
+              slot.position,
+              archetype
+            );
+
+      const calculatedOverall =
+        slot.position === 'G'
+          ? calculateGoalieOverallFromAttributes(
+              attributes
+            )
+          : calculateOverallFromAttributes(
+              attributes,
+              slot.position
+            );
+
+        return ensureCanonicalPlayerContract({
+
+      id:
+        'player_' +
+        Math.random().toString(36).slice(2, 10),
+
+      firstName,
+      lastName,
+
+      nationality,
+
+      position: slot.position,
+
+      rosterSlot: slot.slot,
+
+      overall: calculatedOverall,
+
+      potential: Math.min(99, potential),
+
+      year: 'Freshman',
+
+      age: 14,
+
+      shoots:
+        Math.random() < 0.65 ? 'L' : 'R',
+
+      height:
+        `${5 + Math.floor(Math.random() * 2)}'${6 + Math.floor(Math.random() * 7)}"`,
+
+      weight:
+        135 + Math.floor(Math.random() * 50),
+
+      archetype,
+      
+      attributes,
+        
+      goals: 0,
+      assists: 0,
+      points: 0,
+
+      gamesPlayed: 0,
+
+      plusMinus: 0,
+
+      penaltyMinutes: 0,
+
+      captain: false,
+
+      alternateCaptain: false,
+
+      injured: false,
+
+      injury: null,
+
+      morale: 50,
+
+      coachTrust: 50,
+
+      // Public scouting recognition. This is separate from current ability.
+      reputationStars: 1,
+      reputationPoints: Math.floor(Math.random() * 16) + 5,
+
+      developmentSeed: Math.random(),
+
+    });
+
+  }
+  function assignUniqueJerseyNumbers(
+    roster = []
+  ) {
+    if (!Array.isArray(roster)) {
+      return roster;
+    }
+
+    const usedNumbers =
+      new Set();
+
+    const playersNeedingNumbers = [];
+
+    /*
+     * Process the career player first so their chosen jersey
+     * number takes priority if an older generated player has
+     * the same number.
+     */
+    const orderedPlayers = [
+      ...roster.filter(
+        player => player.isCareerPlayer
+      ),
+
+      ...roster.filter(
+        player => !player.isCareerPlayer
+      ),
+    ];
+
+    orderedPlayers.forEach(player => {
+      const jerseyNumber =
+        Number(player.jerseyNumber);
+
+      const hasValidNumber =
+        Number.isInteger(jerseyNumber) &&
+        jerseyNumber >= 1 &&
+        jerseyNumber <= 99;
+
+      const numberIsAvailable =
+        hasValidNumber &&
+        !usedNumbers.has(jerseyNumber);
+
+      if (numberIsAvailable) {
+        player.jerseyNumber =
+          jerseyNumber;
+
+        usedNumbers.add(
+          jerseyNumber
+        );
+
+        return;
+      }
 
       /*
-       * Every skater placed on the active game roster is
-       * participating in this simulated game.
-       *
-       * This must be 1 so the performance/development engine
-       * recognizes the appearance after simulation.
+       * Missing, invalid, or duplicate numbers are the only
+       * ones that should be reassigned.
        */
-      gamesPlayed:
+      player.jerseyNumber = null;
+
+      playersNeedingNumbers.push(
         player
-          ? 1
-          : 0,
+      );
+    });
 
-      goals:
-        0,
+    const availableNumbers =
+      Array.from(
+        {
+          length: 99,
+        },
+        (_, index) => index + 1
+      )
+        .filter(
+          number =>
+            !usedNumbers.has(number)
+        );
 
-      assists:
-        0,
+    /*
+     * Randomize only the unused-number pool.
+     * Once assigned and saved, these numbers will be
+     * preserved during every later load.
+     */
+    for (
+      let index =
+        availableNumbers.length - 1;
 
-      points:
-        0,
+      index > 0;
 
-      plusMinus:
-        0,
+      index--
+    ) {
+      const swapIndex =
+        Math.floor(
+          Math.random() *
+          (index + 1)
+        );
 
-      penaltyMinutes:
-        0,
+      [
+        availableNumbers[index],
+        availableNumbers[swapIndex],
+      ] = [
+        availableNumbers[swapIndex],
+        availableNumbers[index],
+      ];
+    }
 
-      shots:
-        0,
+    playersNeedingNumbers
+      .forEach((player, index) => {
+        player.jerseyNumber =
+          availableNumbers[index] ||
+          null;
+      });
 
-      powerPlayGoals:
-        0,
-
-      powerPlayPoints:
-        0,
-
-      shorthandedGoals:
-        0,
-
-      gameWinningGoals:
-        0,
-
-      faceoffWins:
-        0,
-
-      faceoffAttempts:
-        0,
-
-      blockedShots:
-        0,
-
-      hits:
-        0,
-
-      takeaways:
-        0,
-
-      giveaways:
-        0,
-
-      timeOnIceSeconds:
-        0,
-
-      powerPlayTimeSeconds:
-        0,
-
-      penaltyKillTimeSeconds:
-        0,
-
-      gameRating:
-        null,
-
-      firstStar:
-        false,
-
-      secondStar:
-        false,
-
-      thirdStar:
-        false,
-    };
+    return roster;
   }
-
-  function createEmptyGoalieGameLine(
-    player = null
-  ) {
-    return {
-      playerId:
-        player?.id ||
-        player?.playerId ||
-        null,
-
-      teamId:
-        player?.teamId ||
-        null,
-
-      name:
-        player
-          ? `${player.firstName || ''} ${player.lastName || ''}`.trim()
-          : '',
-
-      position:
-        'G',
-
-      goalieRole:
-        player?.lineupAssignment
-          ?.goalieRole ||
-        player?.goalieRole ||
-        null,
-
-      started:
-        false,
-
-      dressed:
-        true,
-
-      gamesPlayed:
-        0,
-
-      wins:
-        0,
-
-      losses:
-        0,
-
-      overtimeLosses:
-        0,
-
-      shotsAgainst:
-        0,
-
-      saves:
-        0,
-
-      goalsAgainst:
-        0,
-
-      savePercentage:
-        null,
-
-      shutout:
-        false,
-
-      minutesPlayed:
-        0,
-
-      decision:
-        null,
-
-      gameRating:
-        null,
-
-      firstStar:
-        false,
-
-      secondStar:
-        false,
-
-      thirdStar:
-        false,
-    };
-  }
-
-  function createEmptyTeamGameResult(
-    teamId = null
-  ) {
-    return {
-      teamId,
-
-      score:
-        0,
-
-      shots:
-        0,
-
-      penaltyMinutes:
-        0,
-
-      powerPlayOpportunities:
-        0,
-
-      powerPlayGoals:
-        0,
-
-      shorthandedGoals:
-        0,
-
-      faceoffWins:
-        0,
-
-      blockedShots:
-        0,
-
-      hits:
-        0,
-
-      giveaways:
-        0,
-
-      takeaways:
-        0,
-
-      periodScores: [
-        0,
-        0,
-        0,
-      ],
-
-      overtimeScore:
-        0,
-
-      shootoutScore:
-        0,
-
-      skaters: [],
-
-      goalies: [],
-    };
-  }
-
-  function createEmptyGameResult(
-    event = {}
-  ) {
-    const homeTeamId =
-      event?.homeTeamId ||
-      null;
-
-    const awayTeamId =
-      event?.awayTeamId ||
-      null;
-
-    return {
-      success:
-        true,
-
-      completed:
-        false,
-
-      gameId:
-        event?.id ||
-        event?.gameId ||
-        null,
-
-      eventId:
-        event?.id ||
-        event?.eventId ||
-        null,
-
-      date:
-        event?.date ||
-        null,
-
-      homeTeamId,
-
-      awayTeamId,
-
-      status:
-        'scheduled',
-
-      winnerTeamId:
-        null,
-
-      loserTeamId:
-        null,
-
-      resultType:
-        null,
-
-      wentToOvertime:
-        false,
-
-      wentToShootout:
-        false,
-
-      home:
-        createEmptyTeamGameResult(
-          homeTeamId
-        ),
-
-      away:
-        createEmptyTeamGameResult(
-          awayTeamId
-        ),
-
-      scoringPlays: [],
-
-      penalties: [],
-
-      playByPlay: [],
-
-      threeStars: [],
-
-      context: {
-        isRivalry:
-          Boolean(
-            event?.isRivalry
-          ),
-
-        isGameOfWeek:
-          Boolean(
-            event?.isGameOfWeek
-          ),
-
-        isMilestone:
-          Boolean(
-            event?.isMilestone
-          ),
-
-        milestoneType:
-          event?.milestoneType ||
-          null,
-
-        scoutsAttending:
-          Number(
-            event?.scoutsAttending
-          ) || 0,
-      },
-
-      metadata: {
-        simulatedAt:
-          null,
-
-        simulationVersion:
-          'game-sim-v1',
-      },
-    };
-  }
-
-  function createTeamGameRoster(
-    teamId
-  ) {
-    const team =
-      getTeamById(
-        teamId
+  function generateTeamRoster(team) {
+    const usedNames = new Set();
+
+    const roster = ROSTER_POSITION_SLOTS.map(slot => {
+      let player;
+      let fullName;
+      let attempts = 0;
+
+      do {
+        player = createGeneratedPlayer(slot);
+        fullName = `${player.firstName} ${player.lastName}`;
+        attempts++;
+      } while (usedNames.has(fullName) && attempts < 50);
+
+      usedNames.add(fullName);
+
+      const roll = Math.random();
+
+      if (roll < 0.12) {
+        player.year = 'Senior';
+        player.age = Math.random() < 0.5 ? 17 : 18;
+        player.overall += 8;
+      } else if (roll < 0.38) {
+        player.year = 'Junior';
+        player.age = Math.random() < 0.5 ? 16 : 17;
+        player.overall += 5;
+      } else if (roll < 0.68) {
+        player.year = 'Sophomore';
+        player.age = Math.random() < 0.5 ? 15 : 16;
+        player.overall += 2;
+      } else {
+        player.year = 'Freshman';
+        player.age = Math.random() < 0.75 ? 14 : 15;
+      }
+
+      player.overall = Math.min(82, player.overall);
+      player.potential = Math.max(
+        player.overall,
+        Math.min(99, player.potential)
+      );
+      // Stronger and older players begin with more established reputations.
+      let reputationBonus = 0;
+
+      if (player.overall >= 78) reputationBonus += 30;
+      else if (player.overall >= 74) reputationBonus += 20;
+      else if (player.overall >= 70) reputationBonus += 10;
+
+      if (player.year === 'Senior') reputationBonus += 10;
+      else if (player.year === 'Junior') reputationBonus += 6;
+      else if (player.year === 'Sophomore') reputationBonus += 3;
+
+      player.reputationPoints = Math.min(
+        100,
+        player.reputationPoints + reputationBonus
+      );
+
+      if (player.re
+
+===== RESOLVED GAME RESULT =====
+return {
+        success: false,
+        repaired: false,
+        reason: 'game-id-missing',
+      };
+    }
+
+    const scheduledGame =
+      Array.isArray(_state.schedule)
+        ? _state.schedule.find(game =>
+            String(
+              game?.id ||
+              game?.gameId ||
+              ''
+            ) ===
+            String(gameId)
+          ) || null
+        : null;
+
+    if (!scheduledGame) {
+      return {
+        success: false,
+        repaired: false,
+        reason: 'scheduled-game-not-found',
+        gameId,
+      };
+    }
+
+    const savedGameResult =
+      scheduledGame.gameResult &&
+      typeof scheduledGame.gameResult ===
+        'object'
+        ? structuredClone(
+            scheduledGame.gameResult
+          )
+        : null;
+
+    if (!savedGameResult) {
+      return {
+        success: false,
+        repaired: false,
+        reason: 'saved-game-result-missing',
+        gameId,
+      };
+    }
+
+    /*
+     * Older completed games were saved before the simulator
+     * correctly marked skater/goalie appearances.
+     *
+     * Repair participation only on the temporary copy used
+     * for development reconstruction.
+     */
+    [
+      savedGameResult.home,
+      savedGameResult.away,
+    ].forEach(teamResult => {
+      if (!teamResult) {
+        return;
+      }
+
+      if (
+        Array.isArray(
+          teamResult.skaters
+        )
+      ) {
+        teamResult.skaters.forEach(
+          skaterLine => {
+            if (
+              skaterLine &&
+              skaterLine.dressed !== false
+            ) {
+              skaterLine.gamesPlayed = 1;
+            }
+          }
+        );
+      }
+
+      if (
+        Array.isArray(
+          teamResult.goalies
+        )
+      ) {
+        teamResult.goalies.forEach(
+          goalieLine => {
+            if (!goalieLine) {
+              return;
+            }
+
+            if (
+              goalieLine.started === true
+            ) {
+              goalieLine.gamesPlayed = 1;
+            }
+          }
+        );
+      }
+    });
+
+    const careerPerformance =
+      getCareerPlayerGamePerformance(
+        savedGameResult
       );
 
     if (
-      !team ||
-      !Array.isArray(
-        team.roster
+      careerPerformance.success !== true ||
+      careerPerformance.found !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          careerPerformance.reason ||
+          'career-player-performance-not-found',
+        gameId,
+        careerPerformance,
+      };
+    }
+
+    const performanceScore =
+      calculateCareerGamePerformanceScore(
+        careerPerformance
+      );
+
+    if (
+      performanceScore.success !== true ||
+      performanceScore.scored !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          performanceScore.reason ||
+          'career-performance-score-not-created',
+        gameId,
+        careerPerformance,
+        performanceScore,
+      };
+    }
+
+    const progressionResult =
+      createPostGameProgressionResult(
+        careerPerformance,
+        performanceScore
+      );
+
+    if (
+      progressionResult.success !== true ||
+      progressionResult.created !== true
+    ) {
+      return {
+        success: false,
+        repaired: false,
+        reason:
+          progressionResult.reason ||
+          'progression-result-not-created',
+        gameId,
+        careerPerformance,
+        performanceScore,
+        progressionResult,
+      };
+    }
+
+    /*
+     * applyPostGameProgression already contains the permanent
+     * game-log duplicate guard, so an old game can never award
+     * its XP twice.
+     */
+    const progressionApplication =
+      applyPostGameProgression(
+        progressionResult
+      );
+
+    const savedDevelopment = {
+      progressionResult:
+        structuredClone(
+          progressionResult
+        ),
+
+      progressionApplication:
+        progressionApplication &&
+        typeof progressionApplication ===
+          'object'
+          ? structuredClone(
+              progressionApplication
+            )
+          : null,
+
+      performanceScore:
+        Number(
+          performanceScore.score
+        ) || 0,
+
+      playerId:
+        careerPerformance.playerId ||
+        null,
+
+      repaired:
+        true,
+
+      repairedAt:
+        new Date().toISOString(),
+    };
+
+    scheduledGame.postgameSummary =
+      scheduledGame.postgameSummary &&
+      typeof scheduledGame
+        .postgameSummary === 'object'
+        ? scheduledGame.postgameSummary
+        : {};
+
+    scheduledGame
+      .postgameSummary
+      .development =
+      structuredClone(
+        savedDevelopment
+      );
+
+    scheduledGame
+      .gameResult
+      .development =
+      structuredClone(
+        savedDevelopment
+      );
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return {
+      success: true,
+      repaired: true,
+      reason:
+        progressionApplication
+          ?.reason ===
+          'post-game-progression-already-applied'
+          ? 'development-display-repaired'
+          : 'development-repaired-and-applied',
+
+      gameId,
+
+      careerPerformance,
+      performanceScore,
+      progressionResult,
+      progressionApplication,
+
+      development:
+        savedDevelopment,
+    };
+  }
+
+  function processSeasonDate(
+    dateString,
+    options = {}
+  ) {
+    if (
+      !_state.season ||
+      typeof _state.season !== 'object'
+    ) {
+      ensureCanonicalSeasonState(
+        _state
+      );
+    }
+
+    if (
+      typeof dateString !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        dateString
       )
+    ) {
+      return {
+        success: false,
+        processed: false,
+        date: dateString,
+        reason: 'invalid-date',
+      };
+    }
+
+    if (
+      !Array.isArray(
+        _state.season.processedDates
+      )
+    ) {
+      _state.season.processedDates = [];
+    }
+
+    const wasAlreadyProcessed =
+      _state.season.processedDates
+        .includes(dateString);
+
+    if (wasAlreadyProcessed) {
+      return {
+        success: true,
+        processed: false,
+        date: dateString,
+        reason: 'already-processed',
+        eventResults: [],
+      };
+    }
+
+    /*
+     * Future date-specific systems will plug in here:
+     *
+     * - Scheduled games
+     * - Practices
+     * - Recovery sessions
+     * - Coach meetings
+     * - Media interviews
+     * - Scout interviews
+     * - Injury decisions
+     * - Story events
+     *
+     * For now, the coordinator records the date exactly once.
+     */
+    const scheduledEvents =
+      getScheduledEventsForDate(
+        dateString
+      );
+
+    /*
+     * ROADMAP 6 — LIVE GAME RESULT HANDOFF
+     *
+     * A career game played through the live experience has
+     * already been completely resolved by the canonical live
+     * simulator.
+     *
+     * When that finished gameResult is supplied here, inject it
+     * into the NORMAL permanent game-result application pipeline
+     * instead of simulating the same scheduled game again.
+     */
+    const suppliedGameResult =
+      options?.resolvedGameResult &&
+      typeof options
+        .resolvedGameResult ===
+          'object'
+        ? options.resolvedGameResult
+        : null;
+
+    const suppliedGameId =
+      suppliedGameResult
+        ?.gameId ||
+      suppliedGameResult
+        ?.eventId ||
+      null;
+
+    const eventResults =
+      scheduledEvents.map(
+        event => {
+          const eventId =
+            event?.gameId ||
+            event?.eventId ||
+            event?.id ||
+            null;
+
+          const isSuppliedLiveGame =
+            Boolean(
+              suppliedGameResult &&
+              suppliedGameId &&
+              eventId &&
+              String(eventId) ===
+                String(
+                  suppliedGameId
+                )
+            );
+
+          if (
+            isSuppliedLiveGame
+          ) {
+            return {
+              success: true,
+
+              resolved: true,
+
+              type:
+                EVENT_TYPES.GAME,
+
+              eventId,
+
+              date:
+                dateString,
+
+              reason:
+                'completed-live-game-result-supplied',
+
+              gameResult:
+                structuredClone(
+                  suppliedGameResult
+                ),
+            };
+          }
+
+          return resolveScheduledEvent(
+            event,
+            {
+              date:
+                dateString,
+            }
+          );
+        }
+      );
+
+    const blockingEventResult =
+      eventResults.find(
+        result =>
+          result?.stopSimulation === true
+      ) || null;
+
+    if (blockingEventResult) {
+      return {
+        success: true,
+        processed: false,
+        date: dateString,
+
+        reason:
+          'player-interaction-required',
+
+        stopSimulation: true,
+
+        blockingEventResult,
+
+        eventResults,
+      };
+    }
+
+    /*
+     * Apply every resolved game to the canonical teams and
+     * schedule before finalizing the date.
+     *
+     * Game results use their own application layer because
+     * they affect the entire league rather than only the
+     * career player.
+     */
+    const appliedGameResults =
+      eventResults
+        .filter(result =>
+          result?.resolved === true &&
+          result?.type ===
+            EVENT_TYPES.GAME
+        )
+        .map(result => {
+          const teamAndScheduleApplication =
+            applyGameResultToTeamsAndSchedule(
+              result.gameResult
+            );
+
+          /*
+           * Do not attempt player-stat application when the
+           * team or schedule write itself failed.
+           */
+          if (
+            teamAndScheduleApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                teamAndScheduleApplication
+                  .reason ||
+                'team-and-schedule-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication:
+                null,
+            };
+          }
+
+          const skaterStatApplication =
+            applyGameResultToSkaterStats(
+              result.gameResult
+            );
+
+          if (
+            skaterStatApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                skaterStatApplication
+                  .reason ||
+                'skater-stat-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication:
+                null,
+            };
+          }
+
+          /*
+           * Apply the simulated goalie box scores only after
+           * the team, schedule and skater writes succeeded.
+           */
+          const goalieStatApplication =
+            applyGameResultToGoalieStats(
+              result.gameResult
+            );
+
+          if (
+            goalieStatApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                goalieStatApplication
+                  .reason ||
+                'goalie-stat-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+            };
+          }
+
+          /*
+           * Find the career player in this game's box score.
+           * NPC-only games correctly continue without creating
+           * a progression package.
+           */
+          const careerPerformance =
+            getCareerPlayerGamePerformance(
+              result.gameResult
+            );
+
+          if (
+            careerPerformance
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                careerPerformance
+                  .reason ||
+                'career-performance-lookup-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore:
+                null,
+
+              progressionResult:
+                null,
+
+              progressionApplication:
+                null,
+            };
+          }
+
+          const performanceScore =
+            calculateCareerGamePerformanceScore(
+              careerPerformance
+            );
+
+          if (
+            performanceScore
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                performanceScore
+                  .reason ||
+                'career-performance-score-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore,
+
+              progressionResult:
+                null,
+
+              progressionApplication:
+                null,
+            };
+          }
+
+          const progressionResult =
+            createPostGameProgressionResult(
+              careerPerformance,
+              performanceScore
+            );
+
+          if (
+            progressionResult
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                progressionResult
+                  .reason ||
+                'post-game-progression-creation-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore,
+
+              progressionResult,
+
+              progressionApplication:
+                null,
+            };
+          }
+
+          const progressionApplication =
+            applyPostGameProgression(
+              progressionResult
+            );
+
+          /*
+           * Freeze the already-applied career development result
+           * onto both the canonical game result and the permanently
+           * saved schedule entry. Team/schedule application happens
+           * earlier, so its postgameSummary must be updated directly.
+           */
+          const savedDevelopment = {
+            progressionResult:
+              progressionResult &&
+              typeof progressionResult ===
+                'object'
+                ? structuredClone(
+                    progressionResult
+                  )
+                : null,
+
+            progressionApplication:
+              progressionApplication &&
+              typeof progressionApplication ===
+                'object'
+                ? structuredClone(
+                    progressionApplication
+                  )
+                : null,
+
+            performanceScore:
+              Number(
+                performanceScore
+              ) || 0,
+
+            playerId:
+              careerPerformance
+                ?.playerId ||
+              null,
+          };
+
+          if (
+            result.gameResult &&
+            typeof result.gameResult ===
+              'object'
+          ) {
+            result.gameResult.development =
+              structuredClone(
+                savedDevelopment
+              );
+          }
+
+          const completedScheduledGame =
+            teamAndScheduleApplication
+              ?.scheduledGame ||
+            null;
+
+          if (
+            completedScheduledGame
+              ?.postgameSummary &&
+            typeof completedScheduledGame
+              .postgameSummary ===
+                'object'
+          ) {
+            completedScheduledGame
+              .postgameSummary
+              .development =
+              structuredClone(
+                savedDevelopment
+              );
+          }
+
+          save();
+
+          if (
+            progressionApplication
+              .success !== true
+          ) {
+            return {
+              eventId:
+                result.eventId ||
+                result.gameResult?.gameId ||
+                null,
+
+              success: false,
+
+              applied: false,
+
+              reason:
+                progressionApplication
+                  .reason ||
+                'post-game-progression-application-failed',
+
+              teamAndScheduleApplication,
+
+              skaterStatApplication,
+
+              goalieStatApplication,
+
+              careerPerformance,
+
+              performanceScore,
+
+              progressionResult,
+
+              progressionApplication,
+            };
+          }
+
+          return {
+            eventId:
+              result.eventId ||
+              result.gameResult?.gameId ||
+              null,
+
+            success: true,
+
+            applied:
+              Boolean(
+                teamAndScheduleApplication
+                  .applied ||
+                skaterStatApplication
+                  .applied ||
+                goalieStatApplication
+                  .applied ||
+                progressionApplication
+                  .applied
+              ),
+
+            reason:
+              careerPerformance.found
+                ? 'complete-game-and-career-progression-applied'
+                : 'complete-npc-game-result-applied',
+
+            teamAndScheduleApplication,
+
+            skaterStatApplication,
+
+            goalieStatApplication,
+
+            careerPerformance,
+
+            performanceScore,
+
+            progressionResult,
+
+            progressionApplication,
+          };
+        });
+
+    const failedGameApplication =
+      appliedGameResults.find(
+        application =>
+          application?.success !== true
+      ) || null;
+
+    /*
+     * Never mark the date as processed when a resolved game
+     * could not be written permanently. This keeps the date
+     * available for a safe retry instead of losing the result.
+     */
+    if (failedGameApplication) {
+      return {
+        success: false,
+
+        processed: false,
+
+        date:
+          dateString,
+
+        reason:
+          'game-result-application-failed',
+
+        stopSimulation:
+          true,
+
+        failedGameApplication,
+
+        eventResults,
+
+        appliedGameResults,
+      };
+    }
+
+    /*
+     * Apply every successfully resolved event result to the
+     * canonical career player before the date is finalized.
+     *
+     * Unresolved placeholders and blocking events are ignored.
+     */
+    const careerPlayer =
+      getPlayerById(
+        _state.player?.playerId ||
+        _state.player?.id ||
+        'career-player'
+      );
+
+    const appliedEventResults =
+      eventResults
+        .filter(result =>
+          result?.resolved === true
+        )
+        .map(result => ({
+          eventId:
+            result.eventId ||
+            null,
+
+          type:
+            result.type ||
+            null,
+
+          applied:
+            careerPlayer
+              ? applyEventResult(
+                  careerPlayer,
+                  result
+                )
+              : false,
+        }));
+
+    _state.season.processedDates.push(
+      dateString
+    );
+
+    _state.season.processedDates.sort(
+      (a, b) =>
+        String(a).localeCompare(
+          String(b)
+        )
+    );
+
+    _state.season.lastProcessedDate =
+      dateString;
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return {
+      success: true,
+      processed: true,
+      date: dateString,
+      reason: 'date-processed',
+
+      eventResults,
+
+      appliedGameResults,
+
+      appliedEventResults,
+    };
+  }
+  
+  // ── Hockey Player Blueprint ──────────────────────────────────
+
+  function createGeneratedPlayer(slot) {
+
+    const nationality =
+      generatePlayerNationality();
+
+    const namePool =
+      PLAYER_NAME_POOLS[nationality] || {
+        firstNames:
+          PLAYER_FIRST_NAMES,
+
+        lastNames:
+          PLAYER_LAST_NAMES,
+      };
+
+    const firstName =
+      namePool.firstNames[
+        Math.floor(
+          Math.random() *
+          namePool.firstNames.length
+        )
+      ];
+
+    const lastName =
+      namePool.lastNames[
+        Math.floor(
+          Math.random() *
+          namePool.lastNames.length
+        )
+      ];
+
+    const overall =
+      Math.floor(Math.random() * 13) + 58; // 58–70
+
+    const potential =
+      overall + Math.floor(Math.random() * 16) + 8;
+    
+
+    const archetypes =
+      PLAYER_ARCHETYPES[slot.position] || ['Balanced'];
+    const archetype =
+      archetypes[
+        Math.floor(Math.random() * archetypes.length)
+      ];
+    const potentialRole = getPotentialRole(
+      slot.position,
+      Math.min(99, potential)
+    );
+
+      const potentialAccuracy =
+        generatePotentialAccuracy();
+
+      const attributes =
+        slot.position === 'G'
+          ? createGoalieAttributesFromOverall(
+              overall,
+              archetype
+            )
+          : createAttributesFromOverall(
+              overall,
+              slot.position,
+              archetype
+            );
+
+      const calculatedOverall =
+        slot.position === 'G'
+          ? calculateGoalieOverallFromAttributes(
+              attributes
+            )
+          : calculateOverallFromAttributes(
+              attributes,
+              slot.position
+            );
+
+        return ensureCanonicalPlayerContract({
+
+      id:
+        'player_' +
+        Math.random().toString(36).slice(2, 10),
+
+      firstName,
+      lastName,
+
+      nationality,
+
+      position: slot.position,
+
+      rosterSlot: slot.slot,
+
+      overall: calculatedOverall,
+
+      potential: Math.min(99, potential),
+
+      year: 'Freshman',
+
+      age: 14,
+
+      shoots:
+        Math.random() < 0.65 ? 'L' : 'R',
+
+      height:
+        `${5 + Math.floor(Math.random() * 2)}'${6 + Math.floor(Math.random() * 7)}"`,
+
+      weight:
+        135 + Math.floor(Math.random() * 50),
+
+      archetype,
+      
+      attributes,
+        
+      goals: 0,
+      assists: 0,
+      points: 0,
+
+      gamesPlayed: 0,
+
+      plusMinus: 0,
+
+      penaltyMinutes: 0,
+
+      captain: false,
+
+      alternateCaptain: false,
+
+      injured: false,
+
+      injury: null,
+
+      morale: 50,
+
+      coachTrust: 50,
+
+      // Public scouting recognition. This is separate from current ability.
+      reputationStars: 1,
+      reputationPoints: Math.floor(Math.random() * 16) + 5,
+
+      developmentSeed: Math.random(),
+
+    });
+
+  }
+  function assignUniqueJerseyNumbers(
+    roster = []
+  ) {
+    if (!Array.isArray(roster)) {
+      return roster;
+    }
+
+    const usedNumbers =
+      new Set();
+
+    const playersNeedingNumbers = [];
+
+    /*
+     * Process the career player first so their chosen jersey
+     * number takes priority if an older generated player has
+     * the same number.
+     */
+    const orderedPlayers = [
+      ...roster.filter(
+        player => player.isCareerPlayer
+      ),
+
+      ...roster.filter(
+        player => !player.isCareerPlayer
+      ),
+    ];
+
+    orderedPlayers.forEach(player => {
+      const jerseyNumber =
+        Number(player.jerseyNumber);
+
+      const hasValidNumber =
+        Number.isInteger(jerseyNumber) &&
+        jerseyNumber >= 1 &&
+        jerseyNumber <= 99;
+
+      const numberIsAvailable =
+        hasValidNumber &&
+        !usedNumbers.has(jerseyNumber);
+
+      if (numberIsAvailable) {
+        player.jerseyNumber =
+          jerseyNumber;
+
+        usedNumbers.add(
+          jerseyNumber
+        );
+
+        return;
+      }
+
+      /*
+       * Missing, invalid, or duplicate numbers are the only
+       * ones that should be reassigned.
+       */
+      player.jerseyNumber = null;
+
+      playersNeedingNumbers.push(
+        player
+      );
+    });
+
+    const availableNumbers =
+      Array.from(
+        {
+          length: 99,
+        },
+        (_, index) => index + 1
+      )
+        .filter(
+          number =>
+            !usedNumbers.has(number)
+        );
+
+    /*
+     * Randomize only the unused-number pool.
+     * Once assigned and saved, these numbers will be
+     * preserved during every later load.
+     */
+    for (
+      let index =
+        availableNumbers.length - 1;
+
+      index > 0;
+
+      index--
+    ) {
+      c
+
+===== TOI ACCRUAL PLUS =====
+NOT FOUND: timeOnIceSeconds +=
+
+===== TOI ACCRUAL ASSIGN =====
+* Period 4 uses 3-on-3 hockey:
+     * two forwards + one defenseman + goalie.
+     */
+    const isOvertime =
+      simulation.period === 4;
+    
+    const deploymentNeedsRefresh =
+      !flow.homeDeployment ||
+      !flow.awayDeployment ||
+      (
+        Number(
+          flow.deploymentAgeSeconds
+        ) || 0
+      ) >=
+        (
+          35 +
+          Math.floor(
+            Math.random() * 21
+          )
+        );
+
+      if (deploymentNeedsRefresh) {
+        const homeDeploymentResult =
+          isOvertime
+            ? selectLiveGameOvertimeDeployment(
+                simulation,
+                'home'
+              )
+            : selectLiveGameEvenStrengthDeployment(
+                simulation,
+                'home'
+              );
+
+        const awayDeploymentResult =
+          isOvertime
+            ? selectLiveGameOvertimeDeployment(
+                simulation,
+                'away'
+              )
+            : selectLiveGameEvenStrengthDeployment(
+                simulation,
+                'away'
+              );
+
+      if (
+        homeDeploymentResult
+          ?.success !== true ||
+        awayDeploymentResult
+          ?.success !== true
+      ) {
+        return {
+          success: false,
+          reason:
+            'live-game-deployment-refresh-failed',
+
+          homeDeploymentResult,
+          awayDeploymentResult,
+
+          event: null,
+        };
+      }
+
+      flow.homeDeployment =
+        homeDeploymentResult
+          .deployment;
+
+      flow.awayDeployment =
+        awayDeploymentResult
+          .deployment;
+
+      flow.deploymentAgeSeconds =
+        0;
+    }
+
+    /*
+     * ==========================================================
+     * MANPOWER-AWARE DEPLOYMENT
+     * ==========================================================
+     *
+     * The authoritative manpower counts live in:
+     *
+     *   specialTeams.homeSkaters
+     *   specialTeams.awaySkaters
+     *
+     * This turns those state values into the actual players on
+     * the ice.
+     *
+     * Supported regulation states:
+     *   5v5
+     *   5v4
+     *   5v3
+     *   4v4
+     *   4v3
+     *   3v3
+     *
+     * Supported overtime states:
+     *   3v3
+     *   4v3
+     *   5v3
+     */
+    const specialTeams =
+      simulation.specialTeams ||
+      {};
+
+    const homeSkaterCount =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            specialTeams.homeSkaters
+          ) ||
+          (
+            isOvertime
+              ? 3
+              : 5
+          )
+        )
+      );
+
+    const awaySkaterCount =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            specialTeams.awaySkaters
+          ) ||
+          (
+            isOvertime
+              ? 3
+              : 5
+          )
+        )
+      );
+
+    const homeHasAdvantage =
+      homeSkaterCount >
+      awaySkaterCount;
+
+    const awayHasAdvantage =
+      awaySkaterCount >
+      homeSkaterCount;
+
+    /*
+     * Rotate special-teams units during extended penalties.
+     * Unit 1 starts the sequence; Unit 2 takes the next ~45-second window.
+     * This prevents PP1/PK1 skaters from playing an entire two-minute minor.
+     */
+    const specialTeamsShiftUnit =
+      (
+        Math.floor(
+          (Number(flow.deploymentAgeSeconds) || 0) / 45
+        ) % 2
+      ) + 1;
+
+    /*
+     * ========================================================
+     * HOME DEPLOYMENT
+     * ========================================================
+     */
+    let homeManpowerDeployment =
+      null;
+
+    if (homeHasAdvantage) {
+      /*
+       * Home team owns the power play.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'power-play',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    } else if (awayHasAdvantage) {
+      /*
+       * Home team is killing the penalty.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'penalty-kill',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    } else if (
+      !isOvertime &&
+      homeSkaterCount < 5
+    ) {
+      /*
+       * Reduced even-strength regulation hockey:
+       *
+       * 4v4
+       * 3v3
+       *
+       * Preserve the line/pair already selected for this shift.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'even-strength',
+
+            forwardLine:
+              flow.homeDeployment
+                ?.forwardLine ||
+              1,
+
+            defensePair:
+              flow.homeDeployment
+                ?.defensePair ||
+              1,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    }
+
+    /*
+     * ========================================================
+     * AWAY DEPLOYMENT
+     * ========================================================
+     */
+    let awayManpowerDeployment =
+      null;
+
+    if (awayHasAdvantage) {
+      /*
+       * Away team owns the power play.
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'power-play',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    } else if (homeHasAdvantage) {
+      /*
+       * Away team is killing the penalty.
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'penalty-kill',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    } else if (
+      !isOvertime &&
+      awaySkaterCount < 5
+    ) {
+      /*
+       * Reduced even-strength regulation hockey:
+       *
+       * 4v4
+       * 3v3
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'even-strength',
+
+            forwardLine:
+              flow.awayDeployment
+                ?.forwardLine ||
+              1,
+
+            defensePair:
+              flow.awayDeployment
+                ?.defensePair ||
+              1,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    }
+
+    /*
+     * Only replace the normal shift deployment when a manpower
+     * resolver actually produced a valid deployment.
+     *
+     * Ordinary 5v5 regulation and ordinary 3v3 overtime continue
+     * using the deployments selected earlier in this step.
+     */
+    if (
+      homeManpowerDeployment
+        ?.success === true
+    ) {
+      flow.homeDeployment =
+        homeManpowerDeployment;
+    }
+
+    if (
+      awayManpowerDeployment
+        ?.success === true
+    ) {
+      flow.awayDeployment =
+        awayManpowerDeployment;
+    }
+
+    /*
+     * ==========================================================
+     * EVENT TIMING
+     * ==========================================================
+     */
+    const timing =
+      scheduleNextLiveGameEventTime(
+        simulation,
+        {
+          paceContext:
+            flow.paceContext ||
+            'normal',
+        }
+      );
+
+    if (
+      !timing ||
+      timing.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          timing?.reason ||
+          'live-game-event-time-failed',
+        event: null,
+      };
+    }
+
+    const elapsedSeconds =
+      Math.max(
+        0,
+        Number(
+          timing.elapsedSeconds
+        ) || 0
+      );
+
+    simulation
+      .clockSecondsRemaining =
+      timing
+        .nextClockSecondsRemaining;
+
+    flow.deploymentAgeSeconds =
+      (
+        Number(
+          flow.deploymentAgeSeconds
+        ) || 0
+      ) +
+      elapsedSeconds;
+
+    /*
+     * ==========================================================
+     * TIME ON ICE
+     * ==========================================================
+     *
+     * Credit every currently deployed player for the actual
+     * elapsed hockey seconds from this simulation step.
+     */
+    const addTOIToDeployment =
+      deployment => {
+        if (
+          !deployment ||
+          typeof deployment !== 'object'
+        ) {
+          return;
+        }
+
+        const skaters =
+          Array.isArray(
+            deployment.skaters
+          )
+            ? deployment.skaters
+            : [];
+
+        skaters.forEach(
+          player => {
+            if (!player) {
+              return;
+            }
+
+            player.timeOnIceSeconds =
+              (
+                Number(
+                  player.timeOnIceSeconds
+                ) || 0
+              ) +
+              elapsedSeconds;
+          }
+        );
+
+        const goalie =
+          deployment.goalie ||
+          null;
+
+        if (goalie) {
+          goalie.timeOnIceSeconds =
+            (
+              Number(
+                goalie.timeOnIceSeconds
+              ) || 0
+            ) +
+            elapsedSeconds;
+        }
+      };
+
+    addTOIToDeployment(
+      flow.homeDeployment
+    );
+
+    addTOIToDeployment(
+      flow.awayDeployment
+    );
+
+    /*
+     * Penalties count down using actual hockey seconds, completely
+     * independent of presentation speed.
+     */
+    const manpowerBeforeClock =
+      `${homeSkaterCount}v${awaySkaterCount}`;
+
+    /*
+     * Track actual 5-on-5 regulation seconds separately from total game
+     * clock. Even-strength line targets must not grow during PP/PK time,
+     * otherwise a player who already received special-teams minutes is
+     * incorrectly sent back out at 5-on-5 to 'catch up'.
+     */
+    if (
+      elapsedSeconds > 0 &&
+      Number(simulation.period) <= 3 &&
+      homeSkaterCount === 5 &&
+      awaySkaterCount === 5
+    ) {
+      if (!simulation.flow.deploymentUsage) {
+        simulation.flow.deploymentUsage = {
+          home: {
+            forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            defensePairs: { 1: 0, 2: 0, 3: 0 },
+            evenStrengthSeconds: 0,
+          },
+          away: {
+            forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            defensePairs: { 1: 0, 2: 0, 3: 0 },
+            evenStrengthSeconds: 0,
+          },
+        };
+      }
+
+      ['home', 'away'].forEach(sideKey => {
+        const sideUsage =
+          simulation.flow.deploymentUsage[sideKey];
+
+        sideUsage.evenStrengthSeconds =
+          (Number(sideUsage.evenStrengthSeconds) || 0) +
+          elapsedSeconds;
+      });
+    }
+
+    advanceLiveGameSpecialTeamsClock(
+      simulation,
+      elapsedSeconds
+    );
+
+    const manpowerAfterClock =
+      `${Math.max(3, Number(specialTeams.homeSkaters) || 5)}v${Math.max(3, Number(specialTeams.awaySkaters) || 5)}`;
+
+    if (manpowerAfterClock !== manpowerBeforeClock) {
+      flow.homeDeployment = null;
+      flow.awayDeployment = null;
+      flow.deploymentAgeSeconds = 0;
+    }
+
+    /*
+     * ==========================================================
+     * PERIOD EXPIRATION
+     * ==========================================================
+     */
+    if (
+      simulation
+        .clockSecondsRemaining <= 0
+    ) {
+      const periodEndEvent = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'period-end',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining: 0,
+
+        homeScore:
+          simulation.home.score,
+
+        awayScore:
+          simulation.away.score,
+      };
+
+      simulation.events.push(
+        periodEndEvent
+      );
+
+      /*
+       * Regulation periods 1 and 2 advance normally.
+       */
+      if (
+        simulation.period < 3
+      ) {
+        simulation.period +=
+          1;
+
+        simulation.periodLabel =
+          simulation.period === 2
+            ? '2nd'
+            : '3rd';
+
+        simulation
+          .clockSecondsRemaining =
+          20 * 60;
+
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'period-start';
+
+        flow.possessionSide =
+          null;
+
+        flow.zone =
+          'neutral';
+
+        flow.paceContext =
+          'after-faceoff';
+
+        flow.pressureLevel =
+          0;
+
+        flow.homeDeployment =
+          null;
+
+        flow.awayDeployment =
+          null;
+
+        flow.deploymentAgeSeconds =
+          0;
+      } else if (
+        simulation.period === 3
+      ) {
+        simulation
+          .regulationComplete =
+          true;
+
+        /*
+         * A decisive regulation result ends immediately.
+         */
+        if (
+          Number(
+            simulation.home.score
+          ) !==
+          Number(
+            simulation.away.score
+          )
+        ) {
+          simulation.gameComplete =
+            true;
+
+          simulation.status =
+            'completed';
+        } else {
+          /*
+           * ======================================================
+           * LIVE OVERTIME INITIALIZATION
+           * ======================================================
+           *
+           * Regulation tie → 5-minute sudden-death overtime.
+           *
+           * Overtime uses period 4 and a fresh center-ice faceoff.
+           */
+          simulation.period =
+            4;
+
+          simulation.periodLabel =
+            'OT';
+
+          simulation
+            .clockSecondsRemaining =
+            5 * 60;
+
+          simulation.status =
+            'overtime';
+
+          simulation.wentToOvertime =
+            true;
+
+          /*
+           * Reinterpret any penalties carrying over from regulation
+           * using overtime manpower rules.
+           *
+           * Regulation 5v4 becomes OT 4v3.
+           * Regulation 5v3 becomes OT 5v3.
+           * No active penalties remains ordinary 3v3.
+           */
+          const overtimeManpowerRefresh =
+            refreshLiveGameManpowerState(
+              simulation
+            );
+
+          if (
+            !overtimeManpowerRefresh ||
+            overtimeManpowerRefresh
+              .success !== true
+          ) {
+            return {
+              success: false,
+
+              reason:
+                overtimeManpowerRefresh
+                  ?.reason ||
+                'overtime-manpower-refresh-failed',
+
+              elapsedSeconds,
+
+              event:
+                periodEndEvent,
+
+              simulation,
+            };
+          }
+
+          flow.stopped =
+            true;
+
+          flow.stoppageReason =
+            'overtime-start';
+
+          flow.possessionSide =
+            null;
+
+          flow.zone =
+            'neutral';
+
+          flow.paceContext =
+            'after-faceoff';
+
+          flow.pressureLevel =
+            0;
+
+          flow.homeDeployment =
+            null;
+
+          flow.awayDeployment =
+            null;
+
+          flow.deploymentAgeSeconds =
+            0;
+
+          flow.recentPossessionTouches =
+            [];
+        }
+      } else if (
+        simulation.period === 4
+      ) {
+        /*
+         * If overtime reaches 0:00 without a goal, the game remains
+         * tied and moves to the shootout state.
+         *
+         * We will build the actual shootout resolver next.
+         */
+        simulation
+          .overtimeComplete =
+          true;
+
+        simulation.status =
+          'shootout-pending';
+
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'overtime-ended-tied';
+
+        flow.possessionSide =
+          null;
+
+        flow.zone =
+          'neutral';
+
+        flow.pressureLevel =
+          0;
+
+        flow.recentPossessionTouches =
+          [];
+      }
+
+      return {
+        success: true,
+
+        reason:
+          'live-game-period-ended',
+
+        elapsedSeconds,
+
+        event:
+          periodEndEvent,
+
+        simulation,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * SELECT NEXT EVENT
+     * ==========================================================
+     */
+const pendingCareerDecision =
+  simulation.pendingCareerDecision &&
+  typeof simulation.pendingCareerDecision === 'object'
+    ? simulation.pendingCareerDecision
+    : null;
+
+simulation.pendingCareerDecision =
+  null;
+
+const pendingAction =
+  String(pendingCareerDecision?.action || '');
+
+const selection =
+  pendingAction.startsWith('shoot')
+    ? { success: true, reason: 'career-decision-shoot', eventType: 'shot-attempt' }
+    : pendingAction.startsWith('pass')
+      ? { success: true, reason: 'career-decision-pass', eventType: 'career-pass' }
+      : ['defend-stick', 'defend-body', 'defend-contain'].includes(pendingAction)
+        ? { success: true, reason: 'career-decision-defense', eventType: 'career-defense' }
+        : selectNextLiveGameEventType(simulation);
+
+    if (
+      !selection ||
+      selection.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          selection?.reason ||
+          'live-game-event-selection-failed',
+        elapsedSeconds,
+        event: null,
+      };
+    }
+
+    let resolution = null;
+
+    switch (
+      selection.eventType
+    ) {
+      case 'shot-attempt':
+        resolution =
+resolveLiveGameShotAttempt(
+  simulation,
+  pendingAction.startsWith('shoot')
+    ? pendingCareerDecision?.playerId || null
+    : null,
+  pendingAction.startsWith('shoot-')
+    ? pendingAction.slice('shoot-'.length)
+    : null
+);
+        break;
+
+case 'career-pass':
+  resolution =
+    resolveLiveGameCareerPass(
+      simulation,
+      pendingCareerDecision?.playerId || null,
+      pendingAction || 'pass'
+    );
+  break;
+
+case 'career-defense':
+  resolution = resolveLiveGameCareerDefense(
+    simulation,
+    pendingCareerDecision?.playerId || null,
+    pendingCareerDecision?.action || 'defend-contain'
+  );
+  break;
+
+      case 'hit':
+        resolution =
+          resolveLiveGameHit(
+            simulation
+          );
+        break;
+
+      case 'turnover':
+        resolution =
+          resolveLiveGameTurnover(
+            simulation
+          );
+        break;
+
+      case 'penalty':
+        resolution =
+          resolveLiveGamePenalty(
+            simulation
+          );
+        break;
+
+      case 'possession-advance':
+        resolution =
+          resolveLiveGamePossessionAdvance(
+            simulation
+          );
+        break;
+
+      /*
+       * A generic stoppage creates a whistle and forces the next
+       * step to resolve a faceoff at the same game-clock time.
+       */
+      case 'stoppage': {
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'general-stoppage';
+
+        flow.paceContext =
+          'after-faceoff';
+
+        flow.pressureLevel =
+          0;
+
+        const event = {
+          id:
+            `live-event-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2, 8)}`,
+
+          type:
+            'stoppage',
+
+          period:
+            simulation.period,
+
+          clockSecondsRemaining:
+            simulation
+              .clockSecondsRemaining,
+
+          side:
+            flow.possessionSide,
+
+          zone:
+            flow.zone,
+        };
+
+        simulation.events.push(
+          event
+        );
+
+        resolution = {
+          success: true,
+          reason:
+            'live-game-stoppage-resolved',
+          event,
+        };
+
+        break;
+      }
+
+      /*
+       * Quiet play burns clock and changes context without adding
+       * a visible event-feed item.
+       */
+      case 'quiet-play':
+      default:
+        flow.paceContext =
+          'quiet';
+
+        flow.lastEventType =
+          'quiet-play';
+
+        resolution = {
+          success: true,
+          reason:
+            'live-game-quiet-play',
+
+          event: null,
+        };
+
+        break;
+    }
+
+    if (
+      !resolution ||
+      resolution.success !== true
     ) {
       return {
         success: false,
 
         reason:
-          'team-roster-not-found',
+          resolution?.reason ||
+          'live-game-event-resolution-failed',
 
-        teamId,
+        elapsedSeconds,
 
-        team:
-          null,
+        eventType:
+          selection.eventType,
 
-        skaters: [],
+        event: null,
 
-        goalies: [],
-
-        startingGoalie:
-          null,
-
-        backupGoalie:
-          null,
-
-        specialTeams: {
-          powerPlay: [],
-          penaltyKill: [],
-        },
+        resolution:
+          resolution || null,
       };
     }
-
-    /*
-     * Ensure the canonical even-strength lineup and
-     * special-teams deployments are current before the
-     * simulator reads them.
-     */
-    refreshTeamRosterManagement(
-      teamId,
-      {
-        save: false,
-      }
-    );
-
-    const activePlayers =
-      team.roster.filter(
-        player =>
-          player?.lineupStatus ===
-            'active' &&
-          player?.lineupAssignment
-      );
-
-    const skaters =
-      activePlayers
-        .filter(
-          player =>
-            normalizeAttributePosition(
-              player.position
-            ) !== 'G'
-        )
-        .sort(
-          (
-            firstPlayer,
-            secondPlayer
-          ) => {
-            const firstAssignment =
-              firstPlayer
-                .lineupAssignment ||
-              {};
-
-            const secondAssignment =
-              secondPlayer
-                .lineupAssignment ||
-              {};
-
-            const unitOrder = {
-              forward: 1,
-              defense: 2,
-              goalie: 3,
-            };
-
-            const unitDifference =
-              (
-                unitOrder[
-                  firstAssignment.unit
-                ] || 99
-              ) -
-              (
-                unitOrder[
-                  secondAssignment.unit
-                ] || 99
-              );
-
-            if (
-              unitDifference !== 0
-            ) {
-              return unitDifference;
-            }
-
-            const firstDeployment =
-              Number(
-                firstAssignment.line ??
-                firstAssignment.pair
-              ) || 99;
-
-            const secondDeployment =
-              Number(
-                secondAssignment.line ??
-                secondAssignment.pair
-              ) || 99;
-
-            if (
-              firstDeployment !==
-              secondDeployment
-            ) {
-              return (
-                firstDeployment -
-                secondDeployment
-              );
-            }
-
-            return String(
-              firstAssignment.position ||
-              ''
-            ).localeCompare(
-              String(
-                secondAssignment.position ||
-                ''
-              )
-            );
-          }
-        );
-
-    const goalies =
-      activePlayers
-        .filter(
-          player =>
-            normalizeAttributePosition(
-              player.position
-            ) === 'G'
-        )
-        .sort(
-          (
-            firstGoalie,
-            secondGoalie
-          ) => {
-            const roleOrder = {
-              Starter: 1,
-              Backup: 2,
-            };
-
-            const firstRole =
-              firstGoalie
-                .lineupAssignment
-                ?.goalieRole ||
-              firstGoalie.goalieRole ||
-              '';
-
-            const secondRole =
-              secondGoalie
-                .lineupAssignment
-                ?.goalieRole ||
-              secondGoalie.goalieRole ||
-              '';
-
-            return (
-              (
-                roleOrder[
-                  firstRole
-                ] || 99
-              ) -
-              (
-                roleOrder[
-                  secondRole
-                ] || 99
-              )
-            );
-          }
-        );
-
-    const startingGoalie =
-      goalies.find(
-        goalie =>
-          goalie
-            .lineupAssignment
-            ?.goalieRole ===
-          'Starter'
-      ) ||
-      goalies[0] ||
-      null;
-
-    const backupGoalie =
-      goalies.find(
-        goalie =>
-          goalie !==
-            startingGoalie &&
-          goalie
-            .lineupAssignment
-            ?.goalieRole ===
-          'Backup'
-      ) ||
-      goalies.find(
-        goalie =>
-          goalie !==
-          startingGoalie
-      ) ||
-      null;
 
     return {
       success: true,
 
       reason:
-        'team-game-roster-created',
+        'live-game-step-completed',
 
-      teamId:
-        team.teamId,
+      elapsedSeconds,
 
-      team,
+      eventType:
+        selection.eventType,
 
-      skaters,
+      event:
+        resolution.event ||
+        null,
 
-      goalies,
+      resolution,
 
-      startingGoalie,
+      simulation,
+    };
+  }
 
-      b
+  /*
+   * ============================================================
+   * LIVE GAME — RESOLVE TO FINAL CANONICAL RESULT
+   * ============================================================
+   *
+   * Runs one scheduled game completely through the validated
+   * live-game engine and returns the finalized canonical
+   * gameResult.
+   *
+   * IMPORTANT:
+   *
+   * This function does NOT:
+   * - update standings
+   * - update season statistics
+   * - mark the schedule game as played
+   * - apply development
+   * - save world state
+   *
+   * Those responsibilities remain with the existing Season Engine
+   * application layer.
+   *
+   * This function owns only:
+   *
+   * scheduled game
+   *   -> live simulation state
+   *   -> live simulation steps
+   *   -> completed game
+   *   -> canonical gameResult
+   */
+  function resolveLiveGameToFinalResult(
+    scheduledGame,
+    options = {}
+  ) {
+    if (
+      !scheduledGame ||
+      typeof scheduledGame !== 'object'
+    ) {
+      return {
+        success: false,
+
+        reason:
+          'invalid-scheduled-live-game',
+
+        simulation: null,
+
+        gameResult: null,
+
+        steps: 0,
+
+        failures: [],
+      };
+    }
+
+    const creation =
+      createLiveGameSimulationState(
+        scheduledGame
+      );
+
+    if (
+      !creation ||
+      creation.success !== true ||
+      !creation.simulation
+    ) {
+      return {
+        success: false,
+
+        reason:
+          creation?.reason ||
+          'live-game-creation-failed',
+
+        simulation:
+          creation?.simulation ||
+          null,
+
+        gameResult: null,
+
+        steps: 0,
+
+        failures: [],
+      };
+    }
+
+    const simulation =
+      creation.simulation;
+
+    const maxSteps =
+      Math.max(
+        100,
+        Number(
+          options.maxSteps
+        ) || 3000
+      );
+
+    const failures = [];
+
+    let steps = 0;
+
+    while (
+      simulation.gameComplete !== true &&
+      steps < maxSteps
+    ) {
+      const step =
+        advanceLiveGameStep(
+          simulation
+        );
+
+      steps += 1;
+
+      if (
+        !step ||
+        step.success !== true
+      ) {
+        failures
 
 ===== SPECIAL TEAMS SHIFT =====
-e,
+Teams
+          .activePenalties
+          .length > 0
+          ? 'penalty-clock-advanced'
+          : 'even-strength-restored',
+
+      activePenalties:
+        specialTeams
+          .activePenalties,
+
+      manpower:
+        manpowerRefresh,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — ONE SIMULATION STEP
+   * ============================================================
+   *
+   * Advances one meaningful slice of hockey.
+   *
+   * This is NOT one minute and NOT one event per minute.
+   * Each step schedules its own amount of hockey time based on
+   * game context, then resolves the next meaningful event.
+   */
+  function advanceLiveGameStep(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    if (
+      simulation.gameComplete === true ||
+      simulation.finalized === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-already-complete',
+        event: null,
+      };
+    }
+
+    /*
+     * A tied game that has completed overtime resolves its
+     * shootout before any more hockey-clock steps are attempted.
+     */
+    if (
+      simulation.status ===
+      'shootout-pending'
+    ) {
+      const shootoutResult =
+        resolveLiveGameShootout(
+          simulation
+        );
+
+      return {
+        success:
+          shootoutResult
+            ?.success === true,
+
+        reason:
+          shootoutResult
+            ?.reason ||
+          'shootout-resolution-failed',
+
+        elapsedSeconds: 0,
+
+        event:
+          shootoutResult
+            ?.event ||
+          null,
+
+        result:
+          shootoutResult ||
+          null,
+
+        simulation,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !flow ||
+      typeof flow !== 'object'
+    ) {
+      return {
+        success: false,
         reason:
           'live-game-flow-missing',
         event: null,
@@ -4962,7 +7625,1150 @@ e,
             simulation.away.score
           )
         ) {
-          simulation.
+          simulation.gameComplete =
+            true;
+
+          simulation.status =
+            'completed';
+        } else {
+          /*
+           * ======================================================
+           * LIVE OVERTIME INITIALIZATION
+           * ======================================================
+           *
+           * Regulation tie → 5-minute sudden-death overtime.
+           *
+           * Overtime uses period 4 and a fresh center-ice faceoff.
+           */
+          simulation.period =
+            4;
+
+          simulation.periodLabel =
+            'OT';
+
+          simulation
+            .clockSecondsRemaining =
+            5 * 60;
+
+          simulation.status =
+            'overtime';
+
+          simulation.wentToOvertime =
+            true;
+
+          /*
+           * Reinterpret any penalties carrying over from regulation
+           * using overtime manpower rules.
+           *
+           * Regulation 5v4 becomes OT 4v3.
+           * Regulation 5v3 becomes OT 5v3.
+           * No active penalties remains ordinary 3v3.
+           */
+          const overtimeManpowerRefresh =
+            refreshLiveGameManpowerState(
+              simulation
+            );
+
+          if (
+            !overtimeManpowerRefresh ||
+            overtimeManpowerRefresh
+              .success !== true
+          ) {
+            return {
+              success: false,
+
+              reason:
+                overtimeManpowerRefresh
+                  ?.reason ||
+                'overtime-manpower-refresh-failed',
+
+              elapsedSeconds,
+
+              event:
+                periodEndEvent,
+
+              simulation,
+            };
+          }
+
+          flow.stopped =
+            true;
+
+          flow.stoppageReason =
+            'overtime-start';
+
+          flow.possessionSide =
+            null;
+
+          flow.zone =
+            'neutral';
+
+          flow.paceContext =
+            'after-faceoff';
+
+          flow.pressureLevel =
+            0;
+
+          flow.homeDeployment =
+            null;
+
+          flow.awayDeployment =
+            null;
+
+          flow.deploymentAgeSeconds =
+            0;
+
+          flow.recentPossessionTouches =
+            [];
+        }
+      } else if (
+        simulation.period === 4
+      ) {
+        /*
+         * If overtime reaches 0:00 without a goal, the game remains
+         * tied and moves to the shootout state.
+         *
+         * We will build the actual shootout resolver next.
+         */
+        simulation
+          .overtimeComplete =
+          true;
+
+        simulation.status =
+          'shootout-pending';
+
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'overtime-ended-tied';
+
+        flow.possessionSide =
+          null;
+
+        flow.zone =
+          'neutral';
+
+        flow.pressureLevel =
+          0;
+
+        flow.recentPossessionTouches =
+          [];
+      }
+
+      return {
+        success: true,
+
+        reason:
+          'live-game-period-ended',
+
+        elapsedSeconds,
+
+        event:
+          periodEndEvent,
+
+        simulation,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * SELECT NEXT EVENT
+     * ==========================================================
+     */
+const pendingCareerDecision =
+  simulation.pendingCareerDecision &&
+  typeof simulation.pendingCareerDecision === 'object'
+    ? simulation.pendingCareerDecision
+    : null;
+
+simulation.pendingCareerDecision =
+  null;
+
+const pendingAction =
+  String(pendingCareerDecision?.action || '');
+
+const selection =
+  pendingAction.startsWith('shoot')
+    ? { success: true, reason: 'career-decision-shoot', eventType: 'shot-attempt' }
+    : pendingAction.startsWith('pass')
+      ? { success: true, reason: 'career-decision-pass', eventType: 'career-pass' }
+      : ['defend-stick', 'defend-body', 'defend-contain'].includes(pendingAction)
+        ? { success: true, reason: 'career-decision-defense', eventType: 'career-defense' }
+        : selectNextLiveGameEventType(simulation);
+
+    if (
+      !selection ||
+      selection.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          selection?.reason ||
+          'live-game-event-selection-failed',
+        elapsedSeconds,
+        event: null,
+      };
+    }
+
+    let resolution = null;
+
+    switch (
+      selection.eventType
+    ) {
+      case 'shot-attempt':
+        resolution =
+resolveLiveGameShotAttempt(
+  simulation,
+  pendingAction.startsWith('shoot')
+    ? pendingCareerDecision?.playerId || null
+    : null,
+  pendingAction.startsWith('shoot-')
+    ? pendingAction.slice('shoot-'.length)
+    : null
+);
+        break;
+
+case 'career-pass':
+  resolution =
+    resolveLiveGameCareerPass(
+      simulation,
+      pendingCareerDecision?.playerId || null,
+      pendingAction || 'pass'
+    );
+  break;
+
+case 'career-defense':
+  resolution = resolveLiveGameCareerDefense(
+    simulation,
+    pendingCareerDecision?.playerId || null,
+    pendingCareerDecision?.action || '
+
+===== DEPLOYMENT AGE RESET =====
+st specialTeams =
+      simulation.specialTeams;
+
+    if (
+      !specialTeams ||
+      !Array.isArray(
+        specialTeams.activePenalties
+      )
+    ) {
+      return {
+        success: false,
+        reason:
+          'special-teams-state-missing',
+      };
+    }
+
+    const safeElapsed =
+      Math.max(
+        0,
+        Number(
+          elapsedSeconds
+        ) || 0
+      );
+
+    specialTeams
+      .activePenalties
+      .forEach(
+        penalty => {
+          if (
+            penalty.active !== true
+          ) {
+            return;
+          }
+
+          penalty.secondsRemaining =
+            Math.max(
+              0,
+              (
+                Number(
+                  penalty
+                    .secondsRemaining
+                ) || 0
+              ) -
+              safeElapsed
+            );
+
+          if (
+            penalty.secondsRemaining <= 0
+          ) {
+            penalty.active =
+              false;
+          }
+        }
+      );
+
+    specialTeams
+      .activePenalties =
+      specialTeams
+        .activePenalties
+        .filter(
+          penalty =>
+            penalty.active === true
+        );
+
+    const manpowerRefresh =
+      refreshLiveGameManpowerState(
+        simulation
+      );
+
+    if (
+      !manpowerRefresh ||
+      manpowerRefresh.success !== true
+    ) {
+      return {
+        success: false,
+
+        reason:
+          manpowerRefresh?.reason ||
+          'special-teams-manpower-refresh-failed',
+
+        activePenalties:
+          specialTeams
+            .activePenalties,
+      };
+    }
+
+    return {
+      success: true,
+
+      reason:
+        specialTeams
+          .activePenalties
+          .length > 0
+          ? 'penalty-clock-advanced'
+          : 'even-strength-restored',
+
+      activePenalties:
+        specialTeams
+          .activePenalties,
+
+      manpower:
+        manpowerRefresh,
+    };
+  }
+
+  /*
+   * ============================================================
+   * LIVE GAME — ONE SIMULATION STEP
+   * ============================================================
+   *
+   * Advances one meaningful slice of hockey.
+   *
+   * This is NOT one minute and NOT one event per minute.
+   * Each step schedules its own amount of hockey time based on
+   * game context, then resolves the next meaningful event.
+   */
+  function advanceLiveGameStep(
+    simulation
+  ) {
+    if (
+      !simulation ||
+      typeof simulation !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'invalid-live-game',
+        event: null,
+      };
+    }
+
+    if (
+      simulation.gameComplete === true ||
+      simulation.finalized === true
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-already-complete',
+        event: null,
+      };
+    }
+
+    /*
+     * A tied game that has completed overtime resolves its
+     * shootout before any more hockey-clock steps are attempted.
+     */
+    if (
+      simulation.status ===
+      'shootout-pending'
+    ) {
+      const shootoutResult =
+        resolveLiveGameShootout(
+          simulation
+        );
+
+      return {
+        success:
+          shootoutResult
+            ?.success === true,
+
+        reason:
+          shootoutResult
+            ?.reason ||
+          'shootout-resolution-failed',
+
+        elapsedSeconds: 0,
+
+        event:
+          shootoutResult
+            ?.event ||
+          null,
+
+        result:
+          shootoutResult ||
+          null,
+
+        simulation,
+      };
+    }
+
+    const flow =
+      simulation.flow;
+
+    if (
+      !flow ||
+      typeof flow !== 'object'
+    ) {
+      return {
+        success: false,
+        reason:
+          'live-game-flow-missing',
+        event: null,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * PERIOD START / STOPPAGE
+     * ==========================================================
+     *
+     * Dead puck does not consume hockey clock.
+     * The next action is a faceoff at the same timestamp.
+     */
+    if (flow.stopped === true) {
+      const faceoffZone =
+        flow.stoppageReason ===
+          'goal'
+          ? 'neutral'
+          : flow.zone ||
+            'neutral';
+
+      const faceoffResult =
+        resolveLiveGameFaceoff(
+          simulation,
+          {
+            zone:
+              faceoffZone,
+          }
+        );
+
+      return {
+        success:
+          faceoffResult
+            ?.success === true,
+
+        reason:
+          faceoffResult
+            ?.reason ||
+          'faceoff-resolution-failed',
+
+        elapsedSeconds: 0,
+
+        event:
+          faceoffResult
+            ?.event ||
+          null,
+
+        result:
+          faceoffResult ||
+          null,
+
+        simulation,
+      };
+    }
+
+    /*
+     * ==========================================================
+     * DEPLOYMENT / SHIFT MANAGEMENT
+     * ==========================================================
+     *
+     * Keep the same skaters on the ice for a real stretch rather
+     * than rerolling all five participants every event.
+     *
+     * Normal shifts are roughly 35–55 seconds. We allow some
+     * variance here because event timestamps do not represent
+     * every whistle-free second of a shift.
+     */
+
+    /*
+     * ==========================================================
+     * OVERTIME DEPLOYMENT
+     * ==========================================================
+     *
+     * Period 4 uses 3-on-3 hockey:
+     * two forwards + one defenseman + goalie.
+     */
+    const isOvertime =
+      simulation.period === 4;
+    
+    const deploymentNeedsRefresh =
+      !flow.homeDeployment ||
+      !flow.awayDeployment ||
+      (
+        Number(
+          flow.deploymentAgeSeconds
+        ) || 0
+      ) >=
+        (
+          35 +
+          Math.floor(
+            Math.random() * 21
+          )
+        );
+
+      if (deploymentNeedsRefresh) {
+        const homeDeploymentResult =
+          isOvertime
+            ? selectLiveGameOvertimeDeployment(
+                simulation,
+                'home'
+              )
+            : selectLiveGameEvenStrengthDeployment(
+                simulation,
+                'home'
+              );
+
+        const awayDeploymentResult =
+          isOvertime
+            ? selectLiveGameOvertimeDeployment(
+                simulation,
+                'away'
+              )
+            : selectLiveGameEvenStrengthDeployment(
+                simulation,
+                'away'
+              );
+
+      if (
+        homeDeploymentResult
+          ?.success !== true ||
+        awayDeploymentResult
+          ?.success !== true
+      ) {
+        return {
+          success: false,
+          reason:
+            'live-game-deployment-refresh-failed',
+
+          homeDeploymentResult,
+          awayDeploymentResult,
+
+          event: null,
+        };
+      }
+
+      flow.homeDeployment =
+        homeDeploymentResult
+          .deployment;
+
+      flow.awayDeployment =
+        awayDeploymentResult
+          .deployment;
+
+      flow.deploymentAgeSeconds =
+        0;
+    }
+
+    /*
+     * ==========================================================
+     * MANPOWER-AWARE DEPLOYMENT
+     * ==========================================================
+     *
+     * The authoritative manpower counts live in:
+     *
+     *   specialTeams.homeSkaters
+     *   specialTeams.awaySkaters
+     *
+     * This turns those state values into the actual players on
+     * the ice.
+     *
+     * Supported regulation states:
+     *   5v5
+     *   5v4
+     *   5v3
+     *   4v4
+     *   4v3
+     *   3v3
+     *
+     * Supported overtime states:
+     *   3v3
+     *   4v3
+     *   5v3
+     */
+    const specialTeams =
+      simulation.specialTeams ||
+      {};
+
+    const homeSkaterCount =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            specialTeams.homeSkaters
+          ) ||
+          (
+            isOvertime
+              ? 3
+              : 5
+          )
+        )
+      );
+
+    const awaySkaterCount =
+      Math.max(
+        3,
+        Math.min(
+          5,
+          Number(
+            specialTeams.awaySkaters
+          ) ||
+          (
+            isOvertime
+              ? 3
+              : 5
+          )
+        )
+      );
+
+    const homeHasAdvantage =
+      homeSkaterCount >
+      awaySkaterCount;
+
+    const awayHasAdvantage =
+      awaySkaterCount >
+      homeSkaterCount;
+
+    /*
+     * Rotate special-teams units during extended penalties.
+     * Unit 1 starts the sequence; Unit 2 takes the next ~45-second window.
+     * This prevents PP1/PK1 skaters from playing an entire two-minute minor.
+     */
+    const specialTeamsShiftUnit =
+      (
+        Math.floor(
+          (Number(flow.deploymentAgeSeconds) || 0) / 45
+        ) % 2
+      ) + 1;
+
+    /*
+     * ========================================================
+     * HOME DEPLOYMENT
+     * ========================================================
+     */
+    let homeManpowerDeployment =
+      null;
+
+    if (homeHasAdvantage) {
+      /*
+       * Home team owns the power play.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'power-play',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    } else if (awayHasAdvantage) {
+      /*
+       * Home team is killing the penalty.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'penalty-kill',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    } else if (
+      !isOvertime &&
+      homeSkaterCount < 5
+    ) {
+      /*
+       * Reduced even-strength regulation hockey:
+       *
+       * 4v4
+       * 3v3
+       *
+       * Preserve the line/pair already selected for this shift.
+       */
+      homeManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'home',
+          {
+            situation:
+              'even-strength',
+
+            forwardLine:
+              flow.homeDeployment
+                ?.forwardLine ||
+              1,
+
+            defensePair:
+              flow.homeDeployment
+                ?.defensePair ||
+              1,
+
+            skaterCount:
+              homeSkaterCount,
+          }
+        );
+    }
+
+    /*
+     * ========================================================
+     * AWAY DEPLOYMENT
+     * ========================================================
+     */
+    let awayManpowerDeployment =
+      null;
+
+    if (awayHasAdvantage) {
+      /*
+       * Away team owns the power play.
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'power-play',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    } else if (homeHasAdvantage) {
+      /*
+       * Away team is killing the penalty.
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'penalty-kill',
+
+            specialTeamsUnit:
+              specialTeamsShiftUnit,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    } else if (
+      !isOvertime &&
+      awaySkaterCount < 5
+    ) {
+      /*
+       * Reduced even-strength regulation hockey:
+       *
+       * 4v4
+       * 3v3
+       */
+      awayManpowerDeployment =
+        getLiveGameOnIcePlayers(
+          simulation,
+          'away',
+          {
+            situation:
+              'even-strength',
+
+            forwardLine:
+              flow.awayDeployment
+                ?.forwardLine ||
+              1,
+
+            defensePair:
+              flow.awayDeployment
+                ?.defensePair ||
+              1,
+
+            skaterCount:
+              awaySkaterCount,
+          }
+        );
+    }
+
+    /*
+     * Only replace the normal shift deployment when a manpower
+     * resolver actually produced a valid deployment.
+     *
+     * Ordinary 5v5 regulation and ordinary 3v3 overtime continue
+     * using the deployments selected earlier in this step.
+     */
+    if (
+      homeManpowerDeployment
+        ?.success === true
+    ) {
+      flow.homeDeployment =
+        homeManpowerDeployment;
+    }
+
+    if (
+      awayManpowerDeployment
+        ?.success === true
+    ) {
+      flow.awayDeployment =
+        awayManpowerDeployment;
+    }
+
+    /*
+     * ==========================================================
+     * EVENT TIMING
+     * ==========================================================
+     */
+    const timing =
+      scheduleNextLiveGameEventTime(
+        simulation,
+        {
+          paceContext:
+            flow.paceContext ||
+            'normal',
+        }
+      );
+
+    if (
+      !timing ||
+      timing.success !== true
+    ) {
+      return {
+        success: false,
+        reason:
+          timing?.reason ||
+          'live-game-event-time-failed',
+        event: null,
+      };
+    }
+
+    const elapsedSeconds =
+      Math.max(
+        0,
+        Number(
+          timing.elapsedSeconds
+        ) || 0
+      );
+
+    simulation
+      .clockSecondsRemaining =
+      timing
+        .nextClockSecondsRemaining;
+
+    flow.deploymentAgeSeconds =
+      (
+        Number(
+          flow.deploymentAgeSeconds
+        ) || 0
+      ) +
+      elapsedSeconds;
+
+    /*
+     * ==========================================================
+     * TIME ON ICE
+     * ==========================================================
+     *
+     * Credit every currently deployed player for the actual
+     * elapsed hockey seconds from this simulation step.
+     */
+    const addTOIToDeployment =
+      deployment => {
+        if (
+          !deployment ||
+          typeof deployment !== 'object'
+        ) {
+          return;
+        }
+
+        const skaters =
+          Array.isArray(
+            deployment.skaters
+          )
+            ? deployment.skaters
+            : [];
+
+        skaters.forEach(
+          player => {
+            if (!player) {
+              return;
+            }
+
+            player.timeOnIceSeconds =
+              (
+                Number(
+                  player.timeOnIceSeconds
+                ) || 0
+              ) +
+              elapsedSeconds;
+          }
+        );
+
+        const goalie =
+          deployment.goalie ||
+          null;
+
+        if (goalie) {
+          goalie.timeOnIceSeconds =
+            (
+              Number(
+                goalie.timeOnIceSeconds
+              ) || 0
+            ) +
+            elapsedSeconds;
+        }
+      };
+
+    addTOIToDeployment(
+      flow.homeDeployment
+    );
+
+    addTOIToDeployment(
+      flow.awayDeployment
+    );
+
+    /*
+     * Penalties count down using actual hockey seconds, completely
+     * independent of presentation speed.
+     */
+    const manpowerBeforeClock =
+      `${homeSkaterCount}v${awaySkaterCount}`;
+
+    /*
+     * Track actual 5-on-5 regulation seconds separately from total game
+     * clock. Even-strength line targets must not grow during PP/PK time,
+     * otherwise a player who already received special-teams minutes is
+     * incorrectly sent back out at 5-on-5 to 'catch up'.
+     */
+    if (
+      elapsedSeconds > 0 &&
+      Number(simulation.period) <= 3 &&
+      homeSkaterCount === 5 &&
+      awaySkaterCount === 5
+    ) {
+      if (!simulation.flow.deploymentUsage) {
+        simulation.flow.deploymentUsage = {
+          home: {
+            forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            defensePairs: { 1: 0, 2: 0, 3: 0 },
+            evenStrengthSeconds: 0,
+          },
+          away: {
+            forwardLines: { 1: 0, 2: 0, 3: 0, 4: 0 },
+            defensePairs: { 1: 0, 2: 0, 3: 0 },
+            evenStrengthSeconds: 0,
+          },
+        };
+      }
+
+      ['home', 'away'].forEach(sideKey => {
+        const sideUsage =
+          simulation.flow.deploymentUsage[sideKey];
+
+        sideUsage.evenStrengthSeconds =
+          (Number(sideUsage.evenStrengthSeconds) || 0) +
+          elapsedSeconds;
+      });
+    }
+
+    advanceLiveGameSpecialTeamsClock(
+      simulation,
+      elapsedSeconds
+    );
+
+    const manpowerAfterClock =
+      `${Math.max(3, Number(specialTeams.homeSkaters) || 5)}v${Math.max(3, Number(specialTeams.awaySkaters) || 5)}`;
+
+    if (manpowerAfterClock !== manpowerBeforeClock) {
+      flow.homeDeployment = null;
+      flow.awayDeployment = null;
+      flow.deploymentAgeSeconds = 0;
+    }
+
+    /*
+     * ==========================================================
+     * PERIOD EXPIRATION
+     * ==========================================================
+     */
+    if (
+      simulation
+        .clockSecondsRemaining <= 0
+    ) {
+      const periodEndEvent = {
+        id:
+          `live-event-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`,
+
+        type:
+          'period-end',
+
+        period:
+          simulation.period,
+
+        clockSecondsRemaining: 0,
+
+        homeScore:
+          simulation.home.score,
+
+        awayScore:
+          simulation.away.score,
+      };
+
+      simulation.events.push(
+        periodEndEvent
+      );
+
+      /*
+       * Regulation periods 1 and 2 advance normally.
+       */
+      if (
+        simulation.period < 3
+      ) {
+        simulation.period +=
+          1;
+
+        simulation.periodLabel =
+          simulation.period === 2
+            ? '2nd'
+            : '3rd';
+
+        simulation
+          .clockSecondsRemaining =
+          20 * 60;
+
+        flow.stopped =
+          true;
+
+        flow.stoppageReason =
+          'period-start';
+
+        flow.possessionSide =
+          null;
+
+        flow.zone =
+          'neutral';
+
+        flow.paceContext =
+          'after-faceoff';
+
+        flow.pressureLevel =
+          0;
+
+        flow.homeDeployment =
+          null;
+
+        flow.awayDeployment =
+          null;
+
+        flow.deploymentAgeSeconds =
+          0;
+      } else if (
+        simulation.period === 3
+      ) {
+        simulation
+          .regulationComplete =
+          true;
+
+        /*
+         * A decisive regulation result ends immediately.
+         */
+        if (
+          Number(
+            simulation.home.score
+          ) !==
+          Number(
+            simulation.away.score
+          )
+        ) {
+          simulation.gameComplete =
+            true;
+
+          simulation.status =
+            'completed';
+        } else {
+          /*
+           * ======================================================
+           * LIVE OVERTIME INITIALIZATION
+           * ======================================================
+           *
+           * Regulation tie → 5-minute sudden-death overtime.
+           *
+           * Overtime uses period 4 and a fresh center-ice faceoff.
+           */
+          simulation.period =
+            4;
+
+          simulation.periodLabel =
+            'OT';
+
+          simulation
+            .clockSecondsRemaining =
+            5 * 60;
+
+          simulation.status =
+            'overtime';
+
+          simulation.wentToOvertime =
+            true;
+
+          /*
+           * Reinterpret any penalties carrying over from regulation
+           * using overtime manpower rules.
+           *
+           * Regulation 5v4 becomes OT 4v3.
+           * Regulation 5v3 becomes OT 5v3.
+           * No active penalties remains ordinary 3v3.
+           */
+          const overtimeManpowerRefresh =
+            refreshLiveGameManpowerState(
+              simulation
+            );
+
+          if (
+            !overtimeManpowerRefresh ||
+            overtimeManpowerRefresh
+              .success !== true
+          ) {
+            return {
+              success: false,
+
+     
 
 ===== CSS #pregame-matchup-screen =====
 0, 45, 0.7);
