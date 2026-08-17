@@ -1,0 +1,15 @@
+name: Inspect Career Saves Screen
+on:
+  push:
+    paths: ['.github/workflows/inspect-career-saves-screen.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          grep -n -A90 -B30 "function showScreen\|const screens\|career-saves" artifacts/project-ice/public/game.js | head -n 500
+          echo '--- STYLE ---'
+          grep -n -A80 -B20 "career-save\|screen--hidden\|\.screen" artifacts/project-ice/public/style.css | head -n 500
