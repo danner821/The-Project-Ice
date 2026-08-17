@@ -1,0 +1,5842 @@
+
+FILE artifacts/project-ice/index.html
+
+### hub-news-list
+stat">5 pts</span>
+                  </div>
+                  <div class="hub-leaders__row">
+                    <span class="hub-leaders__rank">2</span>
+                    <span class="hub-leaders__name">A. Kowalski</span>
+                    <span class="hub-leaders__pos-badge">RW</span>
+                    <span class="hub-leaders__stat">4 pts</span>
+                  </div>
+                  <div class="hub-leaders__row hub-leaders__row--you">
+                    <span class="hub-leaders__rank">3</span>
+                    <span class="hub-leaders__name" id="hub-leaders-you-name">You</span>
+                    <span class="hub-leaders__pos-badge" id="hub-leaders-you-pos">—</span>
+                    <span class="hub-leaders__stat">2 pts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dashboard: League News (populated by NewsSystem in game.js) -->
+            <div class="hub-dash-card">
+              <div class="hub-dash-card__header">
+                <span class="hub-dash-card__title">League News</span>
+              </div>
+              <div class="hub-dash-card__body">
+                <div class="hub-news" id="hub-news-list">
+                  <!-- rendered by renderHubNews() -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Dashboard: Top 100 Prospects -->
+            <div class="hub-dash-card hub-dash-card--tappable" id="hub-prospects-card"
+                 role="button" tabindex="0" aria-label="Open Top 100 Prospect Rankings">
+              <div class="hub-dash-card__header">
+                <span class="hub-dash-card__title">⭐ Top 100 Prospects</span>
+                <span class="hub-dash-card__action">View ›</span>
+              </div>
+              <p class="hub-prospects-teaser">Season rankings · Updated weekly</p>
+            </div>
+
+          </div><!-- /#hub-tab-home -->
+
+          <!-- Other tab panels — not yet functional -->
+          <div id="hub-tab-schedule" class="hub-tab-panel" aria-hidden="true">
+          <div class="schedule-page">
+            <div class="schedule-header">
+              <button
+                id="schedule-prev-month"
+                class="schedule-month-btn"
+                type="button"
+                aria-label="Previous month"
+              >
+                ‹
+              </button>
+
+              <div class="schedule-month-center">
+                <p class="schedule-eyebrow">Season Calendar</p>
+                <h2 id="schedule-month-title">September 2026</h2>
+              </div>
+
+              <button
+                id="schedule-next-month"
+                class="schedule-month-btn"
+                type="button"
+                aria-label="Next month"
+              >
+                ›
+              </button>
+            </div>
+
+            <div class="schedule-calendar-card">
+              <div class="schedule-weekdays">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+              </div>
+
+              <div
+                id="schedule-calendar-grid"
+                class="schedule-calendar-grid"
+              >
+                <!-- Filled by JavaScript -->
+              </div>
+            </div>
+            <section
+              id="schedule-selected-day-panel"
+              class="schedule-selected-day-panel"
+              hidden
+            >
+              <p class="schedule-eyebrow">Selected Day</
+
+### league-news-preview
+der">
+                  <div>
+                    <p class="eyebrow">Award Races</p>
+                    <h3>Season Favorites</h3>
+                  </div>
+                </div>
+
+                <div id="league-awards-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-prospects-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">Top Prospects</p>
+                    <h3>Draft Rankings</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-full-prospects"
+                    type="button">
+                    View Rankings
+                  </button>
+                </div>
+
+                <div id="league-prospects-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-news-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">League News</p>
+                    <h3>Around the League</h3>
+                  </div>
+                </div>
+
+                <div id="league-news-preview"></div>
+              </section>
+
+              <section class="league-section" id="league-history-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">History</p>
+                    <h3>League History & Records</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-history"
+                    type="button">
+                    Explore
+                  </button>
+                </div>
+
+                <div id="league-history-preview"></div>
+              </section>
+
+            </section>
+          </div>
+
+        </div><!-- /.hub-content -->
+
+        <!-- Permanent bottom nav -->
+        <nav class="hub-nav" aria-label="Career Hub navigation">
+          <button class="hub-nav__tab hub-nav__tab--active" data-hub-tab="home">
+            <span class="hub-nav__icon">⌂</span>
+            <span class="hub-nav__label">Home</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="schedule">
+            <span class="hub-nav__icon">📅</span>
+            <span class="hub-nav__label">Schedule</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="player">
+            <span class="hub-nav__icon">👤</span>
+            <span class="hub-nav__label">Player</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="team">
+            <span class="hub-nav__icon">🏒</span>
+            <span class="hub-nav__label">Team</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="league">
+            <span class="hub-nav__icon">🏆</span>
+            <span class="hub-nav__label">League</span>
+          </button>
+        </nav>
+
+      </section>
+
+      <!-- STANDINGS SCREEN -->
+      <section id="standings-screen" class="screen screen--hidden">
+
+        <div class="sl-wrap">
+
+          <header class="sl-header">
+            <button class="back-button" id="btn-back-standings" aria-label="Back to Career Hub">‹</button>
+            <div class="sl-header__text">
+              <p class="eyebrow">League</p>
+              <h2>Standings</h2>
+            </div>
+            <div class="sl-header__season">
+              <span class="sl-season-badge">2022–23</span>
+            </div>
+          </header>
+
+          <p class="sl-co
+
+### screen-
+ </div>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE
+             Skips cinematic flow and loads directly into Career Hub.
+             ═══════════════════════════════════════════════════════════ -->
+        <div class="dev-shortcut-area">
+          <span class="dev-shortcut-area__label">DEV SHORTCUT</span>
+          <button class="btn btn--dev" id="btn-dev-hub" disabled>
+            <span class="btn__label">Skip to Career Hub</span>
+          </button>
+
+          <button
+            id="btn-live-game-diagnostic"
+            type="button"
+            class="btn btn--dev"
+          >
+            <span class="btn__label">Run Live Game Diagnostic</span>
+          </button>
+
+          <span class="dev-shortcut-area__hint" id="dev-shortcut-hint">Create a career first.</span>
+        </div>
+
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <footer class="footer">
+          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+        </footer>
+      </section>
+
+      <!-- CAREER SAVES SCREEN -->
+      <section id="career-saves-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button class="back-button" id="btn-back-career-saves" type="button" aria-label="Return to title screen">‹</button>
+          <div>
+            <p class="eyebrow">Continue Career</p>
+            <h2>Career Saves</h2>
+          </div>
+          <div class="step-badge" id="career-save-count">0 Saves</div>
+        </header>
+        <div class="career-saves-content">
+          <p class="career-saves-intro">Choose the hockey life you want to continue.</p>
+          <div id="career-save-list" class="career-save-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAYER CREATION SCREEN -->
+      <section id="creation-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-title"
+            type="button"
+            aria-label="Return to title screen"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Create Your Player</h2>
+          </div>
+
+          <div class="step-badge">1 of 4</div>
+        </header>
+
+        <div class="creation-content">
+          <div class="story-card">
+            <p class="story-card__label">Fall 2022</p>
+            <h3>Your hockey story starts here.</h3>
+            <p>
+              You are 14 years old and preparing for freshman tryouts. Four
+              years from now, the hockey world you know today will be waiting.
+            </p>
+          </div>
+
+          <form id="player-form" class="player-form">
+            <div class="field-row">
+              <label class="form-field">
+                <span>First name</span>
+                <input
+                  id="first-name"
+                  name="firstName"
+                  type="text"
+                  placeholder="Danner"
+                  maxlength="20"
+                  autocomplete="given-name"
+                  required
+                />
+              </label>
+
+              <label class="form-field">
+                <span>Last name</span>
+                <input
+                  id="last-name"
+                  name="lastName"
+                  type="text"
+                  placeholder="Stephenson"
+                  maxlength="24"
+                  autocomplete="family-name"
+                  required
+                />
+           
+═════════════════════════════════════════
+             DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE
+             Skips cinematic flow and loads directly into Career Hub.
+             ═══════════════════════════════════════════════════════════ -->
+        <div class="dev-shortcut-area">
+          <span class="dev-shortcut-area__label">DEV SHORTCUT</span>
+          <button class="btn btn--dev" id="btn-dev-hub" disabled>
+            <span class="btn__label">Skip to Career Hub</span>
+          </button>
+
+          <button
+            id="btn-live-game-diagnostic"
+            type="button"
+            class="btn btn--dev"
+          >
+            <span class="btn__label">Run Live Game Diagnostic</span>
+          </button>
+
+          <span class="dev-shortcut-area__hint" id="dev-shortcut-hint">Create a career first.</span>
+        </div>
+
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <footer class="footer">
+          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+        </footer>
+      </section>
+
+      <!-- CAREER SAVES SCREEN -->
+      <section id="career-saves-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button class="back-button" id="btn-back-career-saves" type="button" aria-label="Return to title screen">‹</button>
+          <div>
+            <p class="eyebrow">Continue Career</p>
+            <h2>Career Saves</h2>
+          </div>
+          <div class="step-badge" id="career-save-count">0 Saves</div>
+        </header>
+        <div class="career-saves-content">
+          <p class="career-saves-intro">Choose the hockey life you want to continue.</p>
+          <div id="career-save-list" class="career-save-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAYER CREATION SCREEN -->
+      <section id="creation-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-title"
+            type="button"
+            aria-label="Return to title screen"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Create Your Player</h2>
+          </div>
+
+          <div class="step-badge">1 of 4</div>
+        </header>
+
+        <div class="creation-content">
+          <div class="story-card">
+            <p class="story-card__label">Fall 2022</p>
+            <h3>Your hockey story starts here.</h3>
+            <p>
+              You are 14 years old and preparing for freshman tryouts. Four
+              years from now, the hockey world you know today will be waiting.
+            </p>
+          </div>
+
+          <form id="player-form" class="player-form">
+            <div class="field-row">
+              <label class="form-field">
+                <span>First name</span>
+                <input
+                  id="first-name"
+                  name="firstName"
+                  type="text"
+                  placeholder="Danner"
+                  maxlength="20"
+                  autocomplete="given-name"
+                  required
+                />
+              </label>
+
+              <label class="form-field">
+                <span>Last name</span>
+                <input
+                  id="last-name"
+                  name="lastName"
+                  type="text"
+                  placeholder="Stephenson"
+                  maxlength="24"
+                  autocomplete="family-name"
+                  required
+                />
+              </label>
+            </div>
+
+        
+abel">Run Live Game Diagnostic</span>
+          </button>
+
+          <span class="dev-shortcut-area__hint" id="dev-shortcut-hint">Create a career first.</span>
+        </div>
+
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <footer class="footer">
+          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+        </footer>
+      </section>
+
+      <!-- CAREER SAVES SCREEN -->
+      <section id="career-saves-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button class="back-button" id="btn-back-career-saves" type="button" aria-label="Return to title screen">‹</button>
+          <div>
+            <p class="eyebrow">Continue Career</p>
+            <h2>Career Saves</h2>
+          </div>
+          <div class="step-badge" id="career-save-count">0 Saves</div>
+        </header>
+        <div class="career-saves-content">
+          <p class="career-saves-intro">Choose the hockey life you want to continue.</p>
+          <div id="career-save-list" class="career-save-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAYER CREATION SCREEN -->
+      <section id="creation-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-title"
+            type="button"
+            aria-label="Return to title screen"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Create Your Player</h2>
+          </div>
+
+          <div class="step-badge">1 of 4</div>
+        </header>
+
+        <div class="creation-content">
+          <div class="story-card">
+            <p class="story-card__label">Fall 2022</p>
+            <h3>Your hockey story starts here.</h3>
+            <p>
+              You are 14 years old and preparing for freshman tryouts. Four
+              years from now, the hockey world you know today will be waiting.
+            </p>
+          </div>
+
+          <form id="player-form" class="player-form">
+            <div class="field-row">
+              <label class="form-field">
+                <span>First name</span>
+                <input
+                  id="first-name"
+                  name="firstName"
+                  type="text"
+                  placeholder="Danner"
+                  maxlength="20"
+                  autocomplete="given-name"
+                  required
+                />
+              </label>
+
+              <label class="form-field">
+                <span>Last name</span>
+                <input
+                  id="last-name"
+                  name="lastName"
+                  type="text"
+                  placeholder="Stephenson"
+                  maxlength="24"
+                  autocomplete="family-name"
+                  required
+                />
+              </label>
+            </div>
+
+            <label class="form-field">
+              <span>Hometown</span>
+              <input
+                id="hometown"
+                name="hometown"
+                type="text"
+                placeholder="Phoenix, Arizona"
+                maxlength="40"
+                required
+              />
+            </label>
+
+            <fieldset class="choice-group">
+              <legend>Position</legend>
+
+              <div class="choice-grid">
+                <button
+                  class="choice-card"
+                  type="button"
+                  data-choice-group="position"
+                  data-value="Center"
+                >
+                  <span class
+        </button>
+
+          <span class="dev-shortcut-area__hint" id="dev-shortcut-hint">Create a career first.</span>
+        </div>
+
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <footer class="footer">
+          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+        </footer>
+      </section>
+
+      <!-- CAREER SAVES SCREEN -->
+      <section id="career-saves-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button class="back-button" id="btn-back-career-saves" type="button" aria-label="Return to title screen">‹</button>
+          <div>
+            <p class="eyebrow">Continue Career</p>
+            <h2>Career Saves</h2>
+          </div>
+          <div class="step-badge" id="career-save-count">0 Saves</div>
+        </header>
+        <div class="career-saves-content">
+          <p class="career-saves-intro">Choose the hockey life you want to continue.</p>
+          <div id="career-save-list" class="career-save-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAYER CREATION SCREEN -->
+      <section id="creation-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-title"
+            type="button"
+            aria-label="Return to title screen"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Create Your Player</h2>
+          </div>
+
+          <div class="step-badge">1 of 4</div>
+        </header>
+
+        <div class="creation-content">
+          <div class="story-card">
+            <p class="story-card__label">Fall 2022</p>
+            <h3>Your hockey story starts here.</h3>
+            <p>
+              You are 14 years old and preparing for freshman tryouts. Four
+              years from now, the hockey world you know today will be waiting.
+            </p>
+          </div>
+
+          <form id="player-form" class="player-form">
+            <div class="field-row">
+              <label class="form-field">
+                <span>First name</span>
+                <input
+                  id="first-name"
+                  name="firstName"
+                  type="text"
+                  placeholder="Danner"
+                  maxlength="20"
+                  autocomplete="given-name"
+                  required
+                />
+              </label>
+
+              <label class="form-field">
+                <span>Last name</span>
+                <input
+                  id="last-name"
+                  name="lastName"
+                  type="text"
+                  placeholder="Stephenson"
+                  maxlength="24"
+                  autocomplete="family-name"
+                  required
+                />
+              </label>
+            </div>
+
+            <label class="form-field">
+              <span>Hometown</span>
+              <input
+                id="hometown"
+                name="hometown"
+                type="text"
+                placeholder="Phoenix, Arizona"
+                maxlength="40"
+                required
+              />
+            </label>
+
+            <fieldset class="choice-group">
+              <legend>Position</legend>
+
+              <div class="choice-grid">
+                <button
+                  class="choice-card"
+                  type="button"
+                  data-choice-group="position"
+                  data-value="Center"
+                >
+                  <span class="choice-card__icon">C</span>
+          
+"player-weight-value">175 lbs</span>
+                </div>
+
+                <input
+                  id="player-weight"
+                  name="weight"
+                  type="range"
+                  min="130"
+                  max="250"
+                  step="1"
+                  value="175"
+                />
+              </div>
+
+              <div class="creation-field">
+                <label for="player-jersey-number">Jersey Number</label>
+
+                <input
+                  id="player-jersey-number"
+                  name="jerseyNumber"
+                  type="number"
+                  min="1"
+                  max="99"
+                  value="19"
+                  inputmode="numeric"
+                />
+              </div>
+            </fieldset>
+
+            <p id="form-error" class="form-error" aria-live="polite"></p>
+
+            <button class="btn btn--primary continue-creation" type="submit">
+              <span class="btn__label">Continue</span>
+              <span class="btn__arrow">›</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- CAREER OVERVIEW SCREEN -->
+      <section id="career-overview-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-overview"
+            type="button"
+            aria-label="Back to Hockey Identity"
+          >
+            ‹
+          </button>
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Career Overview</h2>
+          </div>
+          <div class="step-badge">4 of 4</div>
+        </header>
+
+        <div class="overview-content">
+
+          <!-- Player header -->
+          <div class="overview-player">
+            <h2 class="overview-player__name" id="overview-player-name">—</h2>
+            <p class="overview-player__details" id="overview-player-position">—</p>
+            <p class="overview-player__hometown" id="overview-player-hometown">—</p>
+          </div>
+
+          <!-- Identity summary -->
+          <div class="overview-section">
+            <p class="overview-section__label">Hockey Identity</p>
+            <div class="overview-identity">
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Background</span>
+                <span class="overview-identity-row__value" id="overview-background">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Archetype</span>
+                <span class="overview-identity-row__value" id="overview-archetype">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Motivation</span>
+                <span class="overview-identity-row__value" id="overview-motivation">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">NHL Team</span>
+                <span class="overview-identity-row__value" id="overview-nhlteam">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overall rating -->
+          <div class="overview-ovr-card">
+            <div class="overview-ovr-card__inner">
+              <span class="overview-ovr-card__number">60</span>
+              <span class="overview-ovr-card__label">OVERALL</span>
+            </div>
+          </div>
+
+          <!-- Attributes -->
+          <div class="overview-section">
+            <p class="overvi
+             </div>
+
+                <input
+                  id="player-weight"
+                  name="weight"
+                  type="range"
+                  min="130"
+                  max="250"
+                  step="1"
+                  value="175"
+                />
+              </div>
+
+              <div class="creation-field">
+                <label for="player-jersey-number">Jersey Number</label>
+
+                <input
+                  id="player-jersey-number"
+                  name="jerseyNumber"
+                  type="number"
+                  min="1"
+                  max="99"
+                  value="19"
+                  inputmode="numeric"
+                />
+              </div>
+            </fieldset>
+
+            <p id="form-error" class="form-error" aria-live="polite"></p>
+
+            <button class="btn btn--primary continue-creation" type="submit">
+              <span class="btn__label">Continue</span>
+              <span class="btn__arrow">›</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- CAREER OVERVIEW SCREEN -->
+      <section id="career-overview-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-overview"
+            type="button"
+            aria-label="Back to Hockey Identity"
+          >
+            ‹
+          </button>
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Career Overview</h2>
+          </div>
+          <div class="step-badge">4 of 4</div>
+        </header>
+
+        <div class="overview-content">
+
+          <!-- Player header -->
+          <div class="overview-player">
+            <h2 class="overview-player__name" id="overview-player-name">—</h2>
+            <p class="overview-player__details" id="overview-player-position">—</p>
+            <p class="overview-player__hometown" id="overview-player-hometown">—</p>
+          </div>
+
+          <!-- Identity summary -->
+          <div class="overview-section">
+            <p class="overview-section__label">Hockey Identity</p>
+            <div class="overview-identity">
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Background</span>
+                <span class="overview-identity-row__value" id="overview-background">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Archetype</span>
+                <span class="overview-identity-row__value" id="overview-archetype">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Motivation</span>
+                <span class="overview-identity-row__value" id="overview-motivation">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">NHL Team</span>
+                <span class="overview-identity-row__value" id="overview-nhlteam">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overall rating -->
+          <div class="overview-ovr-card">
+            <div class="overview-ovr-card__inner">
+              <span class="overview-ovr-card__number">60</span>
+              <span class="overview-ovr-card__label">OVERALL</span>
+            </div>
+          </div>
+
+          <!-- Attributes -->
+          <div class="overview-section">
+            <p class="overview-section__label">Attributes</p>
+      
+      <span class="attr-row__name">Defense</span>
+                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+                <span class="attr-row__val">60</span>
+              </div>
+              <div class="attr-row">
+                <span class="attr-row__name">Physical</span>
+                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+                <span class="attr-row__val">60</span>
+              </div>
+              <div class="attr-row">
+                <span class="attr-row__name">Hockey IQ</span>
+                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+                <span class="attr-row__val">60</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Begin button -->
+          <button class="btn btn--primary overview-begin-btn" id="btn-begin-career" type="button">
+            <span class="btn__label">Begin High School Career</span>
+            <span class="btn__arrow">›</span>
+          </button>
+
+        </div>
+      </section>
+
+      <!-- BEDROOM SCREEN -->
+      <section id="bedroom-screen" class="screen screen--hidden">
+        <div class="bedroom" aria-label="Player's bedroom">
+
+          <div class="br__wall"></div>
+          <div class="br__floor"></div>
+          <div class="br__baseboard"></div>
+
+          <!-- Window -->
+          <div class="br__window">
+            <div class="br__window-sky">
+              <div class="br__stars"></div>
+              <div class="br__moon"></div>
+            </div>
+            <div class="br__window-div-h"></div>
+            <div class="br__window-div-v"></div>
+            <div class="br__curtain br__curtain--l"></div>
+            <div class="br__curtain br__curtain--r"></div>
+            <div class="br__window-sill"></div>
+            <div class="br__moonlight"></div>
+          </div>
+
+          <!-- Desk -->
+          <div class="br__desk">
+            <div class="br__desk-face"></div>
+            <div class="br__laptop-screen">
+              <div class="br__laptop-screen-inner"></div>
+            </div>
+            <div class="br__laptop-base"></div>
+            <div class="br__laptop-glow"></div>
+          </div>
+
+          <!-- Hockey stick leaning against wall -->
+          <div class="br__stick-wrap">
+            <div class="br__stick-shaft"></div>
+            <div class="br__stick-blade"></div>
+          </div>
+
+          <!-- Headboard and bed -->
+          <div class="br__headboard"></div>
+          <div class="br__mattress">
+            <div class="br__pillow"></div>
+            <div class="br__blanket"></div>
+          </div>
+
+          <!-- Nightstand -->
+          <div class="br__nightstand">
+            <div class="br__nightstand-face"></div>
+          </div>
+
+          <!-- Phone (on nightstand) -->
+          <div class="br__phone">
+            <div class="br__phone-screen">
+              <div class="br__phone-time">7:18</div>
+            </div>
+          </div>
+          <div class="br__phone-glow"></div>
+
+          <!-- Hockey bag on floor -->
+          <div class="br__bag">
+            <div class="br__bag-body"></div>
+            <div class="br__bag-strap"></div>
+            <div class="br__bag-pocket"></div>
+          </div>
+
+          <!-- Notification -->
+          <div class="br__notification">
+            <div class="br__notification-row">
+              <span class="br__notification-icon">💬</span>
+              <span class="br__notification-app">Messages</span>
+              <span class="br__n
+-begin-career" type="button">
+            <span class="btn__label">Begin High School Career</span>
+            <span class="btn__arrow">›</span>
+          </button>
+
+        </div>
+      </section>
+
+      <!-- BEDROOM SCREEN -->
+      <section id="bedroom-screen" class="screen screen--hidden">
+        <div class="bedroom" aria-label="Player's bedroom">
+
+          <div class="br__wall"></div>
+          <div class="br__floor"></div>
+          <div class="br__baseboard"></div>
+
+          <!-- Window -->
+          <div class="br__window">
+            <div class="br__window-sky">
+              <div class="br__stars"></div>
+              <div class="br__moon"></div>
+            </div>
+            <div class="br__window-div-h"></div>
+            <div class="br__window-div-v"></div>
+            <div class="br__curtain br__curtain--l"></div>
+            <div class="br__curtain br__curtain--r"></div>
+            <div class="br__window-sill"></div>
+            <div class="br__moonlight"></div>
+          </div>
+
+          <!-- Desk -->
+          <div class="br__desk">
+            <div class="br__desk-face"></div>
+            <div class="br__laptop-screen">
+              <div class="br__laptop-screen-inner"></div>
+            </div>
+            <div class="br__laptop-base"></div>
+            <div class="br__laptop-glow"></div>
+          </div>
+
+          <!-- Hockey stick leaning against wall -->
+          <div class="br__stick-wrap">
+            <div class="br__stick-shaft"></div>
+            <div class="br__stick-blade"></div>
+          </div>
+
+          <!-- Headboard and bed -->
+          <div class="br__headboard"></div>
+          <div class="br__mattress">
+            <div class="br__pillow"></div>
+            <div class="br__blanket"></div>
+          </div>
+
+          <!-- Nightstand -->
+          <div class="br__nightstand">
+            <div class="br__nightstand-face"></div>
+          </div>
+
+          <!-- Phone (on nightstand) -->
+          <div class="br__phone">
+            <div class="br__phone-screen">
+              <div class="br__phone-time">7:18</div>
+            </div>
+          </div>
+          <div class="br__phone-glow"></div>
+
+          <!-- Hockey bag on floor -->
+          <div class="br__bag">
+            <div class="br__bag-body"></div>
+            <div class="br__bag-strap"></div>
+            <div class="br__bag-pocket"></div>
+          </div>
+
+          <!-- Notification -->
+          <div class="br__notification">
+            <div class="br__notification-row">
+              <span class="br__notification-icon">💬</span>
+              <span class="br__notification-app">Messages</span>
+              <span class="br__notification-time">7:17 PM</span>
+            </div>
+            <p class="br__notification-sender">Mom ❤️</p>
+            <p class="br__notification-text">"Big day tomorrow. Love you."</p>
+          </div>
+
+          <!-- Interaction toast -->
+          <div class="br__toast" id="br-toast"></div>
+
+        </div>
+
+        <!-- Messages overlay -->
+        <div id="messages-overlay" class="messages-overlay" aria-hidden="true">
+          <div class="messages-header">
+            <button class="messages-back" id="btn-close-messages" aria-label="Back to bedroom">‹</button>
+            <div class="messages-contact">
+              <div class="messages-avatar">❤️</div>
+              <p class="messages-contact__name">Mom ❤️</p>
+            </div>
+            <div class="messages-header__spacer"></div>
+          </div>
+          <div class="messages-body">
+            <p class="messages-timestamp">Saturday 7:17 PM</p>
+
+
+### tab-league
+>›</span>
+                  </button>
+                </div>
+
+                <div class="team-leaders__grid">
+                  <div class="team-leaders__item">
+                    <span>Goals</span>
+                    <strong id="team-leader-goals">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Assists</span>
+                    <strong id="team-leader-assists">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Points</span>
+                    <strong id="team-leader-points">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Goalie Wins</span>
+                    <strong id="team-leader-wins">No stats yet</strong>
+                  </div>
+
+                  <div class="team-leaders__item">
+                    <span>Save %</span>
+                    <strong id="team-leader-save-percentage">No stats yet</strong>
+                  </div>
+                </div>
+              </section>
+            </section>
+          </div>
+          <div
+            id="hub-tab-league"
+            class="hub-tab-panel"
+            aria-hidden="true">
+
+            <section class="league-tab">
+
+              <header class="league-tab__header">
+                <p class="eyebrow">League</p>
+                <h2 id="league-name">Midwest Youth Hockey League</h2>
+
+                <p
+                  class="league-tab__context"
+                  id="league-season">
+                  2022–23 Season
+                </p>
+              </header>
+
+              <section class="league-section" id="league-standings-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">Standings</p>
+                    <h3>League Standings</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-full-standings"
+                    type="button">
+                    View All
+                  </button>
+                </div>
+
+                <div
+                  id="league-standings-preview"
+                  class="league-standings-preview">
+
+                  <div class="league-standings-preview__scroll">
+                    <table class="league-standings-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">TEAM</th>
+                          <th scope="col">PTS</th>
+                          <th scope="col">W</th>
+                          <th scope="col">L</th>
+                          <th scope="col">OTL</th>
+                          <th scope="col">GF</th>
+                          <th scope="col">GA</th>
+                          <th scope="col">PP%</th>
+                          <th scope="col">PK%</th>
+                        </tr>
+                      </thead>
+
+                      <tbody id="league-standings-preview-rows"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+
+              <section class="league-section" id="league-leaders-section">
+                <div class="league-section__header">
+                  <div>
+                    <p class="eyebrow">League Leaders</p>
+                    <h3>Top Performers</h3>
+                  </div>
+
+                  <button
+                    class="league-section__action"
+                    id="btn-league-full-stats"
+      
+
+### btn-back
+ SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE
+             Skips cinematic flow and loads directly into Career Hub.
+             ═══════════════════════════════════════════════════════════ -->
+        <div class="dev-shortcut-area">
+          <span class="dev-shortcut-area__label">DEV SHORTCUT</span>
+          <button class="btn btn--dev" id="btn-dev-hub" disabled>
+            <span class="btn__label">Skip to Career Hub</span>
+          </button>
+
+          <button
+            id="btn-live-game-diagnostic"
+            type="button"
+            class="btn btn--dev"
+          >
+            <span class="btn__label">Run Live Game Diagnostic</span>
+          </button>
+
+          <span class="dev-shortcut-area__hint" id="dev-shortcut-hint">Create a career first.</span>
+        </div>
+
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <footer class="footer">
+          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+        </footer>
+      </section>
+
+      <!-- CAREER SAVES SCREEN -->
+      <section id="career-saves-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button class="back-button" id="btn-back-career-saves" type="button" aria-label="Return to title screen">‹</button>
+          <div>
+            <p class="eyebrow">Continue Career</p>
+            <h2>Career Saves</h2>
+          </div>
+          <div class="step-badge" id="career-save-count">0 Saves</div>
+        </header>
+        <div class="career-saves-content">
+          <p class="career-saves-intro">Choose the hockey life you want to continue.</p>
+          <div id="career-save-list" class="career-save-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAYER CREATION SCREEN -->
+      <section id="creation-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-title"
+            type="button"
+            aria-label="Return to title screen"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Create Your Player</h2>
+          </div>
+
+          <div class="step-badge">1 of 4</div>
+        </header>
+
+        <div class="creation-content">
+          <div class="story-card">
+            <p class="story-card__label">Fall 2022</p>
+            <h3>Your hockey story starts here.</h3>
+            <p>
+              You are 14 years old and preparing for freshman tryouts. Four
+              years from now, the hockey world you know today will be waiting.
+            </p>
+          </div>
+
+          <form id="player-form" class="player-form">
+            <div class="field-row">
+              <label class="form-field">
+                <span>First name</span>
+                <input
+                  id="first-name"
+                  name="firstName"
+                  type="text"
+                  placeholder="Danner"
+                  maxlength="20"
+                  autocomplete="given-name"
+                  required
+                />
+              </label>
+
+              <label class="form-field">
+                <span>Last name</span>
+                <input
+                  id="last-name"
+                  name="lastName"
+                  type="text"
+                  placeholder="Stephenson"
+                  maxlength="24"
+                  autocomplete="family-name"
+                  required
+                />
+              </label>
+            </div>
+
+            <label class="form-field">
+              <span>Hometow
+t-hint">Create a career first.</span>
+        </div>
+
+        
+        <!-- ═══════════════════════════════════════════════════════════ -->
+
+        <footer class="footer">
+          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+        </footer>
+      </section>
+
+      <!-- CAREER SAVES SCREEN -->
+      <section id="career-saves-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button class="back-button" id="btn-back-career-saves" type="button" aria-label="Return to title screen">‹</button>
+          <div>
+            <p class="eyebrow">Continue Career</p>
+            <h2>Career Saves</h2>
+          </div>
+          <div class="step-badge" id="career-save-count">0 Saves</div>
+        </header>
+        <div class="career-saves-content">
+          <p class="career-saves-intro">Choose the hockey life you want to continue.</p>
+          <div id="career-save-list" class="career-save-list"></div>
+        </div>
+      </section>
+
+      <!-- PLAYER CREATION SCREEN -->
+      <section id="creation-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-title"
+            type="button"
+            aria-label="Return to title screen"
+          >
+            ‹
+          </button>
+
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Create Your Player</h2>
+          </div>
+
+          <div class="step-badge">1 of 4</div>
+        </header>
+
+        <div class="creation-content">
+          <div class="story-card">
+            <p class="story-card__label">Fall 2022</p>
+            <h3>Your hockey story starts here.</h3>
+            <p>
+              You are 14 years old and preparing for freshman tryouts. Four
+              years from now, the hockey world you know today will be waiting.
+            </p>
+          </div>
+
+          <form id="player-form" class="player-form">
+            <div class="field-row">
+              <label class="form-field">
+                <span>First name</span>
+                <input
+                  id="first-name"
+                  name="firstName"
+                  type="text"
+                  placeholder="Danner"
+                  maxlength="20"
+                  autocomplete="given-name"
+                  required
+                />
+              </label>
+
+              <label class="form-field">
+                <span>Last name</span>
+                <input
+                  id="last-name"
+                  name="lastName"
+                  type="text"
+                  placeholder="Stephenson"
+                  maxlength="24"
+                  autocomplete="family-name"
+                  required
+                />
+              </label>
+            </div>
+
+            <label class="form-field">
+              <span>Hometown</span>
+              <input
+                id="hometown"
+                name="hometown"
+                type="text"
+                placeholder="Phoenix, Arizona"
+                maxlength="40"
+                required
+              />
+            </label>
+
+            <fieldset class="choice-group">
+              <legend>Position</legend>
+
+              <div class="choice-grid">
+                <button
+                  class="choice-card"
+                  type="button"
+                  data-choice-group="position"
+                  data-value="Center"
+                >
+                  <span class="choice-card__icon">C</span>
+                  <span>Center</span>
+                </button>
+
+                <button
+   
+                 name="weight"
+                  type="range"
+                  min="130"
+                  max="250"
+                  step="1"
+                  value="175"
+                />
+              </div>
+
+              <div class="creation-field">
+                <label for="player-jersey-number">Jersey Number</label>
+
+                <input
+                  id="player-jersey-number"
+                  name="jerseyNumber"
+                  type="number"
+                  min="1"
+                  max="99"
+                  value="19"
+                  inputmode="numeric"
+                />
+              </div>
+            </fieldset>
+
+            <p id="form-error" class="form-error" aria-live="polite"></p>
+
+            <button class="btn btn--primary continue-creation" type="submit">
+              <span class="btn__label">Continue</span>
+              <span class="btn__arrow">›</span>
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- CAREER OVERVIEW SCREEN -->
+      <section id="career-overview-screen" class="screen screen--hidden">
+        <header class="screen-header">
+          <button
+            class="back-button"
+            id="btn-back-overview"
+            type="button"
+            aria-label="Back to Hockey Identity"
+          >
+            ‹
+          </button>
+          <div>
+            <p class="eyebrow">New Career</p>
+            <h2>Career Overview</h2>
+          </div>
+          <div class="step-badge">4 of 4</div>
+        </header>
+
+        <div class="overview-content">
+
+          <!-- Player header -->
+          <div class="overview-player">
+            <h2 class="overview-player__name" id="overview-player-name">—</h2>
+            <p class="overview-player__details" id="overview-player-position">—</p>
+            <p class="overview-player__hometown" id="overview-player-hometown">—</p>
+          </div>
+
+          <!-- Identity summary -->
+          <div class="overview-section">
+            <p class="overview-section__label">Hockey Identity</p>
+            <div class="overview-identity">
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Background</span>
+                <span class="overview-identity-row__value" id="overview-background">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Archetype</span>
+                <span class="overview-identity-row__value" id="overview-archetype">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">Motivation</span>
+                <span class="overview-identity-row__value" id="overview-motivation">—</span>
+              </div>
+              <div class="overview-identity-row">
+                <span class="overview-identity-row__label">NHL Team</span>
+                <span class="overview-identity-row__value" id="overview-nhlteam">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overall rating -->
+          <div class="overview-ovr-card">
+            <div class="overview-ovr-card__inner">
+              <span class="overview-ovr-card__number">60</span>
+              <span class="overview-ovr-card__label">OVERALL</span>
+            </div>
+          </div>
+
+          <!-- Attributes -->
+          <div class="overview-section">
+            <p class="overview-section__label">Attributes</p>
+            <div class="overview-attrs">
+              <div class="attr-row">
+          
+ion">
+          <button class="hub-nav__tab hub-nav__tab--active" data-hub-tab="home">
+            <span class="hub-nav__icon">⌂</span>
+            <span class="hub-nav__label">Home</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="schedule">
+            <span class="hub-nav__icon">📅</span>
+            <span class="hub-nav__label">Schedule</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="player">
+            <span class="hub-nav__icon">👤</span>
+            <span class="hub-nav__label">Player</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="team">
+            <span class="hub-nav__icon">🏒</span>
+            <span class="hub-nav__label">Team</span>
+          </button>
+          <button class="hub-nav__tab" data-hub-tab="league">
+            <span class="hub-nav__icon">🏆</span>
+            <span class="hub-nav__label">League</span>
+          </button>
+        </nav>
+
+      </section>
+
+      <!-- STANDINGS SCREEN -->
+      <section id="standings-screen" class="screen screen--hidden">
+
+        <div class="sl-wrap">
+
+          <header class="sl-header">
+            <button class="back-button" id="btn-back-standings" aria-label="Back to Career Hub">‹</button>
+            <div class="sl-header__text">
+              <p class="eyebrow">League</p>
+              <h2>Standings</h2>
+            </div>
+            <div class="sl-header__season">
+              <span class="sl-season-badge">2022–23</span>
+            </div>
+          </header>
+
+          <p class="sl-context">Midwest Youth Hockey League · Preseason</p>
+
+          <div class="sl-table-wrap">
+
+            <div class="sl-table-scroll">
+              <table class="sl-table">
+                <thead>
+                  <tr>
+                    <th scope="col">TEAM</th>
+                    <th scope="col">PTS</th>
+                    <th scope="col">W</th>
+                    <th scope="col">L</th>
+                    <th scope="col">OTL</th>
+                    <th scope="col">GF</th>
+                    <th scope="col">GA</th>
+                    <th scope="col">PP%</th>
+                    <th scope="col">PK%</th>
+                  </tr>
+                </thead>
+
+                <tbody
+                  id="sl-rows"
+                  aria-label="League standings"
+                >
+                  <!-- Rows injected by renderStandingsScreen() -->
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+
+          <p class="sl-footnote">
+            Tap any team to open its profile.
+          </p>
+
+        </div>
+
+      </section>
+
+      <!-- TEAM PROFILE SCREEN — single reusable screen, populated by renderTeamProfile() -->
+      <section id="team-profile-screen" class="screen screen--hidden">
+
+
+        <!-- Scrollable content wrapper -->
+        <div class="tp-wrap">
+
+          <header class="tp-header">
+            <button class="back-button" id="btn-back-team-profile" aria-label="Go back">‹</button>
+            <div class="tp-header__text">
+              <p class="eyebrow">Team Profile</p>
+              <h2 class="tp-school-name" id="tp-school-name">—</h2>
+            </div>
+          </header>
+          <div
+            id="team-profile-modern-content"
+            class="team-profile-modern-content"
+          ></div>
+
+          <!-- Hero: full team name + prestige -->
+          <div class="tp-hero">
+            <div>
+              <p class="tp-hero__team-name" id="tp-team-name">—</p>
+              <p class="tp-hero__level" id="tp-team-level">Junior Varsity</p>
+       
+                  <tr>
+                    <th scope="col">TEAM</th>
+                    <th scope="col">PTS</th>
+                    <th scope="col">W</th>
+                    <th scope="col">L</th>
+                    <th scope="col">OTL</th>
+                    <th scope="col">GF</th>
+                    <th scope="col">GA</th>
+                    <th scope="col">PP%</th>
+                    <th scope="col">PK%</th>
+                  </tr>
+                </thead>
+
+                <tbody
+                  id="sl-rows"
+                  aria-label="League standings"
+                >
+                  <!-- Rows injected by renderStandingsScreen() -->
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+
+          <p class="sl-footnote">
+            Tap any team to open its profile.
+          </p>
+
+        </div>
+
+      </section>
+
+      <!-- TEAM PROFILE SCREEN — single reusable screen, populated by renderTeamProfile() -->
+      <section id="team-profile-screen" class="screen screen--hidden">
+
+
+        <!-- Scrollable content wrapper -->
+        <div class="tp-wrap">
+
+          <header class="tp-header">
+            <button class="back-button" id="btn-back-team-profile" aria-label="Go back">‹</button>
+            <div class="tp-header__text">
+              <p class="eyebrow">Team Profile</p>
+              <h2 class="tp-school-name" id="tp-school-name">—</h2>
+            </div>
+          </header>
+          <div
+            id="team-profile-modern-content"
+            class="team-profile-modern-content"
+          ></div>
+
+          <!-- Hero: full team name + prestige -->
+          <div class="tp-hero">
+            <div>
+              <p class="tp-hero__team-name" id="tp-team-name">—</p>
+              <p class="tp-hero__level" id="tp-team-level">Junior Varsity</p>
+            </div>
+
+            <p class="tp-hero__prestige" id="tp-prestige">☆☆☆☆☆</p>
+          </div>
+
+          <!-- Identity card — left border tinted to primary color via JS -->
+          <div class="tp-identity-card" id="tp-identity-card">
+            <p class="tp-identity-card__text" id="tp-identity">—</p>
+          </div>
+
+          <!-- Stat pills: Record · PTS · GD -->
+          <div class="tp-stat-row">
+            <div class="tp-stat-pill">
+              <span class="tp-stat-pill__label">Record</span>
+              <span class="tp-stat-pill__value" id="tp-record">0-0-0</span>
+            </div>
+            <div class="tp-stat-pill">
+              <span class="tp-stat-pill__label">PTS</span>
+              <span class="tp-stat-pill__value" id="tp-pts">0</span>
+            </div>
+            <div class="tp-stat-pill">
+              <span class="tp-stat-pill__label">GD</span>
+              <span class="tp-stat-pill__value" id="tp-gd">0</span>
+            </div>
+          </div>
+
+          <!-- Team colors -->
+          <div class="tp-colors-row">
+            <div class="tp-color-chip">
+              <div class="tp-color-chip__dot" id="tp-chip-primary"></div>
+              <span class="tp-color-chip__label">Primary</span>
+            </div>
+            <div class="tp-color-chip">
+              <div class="tp-color-chip__dot" id="tp-chip-secondary"></div>
+              <span class="tp-color-chip__label">Secondary</span>
+            </div>
+          </div>
+
+          <!-- Placeholder sections -->
+          <div class="tp-section">
+            <p class="tp-section__label">Coach</p>
+            <div class="tp-section__body">
+              <p class="tp-detail-title" id="tp-coach-name">—</p>
+              <p class="tp-detail-subtitle" id="t
+ster-unit">
+                  <p class="tp-roster-unit__label">Starter</p>
+                  <div class="tp-roster-row" data-roster-slot="g-starter">
+                    <span class="tp-roster-row__pos tp-roster-row__pos--g">G</span>
+                    <span class="tp-roster-row__name tp-roster-row__name--empty">Goalie Coming Soon</span>
+                  </div>
+                </div>
+
+                <div class="tp-roster-unit tp-roster-unit--last">
+                  <p class="tp-roster-unit__label">Backup</p>
+                  <div class="tp-roster-row" data-roster-slot="g-backup">
+                    <span class="tp-roster-row__pos tp-roster-row__pos--g">G</span>
+                    <span class="tp-roster-row__name tp-roster-row__name--empty">Goalie Coming Soon</span>
+                  </div>
+                </div>
+              </div><!-- /.tp-roster-group (goaltenders) -->
+
+            </div><!-- /#tp-roster -->
+          </div>
+
+        </div><!-- /.tp-wrap -->
+
+      </section>
+        <section id="player-profile-screen" class="screen screen--hidden player-profile-screen">
+
+        <header class="tp-header">
+          <button
+            class="back-button"
+            id="btn-back-player-profile"
+            aria-label="Go back"
+          >
+            ‹
+          </button>
+
+          <div class="tp-header__text">
+            <p class="eyebrow">Player Profile</p>
+            <h2 id="player-profile-title">—</h2>
+          </div>
+        </header>
+
+        <div id="player-profile-content">
+
+          <!-- Profile Header -->
+          <div class="pp-header">
+            <div class="pp-header__top">
+              <span class="pp-header__pos-badge" id="player-profile-pos">—</span>
+
+              <div class="pp-header__ovr">
+                <span class="pp-header__ovr-label">OVR</span>
+                <span class="pp-header__ovr-value" id="pp-player-ovr">60</span>
+              </div>
+            </div>
+
+            <p class="pp-header__name" id="player-profile-name">—</p>
+
+            <p class="pp-header__meta">
+              <span id="player-profile-age">14 years old</span>
+              ·
+              <span id="player-profile-team">Freshman Tryouts</span>
+              ·
+              <span id="player-profile-archetype">Two-Way Forward</span>
+            </p>
+            <p class="pp-header__bio">
+              <span id="player-profile-height">5'10"</span>
+              ·
+              <span id="player-profile-weight">175 lbs</span>
+              ·
+              <span id="player-profile-shoots">Shoots L</span>
+            </p>
+
+            <div class="pp-header__divider"></div>
+
+            <div class="pp-header__rep">
+              <span id="pp-player-stars">⭐⭐☆☆☆</span>
+              <span id="pp-player-label">Regional Prospect</span>
+            </div>
+            <div class="pp-header__potential">
+              <span class="pp-header__potential-title">Potential</span>
+
+              <div class="pp-header__potential-value">
+                <span id="player-profile-potential-role">Top 9 F</span>
+                <span id="player-profile-potential-accuracy">MED</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Attributes -->
+          <div class="pp-section-label">Attributes</div>
+
+          <div class="pp-attr-list" id="pp-attributes">
+
+            <!-- Filled by JavaScript -->
+
+          </div>
+
+          <!-- Statistics -->
+          <section class="player-snapshot-section">
+
+            <div class="pp-section-heading">
+              <p class="pp-section-label">
+                Statistics
+      
+          <!-- Awards -->
+          <section class="player-snapshot-section">
+
+            <div class="pp-section-heading">
+              <p class="pp-section-label">
+                Awards
+              </p>
+            </div>
+
+            <div
+              class="pp-awards-list"
+              id="player-profile-awards-list"
+            >
+              <!-- Filled by JavaScript -->
+            </div>
+
+          </section>
+
+          <!-- Records -->
+          <section class="player-snapshot-section">
+
+            <div class="pp-section-heading">
+              <p class="pp-section-label">
+                Records
+              </p>
+            </div>
+
+            <div
+              class="pp-records-list"
+              id="player-profile-records-list"
+            >
+              <!-- Filled by JavaScript -->
+            </div>
+
+          </section>
+
+        </div>
+
+      </section>
+      <!-- SHARED FULL STATS SCREEN -->
+      <section
+        id="full-stats-screen"
+        class="screen screen--hidden full-stats-screen"
+      >
+        <div class="full-stats-wrap">
+          <header class="full-stats-header">
+            <button
+              class="back-button"
+              id="btn-back-full-stats"
+              type="button"
+              aria-label="Go back"
+            >
+              ‹
+            </button>
+
+            <div class="full-stats-header__text">
+              <p class="eyebrow">Statistics</p>
+              <h2 id="full-stats-title">Full Stats</h2>
+            </div>
+          </header>
+
+          <div class="full-stats-controls">
+            <div
+              class="full-stats-type-toggle"
+              role="group"
+              aria-label="Statistics type"
+            >
+              <button
+                class="full-stats-type-toggle__button full-stats-type-toggle__button--active"
+                id="full-stats-skaters-button"
+                type="button"
+                data-stats-type="skaters"
+              >
+                Skaters
+              </button>
+
+              <button
+                class="full-stats-type-toggle__button"
+                id="full-stats-goalies-button"
+                type="button"
+                data-stats-type="goalies"
+              >
+                Goalies
+              </button>
+            </div>
+
+            <label
+              class="full-stats-filter"
+              for="full-stats-team-filter"
+            >
+              <span>View</span>
+
+              <select id="full-stats-team-filter">
+                <option value="league">Entire League</option>
+              </select>
+            </label>
+          </div>
+
+          <p
+            class="full-stats-context"
+            id="full-stats-context"
+          >
+            Entire League
+          </p>
+
+          <div class="full-stats-table-wrap">
+            <table
+              class="full-stats-table"
+              id="full-stats-table"
+            >
+              <thead id="full-stats-table-head"></thead>
+              <tbody id="full-stats-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <!-- TOP 100 PROSPECTS SCREEN -->
+      <section id="prospects-screen" class="screen screen--hidden">
+
+        <div class="pr-wrap">
+
+          <header class="sl-header">
+            <button class="back-button" id="btn-back-prospects" aria-label="Back to Career Hub">‹</button>
+            <div class="sl-header__text">
+              <p class="eyebrow">Scouting</p>
+              <h2>Top 100</h2>
+            </div>
+            <div class="sl-header__season">
+              <span class="s
+s-goalies-button"
+                type="button"
+                data-stats-type="goalies"
+              >
+                Goalies
+              </button>
+            </div>
+
+            <label
+              class="full-stats-filter"
+              for="full-stats-team-filter"
+            >
+              <span>View</span>
+
+              <select id="full-stats-team-filter">
+                <option value="league">Entire League</option>
+              </select>
+            </label>
+          </div>
+
+          <p
+            class="full-stats-context"
+            id="full-stats-context"
+          >
+            Entire League
+          </p>
+
+          <div class="full-stats-table-wrap">
+            <table
+              class="full-stats-table"
+              id="full-stats-table"
+            >
+              <thead id="full-stats-table-head"></thead>
+              <tbody id="full-stats-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <!-- TOP 100 PROSPECTS SCREEN -->
+      <section id="prospects-screen" class="screen screen--hidden">
+
+        <div class="pr-wrap">
+
+          <header class="sl-header">
+            <button class="back-button" id="btn-back-prospects" aria-label="Back to Career Hub">‹</button>
+            <div class="sl-header__text">
+              <p class="eyebrow">Scouting</p>
+              <h2>Top 100</h2>
+            </div>
+            <div class="sl-header__season">
+              <span class="sl-season-badge">2022–23</span>
+            </div>
+          </header>
+
+          <p class="sl-context">National Prospect Rankings</p>
+
+          <div class="pr-table-wrap">
+
+            <!-- Column headers (sticky) -->
+            <div class="pr-row pr-row--header" aria-hidden="true">
+              <span class="pr-col pr-col--rank">#</span>
+              <span class="pr-col pr-col--name">Name</span>
+              <span class="pr-col pr-col--pos">Pos</span>
+              <span class="pr-col pr-col--team">Team</span>
+              <span class="pr-col pr-col--league">Lge</span>
+              <span class="pr-col pr-col--draft">Draft</span>
+              <span class="pr-col pr-col--trend">↕</span>
+            </div>
+
+            <!-- Rows injected by renderProspectsScreen() -->
+            <div id="pr-rows" role="list" aria-label="Top 100 Prospect Rankings"></div>
+
+          </div>
+
+        </div><!-- /.pr-wrap -->
+
+        <!-- Tap toast — floats at bottom, shown briefly on row tap -->
+        <div class="pr-toast" id="pr-toast" hidden>
+          Prospect profile coming soon.
+        </div>
+
+      </section>
+
+      <!-- EVENT SCREEN — one reusable screen for every event in the game -->
+      <section id="event-screen" class="screen screen--hidden">
+
+        <div class="ev-wrap">
+
+          <!-- Header: back + eyebrow + type badge -->
+          <header class="ev-header">
+            <button class="back-button" id="btn-back-event" aria-label="Back">‹</button>
+            <div class="ev-header__text">
+              <p class="eyebrow">Upcoming Event</p>
+            </div>
+            <span class="ev-type-badge" id="ev-type-badge">EVENT</span>
+          </header>
+
+          <!-- Hero: large icon + event title -->
+          <div class="ev-hero">
+            <span class="ev-hero__icon" id="ev-icon">🏒</span>
+            <h2 class="ev-hero__title" id="ev-title">Practice</h2>
+          </div>
+
+          <!-- Location row -->
+          <div class="ev-meta-row" id="ev-meta-row">
+              <span class="ev-meta-row__icon">📍</span>
+              <span class="ev-meta-row__text" id="ev-location">
+          
+
+FILE artifacts/project-ice/public/game.js
+
+### hub-news-list
+// Line 3 — Coach Reynolds
+  await showLine('Coach Reynolds', 'arena-dialogue__speaker--coach',
+    '"Good. Grab a jersey and get on the ice. We\'ll see what you\'ve got."');
+  await sleep(3000);
+
+  // Dismiss dialogue, show CTA
+  dialogueEl.classList.remove('is-visible');
+  await sleep(450);
+  actionEl.classList.add('is-visible');
+  actionEl.setAttribute('aria-hidden', 'false');
+}
+
+document.getElementById('btn-take-ice').addEventListener('click', () => {
+  // Launch the Freshman Tryouts event via the Event System.
+  // EventSystem.openEvent handles the transition — no cinematic needed here,
+  // the event screen is the player's gateway to the tryout.
+  EventSystem.openEvent('tryout-freshman', 'arena');
+});
+
+// ── News System ──────────────────────────────────────────────
+// NewsSystem is now a thin alias for WorldEngine.news.
+// All existing call sites (NewsSystem.publish, NewsSystem.getRecent)
+// work without modification. The news feed lives in the World Engine
+// and is persisted with world state, not the player save.
+// See public/world.js for the full implementation.
+const NewsSystem = WorldEngine.news;
+
+function renderHubNews() {
+  const container = document.getElementById('hub-news-list');
+  if (!container) return;
+  const items = NewsSystem.getRecent(3);
+  container.innerHTML = items.map(item => `
+    <div class="hub-news__item">
+      <span class="hub-news__tag">${item.tag}</span>
+      <span class="hub-news__headline">${item.headline}</span>
+    </div>
+  `).join('');
+}
+
+
+function renderLeagueNewsPreview() {
+  const container = document.getElementById('league-news-preview');
+  if (!container) return;
+
+  const items = NewsSystem.getRecent(8);
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="league-news-feed__empty">
+        No major league stories yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="league-news-feed">
+      ${items.map(item => `
+        <article class="league-news-card">
+          <div class="league-news-card__meta">
+            <span class="league-news-card__tag">${item.tag || 'LEAGUE'}</span>
+            <span class="league-news-card__date">${item.date || ''}</span>
+          </div>
+          <strong class="league-news-card__headline">
+            ${item.headline || ''}
+          </strong>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Register the hub re-render callback with the World Engine news system.
+// WorldEngine.news.publish() will call renderHubNews() automatically
+// whenever a new headline is added — without world.js touching the DOM.
+WorldEngine.news.onNewsChange(() => {
+  renderHubNews();
+  renderLeagueNewsPreview();
+});
+
+// ── Team Profile ─────────────────────────────────────────────
+// One reusable screen shared by both standings entry points.
+// _teamProfileOrigin controls where the Back button returns to.
+
+let _teamProfileOrigin = 'hub';  // 'hub' | 'standings'
+let _playerProfileOrigin = 'team-profile';
+let _activePlayerProfile = null;
+
+/** Convert a numeric prestige (1-5) to a star string. */
+function prestigeStars(n) {
+  const filled = Math.max(0, Math.min(5, n));
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+function buildTeamLineupMarkup(roster = []) {
+  const safeRoster =
+    Array.isArray(roster)
+      ? roster
+      : [];
+
+  const getPlayerBySlot = slot =>
+    safeRoster.find(
+      player =>
+        (player.rosterSlot || player.slot) === slot
+    );
+
+  const getLeadershipBadge = player => {
+    if (!player) return '';
+
+    if (player.captain) {
+      return `
+        <span
+          class="lineup-player__lea
+
+### league-news-preview
+ument.getElementById('btn-take-ice').addEventListener('click', () => {
+  // Launch the Freshman Tryouts event via the Event System.
+  // EventSystem.openEvent handles the transition — no cinematic needed here,
+  // the event screen is the player's gateway to the tryout.
+  EventSystem.openEvent('tryout-freshman', 'arena');
+});
+
+// ── News System ──────────────────────────────────────────────
+// NewsSystem is now a thin alias for WorldEngine.news.
+// All existing call sites (NewsSystem.publish, NewsSystem.getRecent)
+// work without modification. The news feed lives in the World Engine
+// and is persisted with world state, not the player save.
+// See public/world.js for the full implementation.
+const NewsSystem = WorldEngine.news;
+
+function renderHubNews() {
+  const container = document.getElementById('hub-news-list');
+  if (!container) return;
+  const items = NewsSystem.getRecent(3);
+  container.innerHTML = items.map(item => `
+    <div class="hub-news__item">
+      <span class="hub-news__tag">${item.tag}</span>
+      <span class="hub-news__headline">${item.headline}</span>
+    </div>
+  `).join('');
+}
+
+
+function renderLeagueNewsPreview() {
+  const container = document.getElementById('league-news-preview');
+  if (!container) return;
+
+  const items = NewsSystem.getRecent(8);
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="league-news-feed__empty">
+        No major league stories yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="league-news-feed">
+      ${items.map(item => `
+        <article class="league-news-card">
+          <div class="league-news-card__meta">
+            <span class="league-news-card__tag">${item.tag || 'LEAGUE'}</span>
+            <span class="league-news-card__date">${item.date || ''}</span>
+          </div>
+          <strong class="league-news-card__headline">
+            ${item.headline || ''}
+          </strong>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Register the hub re-render callback with the World Engine news system.
+// WorldEngine.news.publish() will call renderHubNews() automatically
+// whenever a new headline is added — without world.js touching the DOM.
+WorldEngine.news.onNewsChange(() => {
+  renderHubNews();
+  renderLeagueNewsPreview();
+});
+
+// ── Team Profile ─────────────────────────────────────────────
+// One reusable screen shared by both standings entry points.
+// _teamProfileOrigin controls where the Back button returns to.
+
+let _teamProfileOrigin = 'hub';  // 'hub' | 'standings'
+let _playerProfileOrigin = 'team-profile';
+let _activePlayerProfile = null;
+
+/** Convert a numeric prestige (1-5) to a star string. */
+function prestigeStars(n) {
+  const filled = Math.max(0, Math.min(5, n));
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+function buildTeamLineupMarkup(roster = []) {
+  const safeRoster =
+    Array.isArray(roster)
+      ? roster
+      : [];
+
+  const getPlayerBySlot = slot =>
+    safeRoster.find(
+      player =>
+        (player.rosterSlot || player.slot) === slot
+    );
+
+  const getLeadershipBadge = player => {
+    if (!player) return '';
+
+    if (player.captain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Captain"
+          title="Captain"
+        >
+          C
+        </span>
+      `;
+    }
+
+    if (player.alternateCaptain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Alternate captain"
+          title="Alternate Captain"
+        >
+          A
+        
+
+### renderLeagueNewsPreview
+if (tabId === 'schedule') {
+    refreshScheduleEvents();
+
+    /*
+     * Always enter Schedule on the career's canonical current month.
+     * Manual month navigation still works normally after the tab opens.
+     */
+    const scheduleCurrentDate =
+      WorldEngine.state?.season?.currentDate ||
+      Game.player?.currentDate ||
+      null;
+
+    const scheduleDateMatch =
+      String(scheduleCurrentDate || '')
+        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (scheduleDateMatch) {
+      scheduleViewYear =
+        Number(scheduleDateMatch[1]);
+
+      scheduleViewMonth =
+        Math.max(
+          0,
+          Math.min(
+            11,
+            Number(scheduleDateMatch[2]) - 1
+          )
+        );
+    }
+
+    renderScheduleCalendar(
+      scheduleViewYear,
+      scheduleViewMonth
+    );
+
+    renderScheduleKeyEvents();
+  }
+
+  if (tabId === 'home') {
+    setupHubCalendar();
+  }
+
+  if (tabId === 'player') {
+    _activePlayerProfile = null;
+    renderPlayerProfile();
+  }
+
+  if (tabId === 'team') {
+    renderTeamTab(Game.teamTabSelectedTeamId);
+  }
+  if (tabId === 'league') {
+    renderLeagueStandingsPreview();
+    renderLeagueLeadersPreview();
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+        .querySelectorAll('.hub-tab-panel')
+        .forEach(panel => {
+          panel.classList.remove('hub-tab-panel--active');
+          panel.setAttribute('aria-hidden', 'true');
+        });
+      
+
+      document
+        .querySelectorAll('.hub-nav__tab')
+        .forEach(button => {
+          button.classList.remove('hub-nav__tab--active');
+        });
+
+      const teamPanel =
+        document.getElementById('hub-tab-team');
+
+      const teamButton =
+        document.querySelector('[data-hub-tab="team"]');
+
+      if (teamPanel) {
+        teamPanel.classList.add('hub-tab-panel--active');
+        teamPanel.setAttribute('aria-hidden', 'false');
+      }
+
+      if (teamButton) {
+        teamButton.classList.add('hub-nav__tab--active');
+      }
+
+      renderTeamTab();
+      return;
+    }
+
+    showScreen('team-profile');
+  });
+}
+// ── Hockey Background screen ────────────────────────────────
+document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+      c.classList.remove('bg-card--selected')
+    );
+    card.classList.add('bg-card--selected');
+    Game.player.background = card.dataset.background;
+    btnContinueBackground.disabled = false;
+    btnContinueBackground.classList.remove('btn--secondary');
+    btnContinueBackground.classList.add('btn--primary');
+  });
+});
+
+btnIdentityBackground.addEventListener('click', () => {
+  showScreen('background');
+});
+
+btnBac
+dd('is-visible');
+  actionEl.setAttribute('aria-hidden', 'false');
+}
+
+document.getElementById('btn-take-ice').addEventListener('click', () => {
+  // Launch the Freshman Tryouts event via the Event System.
+  // EventSystem.openEvent handles the transition — no cinematic needed here,
+  // the event screen is the player's gateway to the tryout.
+  EventSystem.openEvent('tryout-freshman', 'arena');
+});
+
+// ── News System ──────────────────────────────────────────────
+// NewsSystem is now a thin alias for WorldEngine.news.
+// All existing call sites (NewsSystem.publish, NewsSystem.getRecent)
+// work without modification. The news feed lives in the World Engine
+// and is persisted with world state, not the player save.
+// See public/world.js for the full implementation.
+const NewsSystem = WorldEngine.news;
+
+function renderHubNews() {
+  const container = document.getElementById('hub-news-list');
+  if (!container) return;
+  const items = NewsSystem.getRecent(3);
+  container.innerHTML = items.map(item => `
+    <div class="hub-news__item">
+      <span class="hub-news__tag">${item.tag}</span>
+      <span class="hub-news__headline">${item.headline}</span>
+    </div>
+  `).join('');
+}
+
+
+function renderLeagueNewsPreview() {
+  const container = document.getElementById('league-news-preview');
+  if (!container) return;
+
+  const items = NewsSystem.getRecent(8);
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="league-news-feed__empty">
+        No major league stories yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="league-news-feed">
+      ${items.map(item => `
+        <article class="league-news-card">
+          <div class="league-news-card__meta">
+            <span class="league-news-card__tag">${item.tag || 'LEAGUE'}</span>
+            <span class="league-news-card__date">${item.date || ''}</span>
+          </div>
+          <strong class="league-news-card__headline">
+            ${item.headline || ''}
+          </strong>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Register the hub re-render callback with the World Engine news system.
+// WorldEngine.news.publish() will call renderHubNews() automatically
+// whenever a new headline is added — without world.js touching the DOM.
+WorldEngine.news.onNewsChange(() => {
+  renderHubNews();
+  renderLeagueNewsPreview();
+});
+
+// ── Team Profile ─────────────────────────────────────────────
+// One reusable screen shared by both standings entry points.
+// _teamProfileOrigin controls where the Back button returns to.
+
+let _teamProfileOrigin = 'hub';  // 'hub' | 'standings'
+let _playerProfileOrigin = 'team-profile';
+let _activePlayerProfile = null;
+
+/** Convert a numeric prestige (1-5) to a star string. */
+function prestigeStars(n) {
+  const filled = Math.max(0, Math.min(5, n));
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+function buildTeamLineupMarkup(roster = []) {
+  const safeRoster =
+    Array.isArray(roster)
+      ? roster
+      : [];
+
+  const getPlayerBySlot = slot =>
+    safeRoster.find(
+      player =>
+        (player.rosterSlot || player.slot) === slot
+    );
+
+  const getLeadershipBadge = player => {
+    if (!player) return '';
+
+    if (player.captain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Captain"
+          title="Captain"
+        >
+          C
+        </span>
+      `;
+    }
+
+    if (player.alternateCaptain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Alternate ca
+_headline">${item.headline}</span>
+    </div>
+  `).join('');
+}
+
+
+function renderLeagueNewsPreview() {
+  const container = document.getElementById('league-news-preview');
+  if (!container) return;
+
+  const items = NewsSystem.getRecent(8);
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="league-news-feed__empty">
+        No major league stories yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="league-news-feed">
+      ${items.map(item => `
+        <article class="league-news-card">
+          <div class="league-news-card__meta">
+            <span class="league-news-card__tag">${item.tag || 'LEAGUE'}</span>
+            <span class="league-news-card__date">${item.date || ''}</span>
+          </div>
+          <strong class="league-news-card__headline">
+            ${item.headline || ''}
+          </strong>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Register the hub re-render callback with the World Engine news system.
+// WorldEngine.news.publish() will call renderHubNews() automatically
+// whenever a new headline is added — without world.js touching the DOM.
+WorldEngine.news.onNewsChange(() => {
+  renderHubNews();
+  renderLeagueNewsPreview();
+});
+
+// ── Team Profile ─────────────────────────────────────────────
+// One reusable screen shared by both standings entry points.
+// _teamProfileOrigin controls where the Back button returns to.
+
+let _teamProfileOrigin = 'hub';  // 'hub' | 'standings'
+let _playerProfileOrigin = 'team-profile';
+let _activePlayerProfile = null;
+
+/** Convert a numeric prestige (1-5) to a star string. */
+function prestigeStars(n) {
+  const filled = Math.max(0, Math.min(5, n));
+  return '★'.repeat(filled) + '☆'.repeat(5 - filled);
+}
+function buildTeamLineupMarkup(roster = []) {
+  const safeRoster =
+    Array.isArray(roster)
+      ? roster
+      : [];
+
+  const getPlayerBySlot = slot =>
+    safeRoster.find(
+      player =>
+        (player.rosterSlot || player.slot) === slot
+    );
+
+  const getLeadershipBadge = player => {
+    if (!player) return '';
+
+    if (player.captain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Captain"
+          title="Captain"
+        >
+          C
+        </span>
+      `;
+    }
+
+    if (player.alternateCaptain) {
+      return `
+        <span
+          class="lineup-player__leadership tp-roster-leadership-badge"
+          aria-label="Alternate captain"
+          title="Alternate Captain"
+        >
+          A
+        </span>
+      `;
+    }
+
+    return '';
+  };
+
+  const getPlayerCard = player => {
+    if (!player) {
+      return `
+        <div class="lineup-player lineup-player--empty">
+          Empty
+        </div>
+      `;
+    }
+
+    const fullName =
+      `${player.firstName || ''} ${player.lastName || ''}`.trim() ||
+      'Unknown Player';
+
+    const rawPosition =
+      String(player.position || '—')
+        .trim()
+        .toUpperCase();
+
+    const positionMap = {
+      CENTER: 'C',
+      FORWARD: 'C',
+      'LEFT WING': 'LW',
+      LEFTWING: 'LW',
+      'RIGHT WING': 'RW',
+      RIGHTWING: 'RW',
+      DEFENSE: 'D',
+      DEFENCEMAN: 'D',
+      DEFENSEMAN: 'D',
+      GOALIE: 'G',
+      GOALTENDER: 'G'
+    };
+
+    const position =
+      positionMap[rawPosition] ||
+      rawPosition;
+    const overall = Number(player.overall) || 0;
+    const playerId =
+      player.playerId ||
+      player.id ||
+      '';
+
+    return `
+      <button
+  class="team-roster__player lineup-player ${
+    player.isCareerPlayer
+      ? 'career-player-highlight'
+      : '
+
+### function showScreen
+or the event.',
+          description:
+            eventData.description ||
+            catalogDef?.description ||
+            'Review the event details before continuing.',
+          details:
+            eventData.details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOvervie
+
+### screen-
+
+          if (trainingScreen) {
+            trainingScreen.classList.remove(
+              'active'
+            );
+
+            trainingScreen.style.display =
+              'none';
+          }
+
+          /*
+           * Training now uses the same reusable results
+           * presentation as Practice and Recovery.
+           */
+
+          EventResultsSystem.open(
+            {
+              ...trainingDefinition,
+
+              type:
+                'training',
+
+              label:
+                trainingDefinition
+                  .label,
+
+              icon:
+                trainingDefinition
+                  .icon ||
+                '🏋️',
+            },
+            completion
+          );
+
+          activeTrainingEventId =
+            null;
+        }
+      );
+    });
+}
+
+let activeTrainingEventId = null;
+
+function openTrainingScreen(
+  eventId
+) {
+  if (trainingScreen) {
+    trainingScreen.style.display =
+      '';
+  }
+  if (
+    !trainingScreen ||
+    !eventId
+  ) {
+    return;
+  }
+
+  activeTrainingEventId =
+    String(eventId);
+
+  renderTrainingOptions();
+
+  document
+    .querySelectorAll(
+      '.screen'
+    )
+    .forEach(screen => {
+      screen.classList.add(
+        'screen--hidden'
+      );
+    });
+
+  trainingScreen.classList.remove(
+    'screen--hidden'
+  );
+
+  trainingScreen.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: 'instant',
+  });
+}
+
+// ── Event System ─────────────────────────────────────────────
+// One reusable event screen for every event type in the game.
+//
+// To add a new event:  add an entry to EVENT_CATALOG.
+// To open an event:    EventSystem.openEvent('event-id', originScreen)
+//
+// EVENT_CATALOG fields:
+//   title       — display name shown on the event screen
+//   type        — category key → maps to CSS .ev-type--* class on #event-screen
+//                 built-in types: practice | tryout | game | recovery | rest |
+//                                 meeting | interview | ceremony
+//   icon        — emoji shown in the hero block
+//   location    — venue / facility name shown under the title
+//   objective   — one-sentence player goal (shown in Objective section)
+//   description — 1-3 sentence flavour text (shown in Description section)
+
+const EventSystem = (() => {
+  // ── Catalog ────────────────────────────────────────────────
+  const EVENT_CATALOG = {
+    'practice': {
+      title:       'Practice',
+      type:        'practice',
+      icon:        '🏒',
+      location:    'Summit Ice Center',
+      objective:   'Work on skating edges and passing.',
+      description: 'A full team practice session. The coaching staff will run you through drills and line rushes. Every rep is a chance to move up the depth chart.',
+    },
+    'tryout-freshman': {
+      title:       'Freshman Tryouts',
+      type:        'tryout',
+      icon:        '🥅',
+      location:    'Eastdale Ice Arena',
+      objective:   'Impress the coaching staff.',
+      description: 'Your first real chance to prove you belong. The coaches are watching every shift — your skating, your decisions, your compete level. Play your game.',
+      // When the player presses Begin Event, route to the Coach Intro screen
+      // which explains the drill before play begins.
+      completeScreen: 'tryout-freshman-intro',
+    },
+    'recovery': {
+      title:       'Recovery',
+      type:        'recovery',
+      icon:        '💪',
+      location:    'Training Facility',
+      objective:   'Rest and stay sharp.',
+      description: 'Light conditioning and body work. Recovery days are how players stay healthy across a long season. Take it seriously.'
+ve(
+              'active'
+            );
+
+            trainingScreen.style.display =
+              'none';
+          }
+
+          /*
+           * Training now uses the same reusable results
+           * presentation as Practice and Recovery.
+           */
+
+          EventResultsSystem.open(
+            {
+              ...trainingDefinition,
+
+              type:
+                'training',
+
+              label:
+                trainingDefinition
+                  .label,
+
+              icon:
+                trainingDefinition
+                  .icon ||
+                '🏋️',
+            },
+            completion
+          );
+
+          activeTrainingEventId =
+            null;
+        }
+      );
+    });
+}
+
+let activeTrainingEventId = null;
+
+function openTrainingScreen(
+  eventId
+) {
+  if (trainingScreen) {
+    trainingScreen.style.display =
+      '';
+  }
+  if (
+    !trainingScreen ||
+    !eventId
+  ) {
+    return;
+  }
+
+  activeTrainingEventId =
+    String(eventId);
+
+  renderTrainingOptions();
+
+  document
+    .querySelectorAll(
+      '.screen'
+    )
+    .forEach(screen => {
+      screen.classList.add(
+        'screen--hidden'
+      );
+    });
+
+  trainingScreen.classList.remove(
+    'screen--hidden'
+  );
+
+  trainingScreen.scrollTo({
+    top: 0,
+    left: 0,
+    behavior: 'instant',
+  });
+}
+
+// ── Event System ─────────────────────────────────────────────
+// One reusable event screen for every event type in the game.
+//
+// To add a new event:  add an entry to EVENT_CATALOG.
+// To open an event:    EventSystem.openEvent('event-id', originScreen)
+//
+// EVENT_CATALOG fields:
+//   title       — display name shown on the event screen
+//   type        — category key → maps to CSS .ev-type--* class on #event-screen
+//                 built-in types: practice | tryout | game | recovery | rest |
+//                                 meeting | interview | ceremony
+//   icon        — emoji shown in the hero block
+//   location    — venue / facility name shown under the title
+//   objective   — one-sentence player goal (shown in Objective section)
+//   description — 1-3 sentence flavour text (shown in Description section)
+
+const EventSystem = (() => {
+  // ── Catalog ────────────────────────────────────────────────
+  const EVENT_CATALOG = {
+    'practice': {
+      title:       'Practice',
+      type:        'practice',
+      icon:        '🏒',
+      location:    'Summit Ice Center',
+      objective:   'Work on skating edges and passing.',
+      description: 'A full team practice session. The coaching staff will run you through drills and line rushes. Every rep is a chance to move up the depth chart.',
+    },
+    'tryout-freshman': {
+      title:       'Freshman Tryouts',
+      type:        'tryout',
+      icon:        '🥅',
+      location:    'Eastdale Ice Arena',
+      objective:   'Impress the coaching staff.',
+      description: 'Your first real chance to prove you belong. The coaches are watching every shift — your skating, your decisions, your compete level. Play your game.',
+      // When the player presses Begin Event, route to the Coach Intro screen
+      // which explains the drill before play begins.
+      completeScreen: 'tryout-freshman-intro',
+    },
+    'recovery': {
+      title:       'Recovery',
+      type:        'recovery',
+      icon:        '💪',
+      location:    'Training Facility',
+      objective:   'Rest and stay sharp.',
+      description: 'Light conditioning and body work. Recovery days are how players stay healthy across a long season. Take it seriously.',
+    },
+    'practice-scrimmage': {
+      title:       'Practice',
+      
+scription ||
+            catalogDef?.description ||
+            'Review the event details before continuing.',
+          details:
+            eventData.details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOve
+           'Review the event details before continuing.',
+          details:
+            eventData.details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    be
+uing.',
+          details:
+            eventData.details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    bedroomScreen.classList.remove('screen--hidden');
+  
+details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    bedroomScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'nhlteam') {
+    nhlTeamSc
+        {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    bedroomScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'nhlteam') {
+    nhlTeamScreen.classList.remove('screen--hidden');
+    resto
+atured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    bedroomScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'nhlteam') {
+    nhlTeamScreen.classList.remove('screen--hidden');
+    restoreNhlTeamSelection();
+  }
+  if (screenName === 'motivati
+
+### btn-back
+Title screen, player creation and save preview
+   ============================================================ */
+
+'use strict';
+
+const SAVE_KEY = 'projectice_save';
+
+const Game = {
+  screen: 'title',
+
+  player: {
+    firstName: '',
+    lastName: '',
+    hometown: '',
+    position: '',
+    handedness: '',
+    background: '',
+    archetype: '',
+    motivation: '',
+    nhlTeam: '',
+    age: 14,
+    careerStart: 2022,
+    // ── Career progression ─────────────────────────────────────
+    // stage: 'creation' | 'hub'
+    //   'creation' → player is still in the intro sequence
+    //   'hub'      → tryouts complete; save loads directly to Career Hub
+    stage: 'creation',
+    tryoutsComplete: false,
+  },
+};
+
+// ── Screen references ───────────────────────────────────────
+const titleScreen          = document.getElementById('title-screen');
+const creationScreen       = document.getElementById('creation-screen');
+const careerSavesScreen    = document.getElementById('career-saves-screen');
+const careerSaveList       = document.getElementById('career-save-list');
+const careerSaveCount      = document.getElementById('career-save-count');
+const btnBackCareerSaves   = document.getElementById('btn-back-career-saves');
+const summaryScreen        = document.getElementById('summary-screen');
+const identityScreen       = document.getElementById('identity-screen');
+const careerOverviewScreen = document.getElementById('career-overview-screen');
+const bedroomScreen        = document.getElementById('bedroom-screen');
+const nhlTeamScreen        = document.getElementById('nhlteam-screen');
+const motivationScreen     = document.getElementById('motivation-screen');
+const archetypeScreen      = document.getElementById('archetype-screen');
+const backgroundScreen     = document.getElementById('background-screen');
+const arenaScreen          = document.getElementById('arena-screen');
+const hubScreen            = document.getElementById('hub-screen');
+const standingsScreen      = document.getElementById('standings-screen');
+const teamProfileScreen    = document.getElementById('team-profile-screen');
+const playerProfileScreen = document.getElementById('player-profile-screen');
+const fullStatsScreen =
+  document.getElementById('full-stats-screen');
+const prospectsScreen      = document.getElementById('prospects-screen');
+const eventScreen =
+  document.getElementById('event-screen');
+const pregameMatchupScreen =
+  document.getElementById(
+    'pregame-matchup-screen'
+  );
+const liveGameScreen =
+  document.getElementById(
+    'live-game-screen'
+  );
+
+const trainingScreen =
+  document.getElementById(
+    'training-screen'
+  );
+
+const trainingOptions =
+  document.getElementById(
+    'training-options'
+  );
+
+const btnBackTraining =
+  document.getElementById(
+    'btn-back-training'
+  );
+
+const eventResultsScreen =
+  document.getElementById(
+    'event-results-screen'
+  );
+
+const postgameSummaryScreen =
+  document.getElementById(
+    'postgame-summary-screen'
+  );
+
+const boxScoreScreen =
+  document.getElementById(
+    'box-score-screen'
+  );
+
+const tryoutSummaryScreen =
+  document.getElementById(
+    'tryout-summary-screen'
+  );
+const rosterRevealScreen = document.getElementById('roster-reveal-screen');
+const coachIntroScreen     = document.getElementById('coach-intro-screen');
+const coachResultsScreen = document.getElementById('coach-results-screen');
+const skatingEvalScreen    = document.getElementById('skating-eval-screen');
+const skatingResultsScreen = document.getElementById('skating-results-screen');
+
+
+/*
+ * ==========================================================
+hlteam-screen');
+const motivationScreen     = document.getElementById('motivation-screen');
+const archetypeScreen      = document.getElementById('archetype-screen');
+const backgroundScreen     = document.getElementById('background-screen');
+const arenaScreen          = document.getElementById('arena-screen');
+const hubScreen            = document.getElementById('hub-screen');
+const standingsScreen      = document.getElementById('standings-screen');
+const teamProfileScreen    = document.getElementById('team-profile-screen');
+const playerProfileScreen = document.getElementById('player-profile-screen');
+const fullStatsScreen =
+  document.getElementById('full-stats-screen');
+const prospectsScreen      = document.getElementById('prospects-screen');
+const eventScreen =
+  document.getElementById('event-screen');
+const pregameMatchupScreen =
+  document.getElementById(
+    'pregame-matchup-screen'
+  );
+const liveGameScreen =
+  document.getElementById(
+    'live-game-screen'
+  );
+
+const trainingScreen =
+  document.getElementById(
+    'training-screen'
+  );
+
+const trainingOptions =
+  document.getElementById(
+    'training-options'
+  );
+
+const btnBackTraining =
+  document.getElementById(
+    'btn-back-training'
+  );
+
+const eventResultsScreen =
+  document.getElementById(
+    'event-results-screen'
+  );
+
+const postgameSummaryScreen =
+  document.getElementById(
+    'postgame-summary-screen'
+  );
+
+const boxScoreScreen =
+  document.getElementById(
+    'box-score-screen'
+  );
+
+const tryoutSummaryScreen =
+  document.getElementById(
+    'tryout-summary-screen'
+  );
+const rosterRevealScreen = document.getElementById('roster-reveal-screen');
+const coachIntroScreen     = document.getElementById('coach-intro-screen');
+const coachResultsScreen = document.getElementById('coach-results-screen');
+const skatingEvalScreen    = document.getElementById('skating-eval-screen');
+const skatingResultsScreen = document.getElementById('skating-results-screen');
+
+
+/*
+ * ============================================================
+ * DEV — LIVE GAME DIAGNOSTIC
+ * ============================================================
+ */
+function runLiveGameDiagnosticFromUI() {
+  const result =
+    WorldEngine
+      .runLiveGameSimulationDiagnostic();
+
+  if (
+    !result ||
+    result.success !== true
+  ) {
+    console.error(
+      '[Project Ice] Live game diagnostic failed:',
+      result
+    );
+
+    alert(
+      `Live game diagnostic failed: ${
+        result?.reason ||
+        'unknown-error'
+      }`
+    );
+
+    return;
+  }
+
+  const diagnostic =
+    result.diagnostic;
+
+  const home =
+    diagnostic
+      .teams
+      .home
+      .abbreviation ||
+    diagnostic
+      .teams
+      .home
+      .teamId;
+
+  const away =
+    diagnostic
+      .teams
+      .away
+      .abbreviation ||
+    diagnostic
+      .teams
+      .away
+      .teamId;
+
+  const homeStats =
+    diagnostic
+      .teamStats
+      .home;
+
+  const awayStats =
+    diagnostic
+      .teamStats
+      .away;
+
+  alert(
+    [
+      'LIVE GAME DIAGNOSTIC',
+      '',
+      `${away} ${diagnostic.finalScore.away} - ${diagnostic.finalScore.home} ${home}`,
+      '',
+      `Shots: ${awayStats.shots} - ${homeStats.shots}`,
+      `Hits: ${awayStats.hits} - ${homeStats.hits}`,
+      `Blocks: ${awayStats.blockedShots} - ${homeStats.blockedShots}`,
+      `Giveaways: ${awayStats.giveaways} - ${homeStats.giveaways}`,
+      `Takeaways: ${awayStats.takeaways} - ${homeStats.takeaways}`,
+      `PIM: ${awayStats.penaltyMinutes} - ${homeStats.penaltyMinutes}`,
+      `Faceoffs: ${awayStats.faceoffWins} - ${homeStats.faceoffWins}`,
+      '',
+      `Step
+nes,
+        ].join('\n')
+      );
+    } catch (error) {
+      console.error(
+        '[Project Ice] Attribute Isolation Test failed',
+        error
+      );
+
+      alert(
+        [
+          'ATTRIBUTE ISOLATION TEST',
+          '',
+          'The diagnostic encountered an error.',
+          '',
+          error?.message ||
+            String(error),
+        ].join('\n')
+      );
+    } finally {
+      isolationButton.disabled =
+        false;
+
+      isolationButton.textContent =
+        originalText;
+    }
+  }
+);
+
+document.body.appendChild(
+  isolationButton
+);
+}
+}
+
+
+// ── Button references ───────────────────────────────────────
+const btnNewCareer = document.getElementById('btn-new-career');
+const btnContinue = document.getElementById('btn-continue');
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+const btnDevHub       = document.getElementById('btn-dev-hub');
+
+const btnLiveGameDiagnostic =
+  document.getElementById(
+    'btn-live-game-diagnostic'
+  );
+
+const devShortcutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
+const btnBackTitle = document.getElementById('btn-back-title');
+const btnBackCreation = document.getElementById('btn-back-creation');
+const btnBackSummary = document.getElementById('btn-back-summary');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
+const btnDeleteSave = document.getElementById('btn-delete-save');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
+
+// ── Form references ─────────────────────────────────────────
+const playerForm = document.getElementById('player-form');
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+const hometownInput = document.getElementById('hometown');
+const formError = document.getElementById('form-error');
+
+// ── Summary references ──────────────────────────────────────
+const summaryName = document.getElementById('summary-name');
+const summaryDetails = document.getElementById('summary-details');
+const summaryHometown = document.getElementById('summary-hometown');
+
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetyp
+ole.error(
+        '[Project Ice] Attribute Isolation Test failed',
+        error
+      );
+
+      alert(
+        [
+          'ATTRIBUTE ISOLATION TEST',
+          '',
+          'The diagnostic encountered an error.',
+          '',
+          error?.message ||
+            String(error),
+        ].join('\n')
+      );
+    } finally {
+      isolationButton.disabled =
+        false;
+
+      isolationButton.textContent =
+        originalText;
+    }
+  }
+);
+
+document.body.appendChild(
+  isolationButton
+);
+}
+}
+
+
+// ── Button references ───────────────────────────────────────
+const btnNewCareer = document.getElementById('btn-new-career');
+const btnContinue = document.getElementById('btn-continue');
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+const btnDevHub       = document.getElementById('btn-dev-hub');
+
+const btnLiveGameDiagnostic =
+  document.getElementById(
+    'btn-live-game-diagnostic'
+  );
+
+const devShortcutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
+const btnBackTitle = document.getElementById('btn-back-title');
+const btnBackCreation = document.getElementById('btn-back-creation');
+const btnBackSummary = document.getElementById('btn-back-summary');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
+const btnDeleteSave = document.getElementById('btn-delete-save');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
+
+// ── Form references ─────────────────────────────────────────
+const playerForm = document.getElementById('player-form');
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+const hometownInput = document.getElementById('hometown');
+const formError = document.getElementById('form-error');
+
+// ── Summary references ──────────────────────────────────────
+const summaryName = document.getElementById('summary-name');
+const summaryDetails = document.getElementById('summary-details');
+const summaryHometown = document.getElementById('summary-hometown');
+
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+const identityMotivationStatus = document.getElementByI
+       error
+      );
+
+      alert(
+        [
+          'ATTRIBUTE ISOLATION TEST',
+          '',
+          'The diagnostic encountered an error.',
+          '',
+          error?.message ||
+            String(error),
+        ].join('\n')
+      );
+    } finally {
+      isolationButton.disabled =
+        false;
+
+      isolationButton.textContent =
+        originalText;
+    }
+  }
+);
+
+document.body.appendChild(
+  isolationButton
+);
+}
+}
+
+
+// ── Button references ───────────────────────────────────────
+const btnNewCareer = document.getElementById('btn-new-career');
+const btnContinue = document.getElementById('btn-continue');
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+const btnDevHub       = document.getElementById('btn-dev-hub');
+
+const btnLiveGameDiagnostic =
+  document.getElementById(
+    'btn-live-game-diagnostic'
+  );
+
+const devShortcutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
+const btnBackTitle = document.getElementById('btn-back-title');
+const btnBackCreation = document.getElementById('btn-back-creation');
+const btnBackSummary = document.getElementById('btn-back-summary');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
+const btnDeleteSave = document.getElementById('btn-delete-save');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
+
+// ── Form references ─────────────────────────────────────────
+const playerForm = document.getElementById('player-form');
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+const hometownInput = document.getElementById('hometown');
+const formError = document.getElementById('form-error');
+
+// ── Summary references ──────────────────────────────────────
+const summaryName = document.getElementById('summary-name');
+const summaryDetails = document.getElementById('summary-details');
+const summaryHometown = document.getElementById('summary-hometown');
+
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+const identityMotivationStatus = document.getElementById('identity-motivation-status');
+const identityNhlTeamStatus    = doc
+  }
+);
+
+document.body.appendChild(
+  isolationButton
+);
+}
+}
+
+
+// ── Button references ───────────────────────────────────────
+const btnNewCareer = document.getElementById('btn-new-career');
+const btnContinue = document.getElementById('btn-continue');
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+const btnDevHub       = document.getElementById('btn-dev-hub');
+
+const btnLiveGameDiagnostic =
+  document.getElementById(
+    'btn-live-game-diagnostic'
+  );
+
+const devShortcutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
+const btnBackTitle = document.getElementById('btn-back-title');
+const btnBackCreation = document.getElementById('btn-back-creation');
+const btnBackSummary = document.getElementById('btn-back-summary');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
+const btnDeleteSave = document.getElementById('btn-delete-save');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
+
+// ── Form references ─────────────────────────────────────────
+const playerForm = document.getElementById('player-form');
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+const hometownInput = document.getElementById('hometown');
+const formError = document.getElementById('form-error');
+
+// ── Summary references ──────────────────────────────────────
+const summaryName = document.getElementById('summary-name');
+const summaryDetails = document.getElementById('summary-details');
+const summaryHometown = document.getElementById('summary-hometown');
+
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+const identityMotivationStatus = document.getElementById('identity-motivation-status');
+const identityNhlTeamStatus    = document.getElementById('identity-nhlteam-status');
+const overviewPlayerName       = document.getElementById('overview-player-name');
+const overviewPlayerPosition   = document.getElementById('overview-player-position');
+const overviewPlayerHometown   = document.getElementById('overview-player-hometown');
+const playerWeightInput =
+  document.getElementById('player-weight');
+con
+ue');
+// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+const btnDevHub       = document.getElementById('btn-dev-hub');
+
+const btnLiveGameDiagnostic =
+  document.getElementById(
+    'btn-live-game-diagnostic'
+  );
+
+const devShortcutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
+const btnBackTitle = document.getElementById('btn-back-title');
+const btnBackCreation = document.getElementById('btn-back-creation');
+const btnBackSummary = document.getElementById('btn-back-summary');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
+const btnDeleteSave = document.getElementById('btn-delete-save');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
+
+// ── Form references ─────────────────────────────────────────
+const playerForm = document.getElementById('player-form');
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+const hometownInput = document.getElementById('hometown');
+const formError = document.getElementById('form-error');
+
+// ── Summary references ──────────────────────────────────────
+const summaryName = document.getElementById('summary-name');
+const summaryDetails = document.getElementById('summary-details');
+const summaryHometown = document.getElementById('summary-hometown');
+
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+const identityMotivationStatus = document.getElementById('identity-motivation-status');
+const identityNhlTeamStatus    = document.getElementById('identity-nhlteam-status');
+const overviewPlayerName       = document.getElementById('overview-player-name');
+const overviewPlayerPosition   = document.getElementById('overview-player-position');
+const overviewPlayerHometown   = document.getElementById('overview-player-hometown');
+const playerWeightInput =
+  document.getElementById('player-weight');
+const playerWeightValue =
+  document.getElementById('player-weight-value');
+const overviewBackground       = document.getElementById('overview-background');
+const overviewArchetype        = document.getElementById('overview-archetype');
+const overv
+cutHint = document.getElementById('dev-shortcut-hint');
+// ─────────────────────────────────────────────────────────────────────────────
+const btnBackTitle = document.getElementById('btn-back-title');
+const btnBackCreation = document.getElementById('btn-back-creation');
+const btnBackSummary = document.getElementById('btn-back-summary');
+const btnContinueSummary = document.getElementById('btn-continue-summary');
+const btnDeleteSave = document.getElementById('btn-delete-save');
+const btnContinueSetup      = document.getElementById('btn-continue-setup');
+const btnIdentityBackground = document.getElementById('btn-identity-background');
+const btnBackIdentity       = document.getElementById('btn-back-identity');
+const btnContinueBackground = document.getElementById('btn-continue-background');
+const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+const btnBackOverview           = document.getElementById('btn-back-overview');
+const btnBeginCareer            = document.getElementById('btn-begin-career');
+
+// ── Form references ─────────────────────────────────────────
+const playerForm = document.getElementById('player-form');
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+const hometownInput = document.getElementById('hometown');
+const formError = document.getElementById('form-error');
+
+// ── Summary references ──────────────────────────────────────
+const summaryName = document.getElementById('summary-name');
+const summaryDetails = document.getElementById('summary-details');
+const summaryHometown = document.getElementById('summary-hometown');
+
+// ── Identity references ─────────────────────────────────────
+const identityBgStatus         = document.getElementById('identity-background-status');
+const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+const identityMotivationStatus = document.getElementById('identity-motivation-status');
+const identityNhlTeamStatus    = document.getElementById('identity-nhlteam-status');
+const overviewPlayerName       = document.getElementById('overview-player-name');
+const overviewPlayerPosition   = document.getElementById('overview-player-position');
+const overviewPlayerHometown   = document.getElementById('overview-player-hometown');
+const playerWeightInput =
+  document.getElementById('player-weight');
+const playerWeightValue =
+  document.getElementById('player-weight-value');
+const overviewBackground       = document.getElementById('overview-background');
+const overviewArchetype        = document.getElementById('overview-archetype');
+const overviewMotivation       = document.getElementById('overview-motivation');
+const overviewNhlTeam          = document.getElementById('overview-nhlteam');
+const statusBackground         = document.getElementById('status-background');
+const statusArchetype          = 
+
+FILE artifacts/project-ice/public/style.css
+
+### league-news-preview
+dding: 2px 2px 18px;
+  border-bottom: 1px solid rgba(130, 168, 235, 0.16);
+  margin-bottom: 18px;
+}
+
+.league-tab__header h2 {
+  margin: 4px 0 6px;
+  font-size: 1.5rem;
+  line-height: 1.05;
+  color: #f5f8ff;
+}
+
+.league-tab__context {
+  margin: 0;
+  max-width: 32rem;
+  color: rgba(220, 230, 247, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.league-section {
+  padding: 18px 2px 20px;
+  border-bottom: 1px solid rgba(130, 168, 235, 0.14);
+}
+
+.league-section:last-child {
+  border-bottom: 0;
+}
+
+.league-section__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.league-section__header h3 {
+  margin: 3px 0 0;
+  font-size: 1rem;
+  line-height: 1.15;
+  color: #f4f7ff;
+}
+
+.league-section__action {
+  flex: 0 0 auto;
+  border: 1px solid rgba(121, 165, 242, 0.32);
+  border-radius: 999px;
+  background: rgba(44, 89, 170, 0.13);
+  color: #9fc3ff;
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.league-section__action:active {
+  transform: scale(0.98);
+}
+
+#league-standings-preview,
+#league-leaders-preview,
+#league-awards-preview,
+#league-prospects-preview,
+#league-news-preview,
+#league-history-preview {
+  min-height: 72px;
+  border: 1px solid rgba(132, 171, 238, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(17, 43, 88, 0.78),
+      rgba(8, 24, 52, 0.82)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 10px 30px rgba(1, 8, 22, 0.16);
+  overflow: hidden;
+}
+/* League standings preview */
+.league-standings-preview {
+  min-height: 0;
+}
+
+.league-standings-preview__scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.league-standings-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.league-standings-table th:not(:first-child),
+.league-standings-table td:not(:first-child) {
+  width: 1%;
+  min-width: 42px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.league-standings-table th,
+.league-standings-table td {
+  padding: 10px 9px;
+  border-bottom: 1px solid rgba(132, 171, 238, 0.13);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.league-standings-table th {
+  color: rgba(156, 191, 249, 0.72);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.league-standings-table td {
+  color: rgba(230, 238, 252, 0.82);
+  font-size: 0.76rem;
+}
+
+.league-standings-table th:first-child,
+.league-standings-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 150px;
+  text-align: left;
+  background: rgba(9, 27, 59, 0.98);
+}
+
+.league-standings-table thead th:first-child {
+  z-index: 3;
+}
+
+.league-standings-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.league-standings-table__rank {
+  display: inline-block;
+  width: 22px;
+  color: rgba(137, 177, 242, 0.62);
+  font-weight: 800;
+}
+
+.league-standings-table__team {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  max-width: 116px;
+  white-space: normal;
+}
+
+.league-standings-table__school {
+  color: #f2f6ff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.08;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.league-standings-table__nickname {
+  color: rgba(145,181,239,.65);
+  font-size: .65rem;
+  font-weight: 650;
+  line-height: 1.08;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.league-standings-table tr.career-team-highlight > td {
+  background: rgba(69, 139, 255, 0.14);
+}
+
+.league-standing
+
+### screen-
+a(255,255,255,0.04);
+  border: 1px solid rgba(100,140,200,0.12);
+  border-radius: 6px;
+  padding: 3px 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Footer ── */
+.footer {
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.footer__version {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(100, 140, 200, 0.35);
+}
+
+/* ── Tap ripple ── */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(0);
+  animation: ripple-expand 0.45s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ripple-expand {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* ── Entry animation ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.logo-area   { animation: fade-up 0.7s ease both 0.1s; }
+.menu-buttons{ animation: fade-up 0.7s ease both 0.35s; }
+.footer      { animation: fade-up 0.7s ease both 0.5s; }
+/* ============================================================
+   PROJECT ICE — Build 0.0.2 additions
+   Player creation and career summary
+   ============================================================ */
+
+.screen--hidden {
+  display: none;
+}
+
+#career-saves-screen,
+#creation-screen,
+#summary-screen,
+#identity-screen,
+#career-overview-screen,
+#nhlteam-screen,
+#motivation-screen,
+#archetype-screen,
+#background-screen {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, #123476 0%, transparent 65%),
+    linear-gradient(180deg, #07142f 0%, #050d1f 55%, #020814 100%);
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-y: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.screen-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 22px;
+}
+
+.screen-header h2 {
+  margin-top: 3px;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  color: rgba(135, 185, 255, 0.75);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.back-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(135, 180, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.step-badge {
+  padding: 7px 10px;
+  border: 1px solid rgba(100, 160, 255, 0.2);
+  border-radius: 999px;
+  color: rgba(180, 210, 255, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.creation-content,
+.summary-content {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: 36px;
+}
+
+.story-card {
+  padding: 18px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(100, 165, 255, 0.22);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(35, 84, 170, 0.23),
+      rgba(255, 255, 255, 0.035)
+    );
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+}
+
+.story-card__label,
+.player-card__label {
+  margin-bottom: 7px;
+  color: #7db4ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.story-card h3 {
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.story-card p:last-child {
+  color: rgba(210, 225, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.player-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field span,
+.choice-group legend {
+  color: rgba(
+sform: scale(0);
+  animation: ripple-expand 0.45s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ripple-expand {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* ── Entry animation ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.logo-area   { animation: fade-up 0.7s ease both 0.1s; }
+.menu-buttons{ animation: fade-up 0.7s ease both 0.35s; }
+.footer      { animation: fade-up 0.7s ease both 0.5s; }
+/* ============================================================
+   PROJECT ICE — Build 0.0.2 additions
+   Player creation and career summary
+   ============================================================ */
+
+.screen--hidden {
+  display: none;
+}
+
+#career-saves-screen,
+#creation-screen,
+#summary-screen,
+#identity-screen,
+#career-overview-screen,
+#nhlteam-screen,
+#motivation-screen,
+#archetype-screen,
+#background-screen {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, #123476 0%, transparent 65%),
+    linear-gradient(180deg, #07142f 0%, #050d1f 55%, #020814 100%);
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-y: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.screen-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 22px;
+}
+
+.screen-header h2 {
+  margin-top: 3px;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  color: rgba(135, 185, 255, 0.75);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.back-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(135, 180, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.step-badge {
+  padding: 7px 10px;
+  border: 1px solid rgba(100, 160, 255, 0.2);
+  border-radius: 999px;
+  color: rgba(180, 210, 255, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.creation-content,
+.summary-content {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: 36px;
+}
+
+.story-card {
+  padding: 18px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(100, 165, 255, 0.22);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(35, 84, 170, 0.23),
+      rgba(255, 255, 255, 0.035)
+    );
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+}
+
+.story-card__label,
+.player-card__label {
+  margin-bottom: 7px;
+  color: #7db4ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.story-card h3 {
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.story-card p:last-child {
+  color: rgba(210, 225, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.player-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field span,
+.choice-group legend {
+  color: rgba(210, 225, 255, 0.72);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid rgba(110, 160, 230, 0.22);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 16px;
+  user-select: text;
+}
+
+.form-field input::placeholder {
+  color: rgba(155, 180, 220, 0.35);
+}
+
+.form-field input:
+opacity: 0; }
+}
+
+/* ── Entry animation ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.logo-area   { animation: fade-up 0.7s ease both 0.1s; }
+.menu-buttons{ animation: fade-up 0.7s ease both 0.35s; }
+.footer      { animation: fade-up 0.7s ease both 0.5s; }
+/* ============================================================
+   PROJECT ICE — Build 0.0.2 additions
+   Player creation and career summary
+   ============================================================ */
+
+.screen--hidden {
+  display: none;
+}
+
+#career-saves-screen,
+#creation-screen,
+#summary-screen,
+#identity-screen,
+#career-overview-screen,
+#nhlteam-screen,
+#motivation-screen,
+#archetype-screen,
+#background-screen {
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 0%, #123476 0%, transparent 65%),
+    linear-gradient(180deg, #07142f 0%, #050d1f 55%, #020814 100%);
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-y: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.screen-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 22px;
+}
+
+.screen-header h2 {
+  margin-top: 3px;
+  font-size: 24px;
+  line-height: 1.05;
+}
+
+.eyebrow {
+  color: rgba(135, 185, 255, 0.75);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.back-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(135, 180, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.back-button:active {
+  transform: scale(0.95);
+}
+
+.step-badge {
+  padding: 7px 10px;
+  border: 1px solid rgba(100, 160, 255, 0.2);
+  border-radius: 999px;
+  color: rgba(180, 210, 255, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.creation-content,
+.summary-content {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: 36px;
+}
+
+.story-card {
+  padding: 18px;
+  margin-bottom: 22px;
+  border: 1px solid rgba(100, 165, 255, 0.22);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(35, 84, 170, 0.23),
+      rgba(255, 255, 255, 0.035)
+    );
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+}
+
+.story-card__label,
+.player-card__label {
+  margin-bottom: 7px;
+  color: #7db4ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.story-card h3 {
+  margin-bottom: 8px;
+  font-size: 20px;
+}
+
+.story-card p:last-child {
+  color: rgba(210, 225, 255, 0.7);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.player-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field span,
+.choice-group legend {
+  color: rgba(210, 225, 255, 0.72);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.form-field input {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid rgba(110, 160, 230, 0.22);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.055);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 16px;
+  user-select: text;
+}
+
+.form-field input::placeholder {
+  color: rgba(155, 180, 220, 0.35);
+}
+
+.form-field input:focus {
+  border-color: rgba(100, 170, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(55, 125, 255, 0.12);
+}
+
+.choice-group {
+  border: 0;
+}
+
+.choice-group le
+order-radius: 0 0 2px 0; }
+.br__curtain--r { right: -4px; border-radius: 0 0 0 2px; }
+
+.br__window-sill {
+  position: absolute;
+  bottom: -6px; left: -5px; right: -5px;
+  height: 8px;
+  background: rgba(30, 52, 95, 0.9);
+  border-radius: 2px;
+  z-index: 3;
+}
+
+.br__moonlight {
+  position: absolute;
+  bottom: -80px;
+  left: 5%;
+  width: 39%;
+  height: 80px;
+  background: linear-gradient(180deg, rgba(80, 120, 200, 0.06) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Desk */
+.br__desk {
+  position: absolute;
+  top: 58%;
+  left: 4%;
+  width: 38%;
+  height: 2%;
+  background: linear-gradient(180deg, #1c2e50 0%, #172644 100%);
+  border-radius: 2px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  z-index: 4;
+}
+
+.br__desk-face {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  height: 220%;
+  background: linear-gradient(180deg, #12203a 0%, #0e1a30 100%);
+  border-radius: 0 0 3px 3px;
+}
+
+.br__laptop-screen {
+  position: absolute;
+  bottom: 110%;
+  left: 6%;
+  width: 48%;
+  height: 550%;
+  background: linear-gradient(155deg, #0a1a40 0%, #0e2050 50%, #0a1838 100%);
+  border-radius: 4px 4px 0 0;
+  border: 2px solid rgba(30, 55, 100, 0.8);
+  z-index: 3;
+  overflow: hidden;
+}
+
+.br__laptop-screen-inner {
+  position: absolute;
+  inset: 8px;
+  background: linear-gradient(135deg,
+    rgba(20, 60, 160, 0.4) 0%,
+    rgba(10, 30, 80, 0.6) 40%,
+    rgba(15, 45, 130, 0.3) 100%);
+  border-radius: 2px;
+}
+
+.br__laptop-base {
+  position: absolute;
+  bottom: 98%;
+  left: 3%;
+  width: 54%;
+  height: 55%;
+  background: linear-gradient(180deg, #1c2e50 0%, #14233c 100%);
+  border-radius: 0 0 3px 3px;
+  z-index: 4;
+}
+
+.br__laptop-glow {
+  position: absolute;
+  bottom: 106%;
+  left: 2%;
+  width: 56%;
+  height: 600%;
+  background: radial-gradient(ellipse at 50% 80%,
+    rgba(30, 80, 200, 0.18) 0%,
+    rgba(10, 40, 120, 0.08) 50%,
+    transparent 80%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Hockey stick */
+.br__stick-wrap {
+  position: absolute;
+  left: 41%;
+  bottom: 0;
+  width: 12px;
+  height: 52%;
+  transform-origin: bottom center;
+  transform: rotate(-10deg);
+  z-index: 3;
+}
+
+.br__stick-shaft {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  bottom: 12px;
+  background: linear-gradient(180deg,
+    rgba(28, 48, 85, 0.9) 0%,
+    rgba(20, 38, 68, 0.95) 60%,
+    rgba(15, 28, 52, 1) 100%);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.br__stick-blade {
+  position: absolute;
+  bottom: 0;
+  left: -10px;
+  width: 28px;
+  height: 12px;
+  background: rgba(15, 28, 52, 0.95);
+  border-radius: 0 2px 3px 2px;
+  transform: skewX(-15deg);
+}
+
+/* Bed */
+.br__headboard {
+  position: absolute;
+  right: 0;
+  top: 40%;
+  width: 58%;
+  height: 20%;
+  background: linear-gradient(180deg, #10213c 0%, #0d1b33 80%, #0b1830 100%);
+  border-left: 2px solid rgba(30, 55, 100, 0.5);
+  border-top: 2px solid rgba(35, 62, 110, 0.6);
+  border-radius: 6px 0 0 0;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3),
+              -2px 0 12px rgba(0,0,0,0.25);
+  z-index: 2;
+}
+
+.br__headboard::before {
+  content: '';
+  position: absolute;
+  top: 12px; bottom: 12px; left: 12px; right: 12px;
+  border: 1px solid rgba(40, 70, 120, 0.3);
+  border-radius: 3px;
+}
+
+.br__mattress {
+  position: absolute;
+  right: 0;
+  top: 60%;
+  width: 58%;
+  height: 27%;
+  background: linear-gradient(180deg, #0f1d38 0%, #0c1830 100%);
+  border-left: 2px solid rgba(28, 50, 90, 0.5);
+  z-index: 3;
+}
+
+.br__pillow {
+  position: absolute;
+  top: 6%;
+  right: 5%;
+  width: 52%;
+  height: 30%;
+  background: linear-gradient(135deg, #c8d8f0 0%, #b0c4e4 50%, #a0b8da 100%);
+  border-radius: 6px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.2),
+
+9px;
+
+  background:
+    rgba(86, 145, 255, 0.12);
+
+  color: #8ec0ff;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.training-option__description {
+  margin: 0 0 8px;
+
+  color:
+    rgba(201, 218, 245, 0.62);
+
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.training-option__attributes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 7px;
+}
+
+.training-option__attribute {
+  color:
+    rgba(148, 194, 255, 0.9);
+
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.training-option__arrow {
+  color:
+    rgba(136, 183, 255, 0.65);
+
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.training-empty {
+  padding: 20px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+
+  border-radius: 16px;
+
+  background:
+    rgba(8, 20, 45, 0.7);
+
+  color:
+    rgba(213, 226, 247, 0.62);
+
+  text-align: center;
+
+  font-size: 12px;
+}
+
+/* ==========================================================
+   TRAINING SCREEN
+   ========================================================== */
+
+#training-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+#training-screen .screen-content,
+#training-screen .training-content,
+#training-screen .training-options {
+  min-height: 100%;
+}
+
+#training-screen .training-options {
+  padding-bottom: 140px;
+}
+
+/* ==========================================================
+   PAST GAME DAYS — USE NORMAL PAST-DAY CELL
+   ========================================================== */
+
+/*
+ * A completed game day should use the exact same calendar-cell
+ * treatment as every other past day.
+ *
+ * This does NOT touch the colored W/L result pill inside it.
+ */
+.schedule-day--past:has(
+  .schedule-day-event--game
+) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/*
+ * Remove any game-specific glow/background bleeding into the
+ * calendar square while preserving the result pill itself.
+ */
+.schedule-day--past
+.schedule-day-event--game {
+  box-shadow: none;
+}
+
+/* ============================================================
+   ROADMAP 6 — PREGAME MATCHUP
+   EA-style game-night presentation
+   ============================================================ */
+
+#pregame-matchup-screen {
+  background:
+    radial-gradient(
+      ellipse 120% 65% at 50% -5%,
+      rgba(32, 84, 175, 0.42) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 80% 45% at 50% 105%,
+      rgba(16, 48, 110, 0.34) 0%,
+      transparent 65%
+    ),
+    linear-gradient(
+      180deg,
+      #07142f 0%,
+      #040c1c 52%,
+      #020711 100%
+    );
+
+  justify-content: flex-start;
+  align-items: stretch;
+  overflow-y: auto;
+
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+#pregame-matchup-screen::before {
+  content: '';
+
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(114, 170, 255, 0.025) 50%,
+      transparent 100%
+    );
+
+  background-size:
+    6px 100%;
+
+  opacity: 0.65;
+}
+
+.pregame-matchup {
+  position: relative;
+  z-index: 1;
+
+  width: 100%;
+  max-width: 520px;
+
+  margin: 0 auto;
+
+  min-height: 100%;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.pregame-matchup__header {
+  text-align: center;
+
+  padding-top: 8px;
+  padding-bottom: 22px;
+}
+
+.pregame-matchup__eyebrow {
+  color: #78adff;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  letter-spacing: 0.22em;
+
+  text-transform: uppercase;
+
+  margin-bottom: 8px;
+}
+
+.pregame-matchup__title {
+  font-size: 25px;
+  font-weight: 900;
+
+  letter-spacing: -0.02em;
+
+  line
+
+### btn-back
+.tp-header__text {
+  align-self: center;
+}
+
+#player-profile-screen .tp-header__text h2 {
+  display: none;
+}
+
+#player-profile-screen .tp-header .eyebrow {
+  margin: 0;
+  line-height: 1;
+}
+
+#player-profile-screen #player-profile-content {
+  margin-top: 0;
+}
+/* ── Player Profile: final header alignment ── */
+#player-profile-screen .tp-header {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-top: 0;
+}
+
+#player-profile-screen .tp-header__text {
+  display: flex;
+  align-items: center;
+  min-height: 64px;
+}
+
+#player-profile-screen .tp-header .eyebrow {
+  font-size: 0.76rem;
+  letter-spacing: 0.2em;
+  opacity: 0.88;
+}
+
+#player-profile-screen #player-profile-content {
+  margin-top: -10px;
+}
+/* ── Player Profile: connected header row ── */
+#player-profile-screen .tp-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+#player-profile-screen .tp-header__text {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+}
+
+#player-profile-screen .tp-header .eyebrow {
+  margin: 0;
+  text-align: left;
+}
+
+#player-profile-screen #btn-back-player-profile {
+  flex-shrink: 0;
+}
+/* ── Player Creation: details panel ── */
+.creation-measurements {
+  margin: 28px 0 24px;
+  padding: 22px;
+  border: 1px solid rgba(94, 143, 226, 0.24);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(22, 55, 116, 0.24),
+      rgba(5, 17, 37, 0.52)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 14px 34px rgba(0, 0, 0, 0.14);
+}
+
+.creation-measurements legend {
+  padding: 0 10px;
+  color: #7ea7e3;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.creation-measurements .creation-field {
+  display: grid;
+  gap: 10px;
+}
+
+.creation-measurements .creation-field + .creation-field {
+  margin-top: 20px;
+}
+
+.creation-measurements label {
+  color: #a9bddc;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.creation-field__label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#player-weight-value {
+  color: #e4efff;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+#player-height,
+#player-jersey-number {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid rgba(107, 155, 230, 0.24);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(7, 20, 43, 0.72);
+  color: #e5efff;
+  font: inherit;
+  font-weight: 700;
+}
+
+#player-height:focus,
+#player-jersey-number:focus {
+  border-color: rgba(91, 157, 255, 0.78);
+  box-shadow: 0 0 0 3px rgba(61, 125, 232, 0.14);
+}
+
+#player-weight {
+  width: 100%;
+  height: 6px;
+  margin: 8px 0 2px;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(58, 91, 146, 0.42);
+  accent-color: #5b9cff;
+}
+
+#player-weight::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #9fc5ff;
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #397de1;
+  box-shadow: 0 4px 14px rgba(22, 99, 220, 0.42);
+}
+
+#player-weight::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #9fc5ff;
+  border-radius: 50%;
+  background: #397de1;
+  box-shadow: 0 4px 14px rgba(22, 99, 220, 0.42);
+}
+/* ==========================================
+   SCHEDULE TAB
+========================================== */
+
+.schedule-page{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+
+.schedule-header{
+  display:flex;
+  
+========== */
+
+#player-profile-screen {
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+
+  background:
+    radial-gradient(
+      ellipse 95% 52% at 50% 4%,
+      rgba(20, 66, 158, 0.58) 0%,
+      transparent 67%
+    ),
+    radial-gradient(
+      ellipse 65% 42% at 50% 94%,
+      rgba(8, 38, 96, 0.58) 0%,
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      #061127 0%,
+      #0a204b 44%,
+      #06142f 72%,
+      #040d1e 100%
+    );
+}
+
+/* Subtle ice-light layer behind the profile */
+#player-profile-screen::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      110deg,
+      transparent 0%,
+      rgba(100, 165, 255, 0.025) 46%,
+      transparent 72%
+    );
+  opacity: 0.9;
+}
+
+/* Keep all real profile content above the background layer */
+#player-profile-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Top navigation row */
+#player-profile-screen .tp-header {
+  width: 100%;
+  margin: 0;
+  padding:
+    max(env(safe-area-inset-top, 16px), 24px)
+    26px
+    18px;
+  gap: 14px;
+}
+
+#player-profile-screen #btn-back-player-profile {
+  width: 42px;
+  height: 42px;
+  border-color: rgba(102, 157, 240, 0.3);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(25, 58, 119, 0.72),
+      rgba(8, 22, 49, 0.9)
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 22px rgba(0, 5, 20, 0.22);
+}
+
+#player-profile-screen .tp-header .eyebrow {
+  color: rgba(126, 177, 244, 0.86);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.21em;
+  opacity: 1;
+}
+
+/* Main content width and rhythm */
+#player-profile-screen #player-profile-content {
+  width: 100%;
+  margin: 0;
+  padding:
+    0
+    26px
+    calc(145px + env(safe-area-inset-bottom));
+}
+
+/* Player identity hero */
+#player-profile-screen .pp-header {
+  padding: 20px 20px 18px;
+  border: 1px solid rgba(75, 127, 216, 0.38);
+  border-radius: 20px;
+
+  background:
+    radial-gradient(
+      circle at 92% 0%,
+      rgba(53, 119, 248, 0.23) 0%,
+      transparent 36%
+    ),
+    radial-gradient(
+      ellipse 90% 58% at 45% 0%,
+      rgba(30, 83, 190, 0.32) 0%,
+      transparent 72%
+    ),
+    linear-gradient(
+      150deg,
+      rgba(11, 32, 73, 0.98),
+      rgba(4, 15, 36, 0.98)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 18px 45px rgba(0, 6, 24, 0.24);
+}
+
+#player-profile-screen .pp-header__pos-badge {
+  color: rgba(126, 182, 255, 0.96);
+  border-color: rgba(73, 137, 248, 0.52);
+  background: rgba(22, 62, 150, 0.48);
+  box-shadow: inset 0 0 12px rgba(53, 120, 240, 0.08);
+}
+
+#player-profile-screen .pp-header__ovr {
+  border-color: rgba(74, 145, 255, 0.74);
+  background:
+    radial-gradient(
+      circle at 38% 30%,
+      rgba(43, 101, 229, 0.94),
+      rgba(8, 26, 76, 0.98) 72%
+    );
+  box-shadow:
+    0 0 0 4px rgba(62, 129, 255, 0.08),
+    0 0 25px rgba(48, 112, 245, 0.3),
+    inset 0 0 12px rgba(0, 0, 0, 0.48);
+}
+
+#player-profile-screen .pp-header__name {
+  color: rgba(239, 247, 255, 0.98);
+}
+
+#player-profile-screen .pp-header__meta {
+  color: rgba(139, 178, 232, 0.76);
+}
+
+#player-profile-screen .pp-header__divider {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(72, 124, 209, 0.38),
+      rgba(72, 124, 209, 0.12)
+    );
+}
+
+#player-profile-screen .pp-header__rep-label {
+  color: rgba(186, 215, 253, 0.88);
+}
+
+/* Potential snapshot */
+#player-profile-screen .pp-header__potential {
+  border-color: rgba(82, 139, 229, 0.3);
+  background:
+    linear-gradient(
+ 
