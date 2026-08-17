@@ -1,0 +1,22 @@
+name: Harden Weekly Living World Final
+on:
+  push:
+    paths:
+      - '.github/workflows/harden-weekly-living-world-final.yml'
+      - '.github/scripts/harden_weekly_living_world_final.py'
+permissions:
+  contents: write
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/harden_weekly_living_world_final.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js .github/weekly_living_world_hardening_log.txt
+          git commit -m 'Harden final Weekly Living World contracts' || exit 0
+          git push
