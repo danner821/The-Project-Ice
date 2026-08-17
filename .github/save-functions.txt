@@ -1,0 +1,3406 @@
+=== WORLD SAVE/LOAD ===
+1-/* ============================================================
+2-   PROJECT ICE — world.js
+3-   Build 0.0.1
+4-
+5-   World Engine — foundational data layer.
+6-   Holds all game-world state separately from the player save.
+7-   Player saves reference the world via worldRef: 'default'.
+8-
+9-   Future systems (simulation, scheduling, roster generation)
+10-   read and write through this object. This file has zero
+11-   knowledge of game.js or the DOM; it is pure data + logic.
+12-   ============================================================ */
+13-
+14-'use strict';
+15-
+16-/* global WorldEngine */
+17-
+18-const WorldEngine = (() => {
+19-
+20-  // ── Storage key (separate from the player SAVE_KEY) ────────
+21-  const WORLD_KEY = 'projectice_world';
+22-
+23-  /*
+24-   * ============================================================
+25-   * WORLD STORAGE — INDEXEDDB
+26-   * ============================================================
+27-   *
+28-   * The Project Ice world has outgrown localStorage.
+29-   *
+30-   * localStorage remains available temporarily as a migration
+31-   * source for older saves, but the full world state will now live
+32-   * in IndexedDB so large rosters, schedules, stats and history can
+33-   * persist safely.
+34-   */
+35-
+36-  const WORLD_DB_NAME =
+37-    'projectice_database';
+38-
+39-  const WORLD_DB_VERSION =
+40-    1;
+41-
+42-  const WORLD_STORE_NAME =
+43-    'worlds';
+44-
+45:  const WORLD_RECORD_ID =
+46-    'default';
+47-
+48-  function openWorldDatabase() {
+49-    return new Promise(
+50-      (resolve, reject) => {
+51-        const request =
+52-          indexedDB.open(
+53-            WORLD_DB_NAME,
+54-            WORLD_DB_VERSION
+55-          );
+56-
+57-        request.onupgradeneeded =
+58-          event => {
+59-            const database =
+60-              event.target.result;
+61-
+62-            if (
+63-              !database.objectStoreNames
+64-                .contains(
+65-                  WORLD_STORE_NAME
+66-                )
+67-            ) {
+68-              database.createObjectStore(
+69-                WORLD_STORE_NAME,
+70-                {
+71-                  keyPath: 'id',
+72-                }
+73-              );
+74-            }
+75-          };
+76-
+77-        request.onsuccess =
+78-          () => {
+79-            resolve(
+80-              request.result
+81-            );
+82-          };
+83-
+84-        request.onerror =
+85-          () => {
+86-            reject(
+87-              request.error ||
+88-              new Error(
+89-                'Could not open Project Ice IndexedDB.'
+90-              )
+91-            );
+92-          };
+93-      }
+94-    );
+95-  }
+96-
+97-  // ── Seed teams ──────────────────────────────────────────────
+98-  // Eight fictional high-school programs for the 2022-23 season.
+99-  // Future systems populate each team's roster array and update
+100-  // the stats fields (wins, losses, etc.) after simulated games.
+101-  // Add new teams here; buildDefaults() deep-copies the array.
+102-  const SEED_TEAMS = [
+103-    {
+104-      teamId:          'team-summit-academy',
+105-      schoolName:      'Summit Academy',
+106-      teamName:        'Titans',
+107-      abbreviation: 'TIT',
+108-      primaryColor:    '#1a1a2e',
+109-      secondaryColor:  '#c9a84c',
+110-      prestige:        5,
+111-      identity:        'Elite powerhouse with strong scout attention.',
+112-      coach: {
+113-        name: 'Marcus Hale',
+114-
+115-        style:
+116-          'Offensive-minded coach with championship expectations.',
+117-
+118-        /*
+119-         * Internal coaching philosophy.
+120-         * These values guide deployment decisions but are never
+121-         * displayed as public coach ratings.
+122-         */
+123-        deploymentPreferences: {
+124-          abilityWeight: 1.08,
+125-          coachTrustWeight: 0.15,
+126-          recentFormWeight: 0.13,
+127-          disciplineWeight: 0.05,
+128-          developmentWeight: 0.05,
+129-          roleStabilityWeight: 0.08,
+130-
+131-          evenStrengthEmphasis: 1.04,
+132-          powerPlayEmphasis: 1.12,
+133-          penaltyKillEmphasis: 0.92,
+134-          goalieEmphasis: 1.00,
+135-
+136-          favorsOffense: true,
+137-          favorsDefense: false,
+138-          favorsVeterans: false,
+139-          favorsDevelopment: false,
+140-        },
+141-      },
+142-
+143-      arena: {
+144-
+145-        name: 'Summit Ice Center',
+146-
+147-        capacity: 2400,
+148-
+149-      },
+150-      roster:          [],
+151-      wins:            0,
+152-      losses:          0,
+153-      overtimeLosses:  0,
+154-      goalsFor:        0,
+155-      goalsAgainst:    0,
+156-      points:          0,
+157-    },
+158-    {
+159-      teamId:          'team-iron-peak',
+160-      schoolName:      'Iron Peak',
+161-      teamName:        'Wolves',
+162-      abbreviation: 'IPW',
+163-      primaryColor:    '#2b2d2f',
+164-      secondaryColor:  '#8b0000',
+165-      prestige:        3,
+166-      identity:        'Physical, defense-first team.',
+167-      coach: {
+168-
+169-        name: 'Derek Mercer',
+170-
+171-        style: 'Demanding defensive coach who values physical play.',
+172-
+173-      },
+174-
+175-      arena: {
+176-
+177-        name: 'The Wolf Den',
+178-
+179-        capacity: 2100,
+180-
+181-      },
+182-      roster:          [],
+183-      wins:            0,
+184-      losses:          0,
+185-      overtimeLosses:  0,
+186-      goalsFor:        0,
+187-      goalsAgainst:    0,
+188-      points:          0,
+189-    },
+190-    {
+191-      teamId:          'team-north-ridge',
+192-      schoolName:      'North Ridge',
+193-      teamName:        'Falcons',
+194-      abbreviation: 'NRF',
+195-      primaryColor:    '#003366',
+196-      secondaryColor:  '#c0c0c0',
+197-      prestige:        4,
+198-      identity:        'Fast, skilled, disciplined team.',
+199-      coach: {
+200-
+201-        name: 'Ryan Callahan',
+202-
+203-        style: 'Detail-oriented coach focused on speed and discipline.',
+204-
+205-      },
+206-
+207-      arena: {
+208-
+209-        name: 'Falcon Ice Pavilion',
+210-
+211-        capacity: 1950,
+212-
+213-      },
+214-      roster:          [],
+215-      wins:            0,
+216-      losses:          0,
+217-      overtimeLosses:  0,
+218-      goalsFor:        0,
+219-      goalsAgainst:    0,
+220-      points:          0,
+221-    },
+222-    {
+223-      teamId:          'team-cedar-valley',
+224-      schoolName:      'Cedar Valley',
+225-      teamName:        'Storm',
+--
+4016-
+4017-              coachTrust:
+4018-                Math.max(
+4019-                  0,
+4020-                  Math.min(
+4021-                    100,
+4022-                    Number(
+4023-                      careerPlayer
+4024-                        .coachTrust
+4025-                    ) || 50
+4026-                  )
+4027-                ),
+4028-
+4029-              recentForm:
+4030-                Math.max(
+4031-                  0,
+4032-                  Math.min(
+4033-                    100,
+4034-                    Number(
+4035-                      careerPlayer
+4036-                        .recentForm
+4037-                    ) || 50
+4038-                  )
+4039-                ),
+4040-
+4041-              lineupAssignment:
+4042-                careerPlayer
+4043-                  .lineupAssignment
+4044-                  ? structuredClone(
+4045-                      careerPlayer
+4046-                        .lineupAssignment
+4047-                    )
+4048-                  : null,
+4049-
+4050-              specialTeamsAssignments:
+4051-                careerPlayer
+4052-                  .specialTeamsAssignments
+4053-                  ? structuredClone(
+4054-                      careerPlayer
+4055-                        .specialTeamsAssignments
+4056-                    )
+4057-                  : {
+4058-                      powerPlay: [],
+4059-                      penaltyKill: [],
+4060-                    },
+4061-            }
+4062-          : null,
+4063-    };
+4064-  }
+4065-
+4066:  function saveWeeklyLivingWorldSnapshot(
+4067-    snapshot
+4068-  ) {
+4069-    if (
+4070-      !snapshot ||
+4071-      typeof snapshot !== 'object'
+4072-    ) {
+4073-      return false;
+4074-    }
+4075-
+4076-    if (
+4077-      !_state.season ||
+4078-      typeof _state.season !== 'object'
+4079-    ) {
+4080-      ensureCanonicalSeasonState(
+4081-        _state
+4082-      );
+4083-    }
+4084-
+4085-    if (
+4086-      !Array.isArray(
+4087-        _state.season.weeklyHistory
+4088-      )
+4089-    ) {
+4090-      _state.season.weeklyHistory = [];
+4091-    }
+4092-
+4093-    const safeWeek =
+4094-      Math.max(
+4095-        1,
+4096-        Number(snapshot.week) || 1
+4097-      );
+4098-
+4099-    const existingIndex =
+4100-      _state.season.weeklyHistory
+4101-        .findIndex(
+4102-          record =>
+4103-            Number(record?.week) ===
+4104-            safeWeek
+4105-        );
+4106-
+4107-    const frozenSnapshot =
+4108-      structuredClone(snapshot);
+4109-
+4110-    if (existingIndex >= 0) {
+4111-      _state.season.weeklyHistory[
+4112-        existingIndex
+4113-      ] = frozenSnapshot;
+4114-    } else {
+4115-      _state.season.weeklyHistory.push(
+4116-        frozenSnapshot
+4117-      );
+4118-    }
+4119-
+4120-    _state.season.weeklyHistory.sort(
+4121-      (firstRecord, secondRecord) =>
+4122-        Number(firstRecord?.week) -
+4123-        Number(secondRecord?.week)
+4124-    );
+4125-
+4126-    if (
+4127-      _state.season.weeklyHistory
+4128-        .length > 64
+4129-    ) {
+4130-      _state.season.weeklyHistory =
+4131-        _state.season.weeklyHistory
+4132-          .slice(-64);
+4133-    }
+4134-
+4135-    return true;
+4136-  }
+4137-
+4138-  function processCompletedSeasonWeek(
+4139-    completedWeek,
+4140-    options = {}
+4141-  ) {
+4142-    if (
+4143-      !_state.season ||
+4144-      typeof _state.season !== 'object'
+4145-    ) {
+4146-      ensureCanonicalSeasonState(
+4147-        _state
+4148-      );
+4149-    }
+4150-
+4151-    const safeCompletedWeek =
+4152-      Math.max(
+4153-        1,
+4154-        Number(completedWeek) || 1
+4155-      );
+4156-
+4157-    if (
+4158-      !Array.isArray(
+4159-        _state.season.processedWeeks
+4160-      )
+4161-    ) {
+4162-      _state.season.processedWeeks = [];
+4163-    }
+4164-
+4165-    const wasAlreadyProcessed =
+4166-      _state.season.processedWeeks
+4167-        .some(
+4168-          week =>
+4169-            Number(week) ===
+4170-            safeCompletedWeek
+4171-        );
+4172-
+4173-    if (wasAlreadyProcessed) {
+4174-      return {
+4175-        success: true,
+4176-        processed: false,
+4177-        week: safeCompletedWeek,
+4178-        reason: 'already-processed',
+4179-      };
+4180-    }
+4181-
+4182-    /*
+4183-     * ============================================================
+4184-     * WEEKLY LIVING WORLD — LEAGUE DEVELOPMENT
+4185-     * ============================================================
+4186-     *
+4187-     * A completed season week now advances development for the
+4188-     * rest of the league before the week is marked as processed.
+4189-     *
+4190-     * processLeagueDevelopmentWeek() owns NPC development logic.
+4191-     * This coordinator only decides when that existing system runs.
+4192-     */
+4193-
+4194-    const leagueDevelopment =
+4195-      processLeagueDevelopmentWeek(
+4196-        {
+4197-          week:
+4198-            safeCompletedWeek,
+4199-
+4200-          currentDate:
+4201-            _state.season
+4202-              ?.currentDate ||
+4203-            _state.player
+4204-              ?.currentDate ||
+4205-            null,
+4206-        },
+4207-        {
+4208-          save: false,
+4209-        }
+4210-      );
+4211-
+4212-    if (
+4213-      !leagueDevelopment ||
+4214-      leagueDevelopment.success !==
+4215-        true
+4216-    ) {
+4217-      return {
+4218-        success: false,
+4219-
+4220-        processed: false,
+4221-
+4222-        week:
+4223-          safeCompletedWeek,
+4224-
+4225-        reason:
+4226-          leagueDevelopment
+4227-            ?.reason ||
+4228-          'weekly-league-development-failed',
+4229-
+4230-        leagueDevelopment:
+4231-          leagueDevelopment ||
+4232-          null,
+4233-      };
+4234-    }
+4235-
+4236-    /*
+4237-     * ============================================================
+4238-     * WEEKLY LIVING WORLD — TEAM DEPLOYMENT REVIEW
+4239-     * ============================================================
+4240-     *
+4241-     * After NPC development has been applied, every team refreshes
+4242-     * its canonical roster deployment.
+4243-     *
+4244-     * This allows:
+4245-     * - developed NPCs to move up or down even-strength lines
+4246-     * - goalie starter/backup order to refresh
+--
+37282-       * sets the stronger goalie as starter, and fills
+37283-       * PP1, PP2, PK1, and PK2.
+37284-       *
+37285-       * Save once after the league-wide migration rather
+37286-       * than once for every individual team.
+37287-       */
+37288-      refreshTeamRosterManagement(
+37289-        team.teamId,
+37290-        {
+37291-          save: false,
+37292-        }
+37293-      );
+37294-    });
+37295-
+37296-    save();
+37297-    
+37298-    if (
+37299-      !Array.isArray(WorldEngine.state.schedule) ||
+37300-      WorldEngine.state.schedule.length === 0
+37301-    ) {
+37302-      WorldEngine.syncSeedTeamMetadata();
+37303-
+37304-      WorldEngine.state.schedule =
+37305-        WorldEngine.createHighSchoolCareerSchedule(
+37306-          WorldEngine.state.teams
+37307-        );
+37308-    }
+37309-
+37310-    WorldEngine.save();
+37311-  }
+37312-  // ── Seed news headlines ─────────────────────────────────────
+37313-  // Stored newest-first. Future simulation systems add real
+37314-  // headlines via WorldEngine.news.publish({ date, tag, headline }).
+37315-  const SEED_NEWS = [
+37316-    { date: '2022-09-04', tag: 'Tryouts',  headline: 'Freshman tryouts begin this week across all programs.' },
+37317-    { date: '2022-09-02', tag: 'Schedule', headline: 'League releases official preseason schedule.' },
+37318-    { date: '2022-09-01', tag: 'Scouting', headline: 'Scouts expected at upcoming showcase events this fall.' },
+37319-    { date: '2022-08-30', tag: 'Roster',   headline: 'Coaches begin finalizing preseason rosters.' },
+37320-    { date: '2022-08-28', tag: 'Rankings', headline: 'Preseason rankings set to be announced soon.' },
+37321-  ];
+37322-
+37323-  // ── Default world state ─────────────────────────────────────
+37324-  // This is the authoritative shape. All fields must be present
+37325-  // here so future load() merges can fill gaps from old saves.
+37326-  function syncSeedTeamMetadata() {
+37327-    const seedTeamsById = new Map(
+37328-      SEED_TEAMS.map(team => [team.teamId, team])
+37329-    );
+37330-
+37331-    _state.teams = (_state.teams || []).map(team => {
+37332:      const seedTeam = seedTeamsById.get(team.teamId);
+37333-
+37334-      if (!seedTeam) {
+37335-        return team;
+37336-      }
+37337-
+37338-      return {
+37339-        ...team,
+37340-
+37341-        schoolName: seedTeam.schoolName,
+37342-        teamName: seedTeam.teamName,
+37343-        abbreviation:
+37344-          seedTeam.abbreviation ||
+37345-          team.abbreviation,
+37346-
+37347-        primaryColor: seedTeam.primaryColor,
+37348-        secondaryColor: seedTeam.secondaryColor,
+37349-        prestige: seedTeam.prestige,
+37350-        identity: seedTeam.identity,
+37351-
+37352-        coach: {
+37353-          ...team.coach,
+37354-          ...seedTeam.coach,
+37355-        },
+37356-
+37357-        arena: {
+37358-          ...team.arena,
+37359-          ...seedTeam.arena,
+37360-        },
+37361-      };
+37362-    });
+37363-
+37364-    return _state.teams;
+37365-  }
+37366-  const HIGH_SCHOOL_RIVALRIES = [
+37367-    [
+37368-      'team-summit-academy',
+37369-      'team-oakridge',
+37370-    ],
+37371-    [
+37372-      'team-iron-peak',
+37373-      'team-granite-falls',
+37374-    ],
+37375-    [
+37376-      'team-north-ridge',
+37377-      'team-lakeview',
+37378-    ],
+37379-    [
+37380-      'team-cedar-valley',
+37381-      'team-westbrook',
+37382-    ],
+37383-  ];
+37384-
+37385-  function isHighSchoolRivalry(
+37386-    firstTeamId,
+37387-    secondTeamId
+37388-  ) {
+37389-    return HIGH_SCHOOL_RIVALRIES.some(
+37390-      ([rivalA, rivalB]) =>
+37391-        (
+37392-          rivalA === firstTeamId &&
+37393-          rivalB === secondTeamId
+37394-        ) ||
+37395-        (
+37396-          rivalA === secondTeamId &&
+37397-          rivalB === firstTeamId
+37398-        )
+37399-    );
+37400-  }
+37401-  function getHighSchoolScoutAttendance({
+37402-    homeTeam,
+37403-    awayTeam,
+37404-    cycle,
+37405-    round,
+37406-    matchupIndex,
+37407-  }) {
+37408-    const homePrestige =
+37409-      Number(homeTeam?.prestige) || 1;
+37410-
+37411-    const awayPrestige =
+37412-      Number(awayTeam?.prestige) || 1;
+37413-
+37414-    const combinedPrestige =
+37415-      homePrestige + awayPrestige;
+37416-
+37417-    /*
+37418-     * Deterministic seed:
+37419-     * The same schedule structure always produces the same
+37420-     * scout-attendance pattern instead of changing randomly
+37421-     * whenever the game reloads.
+37422-     */
+37423-    const scheduleSeed =
+37424-      (
+37425-        (cycle + 1) * 17 +
+37426-        (round + 1) * 11 +
+37427-        (matchupIndex + 1) * 7 +
+37428-        combinedPrestige * 5
+37429-      ) % 100;
+37430-
+37431-    let scoutChance = 12;
+37432-
+37433-    // Stronger programs naturally attract more attention.
+37434-    if (combinedPrestige >= 9) {
+37435-      scoutChance += 20;
+37436-    } else if (combinedPrestige >= 7) {
+37437-      scoutChance += 12;
+37438-    } else if (combinedPrestige >= 5) {
+37439-      scoutChance += 5;
+37440-    }
+37441-
+37442-    // Attention rises as the season progresses.
+37443-    if (cycle === 1) {
+37444-      scoutChance += 5;
+37445-    } else if (cycle === 2) {
+37446-      scoutChance += 10;
+37447-    } else if (cycle === 3) {
+37448-      scoutChance += 16;
+37449-    }
+37450-
+37451-    if (scheduleSeed >= scoutChance) {
+37452-      return 0;
+37453-    }
+37454-
+37455-    // Bigger matchups can attract multiple scouts.
+37456-    if (
+37457-      combinedPrestige >= 9 &&
+37458-      scheduleSeed < 12
+37459-    ) {
+37460-      return 3;
+37461-    }
+37462-
+37463-    if (
+37464-      combinedPrestige >= 7 &&
+37465-      scheduleSeed < 20
+37466-    ) {
+37467-      return 2;
+37468-    }
+37469-
+37470-    return 1;
+37471-  }
+37472-  function getGameOfWeekMatchupIndex(
+37473-    matchups,
+37474-    cycle,
+37475-    round
+37476-  ) {
+37477-    if (!Array.isArray(matchups) || matchups.length === 0) {
+37478-      return -1;
+37479-    }
+37480-
+37481-    let bestIndex = 0;
+37482-    let bestScore = -Infinity;
+37483-
+37484-    matchups.forEach((matchup, matchupIndex) => {
+37485-      const firstPrestige =
+37486-        Number(matchup.firstTeam?.prestige) || 1;
+37487-
+37488-      const secondPrestige =
+37489-        Number(matchup.secondTeam?.prestige) || 1;
+37490-
+37491-      const combinedPrestige =
+37492-        firstPrestige + secondPrestige;
+37493-
+37494-      const prestigeGap =
+37495-        Math.abs(firstPrestige - secondPrestige);
+37496-
+37497-      /*
+37498-       * Strong programs raise the score.
+37499-       * Closely matched programs receive a bonus.
+37500-       * The small deterministic value breaks ties without randomness.
+37501-       */
+37502-      const tieBreaker =
+37503-        (
+37504-          (cycle + 1) * 13 +
+37505-          (round + 1) * 7 +
+37506-          (matchupIndex + 1) * 3
+37507-        ) % 10;
+37508-
+37509-      const matchupScore =
+37510-        combinedPrestige * 10 -
+37511-        prestigeGap * 4 +
+37512-        tieBreaker;
+--
+37818-   */
+37819-  ensureCanonicalSeasonState(
+37820-    _state
+37821-  );
+37822-
+37823-  // ── News subsystem ──────────────────────────────────────────
+37824-  // Exposes the same API surface as the old NewsSystem IIFE so
+37825-  // game.js can alias it: const NewsSystem = WorldEngine.news;
+37826-  //
+37827-  // Dependency inversion: game.js registers renderHubNews via
+37828-  // WorldEngine.news.onNewsChange() so this file never touches
+37829-  // the DOM or references any game.js symbol.
+37830-
+37831-  let _onNewsChange = null;
+37832-
+37833-  const news = {
+37834-    /**
+37835-     * Register a callback invoked after every publish().
+37836-     * Called once by game.js after renderHubNews is defined.
+37837-     * @param {Function} cb
+37838-     */
+37839-    onNewsChange(cb) {
+37840-      _onNewsChange = cb;
+37841-    },
+37842-
+37843-    /**
+37844-     * Add a headline to the top of the feed and notify listeners.
+37845-     * @param {{ date: string, tag: string, headline: string }} item
+37846-     */
+37847-    publish({ date, tag, headline }) {
+37848-      _state.newsItems.unshift({ date, tag, headline });
+37849-      if (typeof _onNewsChange === 'function') _onNewsChange();
+37850-    },
+37851-
+37852-    /**
+37853-     * Return the n most recent headlines (default 3).
+37854-     * @param {number} n
+37855-     * @returns {{ date: string, tag: string, headline: string }[]}
+37856-     */
+37857-    getRecent(n = 3) {
+37858-      return _state.newsItems.slice(0, n);
+37859-    },
+37860-  };
+37861-
+37862-  // ── Persistence ─────────────────────────────────────────────
+37863-  // World state is persisted separately from the player save.
+37864-  // Call save() after any simulation step that mutates _state.
+37865-  // Call load() in init(); if no stored world exists it silently
+37866-  // falls back to defaults.
+37867-
+37868:  async function save() {
+37869-    const worldSnapshot =
+37870-      structuredClone(_state);
+37871-
+37872-    /*
+37873-     * Primary save: IndexedDB.
+37874-     */
+37875-    try {
+37876-      const database =
+37877-        await openWorldDatabase();
+37878-
+37879-      await new Promise(
+37880-        (resolve, reject) => {
+37881-          const transaction =
+37882-            database.transaction(
+37883-              WORLD_STORE_NAME,
+37884-              'readwrite'
+37885-            );
+37886-
+37887-          const store =
+37888:            transaction.objectStore(
+37889-              WORLD_STORE_NAME
+37890-            );
+37891-
+37892:          store.put({
+37893-            id:
+37894:              WORLD_RECORD_ID,
+37895-
+37896-            savedAt:
+37897-              new Date()
+37898-                .toISOString(),
+37899-
+37900-            world:
+37901-              worldSnapshot,
+37902-          });
+37903-
+37904-          transaction.oncomplete =
+37905-            () => {
+37906-              resolve();
+37907-            };
+37908-
+37909-          transaction.onerror =
+37910-            () => {
+37911-              reject(
+37912-                transaction.error ||
+37913-                new Error(
+37914-                  'Project Ice world save transaction failed.'
+37915-                )
+37916-              );
+37917-            };
+37918-
+37919-          transaction.onabort =
+37920-            () => {
+37921-              reject(
+37922-                transaction.error ||
+37923-                new Error(
+37924-                  'Project Ice world save transaction was aborted.'
+37925-                )
+37926-              );
+37927-            };
+37928-        }
+37929-      );
+37930-
+37931-      database.close();
+37932-    } catch (error) {
+37933-      console.error(
+37934-        '[WorldEngine] IndexedDB save failed:',
+37935-        error
+37936-      );
+37937-
+37938-      return false;
+37939-    }
+37940-
+37941-
+37942-    return true;
+37943-  }
+37944-
+37945-  /**
+37946-   * Load a persisted world. Merges stored data over defaults so
+37947-   * missing fields from older save versions are back-filled.
+37948-   * @returns {boolean} true if a stored world was found and loaded.
+37949-   */
+37950:  async function load() {
+37951-    /*
+37952-     * ============================================================
+37953-     * PRIMARY LOAD — INDEXEDDB
+37954-     * ============================================================
+37955-     */
+37956-    try {
+37957-      const database =
+37958-        await openWorldDatabase();
+37959-
+37960-      const storedRecord =
+37961-        await new Promise(
+37962-          (resolve, reject) => {
+37963-            const transaction =
+37964-              database.transaction(
+37965-                WORLD_STORE_NAME,
+37966-                'readonly'
+37967-              );
+37968-
+37969-            const store =
+37970:              transaction.objectStore(
+37971-                WORLD_STORE_NAME
+37972-              );
+37973-
+37974-            const request =
+37975:              store.get(
+37976:                WORLD_RECORD_ID
+37977-              );
+37978-
+37979-            request.onsuccess =
+37980-              () => {
+37981-                resolve(
+37982-                  request.result ||
+37983-                  null
+37984-                );
+37985-              };
+37986-
+37987-            request.onerror =
+37988-              () => {
+37989-                reject(
+37990-                  request.error ||
+37991-                  new Error(
+37992-                    'Project Ice IndexedDB world load failed.'
+37993-                  )
+37994-                );
+37995-              };
+37996-          }
+37997-        );
+37998-
+37999-      database.close();
+38000-
+38001-      if (
+38002-        storedRecord?.world &&
+38003-        typeof storedRecord.world ===
+38004-          'object'
+38005-      ) {
+38006-        _state = {
+38007-          ...buildDefaults(),
+38008-          ...storedRecord.world,
+38009-        };
+38010-
+38011-        if (
+38012-          !Array.isArray(
+38013-            _state.newsItems
+38014-          ) ||
+38015-          _state.newsItems.length === 0
+38016-        ) {
+38017-          _state.newsItems =
+38018-            SEED_NEWS.map(
+38019-              item => ({
+38020-                ...item,
+38021-              })
+38022-            );
+38023-        }
+38024-
+38025-        ensureCanonicalSeasonState(
+38026-          _state
+38027-        );
+38028-
+38029-        /*
+38030-         * IndexedDB is now authoritative.
+38031-         * Remove the obsolete giant localStorage world so it cannot
+38032-         * consume the browser quota needed by the small career preview.
+38033-         */
+38034-        localStorage.removeItem(
+38035-          WORLD_KEY
+38036-        );
+38037-
+38038-        return true;
+38039-      }
+38040-    } catch (error) {
+38041-      console.warn(
+38042-        '[WorldEngine] IndexedDB load unavailable, trying legacy localStorage:',
+38043-        error
+38044-      );
+38045-    }
+38046-
+38047-    /*
+38048-     * ============================================================
+38049-     * LEGACY MIGRATION — LOCALSTORAGE
+38050-     * ============================================================
+38051-     *
+38052-     * If IndexedDB does not have a world yet, import the existing
+38053-     * localStorage world once so current careers are preserved.
+38054-     */
+38055-    try {
+38056-      const stored =
+38057-        localStorage.getItem(
+38058-          WORLD_KEY
+38059-        );
+38060-
+38061-      if (!stored) {
+38062-        return false;
+38063-      }
+38064-
+38065-      const parsed =
+38066-        JSON.parse(stored);
+38067-
+38068-      _state = {
+38069-        ...buildDefaults(),
+38070-        ...parsed,
+38071-      };
+38072-
+38073-      if (
+38074-        !Array.isArray(
+38075-          _state.newsItems
+38076-        ) ||
+38077-        _state.newsItems.length === 0
+38078-      ) {
+38079-        _state.newsItems =
+38080-          SEED_NEWS.map(
+38081-            item => ({
+38082-              ...item,
+38083-            })
+38084-          );
+38085-      }
+38086-
+38087-      ensureCanonicalSeasonState(
+38088-        _state
+38089-      );
+38090-
+38091-      /*
+38092-       * Immediately migrate the legacy world into IndexedDB.
+38093-       */
+38094-      await save();
+38095-
+38096-      /*
+38097-       * Migration succeeded. The old localStorage world is no longer
+38098-       * needed and was the source of our quota problem.
+38099-       */
+38100-      localStorage.removeItem(
+38101-        WORLD_KEY
+38102-      );
+38103-
+38104-      return true;
+38105-    } catch (error) {
+38106-      console.error(
+38107-        '[WorldEngine] Load failed:',
+38108-        error
+38109-      );
+38110-
+38111-      return false;
+38112-    }
+38113-  }
+38114-
+38115-  /** Reset to defaults and wipe the stored world. */
+38116:  function reset() {
+38117-    _state = buildDefaults();
+38118-
+38119-    ensureCanonicalSeasonState(
+38120-      _state
+38121-    );
+38122-
+38123-    if (!_state.player) {
+38124-      _state.player = {};
+38125-    }
+38126-
+38127-    _state.player.currentDate = '2026-09-01';
+38128-
+38129-    localStorage.removeItem(WORLD_KEY);
+38130-    save();
+38131-  }
+38132-  function setCurrentDate(
+38133-    dateString,
+38134-    options = {}
+38135-  ) {
+38136-    if (
+38137-      typeof dateString !== 'string' ||
+38138-      !/^\d{4}-\d{2}-\d{2}$/.test(
+38139-        dateString
+38140-      )
+38141-    ) {
+38142-      console.warn(
+38143-        `[WorldEngine] Invalid date: ${dateString}`
+38144-      );
+38145-
+38146-      return null;
+38147-    }
+38148-
+38149-    const parsedDate =
+38150-      new Date(
+38151-        `${dateString}T12:00:00`
+38152-      );
+38153-
+38154-    if (
+38155-      Number.isNaN(
+38156-        parsedDate.getTime()
+38157-      )
+38158-    ) {
+38159-      console.warn(
+38160-        `[WorldEngine] Unusable date: ${dateString}`
+38161-      );
+38162-
+38163-      return null;
+38164-    }
+38165-
+38166-    if (
+38167-      !_state.season ||
+38168-      typeof _state.season !== 'object'
+38169-    ) {
+38170-      ensureCanonicalSeasonState(
+38171-        _state
+38172-      );
+38173-    }
+38174-
+38175-    /*
+38176-     * The Season Engine is the permanent source of truth.
+38177-     */
+38178-    _state.season.currentDate =
+38179-      dateString;
+38180-
+38181-    const calculatedWeek =
+38182-      getSeasonWeekForDate(
+38183-        dateString,
+38184-        _state.season.seasonStartYear
+38185-      );
+38186-
+38187-    _state.season.currentWeek =
+38188-      calculatedWeek;
+38189-
+38190-    /*
+38191-     * Compatibility fields remain synchronized while
+38192-     * existing Schedule and Hub code are migrated.
+38193-     */
+38194-    _state.currentDate =
+38195-      dateString;
+38196-
+38197-    _state.currentYear =
+38198-      Number(
+38199-        dateString.slice(0, 4)
+38200-      );
+38201-
+38202-    _state.currentWeek =
+38203-      calculatedWeek;
+38204-
+38205-    if (
+38206-      !_state.player ||
+38207-      typeof _state.player !== 'object'
+38208-    ) {
+38209-      _state.player = {};
+38210-    }
+38211-
+38212-    _state.player.currentDate =
+38213-      dateString;
+38214-
+38215-    /*
+38216-     * Keep the canonical roster version of the career player
+38217-     * synchronized with the Season Engine. game.js renders from
+38218-     * this player through syncCareerPlayerWithWorld().
+38219-     */
+38220-    const careerPlayer =
+38221-      getPlayerById(
+38222-        _state.player?.playerId ||
+38223-        _state.player?.id ||
+38224-        'career-player'
+38225-      );
+38226-
+38227-    if (careerPlayer) {
+38228-      careerPlayer.currentDate =
+38229-        dateString;
+38230-    }
+38231-
+38232-    if (options.save !== false) {
+38233-      save();
+38234-    }
+38235-
+38236-    return dateString;
+38237-  }
+38238-
+38239-  function advanceDay(
+38240-    options = {}
+38241-  ) {
+38242-    const currentDate =
+38243-      _state.season?.currentDate ||
+38244-      _state.player?.currentDate ||
+38245-      _state.currentDate;
+38246-
+38247-    if (
+38248-      typeof currentDate !== 'string'
+38249-    ) {
+38250-      console.warn(
+38251-        '[WorldEngine] Cannot advance an invalid current date.'
+38252-      );
+38253-
+38254-      return null;
+38255-    }
+38256-
+38257-    const nextDate =
+38258-      new Date(
+38259-        `${currentDate}T12:00:00`
+38260-      );
+38261-
+38262-    if (
+38263-      Number.isNaN(
+38264-        nextDate.getTime()
+38265-      )
+38266-    ) {
+38267-      console.warn(
+38268-        `[WorldEngine] Cannot advance date: ${currentDate}`
+38269-      );
+38270-
+38271-      return null;
+38272-    }
+38273-
+38274-    nextDate.setDate(
+38275-      nextDate.getDate() + 1
+38276-    );
+38277-
+38278-    const nextDateString = [
+38279-      nextDate.getFullYear(),
+38280-
+38281-      String(
+38282-        nextDate.getMonth() + 1
+38283-      ).padStart(2, '0'),
+38284-
+38285-      String(
+38286-        nextDate.getDate()
+38287-      ).padStart(2, '0'),
+38288-    ].join('-');
+38289-
+38290-    return setCurrentDate(
+38291-      nextDateString,
+38292-      options
+38293-    );
+38294-  }
+38295-
+38296-  function buildSimulationSummary({
+=== GAME START BUTTONS ===
+artifacts/project-ice/public/game.js-1109-              result.label,
+artifacts/project-ice/public/game.js-1110-              `Win Rate: ${Number(
+artifacts/project-ice/public/game.js-1111-                result.testTeamWinRate
+artifacts/project-ice/public/game.js-1112-              ).toFixed(1)}%`,
+artifacts/project-ice/public/game.js-1113-              `Goals/Game: ${Number(
+artifacts/project-ice/public/game.js-1114-                result.testGoalsPerGame
+artifacts/project-ice/public/game.js-1115-              ).toFixed(2)}`,
+artifacts/project-ice/public/game.js-1116-              `Shots/Game: ${Number(
+artifacts/project-ice/public/game.js-1117-                result.testShotsPerGame
+artifacts/project-ice/public/game.js-1118-              ).toFixed(2)}`,
+artifacts/project-ice/public/game.js-1119-              `PP: ${Number(
+artifacts/project-ice/public/game.js-1120-                result.testPowerPlayPercentage
+artifacts/project-ice/public/game.js-1121-              ).toFixed(1)}%`,
+artifacts/project-ice/public/game.js-1122-              `Goal Diff/Game: ${Number(
+artifacts/project-ice/public/game.js-1123-                result.goalDifferentialPerGame
+artifacts/project-ice/public/game.js-1124-              ).toFixed(2)}`,
+artifacts/project-ice/public/game.js-1125-              `Shot Diff/Game: ${Number(
+artifacts/project-ice/public/game.js-1126-                result.shotDifferentialPerGame
+artifacts/project-ice/public/game.js-1127-              ).toFixed(2)}`,
+artifacts/project-ice/public/game.js-1128-              '',
+artifacts/project-ice/public/game.js-1129-            ].join('\n');
+artifacts/project-ice/public/game.js-1130-          }
+artifacts/project-ice/public/game.js-1131-        );
+artifacts/project-ice/public/game.js-1132-
+artifacts/project-ice/public/game.js-1133-      alert(
+artifacts/project-ice/public/game.js-1134-        [
+artifacts/project-ice/public/game.js-1135-          'ATTRIBUTE ISOLATION TEST',
+artifacts/project-ice/public/game.js-1136-          '',
+artifacts/project-ice/public/game.js-1137-          `${report.testTeam.abbreviation} vs ${report.controlTeam.abbreviation}`,
+artifacts/project-ice/public/game.js-1138-          `Boost: +${report.boost}`,
+artifacts/project-ice/public/game.js-1139-          `Games Per Test: ${report.gamesPerTest}`,
+artifacts/project-ice/public/game.js-1140-          `Completed Tests: ${report.completedTests}/${report.totalTests}`,
+artifacts/project-ice/public/game.js-1141-          '',
+artifacts/project-ice/public/game.js-1142-          ...resultLines,
+artifacts/project-ice/public/game.js-1143-        ].join('\n')
+artifacts/project-ice/public/game.js-1144-      );
+artifacts/project-ice/public/game.js-1145-    } catch (error) {
+artifacts/project-ice/public/game.js-1146-      console.error(
+artifacts/project-ice/public/game.js-1147-        '[Project Ice] Attribute Isolation Test failed',
+artifacts/project-ice/public/game.js-1148-        error
+artifacts/project-ice/public/game.js-1149-      );
+artifacts/project-ice/public/game.js-1150-
+artifacts/project-ice/public/game.js-1151-      alert(
+artifacts/project-ice/public/game.js-1152-        [
+artifacts/project-ice/public/game.js-1153-          'ATTRIBUTE ISOLATION TEST',
+artifacts/project-ice/public/game.js-1154-          '',
+artifacts/project-ice/public/game.js-1155-          'The diagnostic encountered an error.',
+artifacts/project-ice/public/game.js-1156-          '',
+artifacts/project-ice/public/game.js-1157-          error?.message ||
+artifacts/project-ice/public/game.js-1158-            String(error),
+artifacts/project-ice/public/game.js-1159-        ].join('\n')
+artifacts/project-ice/public/game.js-1160-      );
+artifacts/project-ice/public/game.js-1161-    } finally {
+artifacts/project-ice/public/game.js-1162-      isolationButton.disabled =
+artifacts/project-ice/public/game.js-1163-        false;
+artifacts/project-ice/public/game.js-1164-
+artifacts/project-ice/public/game.js-1165-      isolationButton.textContent =
+artifacts/project-ice/public/game.js-1166-        originalText;
+artifacts/project-ice/public/game.js-1167-    }
+artifacts/project-ice/public/game.js-1168-  }
+artifacts/project-ice/public/game.js-1169-);
+artifacts/project-ice/public/game.js-1170-
+artifacts/project-ice/public/game.js-1171-document.body.appendChild(
+artifacts/project-ice/public/game.js-1172-  isolationButton
+artifacts/project-ice/public/game.js-1173-);
+artifacts/project-ice/public/game.js-1174-}
+artifacts/project-ice/public/game.js-1175-}
+artifacts/project-ice/public/game.js-1176-
+artifacts/project-ice/public/game.js-1177-
+artifacts/project-ice/public/game.js-1178-// ── Button references ───────────────────────────────────────
+artifacts/project-ice/public/game.js:1179:const btnNewCareer = document.getElementById('btn-new-career');
+artifacts/project-ice/public/game.js:1180:const btnContinue = document.getElementById('btn-continue');
+artifacts/project-ice/public/game.js-1181-// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+artifacts/project-ice/public/game.js-1182-const btnDevHub       = document.getElementById('btn-dev-hub');
+artifacts/project-ice/public/game.js-1183-
+artifacts/project-ice/public/game.js-1184-const btnLiveGameDiagnostic =
+artifacts/project-ice/public/game.js-1185-  document.getElementById(
+artifacts/project-ice/public/game.js-1186-    'btn-live-game-diagnostic'
+artifacts/project-ice/public/game.js-1187-  );
+artifacts/project-ice/public/game.js-1188-
+artifacts/project-ice/public/game.js-1189-const devShortcutHint = document.getElementById('dev-shortcut-hint');
+artifacts/project-ice/public/game.js-1190-// ─────────────────────────────────────────────────────────────────────────────
+artifacts/project-ice/public/game.js-1191-const btnBackTitle = document.getElementById('btn-back-title');
+artifacts/project-ice/public/game.js-1192-const btnBackCreation = document.getElementById('btn-back-creation');
+artifacts/project-ice/public/game.js-1193-const btnBackSummary = document.getElementById('btn-back-summary');
+artifacts/project-ice/public/game.js:1194:const btnContinueSummary = document.getElementById('btn-continue-summary');
+artifacts/project-ice/public/game.js-1195-const btnDeleteSave = document.getElementById('btn-delete-save');
+artifacts/project-ice/public/game.js:1196:const btnContinueSetup      = document.getElementById('btn-continue-setup');
+artifacts/project-ice/public/game.js-1197-const btnIdentityBackground = document.getElementById('btn-identity-background');
+artifacts/project-ice/public/game.js-1198-const btnBackIdentity       = document.getElementById('btn-back-identity');
+artifacts/project-ice/public/game.js:1199:const btnContinueBackground = document.getElementById('btn-continue-background');
+artifacts/project-ice/public/game.js-1200-const btnIdentityArchetype     = document.getElementById('btn-identity-archetype');
+artifacts/project-ice/public/game.js-1201-const btnBackIdentityArchetype = document.getElementById('btn-back-identity-archetype');
+artifacts/project-ice/public/game.js:1202:const btnContinueArchetype     = document.getElementById('btn-continue-archetype');
+artifacts/project-ice/public/game.js-1203-const btnIdentityMotivation     = document.getElementById('btn-identity-motivation');
+artifacts/project-ice/public/game.js-1204-const btnBackIdentityMotivation = document.getElementById('btn-back-identity-motivation');
+artifacts/project-ice/public/game.js:1205:const btnContinueMotivation     = document.getElementById('btn-continue-motivation');
+artifacts/project-ice/public/game.js-1206-const btnIdentityNhlTeam        = document.getElementById('btn-identity-nhlteam');
+artifacts/project-ice/public/game.js-1207-const btnBackIdentityNhlTeam    = document.getElementById('btn-back-identity-nhlteam');
+artifacts/project-ice/public/game.js:1208:const btnContinueNhlTeam        = document.getElementById('btn-continue-nhlteam');
+artifacts/project-ice/public/game.js-1209-const btnBackOverview           = document.getElementById('btn-back-overview');
+artifacts/project-ice/public/game.js-1210-const btnBeginCareer            = document.getElementById('btn-begin-career');
+artifacts/project-ice/public/game.js-1211-
+artifacts/project-ice/public/game.js-1212-// ── Form references ─────────────────────────────────────────
+artifacts/project-ice/public/game.js-1213-const playerForm = document.getElementById('player-form');
+artifacts/project-ice/public/game.js-1214-const firstNameInput = document.getElementById('first-name');
+artifacts/project-ice/public/game.js-1215-const lastNameInput = document.getElementById('last-name');
+artifacts/project-ice/public/game.js-1216-const hometownInput = document.getElementById('hometown');
+artifacts/project-ice/public/game.js-1217-const formError = document.getElementById('form-error');
+artifacts/project-ice/public/game.js-1218-
+artifacts/project-ice/public/game.js-1219-// ── Summary references ──────────────────────────────────────
+artifacts/project-ice/public/game.js-1220-const summaryName = document.getElementById('summary-name');
+artifacts/project-ice/public/game.js-1221-const summaryDetails = document.getElementById('summary-details');
+artifacts/project-ice/public/game.js-1222-const summaryHometown = document.getElementById('summary-hometown');
+artifacts/project-ice/public/game.js-1223-
+artifacts/project-ice/public/game.js-1224-// ── Identity references ─────────────────────────────────────
+artifacts/project-ice/public/game.js-1225-const identityBgStatus         = document.getElementById('identity-background-status');
+artifacts/project-ice/public/game.js-1226-const identityArchetypeStatus  = document.getElementById('identity-archetype-status');
+artifacts/project-ice/public/game.js-1227-const identityMotivationStatus = document.getElementById('identity-motivation-status');
+artifacts/project-ice/public/game.js-1228-const identityNhlTeamStatus    = document.getElementById('identity-nhlteam-status');
+artifacts/project-ice/public/game.js-1229-const overviewPlayerName       = document.getElementById('overview-player-name');
+artifacts/project-ice/public/game.js-1230-const overviewPlayerPosition   = document.getElementById('overview-player-position');
+artifacts/project-ice/public/game.js-1231-const overviewPlayerHometown   = document.getElementById('overview-player-hometown');
+artifacts/project-ice/public/game.js-1232-const playerWeightInput =
+artifacts/project-ice/public/game.js-1233-  document.getElementById('player-weight');
+artifacts/project-ice/public/game.js-1234-const playerWeightValue =
+artifacts/project-ice/public/game.js-1235-  document.getElementById('player-weight-value');
+artifacts/project-ice/public/game.js-1236-const overviewBackground       = document.getElementById('overview-background');
+artifacts/project-ice/public/game.js-1237-const overviewArchetype        = document.getElementById('overview-archetype');
+artifacts/project-ice/public/game.js-1238-const overviewMotivation       = document.getElementById('overview-motivation');
+artifacts/project-ice/public/game.js-1239-const overviewNhlTeam          = document.getElementById('overview-nhlteam');
+artifacts/project-ice/public/game.js-1240-const statusBackground         = document.getElementById('status-background');
+artifacts/project-ice/public/game.js-1241-const statusArchetype          = document.getElementById('status-archetype');
+artifacts/project-ice/public/game.js-1242-const statusMotivation         = document.getElementById('status-motivation');
+artifacts/project-ice/public/game.js-1243-const statusNhlTeam            = document.getElementById('status-nhlteam');
+artifacts/project-ice/public/game.js-1244-const identityCompleteCount    = document.getElementById('identity-complete-count');
+artifacts/project-ice/public/game.js-1245-
+artifacts/project-ice/public/game.js-1246-// ── Archetype position rules ────────────────────────────────
+artifacts/project-ice/public/game.js-1247-const POSITION_GROUP = {
+artifacts/project-ice/public/game.js-1248-  'Center':     'forward',
+artifacts/project-ice/public/game.js-1249-  'Left Wing':  'forward',
+artifacts/project-ice/public/game.js-1250-  'Right Wing': 'forward',
+artifacts/project-ice/public/game.js-1251-  'Defenseman': 'defense',
+artifacts/project-ice/public/game.js-1252-  'Goalie':     'goalie',
+artifacts/project-ice/public/game.js-1253-};
+artifacts/project-ice/public/game.js-1254-
+artifacts/project-ice/public/game.js-1255-const VALID_ARCHETYPES = {
+artifacts/project-ice/public/game.js-1256-  forward: ['Sniper', 'Playmaker', 'Power Forward', 'Two-Way Forward'],
+artifacts/project-ice/public/game.js-1257-  defense: ['Offensive Defenseman', 'Defensive Defenseman'],
+artifacts/project-ice/public/game.js-1258-  goalie:  ['Butterfly Goalie', 'Athletic Goalie', 'Hybrid Goalie'],
+artifacts/project-ice/public/game.js-1259-};
+artifacts/project-ice/public/game.js-1260-
+artifacts/project-ice/public/game.js-1261-function getPositionGroup(position) {
+artifacts/project-ice/public/game.js-1262-  return POSITION_GROUP[position] || '';
+artifacts/project-ice/public/game.js-1263-}
+artifacts/project-ice/public/game.js-1264-
+artifacts/project-ice/public/game.js-1265-function isArchetypeValidForPosition(archetype, position) {
+artifacts/project-ice/public/game.js-1266-  const group = getPositionGroup(position);
+artifacts/project-ice/public/game.js-1267-  if (!group) return false;
+artifacts/project-ice/public/game.js-1268-  return (VALID_ARCHETYPES[group] || []).includes(archetype);
+artifacts/project-ice/public/game.js-1269-}
+artifacts/project-ice/public/game.js-1270-
+artifacts/project-ice/public/game.js-1271-function filterArchetypeCards() {
+artifacts/project-ice/public/game.js-1272-  const group = getPositionGroup(Game.player.position);
+artifacts/project-ice/public/game.js-1273-  document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+artifacts/project-ice/public/game.js-1274-    const show = card.dataset.positionGroup === group;
+artifacts/project-ice/public/game.js-1275-    card.style.display = show ? '' : 'none';
+artifacts/project-ice/public/game.js-1276-  });
+artifacts/project-ice/public/game.js-1277-}
+artifacts/project-ice/public/game.js-1278-
+artifacts/project-ice/public/game.js-1279-function renderTrainingOptions() {
+artifacts/project-ice/public/game.js-1280-  if (
+artifacts/project-ice/public/game.js-1281-    !trainingOptions ||
+artifacts/project-ice/public/game.js-1282-    typeof WorldEngine
+artifacts/project-ice/public/game.js-1283-      ?.getTrainingTypes !==
+artifacts/project-ice/public/game.js-1284-      'function'
+artifacts/project-ice/public/game.js-1285-  ) {
+artifacts/project-ice/public/game.js-1286-    return;
+artifacts/project-ice/public/game.js-1287-  }
+artifacts/project-ice/public/game.js-1288-
+artifacts/project-ice/public/game.js-1289-  const trainingCatalog =
+artifacts/project-ice/public/game.js-1290-    WorldEngine.getTrainingTypes();
+artifacts/project-ice/public/game.js-1291-
+artifacts/project-ice/public/game.js-1292-  const positionGroup =
+artifacts/project-ice/public/game.js-1293-    getPositionGroup(
+artifacts/project-ice/public/game.js-1294-      Game.player.position
+artifacts/project-ice/public/game.js-1295-    );
+artifacts/project-ice/public/game.js-1296-
+artifacts/project-ice/public/game.js-1297-  const trainingPool =
+artifacts/project-ice/public/game.js-1298-    positionGroup === 'goalie'
+artifacts/project-ice/public/game.js-1299-      ? trainingCatalog.goalie
+artifacts/project-ice/public/game.js-1300-      : trainingCatalog.skater;
+artifacts/project-ice/public/game.js-1301-
+artifacts/project-ice/public/game.js-1302-  /*
+artifacts/project-ice/public/game.js-1303-   * WEEKLY TRAINING SELECTION
+artifacts/project-ice/public/game.js-1304-   *
+artifacts/project-ice/public/game.js-1305-   * Show a stable random subset of the full Training catalog.
+artifacts/project-ice/public/game.js-1306-   * The same Training date always produces the same choices,
+artifacts/project-ice/public/game.js-1307-   * even after reloading the save.
+artifacts/project-ice/public/game.js-1308-   */
+artifacts/project-ice/public/game.js-1309-  const activeTrainingEvent =
+artifacts/project-ice/public/game.js-1310-    Array.isArray(
+artifacts/project-ice/public/game.js-1311-      WorldEngine.state.schedule
+artifacts/project-ice/public/game.js-1312-    )
+artifacts/project-ice/public/game.js-1313-      ? WorldEngine.state.schedule.find(
+artifacts/project-ice/public/game.js-1314-          event =>
+artifacts/project-ice/public/game.js-1315-            String(
+artifacts/project-ice/public/game.js-1316-              event?.id ||
+artifacts/project-ice/public/game.js-1317-              event?.eventId ||
+artifacts/project-ice/public/game.js-1318-              ''
+artifacts/project-ice/public/game.js-1319-            ) ===
+artifacts/project-ice/public/game.js-1320-            String(
+artifacts/project-ice/public/game.js-1321-              activeTrainingEventId ||
+artifacts/project-ice/public/game.js-1322-              ''
+artifacts/project-ice/public/game.js-1323-            )
+artifacts/project-ice/public/game.js-1324-        )
+artifacts/project-ice/public/game.js-1325-      : null;
+artifacts/project-ice/public/game.js-1326-
+artifacts/project-ice/public/game.js-1327-  const trainingDate =
+artifacts/project-ice/public/game.js-1328-    activeTrainingEvent?.date ||
+artifacts/project-ice/public/game.js-1329-    Game.player.currentDate ||
+artifacts/project-ice/public/game.js-1330-    'training';
+artifacts/project-ice/public/game.js-1331-
+artifacts/project-ice/public/game.js-1332-  const stableTrainingScore =
+artifacts/project-ice/public/game.js-1333-    training => {
+artifacts/project-ice/public/game.js-1334-      const seedText =
+artifacts/project-ice/public/game.js-1335-        `${trainingDate}-${training.trainingKey}`;
+artifacts/project-ice/public/game.js-1336-
+artifacts/project-ice/public/game.js-1337-      let hash = 0;
+artifacts/project-ice/public/game.js-1338-
+artifacts/project-ice/public/game.js-1339-      for (
+artifacts/project-ice/public/game.js-1340-        let index = 0;
+artifacts/project-ice/public/game.js-1341-        index < seedText.length;
+artifacts/project-ice/public/game.js-1342-        index += 1
+artifacts/project-ice/public/game.js-1343-      ) {
+artifacts/project-ice/public/game.js-1344-        hash =
+artifacts/project-ice/public/game.js-1345-          (
+artifacts/project-ice/public/game.js-1346-            (hash << 5) -
+artifacts/project-ice/public/game.js-1347-            hash
+artifacts/project-ice/public/game.js-1348-          ) +
+artifacts/project-ice/public/game.js-1349-          seedText.charCodeAt(
+artifacts/project-ice/public/game.js-1350-            index
+artifacts/project-ice/public/game.js-1351-          );
+artifacts/project-ice/public/game.js-1352-
+artifacts/project-ice/public/game.js-1353-        hash |= 0;
+artifacts/project-ice/public/game.js-1354-      }
+artifacts/project-ice/public/game.js-1355-
+artifacts/project-ice/public/game.js-1356-      return Math.abs(hash);
+artifacts/project-ice/public/game.js-1357-    };
+artifacts/project-ice/public/game.js-1358-
+artifacts/project-ice/public/game.js-1359-  const choiceCount =
+artifacts/project-ice/public/game.js-1360-    Math.min(
+artifacts/project-ice/public/game.js-1361-      trainingPool.length,
+artifacts/project-ice/public/game.js-1362-      4 +
+artifacts/project-ice/public/game.js-1363-        (
+artifacts/project-ice/public/game.js-1364-          stableTrainingScore({
+artifacts/project-ice/public/game.js-1365-            trainingKey:
+artifacts/project-ice/public/game.js-1366-              'weekly-choice-count',
+artifacts/project-ice/public/game.js-1367-          }) % 3
+artifacts/project-ice/public/game.js-1368-        )
+artifacts/project-ice/public/game.js-1369-    );
+artifacts/project-ice/public/game.js-1370-
+artifacts/project-ice/public/game.js-1371-  const weeklyTrainingPool =
+artifacts/project-ice/public/game.js-1372-    [...trainingPool]
+artifacts/project-ice/public/game.js-1373-      .sort(
+artifacts/project-ice/public/game.js-1374-        (firstTraining, secondTraining) =>
+artifacts/project-ice/public/game.js-1375-          stableTrainingScore(
+artifacts/project-ice/public/game.js-1376-            firstTraining
+artifacts/project-ice/public/game.js-1377-          ) -
+artifacts/project-ice/public/game.js-1378-          stableTrainingScore(
+artifacts/project-ice/public/game.js-1379-            secondTraining
+artifacts/project-ice/public/game.js-1380-          )
+artifacts/project-ice/public/game.js-1381-      )
+artifacts/project-ice/public/game.js-1382-      .slice(
+artifacts/project-ice/public/game.js-1383-        0,
+artifacts/project-ice/public/game.js-1384-        choiceCount
+artifacts/project-ice/public/game.js-1385-      );
+artifacts/project-ice/public/game.js-1386-
+artifacts/project-ice/public/game.js-1387-    if (
+artifacts/project-ice/public/game.js-1388-      !Array.isArray(weeklyTrainingPool) ||
+--
+artifacts/project-ice/public/game.js-2262-    rosterRevealScreen.classList.remove('screen--hidden');
+artifacts/project-ice/public/game.js-2263-  }
+artifacts/project-ice/public/game.js-2264-  if (screenName === 'coach-intro') {
+artifacts/project-ice/public/game.js-2265-    coachIntroScreen.classList.remove('screen--hidden');
+artifacts/project-ice/public/game.js-2266-  }
+artifacts/project-ice/public/game.js-2267-  if (screenName === 'coach-results') {
+artifacts/project-ice/public/game.js-2268-    coachResultsScreen.classList.remove('screen--hidden');
+artifacts/project-ice/public/game.js-2269-  } 
+artifacts/project-ice/public/game.js-2270-  if (screenName === 'skating-eval') {
+artifacts/project-ice/public/game.js-2271-    skatingEvalScreen.classList.remove('screen--hidden');
+artifacts/project-ice/public/game.js-2272-  }
+artifacts/project-ice/public/game.js-2273-  if (screenName === 'skating-results') {
+artifacts/project-ice/public/game.js-2274-    skatingResultsScreen.classList.remove('screen--hidden');
+artifacts/project-ice/public/game.js-2275-  }
+artifacts/project-ice/public/game.js-2276-
+artifacts/project-ice/public/game.js-2277-  Game.screen = screenName;
+artifacts/project-ice/public/game.js-2278-  window.scrollTo(0, 0);
+artifacts/project-ice/public/game.js-2279-}
+artifacts/project-ice/public/game.js-2280-
+artifacts/project-ice/public/game.js-2281-// ── Identity screen update ──────────────────────────────────
+artifacts/project-ice/public/game.js-2282-function setIdentityStatus(el, complete) {
+artifacts/project-ice/public/game.js-2283-  el.textContent = complete ? '🟢 COMPLETE' : '⚪ NOT SELECTED';
+artifacts/project-ice/public/game.js-2284-  el.classList.toggle('identity-card__status--complete', complete);
+artifacts/project-ice/public/game.js-2285-  el.classList.toggle('identity-card__status--empty',   !complete);
+artifacts/project-ice/public/game.js-2286-}
+artifacts/project-ice/public/game.js-2287-
+artifacts/project-ice/public/game.js-2288-function updateIdentityBackground() {
+artifacts/project-ice/public/game.js-2289-  const selected = Game.player.background;
+artifacts/project-ice/public/game.js-2290-  identityBgStatus.textContent = selected || 'Not Selected';
+artifacts/project-ice/public/game.js-2291-  identityBgStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+artifacts/project-ice/public/game.js-2292-}
+artifacts/project-ice/public/game.js-2293-
+artifacts/project-ice/public/game.js-2294-function updateIdentityArchetype() {
+artifacts/project-ice/public/game.js-2295-  const selected = Game.player.archetype;
+artifacts/project-ice/public/game.js-2296-  identityArchetypeStatus.textContent = selected || 'Not Selected';
+artifacts/project-ice/public/game.js-2297-  identityArchetypeStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+artifacts/project-ice/public/game.js-2298-}
+artifacts/project-ice/public/game.js-2299-
+artifacts/project-ice/public/game.js-2300-function updateIdentityMotivation() {
+artifacts/project-ice/public/game.js-2301-  const selected = Game.player.motivation;
+artifacts/project-ice/public/game.js-2302-  identityMotivationStatus.textContent = selected || 'Not Selected';
+artifacts/project-ice/public/game.js-2303-  identityMotivationStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+artifacts/project-ice/public/game.js-2304-}
+artifacts/project-ice/public/game.js-2305-
+artifacts/project-ice/public/game.js-2306-function updateIdentityNhlTeam() {
+artifacts/project-ice/public/game.js-2307-  const selected = Game.player.nhlTeam;
+artifacts/project-ice/public/game.js-2308-  identityNhlTeamStatus.textContent = selected || 'Not Selected';
+artifacts/project-ice/public/game.js-2309-  identityNhlTeamStatus.classList.toggle('identity-card__subtitle--selected', Boolean(selected));
+artifacts/project-ice/public/game.js-2310-}
+artifacts/project-ice/public/game.js-2311-
+artifacts/project-ice/public/game.js-2312-function updateIdentityScreen() {
+artifacts/project-ice/public/game.js-2313-  updateIdentityBackground();
+artifacts/project-ice/public/game.js-2314-  updateIdentityArchetype();
+artifacts/project-ice/public/game.js-2315-  updateIdentityMotivation();
+artifacts/project-ice/public/game.js-2316-  updateIdentityNhlTeam();
+artifacts/project-ice/public/game.js-2317-
+artifacts/project-ice/public/game.js-2318-  const bgDone    = Boolean(Game.player.background);
+artifacts/project-ice/public/game.js-2319-  const archDone  = Boolean(Game.player.archetype);
+artifacts/project-ice/public/game.js-2320-  const motivDone = Boolean(Game.player.motivation);
+artifacts/project-ice/public/game.js-2321-  const nhlDone   = Boolean(Game.player.nhlTeam);
+artifacts/project-ice/public/game.js-2322-
+artifacts/project-ice/public/game.js-2323-  setIdentityStatus(statusBackground, bgDone);
+artifacts/project-ice/public/game.js-2324-  setIdentityStatus(statusArchetype,  archDone);
+artifacts/project-ice/public/game.js-2325-  setIdentityStatus(statusMotivation, motivDone);
+artifacts/project-ice/public/game.js-2326-  setIdentityStatus(statusNhlTeam,    nhlDone);
+artifacts/project-ice/public/game.js-2327-
+artifacts/project-ice/public/game.js-2328-  const count = [bgDone, archDone, motivDone, nhlDone].filter(Boolean).length;
+artifacts/project-ice/public/game.js-2329-  identityCompleteCount.textContent = count;
+artifacts/project-ice/public/game.js-2330-
+artifacts/project-ice/public/game.js-2331-  const allDone = count === 4;
+artifacts/project-ice/public/game.js:2332:  btnContinueSetup.disabled = !allDone;
+artifacts/project-ice/public/game.js:2333:  btnContinueSetup.classList.toggle('btn--primary',    allDone);
+artifacts/project-ice/public/game.js:2334:  btnContinueSetup.classList.toggle('btn--secondary', !allDone);
+artifacts/project-ice/public/game.js-2335-}
+artifacts/project-ice/public/game.js-2336-
+artifacts/project-ice/public/game.js-2337-// ── Career Overview ─────────────────────────────────────────
+artifacts/project-ice/public/game.js-2338-function updateCareerOverview() {
+artifacts/project-ice/public/game.js-2339-  const p = Game.player;
+artifacts/project-ice/public/game.js-2340-  overviewPlayerName.textContent     = `${p.firstName} ${p.lastName}`;
+artifacts/project-ice/public/game.js-2341-  overviewPlayerPosition.textContent = `${p.position} · Shoots ${p.handedness}`;
+artifacts/project-ice/public/game.js-2342-  overviewPlayerHometown.textContent = p.hometown;
+artifacts/project-ice/public/game.js-2343-  overviewBackground.textContent     = p.background  || '—';
+artifacts/project-ice/public/game.js-2344-  overviewArchetype.textContent      = p.archetype   || '—';
+artifacts/project-ice/public/game.js-2345-  overviewMotivation.textContent     = p.motivation  || '—';
+artifacts/project-ice/public/game.js-2346-  overviewNhlTeam.textContent        = p.nhlTeam     || '—';
+artifacts/project-ice/public/game.js-2347-}
+artifacts/project-ice/public/game.js-2348-
+artifacts/project-ice/public/game.js-2349-// ── Restore selection UI ────────────────────────────────────
+artifacts/project-ice/public/game.js-2350-function restoreBackgroundSelection() {
+artifacts/project-ice/public/game.js-2351-  const saved = Game.player.background;
+artifacts/project-ice/public/game.js-2352-
+artifacts/project-ice/public/game.js-2353-  document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+artifacts/project-ice/public/game.js-2354-    card.classList.toggle('bg-card--selected', saved && card.dataset.background === saved);
+artifacts/project-ice/public/game.js-2355-  });
+artifacts/project-ice/public/game.js-2356-
+artifacts/project-ice/public/game.js-2357-  const has = Boolean(saved);
+artifacts/project-ice/public/game.js:2358:  btnContinueBackground.disabled = !has;
+artifacts/project-ice/public/game.js:2359:  btnContinueBackground.classList.toggle('btn--primary',   has);
+artifacts/project-ice/public/game.js:2360:  btnContinueBackground.classList.toggle('btn--secondary', !has);
+artifacts/project-ice/public/game.js-2361-}
+artifacts/project-ice/public/game.js-2362-
+artifacts/project-ice/public/game.js-2363-function restoreNhlTeamSelection() {
+artifacts/project-ice/public/game.js-2364-  const saved = Game.player.nhlTeam;
+artifacts/project-ice/public/game.js-2365-
+artifacts/project-ice/public/game.js-2366-  document.querySelectorAll('#nhlteam-screen .team-card').forEach((card) => {
+artifacts/project-ice/public/game.js-2367-    card.classList.toggle('team-card--selected', saved && card.dataset.team === saved);
+artifacts/project-ice/public/game.js-2368-  });
+artifacts/project-ice/public/game.js-2369-
+artifacts/project-ice/public/game.js-2370-  const has = Boolean(saved);
+artifacts/project-ice/public/game.js:2371:  btnContinueNhlTeam.disabled = !has;
+artifacts/project-ice/public/game.js:2372:  btnContinueNhlTeam.classList.toggle('btn--primary',   has);
+artifacts/project-ice/public/game.js:2373:  btnContinueNhlTeam.classList.toggle('btn--secondary', !has);
+artifacts/project-ice/public/game.js-2374-}
+artifacts/project-ice/public/game.js-2375-
+artifacts/project-ice/public/game.js-2376-function restoreMotivationSelection() {
+artifacts/project-ice/public/game.js-2377-  const saved = Game.player.motivation;
+artifacts/project-ice/public/game.js-2378-
+artifacts/project-ice/public/game.js-2379-  document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+artifacts/project-ice/public/game.js-2380-    card.classList.toggle('motivation-card--selected', saved && card.dataset.motivation === saved);
+artifacts/project-ice/public/game.js-2381-  });
+artifacts/project-ice/public/game.js-2382-
+artifacts/project-ice/public/game.js-2383-  const has = Boolean(saved);
+artifacts/project-ice/public/game.js:2384:  btnContinueMotivation.disabled = !has;
+artifacts/project-ice/public/game.js:2385:  btnContinueMotivation.classList.toggle('btn--primary',   has);
+artifacts/project-ice/public/game.js:2386:  btnContinueMotivation.classList.toggle('btn--secondary', !has);
+artifacts/project-ice/public/game.js-2387-}
+artifacts/project-ice/public/game.js-2388-
+artifacts/project-ice/public/game.js-2389-function restoreArchetypeSelection() {
+artifacts/project-ice/public/game.js-2390-  const saved = Game.player.archetype;
+artifacts/project-ice/public/game.js-2391-
+artifacts/project-ice/public/game.js-2392-  document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+artifacts/project-ice/public/game.js-2393-    card.classList.toggle('bg-card--selected', saved && card.dataset.archetype === saved);
+artifacts/project-ice/public/game.js-2394-  });
+artifacts/project-ice/public/game.js-2395-
+artifacts/project-ice/public/game.js-2396-  const has = Boolean(saved);
+artifacts/project-ice/public/game.js:2397:  btnContinueArchetype.disabled = !has;
+artifacts/project-ice/public/game.js:2398:  btnContinueArchetype.classList.toggle('btn--primary',   has);
+artifacts/project-ice/public/game.js:2399:  btnContinueArchetype.classList.toggle('btn--secondary', !has);
+artifacts/project-ice/public/game.js-2400-}
+artifacts/project-ice/public/game.js-2401-
+artifacts/project-ice/public/game.js-2402-// ── Ripple effect ───────────────────────────────────────────
+artifacts/project-ice/public/game.js-2403-function spawnRipple(button, event) {
+artifacts/project-ice/public/game.js-2404-  if (!button || button.disabled) return;
+artifacts/project-ice/public/game.js-2405-
+artifacts/project-ice/public/game.js-2406-  const rect = button.getBoundingClientRect();
+artifacts/project-ice/public/game.js-2407-  const x = event.clientX - rect.left;
+artifacts/project-ice/public/game.js-2408-  const y = event.clientY - rect.top;
+artifacts/project-ice/public/game.js-2409-  const size = Math.max(rect.width, rect.height);
+artifacts/project-ice/public/game.js-2410-
+artifacts/project-ice/public/game.js-2411-  const ripple = document.createElement('span');
+artifacts/project-ice/public/game.js-2412-  ripple.className = 'ripple';
+artifacts/project-ice/public/game.js-2413-
+artifacts/project-ice/public/game.js-2414-  ripple.style.cssText = `
+artifacts/project-ice/public/game.js-2415-    width: ${size}px;
+artifacts/project-ice/public/game.js-2416-    height: ${size}px;
+artifacts/project-ice/public/game.js-2417-    left: ${x - size / 2}px;
+artifacts/project-ice/public/game.js-2418-    top: ${y - size / 2}px;
+artifacts/project-ice/public/game.js-2419-  `;
+artifacts/project-ice/public/game.js-2420-
+artifacts/project-ice/public/game.js-2421-  button.appendChild(ripple);
+artifacts/project-ice/public/game.js-2422-
+artifacts/project-ice/public/game.js-2423-  ripple.addEventListener('animationend', () => {
+artifacts/project-ice/public/game.js-2424-    ripple.remove();
+artifacts/project-ice/public/game.js-2425-  });
+artifacts/project-ice/public/game.js-2426-}
+artifacts/project-ice/public/game.js-2427-
+artifacts/project-ice/public/game.js-2428-// ── Player choice buttons ───────────────────────────────────
+artifacts/project-ice/public/game.js-2429-function handleChoiceButton(button) {
+artifacts/project-ice/public/game.js-2430-  const groupName = button.dataset.choiceGroup;
+artifacts/project-ice/public/game.js-2431-  const selectedValue = button.dataset.value;
+artifacts/project-ice/public/game.js-2432-
+artifacts/project-ice/public/game.js-2433-  const buttonsInGroup = document.querySelectorAll(
+artifacts/project-ice/public/game.js-2434-    `[data-choice-group="${groupName}"]`
+artifacts/project-ice/public/game.js-2435-  );
+artifacts/project-ice/public/game.js-2436-
+artifacts/project-ice/public/game.js-2437-  buttonsInGroup.forEach((choiceButton) => {
+artifacts/project-ice/public/game.js-2438-    choiceButton.classList.remove('choice-card--selected');
+artifacts/project-ice/public/game.js-2439-  });
+artifacts/project-ice/public/game.js-2440-
+artifacts/project-ice/public/game.js-2441-  button.classList.add('choice-card--selected');
+artifacts/project-ice/public/game.js-2442-
+artifacts/project-ice/public/game.js-2443-  if (groupName === 'position') {
+artifacts/project-ice/public/game.js-2444-    Game.player.position = selectedValue;
+artifacts/project-ice/public/game.js-2445-  }
+artifacts/project-ice/public/game.js-2446-
+artifacts/project-ice/public/game.js-2447-  if (groupName === 'handedness') {
+artifacts/project-ice/public/game.js-2448-    Game.player.handedness = selectedValue;
+artifacts/project-ice/public/game.js-2449-  }
+artifacts/project-ice/public/game.js-2450-
+artifacts/project-ice/public/game.js-2451-  formError.textContent = '';
+artifacts/project-ice/public/game.js-2452-}
+artifacts/project-ice/public/game.js-2453-
+artifacts/project-ice/public/game.js-2454-// ── Player form ─────────────────────────────────────────────
+artifacts/project-ice/public/game.js-2455-function handlePlayerFormSubmit(event) {
+artifacts/project-ice/public/game.js-2456-  event.preventDefault();
+artifacts/project-ice/public/game.js-2457-
+artifacts/project-ice/public/game.js-2458-  const firstName = firstNameInput.value.trim();
+artifacts/project-ice/public/game.js-2459-  const lastName = lastNameInput.value.trim();
+artifacts/project-ice/public/game.js-2460-  const hometown = hometownInput.value.trim();
+artifacts/project-ice/public/game.js-2461-  const height =
+artifacts/project-ice/public/game.js-2462-    document.getElementById('player-height')?.value ||
+artifacts/project-ice/public/game.js-2463-    `5'10"`;
+artifacts/project-ice/public/game.js-2464-
+artifacts/project-ice/public/game.js-2465-  const weight =
+artifacts/project-ice/public/game.js-2466-    Number(
+artifacts/project-ice/public/game.js-2467-      document.getElementById('player-weight')?.value
+artifacts/project-ice/public/game.js-2468-    ) || 175;
+artifacts/project-ice/public/game.js-2469-
+artifacts/project-ice/public/game.js-2470-  const jerseyNumber =
+artifacts/project-ice/public/game.js-2471-    Number(
+artifacts/project-ice/public/game.js-2472-      document.getElementById('player-jersey-number')?.value
+artifacts/project-ice/public/game.js-2473-    ) || 19;
+artifacts/project-ice/public/game.js-2474-
+artifacts/project-ice/public/game.js-2475-  const shoots =
+artifacts/project-ice/public/game.js-2476-    Game.player.handedness === 'Right' ? 'R' : 'L';
+artifacts/project-ice/public/game.js-2477-  if (!firstName || !lastName || !hometown) {
+artifacts/project-ice/public/game.js-2478-    formError.textContent = 'Complete your name and hometown to continue.';
+artifacts/project-ice/public/game.js-2479-    return;
+artifacts/project-ice/public/game.js-2480-  }
+artifacts/project-ice/public/game.js-2481-
+artifacts/project-ice/public/game.js-2482-  if (!Game.player.position) {
+artifacts/project-ice/public/game.js-2483-    formError.textContent = 'Choose your position to continue.';
+artifacts/project-ice/public/game.js-2484-    return;
+artifacts/project-ice/public/game.js-2485-  }
+artifacts/project-ice/public/game.js-2486-
+artifacts/project-ice/public/game.js-2487-  if (!Game.player.handedness) {
+artifacts/project-ice/public/game.js-2488-    formError.textContent = 'Choose whether your player shoots left or right.';
+artifacts/project-ice/public/game.js-2489-    return;
+artifacts/project-ice/public/game.js-2490-  }
+artifacts/project-ice/public/game.js-2491-
+artifacts/project-ice/public/game.js-2492-  Game.player.firstName = firstName;
+artifacts/project-ice/public/game.js-2493-  Game.player.lastName = lastName;
+artifacts/project-ice/public/game.js-2494-  Game.player.hometown = hometown;
+artifacts/project-ice/public/game.js-2495-  Game.player.height = height;
+artifacts/project-ice/public/game.js-2496-  Game.player.weight = weight;
+artifacts/project-ice/public/game.js-2497-  Game.player.jerseyNumber = jerseyNumber;
+artifacts/project-ice/public/game.js-2498-  Game.player.shoots = shoots;
+artifacts/project-ice/public/game.js-2499-
+artifacts/project-ice/public/game.js-2500-  updateSummary();
+artifacts/project-ice/public/game.js-2501-  saveCareerPreview();
+artifacts/project-ice/public/game.js-2502-  showScreen('summary');
+artifacts/project-ice/public/game.js-2503-}
+artifacts/project-ice/public/game.js-2504-
+artifacts/project-ice/public/game.js-2505-// ── Summary screen ──────────────────────────────────────────
+artifacts/project-ice/public/game.js-2506-function updateSummary() {
+artifacts/project-ice/public/game.js-2507-  summaryName.textContent =
+artifacts/project-ice/public/game.js-2508-    `${Game.player.firstName} ${Game.player.lastName}`;
+artifacts/project-ice/public/game.js-2509-
+artifacts/project-ice/public/game.js-2510-  summaryDetails.textContent =
+artifacts/project-ice/public/game.js-2511-    `${Game.player.position} · Shoots ${Game.player.handedness}`;
+artifacts/project-ice/public/game.js-2512-
+artifacts/project-ice/public/game.js-2513-  summaryHometown.textContent = Game.player.hometown;
+artifacts/project-ice/public/game.js-2514-}
+artifacts/project-ice/public/game.js-2515-
+artifacts/project-ice/public/game.js-2516-// ── Save system ─────────────────────────────────────────────
+artifacts/project-ice/public/game.js-2517-function saveCareerPreview() {
+artifacts/project-ice/public/game.js-2518-  if (isDevSession) return;
+artifacts/project-ice/public/game.js-2519-  try {
+artifacts/project-ice/public/game.js-2520-    const playerPreview = {
+artifacts/project-ice/public/game.js-2521-      playerId:
+artifacts/project-ice/public/game.js-2522-        Game.player.playerId ||
+artifacts/project-ice/public/game.js-2523-        Game.player.id ||
+artifacts/project-ice/public/game.js-2524-        'career-player',
+artifacts/project-ice/public/game.js-2525-
+artifacts/project-ice/public/game.js-2526-      id:
+artifacts/project-ice/public/game.js-2527-        Game.player.id ||
+artifacts/project-ice/public/game.js-2528-        Game.player.playerId ||
+artifacts/project-ice/public/game.js-2529-        'career-player',
+artifacts/project-ice/public/game.js-2530-
+artifacts/project-ice/public/game.js-2531-      firstName:
+artifacts/project-ice/public/game.js-2532-        Game.player.firstName ||
+artifacts/project-ice/public/game.js-2533-        '',
+artifacts/project-ice/public/game.js-2534-
+artifacts/project-ice/public/game.js-2535-      lastName:
+artifacts/project-ice/public/game.js-2536-        Game.player.lastName ||
+artifacts/project-ice/public/game.js-2537-        '',
+artifacts/project-ice/public/game.js-2538-
+artifacts/project-ice/public/game.js-2539-      hometown:
+artifacts/project-ice/public/game.js-2540-        Game.player.hometown ||
+artifacts/project-ice/public/game.js-2541-        '',
+artifacts/project-ice/public/game.js-2542-
+artifacts/project-ice/public/game.js-2543-      position:
+artifacts/project-ice/public/game.js-2544-        Game.player.position ||
+artifacts/project-ice/public/game.js-2545-        '',
+artifacts/project-ice/public/game.js-2546-
+artifacts/project-ice/public/game.js-2547-      handedness:
+artifacts/project-ice/public/game.js-2548-        Game.player.handedness ||
+artifacts/project-ice/public/game.js-2549-        '',
+artifacts/project-ice/public/game.js-2550-
+artifacts/project-ice/public/game.js-2551-      archetype:
+artifacts/project-ice/public/game.js-2552-        Game.player.archetype ||
+artifacts/project-ice/public/game.js-2553-        '',
+artifacts/project-ice/public/game.js-2554-
+artifacts/project-ice/public/game.js-2555-      age:
+artifacts/project-ice/public/game.js-2556-        Number(
+artifacts/project-ice/public/game.js-2557-          Game.player.age
+artifacts/project-ice/public/game.js-2558-        ) || 14,
+artifacts/project-ice/public/game.js-2559-
+artifacts/project-ice/public/game.js-2560-      year:
+artifacts/project-ice/public/game.js-2561-        Game.player.year ||
+artifacts/project-ice/public/game.js-2562-        'Freshman',
+artifacts/project-ice/public/game.js-2563-
+artifacts/project-ice/public/game.js-2564-      stage:
+artifacts/project-ice/public/game.js-2565-        Game.player.stage ||
+artifacts/project-ice/public/game.js-2566-        'hub',
+artifacts/project-ice/public/game.js-2567-
+artifacts/project-ice/public/game.js-2568-      tryoutsComplete:
+artifacts/project-ice/public/game.js-2569-        Game.player.tryoutsComplete ===
+artifacts/project-ice/public/game.js-2570-        true,
+artifacts/project-ice/public/game.js-2571-
+artifacts/project-ice/public/game.js-2572-      teamId:
+artifacts/project-ice/public/game.js-2573-        Game.player.teamId ||
+artifacts/project-ice/public/game.js-2574-        Game.player.highSchoolTeamId ||
+artifacts/project-ice/public/game.js-2575-        null,
+artifacts/project-ice/public/game.js-2576-
+artifacts/project-ice/public/game.js-2577-      highSchoolTeamId:
+artifacts/project-ice/public/game.js-2578-        Game.player.highSchoolTeamId ||
+artifacts/project-ice/public/game.js-2579-        Game.player.teamId ||
+--
+artifacts/project-ice/public/game.js-2971-          eventId:
+artifacts/project-ice/public/game.js-2972-            existingEvent.eventId ||
+artifacts/project-ice/public/game.js-2973-            newEvent.eventId,
+artifacts/project-ice/public/game.js-2974-
+artifacts/project-ice/public/game.js-2975-          gameId:
+artifacts/project-ice/public/game.js-2976-            existingEvent.gameId ||
+artifacts/project-ice/public/game.js-2977-            newEvent.gameId,
+artifacts/project-ice/public/game.js-2978-
+artifacts/project-ice/public/game.js-2979-          id:
+artifacts/project-ice/public/game.js-2980-            existingEvent.id ||
+artifacts/project-ice/public/game.js-2981-            newEvent.id,
+artifacts/project-ice/public/game.js-2982-        };
+artifacts/project-ice/public/game.js-2983-      }
+artifacts/project-ice/public/game.js-2984-    );
+artifacts/project-ice/public/game.js-2985-
+artifacts/project-ice/public/game.js-2986-  WorldEngine.save();
+artifacts/project-ice/public/game.js-2987-
+artifacts/project-ice/public/game.js-2988-  console.log(
+artifacts/project-ice/public/game.js-2989-    '[Career Load] Expanded schedule migrated successfully.'
+artifacts/project-ice/public/game.js-2990-  );
+artifacts/project-ice/public/game.js-2991-
+artifacts/project-ice/public/game.js-2992-  return true;
+artifacts/project-ice/public/game.js-2993-}
+artifacts/project-ice/public/game.js-2994-
+artifacts/project-ice/public/game.js-2995-    function loadCareerPreview() {
+artifacts/project-ice/public/game.js-2996-      try {
+artifacts/project-ice/public/game.js-2997-        const savedCareer =
+artifacts/project-ice/public/game.js-2998-          localStorage.getItem(
+artifacts/project-ice/public/game.js-2999-            SAVE_KEY
+artifacts/project-ice/public/game.js-3000-          );
+artifacts/project-ice/public/game.js-3001-
+artifacts/project-ice/public/game.js-3002-        if (savedCareer) {
+artifacts/project-ice/public/game.js-3003-          const parsedCareer =
+artifacts/project-ice/public/game.js-3004-            JSON.parse(
+artifacts/project-ice/public/game.js-3005-              savedCareer
+artifacts/project-ice/public/game.js-3006-            );
+artifacts/project-ice/public/game.js-3007-
+artifacts/project-ice/public/game.js-3008-          if (
+artifacts/project-ice/public/game.js-3009-            parsedCareer?.player
+artifacts/project-ice/public/game.js-3010-          ) {
+artifacts/project-ice/public/game.js-3011-            Game.player = {
+artifacts/project-ice/public/game.js-3012-              ...Game.player,
+artifacts/project-ice/public/game.js-3013-              ...parsedCareer.player,
+artifacts/project-ice/public/game.js-3014-            };
+artifacts/project-ice/public/game.js-3015-          }
+artifacts/project-ice/public/game.js-3016-        } else {
+artifacts/project-ice/public/game.js-3017-          /*
+artifacts/project-ice/public/game.js-3018-           * No localStorage preview exists.
+artifacts/project-ice/public/game.js-3019-           *
+artifacts/project-ice/public/game.js-3020-           * Recover directly from the canonical IndexedDB world.
+artifacts/project-ice/public/game.js-3021-           */
+artifacts/project-ice/public/game.js-3022-          const recovered =
+artifacts/project-ice/public/game.js-3023-            recoverCareerPreviewFromWorld();
+artifacts/project-ice/public/game.js-3024-
+artifacts/project-ice/public/game.js-3025-          if (!recovered) {
+artifacts/project-ice/public/game.js-3026-            console.error(
+artifacts/project-ice/public/game.js-3027-              '[Project Ice] No recoverable career exists in the loaded world.'
+artifacts/project-ice/public/game.js-3028-            );
+artifacts/project-ice/public/game.js-3029-
+artifacts/project-ice/public/game.js-3030-            return;
+artifacts/project-ice/public/game.js-3031-          }
+artifacts/project-ice/public/game.js-3032-        }
+artifacts/project-ice/public/game.js-3033-    Game.player.currentDate =
+artifacts/project-ice/public/game.js-3034-      WorldEngine.state.player?.currentDate ||
+artifacts/project-ice/public/game.js-3035-      Game.player.currentDate ||
+artifacts/project-ice/public/game.js-3036-      '2026-09-01';
+artifacts/project-ice/public/game.js-3037-
+artifacts/project-ice/public/game.js-3038-    syncCareerPlayerWithWorld();
+artifacts/project-ice/public/game.js-3039-
+artifacts/project-ice/public/game.js-3040-    /*
+artifacts/project-ice/public/game.js:3041:     * Make normal Continue Career use the same complete
+artifacts/project-ice/public/game.js-3042-     * season architecture as a newly initialized career.
+artifacts/project-ice/public/game.js-3043-     */
+artifacts/project-ice/public/game.js-3044-    ensureCareerScheduleEventsOnLoad();
+artifacts/project-ice/public/game.js-3045-
+artifacts/project-ice/public/game.js-3046-    refreshScheduleEvents();
+artifacts/project-ice/public/game.js-3047-
+artifacts/project-ice/public/game.js-3048-    // ── Route based on career stage ───────────────────────────
+artifacts/project-ice/public/game.js-3049-    // 'hub' stage → tryouts are done; skip the intro sequence.
+artifacts/project-ice/public/game.js-3050-    if (Game.player.stage === 'hub') {
+artifacts/project-ice/public/game.js-3051-        refreshCareerUI();
+artifacts/project-ice/public/game.js-3052-        showScreen('hub');
+artifacts/project-ice/public/game.js-3053-
+artifacts/project-ice/public/game.js-3054-        ensureHubLiveGameDiagnosticButton();
+artifacts/project-ice/public/game.js-3055-
+artifacts/project-ice/public/game.js-3056-        return;
+artifacts/project-ice/public/game.js-3057-    }
+artifacts/project-ice/public/game.js-3058-
+artifacts/project-ice/public/game.js-3059-    // Still in creation flow — restore form state and resume at summary.
+artifacts/project-ice/public/game.js-3060-    firstNameInput.value = Game.player.firstName || '';
+artifacts/project-ice/public/game.js-3061-    lastNameInput.value = Game.player.lastName || '';
+artifacts/project-ice/public/game.js-3062-    hometownInput.value = Game.player.hometown || '';
+artifacts/project-ice/public/game.js-3063-
+artifacts/project-ice/public/game.js-3064-    restoreSelectedChoice('position', Game.player.position);
+artifacts/project-ice/public/game.js-3065-    restoreSelectedChoice('handedness', Game.player.handedness);
+artifacts/project-ice/public/game.js-3066-
+artifacts/project-ice/public/game.js-3067-    updateSummary();
+artifacts/project-ice/public/game.js-3068-    showScreen('summary');
+artifacts/project-ice/public/game.js-3069-  } catch (error) {
+artifacts/project-ice/public/game.js-3070-    console.error('[Project Ice] Load failed:', error);
+artifacts/project-ice/public/game.js-3071-  }
+artifacts/project-ice/public/game.js-3072-}
+artifacts/project-ice/public/game.js-3073-
+artifacts/project-ice/public/game.js-3074-function deleteCareerPreview() {
+artifacts/project-ice/public/game.js-3075-  const confirmed = window.confirm(
+artifacts/project-ice/public/game.js-3076-    'Delete your saved Project Ice career preview?'
+artifacts/project-ice/public/game.js-3077-  );
+artifacts/project-ice/public/game.js-3078-
+artifacts/project-ice/public/game.js-3079-  if (!confirmed) return;
+artifacts/project-ice/public/game.js-3080-
+artifacts/project-ice/public/game.js-3081-  localStorage.removeItem(SAVE_KEY);
+artifacts/project-ice/public/game.js-3082-  resetPlayer();
+artifacts/project-ice/public/game.js-3083-  updateContinueButton();
+artifacts/project-ice/public/game.js-3084-  updateDevShortcut(); // DEV SHORTCUT — remove with dev shortcut
+artifacts/project-ice/public/game.js-3085-  showScreen('title');
+artifacts/project-ice/public/game.js-3086-}
+artifacts/project-ice/public/game.js-3087-
+artifacts/project-ice/public/game.js-3088-function restoreSelectedChoice(groupName, selectedValue) {
+artifacts/project-ice/public/game.js-3089-  const choices = document.querySelectorAll(
+artifacts/project-ice/public/game.js-3090-    `[data-choice-group="${groupName}"]`
+artifacts/project-ice/public/game.js-3091-  );
+artifacts/project-ice/public/game.js-3092-
+artifacts/project-ice/public/game.js-3093-  choices.forEach((choice) => {
+artifacts/project-ice/public/game.js-3094-    const isSelected = choice.dataset.value === selectedValue;
+artifacts/project-ice/public/game.js-3095-
+artifacts/project-ice/public/game.js-3096-    choice.classList.toggle('choice-card--selected', isSelected);
+artifacts/project-ice/public/game.js-3097-  });
+artifacts/project-ice/public/game.js-3098-}
+artifacts/project-ice/public/game.js-3099-
+artifacts/project-ice/public/game.js-3100-/*
+artifacts/project-ice/public/game.js-3101- * ============================================================
+artifacts/project-ice/public/game.js-3102- * CAREER EXISTENCE — CANONICAL WORLD CHECK
+artifacts/project-ice/public/game.js-3103- * ============================================================
+artifacts/project-ice/public/game.js-3104- *
+artifacts/project-ice/public/game.js-3105- * IndexedDB / WorldEngine is now the source of truth.
+artifacts/project-ice/public/game.js-3106- *
+artifacts/project-ice/public/game.js-3107- * The old projectice_save localStorage record is only a
+artifacts/project-ice/public/game.js-3108- * compatibility/preview cache and must never be required in
+artifacts/project-ice/public/game.js-3109- * order to continue an existing career.
+artifacts/project-ice/public/game.js-3110- */
+artifacts/project-ice/public/game.js-3111-function hasCanonicalCareerWorld() {
+artifacts/project-ice/public/game.js-3112-  const directCareerPlayer =
+artifacts/project-ice/public/game.js-3113-    WorldEngine.getPlayerById(
+artifacts/project-ice/public/game.js-3114-      'career-player'
+artifacts/project-ice/public/game.js-3115-    );
+artifacts/project-ice/public/game.js-3116-
+artifacts/project-ice/public/game.js-3117-  if (directCareerPlayer) {
+artifacts/project-ice/public/game.js-3118-    return true;
+artifacts/project-ice/public/game.js-3119-  }
+artifacts/project-ice/public/game.js-3120-
+artifacts/project-ice/public/game.js-3121-  for (
+artifacts/project-ice/public/game.js-3122-    const team of
+artifacts/project-ice/public/game.js-3123-    WorldEngine.state.teams || []
+artifacts/project-ice/public/game.js-3124-  ) {
+artifacts/project-ice/public/game.js-3125-    const found =
+artifacts/project-ice/public/game.js-3126-      (
+artifacts/project-ice/public/game.js-3127-        team.roster || []
+artifacts/project-ice/public/game.js-3128-      ).some(
+artifacts/project-ice/public/game.js-3129-        player =>
+artifacts/project-ice/public/game.js-3130-          player?.isCareerPlayer ===
+artifacts/project-ice/public/game.js-3131-            true ||
+artifacts/project-ice/public/game.js-3132-          String(
+artifacts/project-ice/public/game.js-3133-            player?.id ||
+artifacts/project-ice/public/game.js-3134-            player?.playerId ||
+artifacts/project-ice/public/game.js-3135-            ''
+artifacts/project-ice/public/game.js-3136-          ) ===
+artifacts/project-ice/public/game.js-3137-            'career-player'
+artifacts/project-ice/public/game.js-3138-      );
+artifacts/project-ice/public/game.js-3139-
+artifacts/project-ice/public/game.js-3140-    if (found) {
+artifacts/project-ice/public/game.js-3141-      return true;
+artifacts/project-ice/public/game.js-3142-    }
+artifacts/project-ice/public/game.js-3143-  }
+artifacts/project-ice/public/game.js-3144-
+artifacts/project-ice/public/game.js-3145-  return false;
+artifacts/project-ice/public/game.js-3146-}
+artifacts/project-ice/public/game.js-3147-
+artifacts/project-ice/public/game.js-3148-  function updateContinueButton() {
+artifacts/project-ice/public/game.js-3149-    const hasSave =
+artifacts/project-ice/public/game.js-3150-      Boolean(
+artifacts/project-ice/public/game.js-3151-        localStorage.getItem(
+artifacts/project-ice/public/game.js-3152-          SAVE_KEY
+artifacts/project-ice/public/game.js-3153-        )
+artifacts/project-ice/public/game.js-3154-      ) ||
+artifacts/project-ice/public/game.js-3155-      hasCanonicalCareerWorld();
+artifacts/project-ice/public/game.js-3156-
+artifacts/project-ice/public/game.js:3157:  btnContinue.disabled = !hasSave;
+artifacts/project-ice/public/game.js-3158-
+artifacts/project-ice/public/game.js-3159-  if (hasSave) {
+artifacts/project-ice/public/game.js:3160:    btnContinue.classList.remove('btn--secondary');
+artifacts/project-ice/public/game.js:3161:    btnContinue.classList.add('btn--primary');
+artifacts/project-ice/public/game.js-3162-
+artifacts/project-ice/public/game.js:3163:    btnContinue.innerHTML = `
+artifacts/project-ice/public/game.js-3164-      <span class="btn__icon">📁</span>
+artifacts/project-ice/public/game.js:3165:      <span class="btn__label">Continue Career</span>
+artifacts/project-ice/public/game.js-3166-      <span class="btn__arrow">›</span>
+artifacts/project-ice/public/game.js-3167-    `;
+artifacts/project-ice/public/game.js-3168-  } else {
+artifacts/project-ice/public/game.js:3169:    btnContinue.classList.remove('btn--primary');
+artifacts/project-ice/public/game.js:3170:    btnContinue.classList.add('btn--secondary');
+artifacts/project-ice/public/game.js-3171-
+artifacts/project-ice/public/game.js:3172:    btnContinue.innerHTML = `
+artifacts/project-ice/public/game.js-3173-      <span class="btn__icon">📁</span>
+artifacts/project-ice/public/game.js:3174:      <span class="btn__label">Continue Career</span>
+artifacts/project-ice/public/game.js-3175-      <span class="btn__tag">No Save Found</span>
+artifacts/project-ice/public/game.js-3176-    `;
+artifacts/project-ice/public/game.js-3177-  }
+artifacts/project-ice/public/game.js-3178-}
+artifacts/project-ice/public/game.js-3179-
+artifacts/project-ice/public/game.js-3180-// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+artifacts/project-ice/public/game.js-3181-// Enables the "Skip to Career Hub" button only when a saved career exists.
+artifacts/project-ice/public/game.js-3182-// Does not alter save data, career stage, or tryout completion state.
+artifacts/project-ice/public/game.js-3183-function updateDevShortcut() {
+artifacts/project-ice/public/game.js-3184-  const hasSave = Boolean(localStorage.getItem(SAVE_KEY));
+artifacts/project-ice/public/game.js-3185-  btnDevHub.disabled = !hasSave;
+artifacts/project-ice/public/game.js-3186-  devShortcutHint.classList.toggle('is-visible', !hasSave);
+artifacts/project-ice/public/game.js-3187-}
+artifacts/project-ice/public/game.js-3188-// ─────────────────────────────────────────────────────────────────────────────
+artifacts/project-ice/public/game.js-3189-
+artifacts/project-ice/public/game.js-3190-function resetPlayer() {
+artifacts/project-ice/public/game.js-3191-  Game.player = {
+artifacts/project-ice/public/game.js-3192-    firstName: '',
+artifacts/project-ice/public/game.js-3193-    lastName: '',
+artifacts/project-ice/public/game.js-3194-    hometown: '',
+artifacts/project-ice/public/game.js-3195-    position: '',
+artifacts/project-ice/public/game.js-3196-    handedness: '',
+artifacts/project-ice/public/game.js-3197-    background: '',
+artifacts/project-ice/public/game.js-3198-    archetype: '',
+artifacts/project-ice/public/game.js-3199-    motivation: '',
+artifacts/project-ice/public/game.js-3200-    nhlTeam: '',
+artifacts/project-ice/public/game.js-3201-    age: 14,
+artifacts/project-ice/public/game.js-3202-    careerStart: 2022,
+artifacts/project-ice/public/game.js-3203-  };
+artifacts/project-ice/public/game.js-3204-
+artifacts/project-ice/public/game.js-3205-  playerForm.reset();
+artifacts/project-ice/public/game.js-3206-
+artifacts/project-ice/public/game.js-3207-  document.querySelectorAll('.choice-card').forEach((choice) => {
+artifacts/project-ice/public/game.js-3208-    choice.classList.remove('choice-card--selected');
+artifacts/project-ice/public/game.js-3209-  });
+artifacts/project-ice/public/game.js-3210-
+artifacts/project-ice/public/game.js-3211-  formError.textContent = '';
+artifacts/project-ice/public/game.js-3212-}
+artifacts/project-ice/public/game.js-3213-
+artifacts/project-ice/public/game.js-3214-// ── Event listeners ─────────────────────────────────────────
+artifacts/project-ice/public/game.js:3215:btnNewCareer.addEventListener('pointerdown', (event) => {
+artifacts/project-ice/public/game.js:3216:  spawnRipple(btnNewCareer, event);
+artifacts/project-ice/public/game.js-3217-});
+artifacts/project-ice/public/game.js-3218-
+artifacts/project-ice/public/game.js:3219:btnNewCareer.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3220-  resetPlayer();
+artifacts/project-ice/public/game.js-3221-  showScreen('creation');
+artifacts/project-ice/public/game.js-3222-});
+artifacts/project-ice/public/game.js-3223-
+artifacts/project-ice/public/game.js:3224:btnContinue.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3225-  loadCareerPreview();
+artifacts/project-ice/public/game.js-3226-});
+artifacts/project-ice/public/game.js-3227-
+artifacts/project-ice/public/game.js-3228-// ── DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE ──────────────────────────
+artifacts/project-ice/public/game.js-3229-// Loads the saved career and jumps straight to Career Hub without running
+artifacts/project-ice/public/game.js-3230-// any cinematic sequences or altering career stage / tryout state.
+artifacts/project-ice/public/game.js-3231-btnDevHub.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3232-  const savedCareer = localStorage.getItem(SAVE_KEY);
+artifacts/project-ice/public/game.js-3233-  if (!savedCareer) return;
+artifacts/project-ice/public/game.js-3234-
+artifacts/project-ice/public/game.js-3235-  try {
+artifacts/project-ice/public/game.js-3236-    const parsed = JSON.parse(savedCareer);
+artifacts/project-ice/public/game.js-3237-    if (!parsed.player) return;
+artifacts/project-ice/public/game.js-3238-
+artifacts/project-ice/public/game.js-3239-    Game.player = {
+artifacts/project-ice/public/game.js-3240-      ...Game.player,
+artifacts/project-ice/public/game.js-3241-      ...parsed.player,
+artifacts/project-ice/public/game.js-3242-    };
+artifacts/project-ice/public/game.js-3243-
+artifacts/project-ice/public/game.js-3244-    const devDate =
+artifacts/project-ice/public/game.js-3245-      '2026-09-17';
+artifacts/project-ice/public/game.js-3246-
+artifacts/project-ice/public/game.js-3247-    /*
+artifacts/project-ice/public/game.js-3248-     * DEV SHORTCUT
+artifacts/project-ice/public/game.js-3249-     *
+artifacts/project-ice/public/game.js-3250-     * Jump directly to the intended testing date.
+artifacts/project-ice/public/game.js-3251-     *
+artifacts/project-ice/public/game.js-3252-     * Do not rewind the canonical world to season start and
+artifacts/project-ice/public/game.js-3253-     * re-simulate already processed history. Rewinding only the
+artifacts/project-ice/public/game.js-3254-     * clock while retaining completed games/events creates an
+artifacts/project-ice/public/game.js-3255-     * internally inconsistent world and can stop early on a
+artifacts/project-ice/public/game.js-3256-     * player-controlled event such as Training.
+artifacts/project-ice/public/game.js-3257-     */
+artifacts/project-ice/public/game.js-3258-    WorldEngine.setCurrentDate(
+artifacts/project-ice/public/game.js-3259-      devDate,
+artifacts/project-ice/public/game.js-3260-      {
+artifacts/project-ice/public/game.js-3261-        save: false,
+artifacts/project-ice/public/game.js-3262-      }
+artifacts/project-ice/public/game.js-3263-    );
+artifacts/project-ice/public/game.js-3264-
+artifacts/project-ice/public/game.js-3265-    Game.player.currentDate =
+artifacts/project-ice/public/game.js-3266-      devDate;
+artifacts/project-ice/public/game.js-3267-
+artifacts/project-ice/public/game.js-3268-    const canonicalPlayer =
+artifacts/project-ice/public/game.js-3269-      syncCareerPlayerWithWorld();
+artifacts/project-ice/public/game.js-3270-
+artifacts/project-ice/public/game.js-3271-    if (!canonicalPlayer) {
+artifacts/project-ice/public/game.js-3272-      console.error(
+artifacts/project-ice/public/game.js-3273-        '[DEV] Career player could not be synchronized with the World Engine.'
+artifacts/project-ice/public/game.js-3274-      );
+artifacts/project-ice/public/game.js-3275-
+artifacts/project-ice/public/game.js-3276-      return;
+artifacts/project-ice/public/game.js-3277-    }
+artifacts/project-ice/public/game.js-3278-
+artifacts/project-ice/public/game.js-3279-    WorldEngine.state.schedule =
+artifacts/project-ice/public/game.js-3280-      WorldEngine.createHighSchoolCareerSchedule(
+artifacts/project-ice/public/game.js-3281-        WorldEngine.state.teams
+artifacts/project-ice/public/game.js-3282-      );
+artifacts/project-ice/public/game.js-3283-
+artifacts/project-ice/public/game.js-3284-    scheduleViewYear = 2026;
+artifacts/project-ice/public/game.js-3285-    scheduleViewMonth = 8;
+artifacts/project-ice/public/game.js-3286-
+artifacts/project-ice/public/game.js-3287-    isDevSession = true;
+artifacts/project-ice/public/game.js-3288-    window.PROJECT_ICE_DEV_SESSION = true;
+artifacts/project-ice/public/game.js-3289-
+artifacts/project-ice/public/game.js-3290-    
+artifacts/project-ice/public/game.js-3291-
+artifacts/project-ice/public/game.js-3292-    refreshScheduleEvents();
+artifacts/project-ice/public/game.js-3293-    refreshCareerUI();
+artifacts/project-ice/public/game.js-3294-    showScreen('hub');
+artifacts/project-ice/public/game.js-3295-  } catch (err) {
+artifacts/project-ice/public/game.js-3296-    console.error('[DEV] Skip to Hub failed:', err);
+artifacts/project-ice/public/game.js-3297-  }
+artifacts/project-ice/public/game.js-3298-});
+artifacts/project-ice/public/game.js-3299-
+artifacts/project-ice/public/game.js-3300-if (btnLiveGameDiagnostic) {
+artifacts/project-ice/public/game.js-3301-  btnLiveGameDiagnostic
+artifacts/project-ice/public/game.js-3302-    .addEventListener(
+artifacts/project-ice/public/game.js-3303-      'click',
+artifacts/project-ice/public/game.js-3304-      () => {
+artifacts/project-ice/public/game.js-3305-        runLiveGameDiagnosticFromUI();
+artifacts/project-ice/public/game.js-3306-      }
+artifacts/project-ice/public/game.js-3307-    );
+artifacts/project-ice/public/game.js-3308-}
+artifacts/project-ice/public/game.js-3309-// ─────────────────────────────────────────────────────────────────────────────
+artifacts/project-ice/public/game.js-3310-
+artifacts/project-ice/public/game.js-3311-btnBackTitle.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3312-  showScreen('title');
+artifacts/project-ice/public/game.js-3313-});
+artifacts/project-ice/public/game.js-3314-
+artifacts/project-ice/public/game.js-3315-btnBackCreation.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3316-  showScreen('creation');
+artifacts/project-ice/public/game.js-3317-});
+artifacts/project-ice/public/game.js-3318-
+artifacts/project-ice/public/game.js-3319-btnBackSummary.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3320-  showScreen('summary');
+artifacts/project-ice/public/game.js-3321-});
+artifacts/project-ice/public/game.js-3322-function openHubTab(tabId) {
+artifacts/project-ice/public/game.js-3323-  const validTabs = [
+artifacts/project-ice/public/game.js-3324-    'home',
+artifacts/project-ice/public/game.js-3325-    'schedule',
+artifacts/project-ice/public/game.js-3326-    'player',
+artifacts/project-ice/public/game.js-3327-    'team',
+artifacts/project-ice/public/game.js-3328-    'league'
+artifacts/project-ice/public/game.js-3329-  ];
+artifacts/project-ice/public/game.js-3330-
+artifacts/project-ice/public/game.js-3331-  if (!validTabs.includes(tabId)) return;
+artifacts/project-ice/public/game.js-3332-
+artifacts/project-ice/public/game.js-3333-  showScreen('hub');
+artifacts/project-ice/public/game.js-3334-
+artifacts/project-ice/public/game.js-3335-  document
+artifacts/project-ice/public/game.js-3336-    .querySelectorAll('.hub-nav__tab')
+artifacts/project-ice/public/game.js-3337-    .forEach(tab => {
+artifacts/project-ice/public/game.js-3338-      tab.classList.toggle(
+artifacts/project-ice/public/game.js-3339-        'hub-nav__tab--active',
+artifacts/project-ice/public/game.js-3340-        tab.dataset.hubTab === tabId
+artifacts/project-ice/public/game.js-3341-      );
+artifacts/project-ice/public/game.js-3342-    });
+artifacts/project-ice/public/game.js-3343-
+artifacts/project-ice/public/game.js-3344-  document
+artifacts/project-ice/public/game.js-3345-    .querySelectorAll('.hub-tab-panel')
+artifacts/project-ice/public/game.js-3346-    .forEach(panel => {
+artifacts/project-ice/public/game.js-3347-      const isActive =
+artifacts/project-ice/public/game.js-3348-        panel.id === `hub-tab-${tabId}`;
+artifacts/project-ice/public/game.js-3349-
+artifacts/project-ice/public/game.js-3350-      panel.classList.toggle(
+artifacts/project-ice/public/game.js-3351-        'hub-tab-panel--active',
+artifacts/project-ice/public/game.js-3352-        isActive
+artifacts/project-ice/public/game.js-3353-      );
+artifacts/project-ice/public/game.js-3354-
+artifacts/project-ice/public/game.js-3355-      panel.setAttribute(
+artifacts/project-ice/public/game.js-3356-        'aria-hidden',
+artifacts/project-ice/public/game.js-3357-        String(!isActive)
+artifacts/project-ice/public/game.js-3358-      );
+artifacts/project-ice/public/game.js-3359-    });
+artifacts/project-ice/public/game.js-3360-
+artifacts/project-ice/public/game.js-3361-  const hubInfoBar =
+artifacts/project-ice/public/game.js-3362-    document.getElementById('hub-info-bar');
+artifacts/project-ice/public/game.js-3363-
+artifacts/project-ice/public/game.js-3364-  if (hubInfoBar) {
+artifacts/project-ice/public/game.js-3365-    hubInfoBar.style.display =
+artifacts/project-ice/public/game.js-3366-      tabId === 'home' ? '' : 'none';
+artifacts/project-ice/public/game.js-3367-  }
+artifacts/project-ice/public/game.js-3368-
+artifacts/project-ice/public/game.js-3369-  if (tabId === 'schedule') {
+artifacts/project-ice/public/game.js-3370-    refreshScheduleEvents();
+artifacts/project-ice/public/game.js-3371-
+artifacts/project-ice/public/game.js-3372-    /*
+artifacts/project-ice/public/game.js-3373-     * Always enter Schedule on the career's canonical current month.
+artifacts/project-ice/public/game.js-3374-     * Manual month navigation still works normally after the tab opens.
+artifacts/project-ice/public/game.js-3375-     */
+artifacts/project-ice/public/game.js-3376-    const scheduleCurrentDate =
+artifacts/project-ice/public/game.js-3377-      WorldEngine.state?.season?.currentDate ||
+artifacts/project-ice/public/game.js-3378-      Game.player?.currentDate ||
+artifacts/project-ice/public/game.js-3379-      null;
+artifacts/project-ice/public/game.js-3380-
+artifacts/project-ice/public/game.js-3381-    const scheduleDateMatch =
+artifacts/project-ice/public/game.js-3382-      String(scheduleCurrentDate || '')
+artifacts/project-ice/public/game.js-3383-        .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+artifacts/project-ice/public/game.js-3384-
+artifacts/project-ice/public/game.js-3385-    if (scheduleDateMatch) {
+artifacts/project-ice/public/game.js-3386-      scheduleViewYear =
+artifacts/project-ice/public/game.js-3387-        Number(scheduleDateMatch[1]);
+artifacts/project-ice/public/game.js-3388-
+artifacts/project-ice/public/game.js-3389-      scheduleViewMonth =
+artifacts/project-ice/public/game.js-3390-        Math.max(
+artifacts/project-ice/public/game.js-3391-          0,
+artifacts/project-ice/public/game.js-3392-          Math.min(
+artifacts/project-ice/public/game.js-3393-            11,
+artifacts/project-ice/public/game.js-3394-            Number(scheduleDateMatch[2]) - 1
+artifacts/project-ice/public/game.js-3395-          )
+artifacts/project-ice/public/game.js-3396-        );
+artifacts/project-ice/public/game.js-3397-    }
+artifacts/project-ice/public/game.js-3398-
+artifacts/project-ice/public/game.js-3399-    renderScheduleCalendar(
+artifacts/project-ice/public/game.js-3400-      scheduleViewYear,
+artifacts/project-ice/public/game.js-3401-      scheduleViewMonth
+artifacts/project-ice/public/game.js-3402-    );
+artifacts/project-ice/public/game.js-3403-
+artifacts/project-ice/public/game.js-3404-    renderScheduleKeyEvents();
+--
+artifacts/project-ice/public/game.js-3429-    renderLeagueProspectsPreview();
+artifacts/project-ice/public/game.js-3430-  }
+artifacts/project-ice/public/game.js-3431-}
+artifacts/project-ice/public/game.js-3432-const btnBackPlayerProfile =
+artifacts/project-ice/public/game.js-3433-  document.getElementById('btn-back-player-profile');
+artifacts/project-ice/public/game.js-3434-
+artifacts/project-ice/public/game.js-3435-if (btnBackPlayerProfile) {
+artifacts/project-ice/public/game.js-3436-  
+artifacts/project-ice/public/game.js-3437-      btnBackPlayerProfile.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3438-        if (_playerProfileOrigin === 'full-stats') {
+artifacts/project-ice/public/game.js-3439-          showScreen('full-stats');
+artifacts/project-ice/public/game.js-3440-          return;
+artifacts/project-ice/public/game.js-3441-        }
+artifacts/project-ice/public/game.js-3442-        if (_playerProfileOrigin === 'prospects') {
+artifacts/project-ice/public/game.js-3443-          showScreen('prospects');
+artifacts/project-ice/public/game.js-3444-          renderProspectsScreen();
+artifacts/project-ice/public/game.js-3445-          return;
+artifacts/project-ice/public/game.js-3446-        }
+artifacts/project-ice/public/game.js-3447-        if (_playerProfileOrigin === 'league-prospects') {
+artifacts/project-ice/public/game.js-3448-          openHubTab('league');
+artifacts/project-ice/public/game.js-3449-          return;
+artifacts/project-ice/public/game.js-3450-        }
+artifacts/project-ice/public/game.js-3451-
+artifacts/project-ice/public/game.js-3452-        if (_playerProfileOrigin === 'hub-team') {
+artifacts/project-ice/public/game.js-3453-      showScreen('hub');
+artifacts/project-ice/public/game.js-3454-
+artifacts/project-ice/public/game.js-3455-      document
+artifacts/project-ice/public/game.js-3456-        .querySelectorAll('.hub-tab-panel')
+artifacts/project-ice/public/game.js-3457-        .forEach(panel => {
+artifacts/project-ice/public/game.js-3458-          panel.classList.remove('hub-tab-panel--active');
+artifacts/project-ice/public/game.js-3459-          panel.setAttribute('aria-hidden', 'true');
+artifacts/project-ice/public/game.js-3460-        });
+artifacts/project-ice/public/game.js-3461-      
+artifacts/project-ice/public/game.js-3462-
+artifacts/project-ice/public/game.js-3463-      document
+artifacts/project-ice/public/game.js-3464-        .querySelectorAll('.hub-nav__tab')
+artifacts/project-ice/public/game.js-3465-        .forEach(button => {
+artifacts/project-ice/public/game.js-3466-          button.classList.remove('hub-nav__tab--active');
+artifacts/project-ice/public/game.js-3467-        });
+artifacts/project-ice/public/game.js-3468-
+artifacts/project-ice/public/game.js-3469-      const teamPanel =
+artifacts/project-ice/public/game.js-3470-        document.getElementById('hub-tab-team');
+artifacts/project-ice/public/game.js-3471-
+artifacts/project-ice/public/game.js-3472-      const teamButton =
+artifacts/project-ice/public/game.js-3473-        document.querySelector('[data-hub-tab="team"]');
+artifacts/project-ice/public/game.js-3474-
+artifacts/project-ice/public/game.js-3475-      if (teamPanel) {
+artifacts/project-ice/public/game.js-3476-        teamPanel.classList.add('hub-tab-panel--active');
+artifacts/project-ice/public/game.js-3477-        teamPanel.setAttribute('aria-hidden', 'false');
+artifacts/project-ice/public/game.js-3478-      }
+artifacts/project-ice/public/game.js-3479-
+artifacts/project-ice/public/game.js-3480-      if (teamButton) {
+artifacts/project-ice/public/game.js-3481-        teamButton.classList.add('hub-nav__tab--active');
+artifacts/project-ice/public/game.js-3482-      }
+artifacts/project-ice/public/game.js-3483-
+artifacts/project-ice/public/game.js-3484-      renderTeamTab();
+artifacts/project-ice/public/game.js-3485-      return;
+artifacts/project-ice/public/game.js-3486-    }
+artifacts/project-ice/public/game.js-3487-
+artifacts/project-ice/public/game.js-3488-    showScreen('team-profile');
+artifacts/project-ice/public/game.js-3489-  });
+artifacts/project-ice/public/game.js-3490-}
+artifacts/project-ice/public/game.js-3491-// ── Hockey Background screen ────────────────────────────────
+artifacts/project-ice/public/game.js-3492-document.querySelectorAll('#background-screen .bg-card').forEach((card) => {
+artifacts/project-ice/public/game.js-3493-  card.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3494-    document.querySelectorAll('#background-screen .bg-card').forEach((c) =>
+artifacts/project-ice/public/game.js-3495-      c.classList.remove('bg-card--selected')
+artifacts/project-ice/public/game.js-3496-    );
+artifacts/project-ice/public/game.js-3497-    card.classList.add('bg-card--selected');
+artifacts/project-ice/public/game.js-3498-    Game.player.background = card.dataset.background;
+artifacts/project-ice/public/game.js:3499:    btnContinueBackground.disabled = false;
+artifacts/project-ice/public/game.js:3500:    btnContinueBackground.classList.remove('btn--secondary');
+artifacts/project-ice/public/game.js:3501:    btnContinueBackground.classList.add('btn--primary');
+artifacts/project-ice/public/game.js-3502-  });
+artifacts/project-ice/public/game.js-3503-});
+artifacts/project-ice/public/game.js-3504-
+artifacts/project-ice/public/game.js-3505-btnIdentityBackground.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3506-  showScreen('background');
+artifacts/project-ice/public/game.js-3507-});
+artifacts/project-ice/public/game.js-3508-
+artifacts/project-ice/public/game.js-3509-btnBackIdentity.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3510-  showScreen('identity');
+artifacts/project-ice/public/game.js-3511-});
+artifacts/project-ice/public/game.js-3512-
+artifacts/project-ice/public/game.js:3513:btnContinueBackground.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3514-  saveCareerPreview();
+artifacts/project-ice/public/game.js-3515-  showScreen('identity');
+artifacts/project-ice/public/game.js-3516-});
+artifacts/project-ice/public/game.js-3517-
+artifacts/project-ice/public/game.js-3518-// ── Archetype screen ────────────────────────────────────────
+artifacts/project-ice/public/game.js-3519-document.querySelectorAll('#archetype-screen .bg-card').forEach((card) => {
+artifacts/project-ice/public/game.js-3520-  card.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3521-    document.querySelectorAll('#archetype-screen .bg-card').forEach((c) =>
+artifacts/project-ice/public/game.js-3522-      c.classList.remove('bg-card--selected')
+artifacts/project-ice/public/game.js-3523-    );
+artifacts/project-ice/public/game.js-3524-    card.classList.add('bg-card--selected');
+artifacts/project-ice/public/game.js-3525-    Game.player.archetype = card.dataset.archetype;
+artifacts/project-ice/public/game.js:3526:    btnContinueArchetype.disabled = false;
+artifacts/project-ice/public/game.js:3527:    btnContinueArchetype.classList.remove('btn--secondary');
+artifacts/project-ice/public/game.js:3528:    btnContinueArchetype.classList.add('btn--primary');
+artifacts/project-ice/public/game.js-3529-  });
+artifacts/project-ice/public/game.js-3530-});
+artifacts/project-ice/public/game.js-3531-
+artifacts/project-ice/public/game.js-3532-btnIdentityArchetype.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3533-  showScreen('archetype');
+artifacts/project-ice/public/game.js-3534-});
+artifacts/project-ice/public/game.js-3535-
+artifacts/project-ice/public/game.js-3536-btnBackIdentityArchetype.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3537-  showScreen('identity');
+artifacts/project-ice/public/game.js-3538-});
+artifacts/project-ice/public/game.js-3539-
+artifacts/project-ice/public/game.js:3540:btnContinueArchetype.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3541-  saveCareerPreview();
+artifacts/project-ice/public/game.js-3542-  showScreen('identity');
+artifacts/project-ice/public/game.js-3543-});
+artifacts/project-ice/public/game.js-3544-
+artifacts/project-ice/public/game.js-3545-// ── NHL Team screen ─────────────────────────────────────────
+artifacts/project-ice/public/game.js-3546-document.querySelectorAll('#nhlteam-screen .team-card').forEach((card) => {
+artifacts/project-ice/public/game.js-3547-  card.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3548-    document.querySelectorAll('#nhlteam-screen .team-card').forEach((c) =>
+artifacts/project-ice/public/game.js-3549-      c.classList.remove('team-card--selected')
+artifacts/project-ice/public/game.js-3550-    );
+artifacts/project-ice/public/game.js-3551-    card.classList.add('team-card--selected');
+artifacts/project-ice/public/game.js-3552-    Game.player.nhlTeam = card.dataset.team;
+artifacts/project-ice/public/game.js:3553:    btnContinueNhlTeam.disabled = false;
+artifacts/project-ice/public/game.js:3554:    btnContinueNhlTeam.classList.remove('btn--secondary');
+artifacts/project-ice/public/game.js:3555:    btnContinueNhlTeam.classList.add('btn--primary');
+artifacts/project-ice/public/game.js-3556-  });
+artifacts/project-ice/public/game.js-3557-});
+artifacts/project-ice/public/game.js-3558-
+artifacts/project-ice/public/game.js-3559-btnIdentityNhlTeam.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3560-  showScreen('nhlteam');
+artifacts/project-ice/public/game.js-3561-});
+artifacts/project-ice/public/game.js-3562-
+artifacts/project-ice/public/game.js-3563-btnBackIdentityNhlTeam.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3564-  showScreen('identity');
+artifacts/project-ice/public/game.js-3565-});
+artifacts/project-ice/public/game.js-3566-
+artifacts/project-ice/public/game.js:3567:btnContinueNhlTeam.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3568-  saveCareerPreview();
+artifacts/project-ice/public/game.js-3569-  showScreen('identity');
+artifacts/project-ice/public/game.js-3570-});
+artifacts/project-ice/public/game.js-3571-
+artifacts/project-ice/public/game.js-3572-// ── Motivation screen ───────────────────────────────────────
+artifacts/project-ice/public/game.js-3573-document.querySelectorAll('#motivation-screen .motivation-card').forEach((card) => {
+artifacts/project-ice/public/game.js-3574-  card.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3575-    document.querySelectorAll('#motivation-screen .motivation-card').forEach((c) =>
+artifacts/project-ice/public/game.js-3576-      c.classList.remove('motivation-card--selected')
+artifacts/project-ice/public/game.js-3577-    );
+artifacts/project-ice/public/game.js-3578-    card.classList.add('motivation-card--selected');
+artifacts/project-ice/public/game.js-3579-    Game.player.motivation = card.dataset.motivation;
+artifacts/project-ice/public/game.js:3580:    btnContinueMotivation.disabled = false;
+artifacts/project-ice/public/game.js:3581:    btnContinueMotivation.classList.remove('btn--secondary');
+artifacts/project-ice/public/game.js:3582:    btnContinueMotivation.classList.add('btn--primary');
+artifacts/project-ice/public/game.js-3583-  });
+artifacts/project-ice/public/game.js-3584-});
+artifacts/project-ice/public/game.js-3585-
+artifacts/project-ice/public/game.js-3586-btnIdentityMotivation.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3587-  showScreen('motivation');
+artifacts/project-ice/public/game.js-3588-});
+artifacts/project-ice/public/game.js-3589-
+artifacts/project-ice/public/game.js-3590-btnBackIdentityMotivation.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3591-  showScreen('identity');
+artifacts/project-ice/public/game.js-3592-});
+artifacts/project-ice/public/game.js-3593-
+artifacts/project-ice/public/game.js:3594:btnContinueMotivation.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3595-  saveCareerPreview();
+artifacts/project-ice/public/game.js-3596-  showScreen('identity');
+artifacts/project-ice/public/game.js-3597-});
+artifacts/project-ice/public/game.js-3598-
+artifacts/project-ice/public/game.js:3599:btnContinueSummary.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3600-  saveCareerPreview();
+artifacts/project-ice/public/game.js-3601-  showScreen('identity');
+artifacts/project-ice/public/game.js-3602-});
+artifacts/project-ice/public/game.js-3603-
+artifacts/project-ice/public/game.js:3604:btnContinueSetup.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3605-  showScreen('overview');
+artifacts/project-ice/public/game.js-3606-});
+artifacts/project-ice/public/game.js-3607-
+artifacts/project-ice/public/game.js-3608-btnBackOverview.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3609-  showScreen('identity');
+artifacts/project-ice/public/game.js-3610-});
+artifacts/project-ice/public/game.js-3611-
+artifacts/project-ice/public/game.js-3612-btnBeginCareer.addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3613-  runIntroSequence();
+artifacts/project-ice/public/game.js-3614-});
+artifacts/project-ice/public/game.js-3615-
+artifacts/project-ice/public/game.js-3616-// ── Bedroom interactions ────────────────────────────────────
+artifacts/project-ice/public/game.js-3617-let brToastTimer = null;
+artifacts/project-ice/public/game.js-3618-
+artifacts/project-ice/public/game.js-3619-function showBedroomToast(message) {
+artifacts/project-ice/public/game.js-3620-  const toast = document.getElementById('br-toast');
+artifacts/project-ice/public/game.js-3621-  toast.textContent = message;
+artifacts/project-ice/public/game.js-3622-  toast.classList.add('br__toast--visible');
+artifacts/project-ice/public/game.js-3623-  clearTimeout(brToastTimer);
+artifacts/project-ice/public/game.js-3624-  brToastTimer = setTimeout(() => {
+artifacts/project-ice/public/game.js-3625-    toast.classList.remove('br__toast--visible');
+artifacts/project-ice/public/game.js-3626-  }, 3800);
+artifacts/project-ice/public/game.js-3627-}
+artifacts/project-ice/public/game.js-3628-
+artifacts/project-ice/public/game.js-3629-document.querySelector('.br__bag').addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3630-  showBedroomToast('Everything is packed for tomorrow\'s tryouts.');
+artifacts/project-ice/public/game.js-3631-});
+artifacts/project-ice/public/game.js-3632-
+artifacts/project-ice/public/game.js-3633-document.querySelector('.br__stick-wrap').addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3634-  showBedroomToast('You\'ve practiced with this stick almost every day this summer.');
+artifacts/project-ice/public/game.js-3635-});
+artifacts/project-ice/public/game.js-3636-
+artifacts/project-ice/public/game.js-3637-document.querySelector('.br__phone').addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3638-  const overlay = document.getElementById('messages-overlay');
+artifacts/project-ice/public/game.js-3639-  overlay.classList.add('is-open');
+artifacts/project-ice/public/game.js-3640-  overlay.setAttribute('aria-hidden', 'false');
+artifacts/project-ice/public/game.js-3641-});
+artifacts/project-ice/public/game.js-3642-
+artifacts/project-ice/public/game.js-3643-document.getElementById('btn-close-messages').addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3644-  const overlay = document.getElementById('messages-overlay');
+artifacts/project-ice/public/game.js-3645-  overlay.classList.remove('is-open');
+artifacts/project-ice/public/game.js-3646-  overlay.setAttribute('aria-hidden', 'true');
+artifacts/project-ice/public/game.js-3647-});
+artifacts/project-ice/public/game.js-3648-
+artifacts/project-ice/public/game.js-3649-function openSleepModal() {
+artifacts/project-ice/public/game.js-3650-  const modal = document.getElementById('sleep-modal');
+artifacts/project-ice/public/game.js-3651-  modal.classList.add('is-open');
+artifacts/project-ice/public/game.js-3652-  modal.setAttribute('aria-hidden', 'false');
+artifacts/project-ice/public/game.js-3653-}
+artifacts/project-ice/public/game.js-3654-
+artifacts/project-ice/public/game.js-3655-document.querySelector('.br__mattress').addEventListener('click', openSleepModal);
+artifacts/project-ice/public/game.js-3656-document.querySelector('.br__headboard').addEventListener('click', openSleepModal);
+artifacts/project-ice/public/game.js-3657-
+artifacts/project-ice/public/game.js-3658-document.getElementById('btn-sleep-no').addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3659-  const modal = document.getElementById('sleep-modal');
+artifacts/project-ice/public/game.js-3660-  modal.classList.remove('is-open');
+artifacts/project-ice/public/game.js-3661-  modal.setAttribute('aria-hidden', 'true');
+artifacts/project-ice/public/game.js-3662-});
+artifacts/project-ice/public/game.js-3663-
+artifacts/project-ice/public/game.js-3664-document.getElementById('btn-sleep-yes').addEventListener('click', async () => {
+artifacts/project-ice/public/game.js-3665-  const modal = document.getElementById('sleep-modal');
+artifacts/project-ice/public/game.js-3666-  modal.classList.remove('is-open');
+artifacts/project-ice/public/game.js-3667-  await sleep(250);
+artifacts/project-ice/public/game.js-3668-  await runSleepSequence();
+artifacts/project-ice/public/game.js-3669-});
+artifacts/project-ice/public/game.js-3670-
+artifacts/project-ice/public/game.js-3671-async function runSleepSequence() {
+artifacts/project-ice/public/game.js-3672-  const overlay = document.getElementById('cinematic-overlay');
+artifacts/project-ice/public/game.js-3673-  const text    = document.getElementById('cinematic-text');
+artifacts/project-ice/public/game.js-3674-
+artifacts/project-ice/public/game.js-3675-  // Fade to black
+artifacts/project-ice/public/game.js-3676-  overlay.classList.add('is-active');
+artifacts/project-ice/public/game.js-3677-  await sleep(1100);
+artifacts/project-ice/public/game.js-3678-
+artifacts/project-ice/public/game.js-3679-  // Card 1 — Date
+artifacts/project-ice/public/game.js-3680-  text.innerHTML = '<span class="cin-date">September 4, 2022</span>';
+artifacts/project-ice/public/game.js-3681-  text.style.opacity = '1';
+artifacts/project-ice/public/game.js-3682-  await sleep(2000);
+artifacts/project-ice/public/game.js-3683-  text.style.opacity = '0';
+artifacts/project-ice/public/game.js-3684-  await sleep(560);
+artifacts/project-ice/public/game.js-3685-  text.innerHTML = '';
+artifacts/project-ice/public/game.js-3686-
+artifacts/project-ice/public/game.js-3687-  // Card 2 — Event + Venue
+artifacts/project-ice/public/game.js-3688-  text.innerHTML = '<span class="cin-title">Freshman Tryouts</span><span class="cin-venue">Ice Den Arena</span>';
+artifacts/project-ice/public/game.js-3689-  text.style.opacity = '1';
+artifacts/project-ice/public/game.js-3690-  await sleep(2000);
+artifacts/project-ice/public/game.js-3691-  text.style.opacity = '0';
+artifacts/project-ice/public/game.js-3692-  await sleep(560);
+artifacts/project-ice/public/game.js-3693-  text.innerHTML = '';
+artifacts/project-ice/public/game.js-3694-
+artifacts/project-ice/public/game.js-3695-  // Reveal arena screen, fade overlay out
+artifacts/project-ice/public/game.js-3696-  showScreen('arena');
+artifacts/project-ice/public/game.js-3697-  overlay.classList.remove('is-active');
+artifacts/project-ice/public/game.js-3698-  await sleep(1100);
+artifacts/project-ice/public/game.js-3699-
+artifacts/project-ice/public/game.js-3700-  // Begin dialogue sequence
+artifacts/project-ice/public/game.js-3701-  runArenaDialogue();
+artifacts/project-ice/public/game.js-3702-}
+artifacts/project-ice/public/game.js-3703-
+artifacts/project-ice/public/game.js-3704-async function runArenaDialogue() {
+artifacts/project-ice/public/game.js-3705-  await sleep(3000); // brief moment to take in the scene
+artifacts/project-ice/public/game.js-3706-
+artifacts/project-ice/public/game.js-3707-  const dialogueEl = document.getElementById('arena-dialogue');
+artifacts/project-ice/public/game.js-3708-  const approachEl = document.getElementById('dlg-approach');
+artifacts/project-ice/public/game.js-3709-  const bubbleEl   = document.getElementById('dlg-bubble');
+artifacts/project-ice/public/game.js-3710-  const speakerEl  = document.getElementById('dlg-speaker');
+artifacts/project-ice/public/game.js-3711-  const textEl     = document.getElementById('dlg-text');
+artifacts/project-ice/public/game.js-3712-  const actionEl   = document.getElementById('arena-action');
+artifacts/project-ice/public/game.js-3713-
+artifacts/project-ice/public/game.js-3714-  // Slide panel up with approach description
+artifacts/project-ice/public/game.js-3715-  dialogueEl.classList.add('is-visible');
+artifacts/project-ice/public/game.js-3716-  dialogueEl.setAttribute('aria-hidden', 'false');
+artifacts/project-ice/public/game.js-3717-  await sleep(1800);
+artifacts/project-ice/public/game.js-3718-
+artifacts/project-ice/public/game.js-3719-  // Swap approach text for dialogue bubble
+artifacts/project-ice/public/game.js-3720-  approachEl.style.transition = 'opacity 0.3s ease';
+artifacts/project-ice/public/game.js-3721-  approachEl.style.opacity = '0';
+artifacts/project-ice/public/game.js-3722-  await sleep(320);
+artifacts/project-ice/public/game.js-3723-  approachEl.style.display = 'none';
+artifacts/project-ice/public/game.js-3724-  bubbleEl.style.display = 'flex';
+artifacts/project-ice/public/game.js-3725-
+artifacts/project-ice/public/game.js-3726-  async function showLine(speaker, cssClass, line) {
+artifacts/project-ice/public/game.js-3727-    speakerEl.textContent = speaker;
+artifacts/project-ice/public/game.js-3728-    speakerEl.className = 'arena-dialogue__speaker ' + cssClass;
+artifacts/project-ice/public/game.js-3729-    textEl.style.opacity = '0';
+artifacts/project-ice/public/game.js-3730-    textEl.textContent = line;
+artifacts/project-ice/public/game.js-3731-    await sleep(60);
+artifacts/project-ice/public/game.js-3732-    textEl.style.opacity = '1';
+artifacts/project-ice/public/game.js-3733-  }
+artifacts/project-ice/public/game.js-3734-
+artifacts/project-ice/public/game.js-3735-  // Line 1 — Coach Reynolds
+artifacts/project-ice/public/game.js-3736-  await showLine('Coach Reynolds', 'arena-dialogue__speaker--coach',
+artifacts/project-ice/public/game.js-3737-    `"You must be ${Game.player.lastName || 'you'}."`);
+artifacts/project-ice/public/game.js-3738-  await sleep(2600);
+artifacts/project-ice/public/game.js-3739-
+artifacts/project-ice/public/game.js-3740-  // Line 2 — Player
+artifacts/project-ice/public/game.js-3741-  await showLine(Game.player.firstName || 'You', 'arena-dialogue__speaker--player',
+artifacts/project-ice/public/game.js-3742-    '"Yes, sir."');
+artifacts/project-ice/public/game.js-3743-  await sleep(2000);
+artifacts/project-ice/public/game.js-3744-
+artifacts/project-ice/public/game.js-3745-  // Line 3 — Coach Reynolds
+artifacts/project-ice/public/game.js-3746-  await showLine('Coach Reynolds', 'arena-dialogue__speaker--coach',
+artifacts/project-ice/public/game.js-3747-    '"Good. Grab a jersey and get on the ice. We\'ll see what you\'ve got."');
+artifacts/project-ice/public/game.js-3748-  await sleep(3000);
+artifacts/project-ice/public/game.js-3749-
+artifacts/project-ice/public/game.js-3750-  // Dismiss dialogue, show CTA
+artifacts/project-ice/public/game.js-3751-  dialogueEl.classList.remove('is-visible');
+artifacts/project-ice/public/game.js-3752-  await sleep(450);
+artifacts/project-ice/public/game.js-3753-  actionEl.classList.add('is-visible');
+artifacts/project-ice/public/game.js-3754-  actionEl.setAttribute('aria-hidden', 'false');
+artifacts/project-ice/public/game.js-3755-}
+artifacts/project-ice/public/game.js-3756-
+artifacts/project-ice/public/game.js-3757-document.getElementById('btn-take-ice').addEventListener('click', () => {
+artifacts/project-ice/public/game.js-3758-  // Launch the Freshman Tryouts event via the Event System.
+artifacts/project-ice/public/game.js-3759-  // EventSystem.openEvent handles the transition — no cinematic needed here,
+artifacts/project-ice/public/game.js-3760-  // the event screen is the player's gateway to the tryout.
+artifacts/project-ice/public/game.js-3761-  EventSystem.openEvent('tryout-freshman', 'arena');
+artifacts/project-ice/public/game.js-3762-});
+artifacts/project-ice/public/game.js-3763-
+artifacts/project-ice/public/game.js-3764-// ── News System ──────────────────────────────────────────────
+artifacts/project-ice/public/game.js-3765-// NewsSystem is now a thin alias for WorldEngine.news.
+artifacts/project-ice/public/game.js-3766-// All existing call sites (NewsSystem.publish, NewsSystem.getRecent)
+artifacts/project-ice/public/game.js-3767-// work without modification. The news feed lives in the World Engine
+artifacts/project-ice/public/game.js-3768-// and is persisted with world state, not the player save.
+artifacts/project-ice/public/game.js-3769-// See public/world.js for the full implementation.
+artifacts/project-ice/public/game.js-3770-const NewsSystem = WorldEngine.news;
+artifacts/project-ice/public/game.js-3771-
+artifacts/project-ice/public/game.js-3772-function renderHubNews() {
+artifacts/project-ice/public/game.js-3773-  const container = document.getElementById('hub-news-list');
+artifacts/project-ice/public/game.js-3774-  if (!container) return;
+artifacts/project-ice/public/game.js-3775-  const items = NewsSystem.getRecent(3);
+artifacts/project-ice/public/game.js-3776-  container.innerHTML = items.map(item => `
+artifacts/project-ice/public/game.js-3777-    <div class="hub-news__item">
+artifacts/project-ice/public/game.js-3778-      <span class="hub-news__tag">${item.tag}</span>
+artifacts/project-ice/public/game.js-3779-      <span class="hub-news__headline">${item.headline}</span>
+artifacts/project-ice/public/game.js-3780-    </div>
+artifacts/project-ice/public/game.js-3781-  `).join('');
+artifacts/project-ice/public/game.js-3782-}
+artifacts/project-ice/public/game.js-3783-
+artifacts/project-ice/public/game.js-3784-// Register the hub re-render callback with the World Engine news system.
+--
+artifacts/project-ice/public/game.js-22232-          'missing'
+artifacts/project-ice/public/game.js-22233-        }`,
+artifacts/project-ice/public/game.js-22234-        `World player playerId: ${
+artifacts/project-ice/public/game.js-22235-          WorldEngine.state
+artifacts/project-ice/public/game.js-22236-            ?.player
+artifacts/project-ice/public/game.js-22237-            ?.playerId ||
+artifacts/project-ice/public/game.js-22238-          'missing'
+artifacts/project-ice/public/game.js-22239-        }`,
+artifacts/project-ice/public/game.js-22240-        '',
+artifacts/project-ice/public/game.js-22241-        `Teams: ${
+artifacts/project-ice/public/game.js-22242-          (
+artifacts/project-ice/public/game.js-22243-            WorldEngine.state.teams ||
+artifacts/project-ice/public/game.js-22244-            []
+artifacts/project-ice/public/game.js-22245-          ).length
+artifacts/project-ice/public/game.js-22246-        }`,
+artifacts/project-ice/public/game.js-22247-        `Career players found in rosters: ${
+artifacts/project-ice/public/game.js-22248-          rosterCareerPlayers.length
+artifacts/project-ice/public/game.js-22249-        }`,
+artifacts/project-ice/public/game.js-22250-        '',
+artifacts/project-ice/public/game.js-22251-        rosterCareerPlayers.length
+artifacts/project-ice/public/game.js-22252-          ? JSON.stringify(
+artifacts/project-ice/public/game.js-22253-              rosterCareerPlayers,
+artifacts/project-ice/public/game.js-22254-              null,
+artifacts/project-ice/public/game.js-22255-              2
+artifacts/project-ice/public/game.js-22256-            )
+artifacts/project-ice/public/game.js-22257-          : 'No canonical career player found.',
+artifacts/project-ice/public/game.js-22258-      ].join('\n')
+artifacts/project-ice/public/game.js-22259-    );
+artifacts/project-ice/public/game.js-22260-
+artifacts/project-ice/public/game.js-22261-    return false;
+artifacts/project-ice/public/game.js-22262-  }
+artifacts/project-ice/public/game.js-22263-
+artifacts/project-ice/public/game.js-22264-  /*
+artifacts/project-ice/public/game.js-22265-   * Reconstruct Game.player from the canonical player.
+artifacts/project-ice/public/game.js-22266-   * upsertCareerPlayer originally received the full Game.player,
+artifacts/project-ice/public/game.js-22267-   * so these identity/career fields should already be preserved.
+artifacts/project-ice/public/game.js-22268-   */
+artifacts/project-ice/public/game.js-22269-  Game.player = {
+artifacts/project-ice/public/game.js-22270-    ...Game.player,
+artifacts/project-ice/public/game.js-22271-    ...careerPlayer,
+artifacts/project-ice/public/game.js-22272-
+artifacts/project-ice/public/game.js-22273-    playerId:
+artifacts/project-ice/public/game.js-22274-      careerPlayer.playerId ||
+artifacts/project-ice/public/game.js-22275-      careerPlayer.id ||
+artifacts/project-ice/public/game.js-22276-      'career-player',
+artifacts/project-ice/public/game.js-22277-
+artifacts/project-ice/public/game.js-22278-    id:
+artifacts/project-ice/public/game.js-22279-      careerPlayer.id ||
+artifacts/project-ice/public/game.js-22280-      careerPlayer.playerId ||
+artifacts/project-ice/public/game.js-22281-      'career-player',
+artifacts/project-ice/public/game.js-22282-
+artifacts/project-ice/public/game.js-22283-    teamId:
+artifacts/project-ice/public/game.js-22284-      careerPlayer.teamId ||
+artifacts/project-ice/public/game.js-22285-      null,
+artifacts/project-ice/public/game.js-22286-
+artifacts/project-ice/public/game.js-22287-    stage:
+artifacts/project-ice/public/game.js-22288-      'hub',
+artifacts/project-ice/public/game.js-22289-
+artifacts/project-ice/public/game.js-22290-    tryoutsComplete:
+artifacts/project-ice/public/game.js-22291-      true,
+artifacts/project-ice/public/game.js-22292-
+artifacts/project-ice/public/game.js-22293-    currentDate:
+artifacts/project-ice/public/game.js-22294-      WorldEngine.state
+artifacts/project-ice/public/game.js-22295-        .season
+artifacts/project-ice/public/game.js-22296-        ?.currentDate ||
+artifacts/project-ice/public/game.js-22297-      careerPlayer.currentDate ||
+artifacts/project-ice/public/game.js-22298-      Game.player.currentDate,
+artifacts/project-ice/public/game.js-22299-  };
+artifacts/project-ice/public/game.js-22300-
+artifacts/project-ice/public/game.js-22301-  /*
+artifacts/project-ice/public/game.js:22302:   * Recreate only the small Continue Career record.
+artifacts/project-ice/public/game.js-22303-   * The actual universe remains in IndexedDB.
+artifacts/project-ice/public/game.js-22304-   */
+artifacts/project-ice/public/game.js-22305-  /*
+artifacts/project-ice/public/game.js-22306-   * Try to rebuild the lightweight preview cache, but the
+artifacts/project-ice/public/game.js-22307-   * canonical world no longer depends on that write succeeding.
+artifacts/project-ice/public/game.js-22308-   */
+artifacts/project-ice/public/game.js-22309-  saveCareerPreview();
+artifacts/project-ice/public/game.js-22310-
+artifacts/project-ice/public/game.js-22311-  return true;
+artifacts/project-ice/public/game.js-22312-}
+artifacts/project-ice/public/game.js-22313-
+artifacts/project-ice/public/game.js-22314-// ── App initialization ──────────────────────────────────────
+artifacts/project-ice/public/game.js-22315-async function init() {
+artifacts/project-ice/public/game.js-22316-  await WorldEngine.load();
+artifacts/project-ice/public/game.js-22317-
+artifacts/project-ice/public/game.js-22318-  WorldEngine.ensureGeneratedRosters();
+artifacts/project-ice/public/game.js-22319-
+artifacts/project-ice/public/game.js-22320-  /*
+artifacts/project-ice/public/game.js-22321-   * Careers created before the IndexedDB migration may have lost
+artifacts/project-ice/public/game.js-22322-   * their small localStorage preview when the old giant world hit
+artifacts/project-ice/public/game.js-22323-   * the storage quota. Recover it from the canonical world.
+artifacts/project-ice/public/game.js-22324-   */
+artifacts/project-ice/public/game.js-22325-  recoverCareerPreviewFromWorld();
+artifacts/project-ice/public/game.js-22326-
+artifacts/project-ice/public/game.js-22327-  updateContinueButton();
+artifacts/project-ice/public/game.js-22328-  updateDevShortcut();
+artifacts/project-ice/public/game.js-22329-
+artifacts/project-ice/public/game.js-22330-  showScreen('title');
+artifacts/project-ice/public/game.js-22331-}
+artifacts/project-ice/public/game.js-22332-
+artifacts/project-ice/public/game.js-22333-document.addEventListener('DOMContentLoaded', init);
+--
+artifacts/project-ice/index.html-10-    <meta
+artifacts/project-ice/index.html-11-      name="apple-mobile-web-app-status-bar-style"
+artifacts/project-ice/index.html-12-      content="black-translucent"
+artifacts/project-ice/index.html-13-    />
+artifacts/project-ice/index.html-14-
+artifacts/project-ice/index.html-15-    <title>Project Ice</title>
+artifacts/project-ice/index.html-16-    <link rel="stylesheet" href="/style.css" />
+artifacts/project-ice/index.html-17-  </head>
+artifacts/project-ice/index.html-18-
+artifacts/project-ice/index.html-19-  <body>
+artifacts/project-ice/index.html-20-    <main id="app">
+artifacts/project-ice/index.html-21-      <!-- TITLE SCREEN -->
+artifacts/project-ice/index.html-22-      <section id="title-screen" class="screen">
+artifacts/project-ice/index.html-23-        <div class="rink-lines" aria-hidden="true">
+artifacts/project-ice/index.html-24-          <div class="rink-line rink-line--red"></div>
+artifacts/project-ice/index.html-25-          <div class="rink-line rink-line--blue rink-line--left"></div>
+artifacts/project-ice/index.html-26-          <div class="rink-line rink-line--blue rink-line--right"></div>
+artifacts/project-ice/index.html-27-        </div>
+artifacts/project-ice/index.html-28-
+artifacts/project-ice/index.html-29-        <div class="puck-glow" aria-hidden="true"></div>
+artifacts/project-ice/index.html-30-
+artifacts/project-ice/index.html-31-        <div class="logo-area">
+artifacts/project-ice/index.html-32-          <div class="logo-badge">
+artifacts/project-ice/index.html-33-            <svg
+artifacts/project-ice/index.html-34-              class="logo-badge__svg"
+artifacts/project-ice/index.html-35-              viewBox="0 0 80 80"
+artifacts/project-ice/index.html-36-              fill="none"
+artifacts/project-ice/index.html-37-              xmlns="http://www.w3.org/2000/svg"
+artifacts/project-ice/index.html-38-              aria-hidden="true"
+artifacts/project-ice/index.html-39-            >
+artifacts/project-ice/index.html-40-              <polygon
+artifacts/project-ice/index.html-41-                points="40,4 76,22 76,58 40,76 4,58 4,22"
+artifacts/project-ice/index.html-42-                fill="none"
+artifacts/project-ice/index.html-43-                stroke="rgba(100,160,255,0.35)"
+artifacts/project-ice/index.html-44-                stroke-width="1.5"
+artifacts/project-ice/index.html-45-              />
+artifacts/project-ice/index.html-46-              <polygon
+artifacts/project-ice/index.html-47-                points="40,12 68,26 68,54 40,68 12,54 12,26"
+artifacts/project-ice/index.html-48-                fill="rgba(10,22,50,0.7)"
+artifacts/project-ice/index.html-49-                stroke="rgba(100,180,255,0.2)"
+artifacts/project-ice/index.html-50-                stroke-width="1"
+artifacts/project-ice/index.html-51-              />
+artifacts/project-ice/index.html-52-              <text
+artifacts/project-ice/index.html-53-                x="40"
+artifacts/project-ice/index.html-54-                y="46"
+artifacts/project-ice/index.html-55-                text-anchor="middle"
+artifacts/project-ice/index.html-56-                dominant-baseline="middle"
+artifacts/project-ice/index.html-57-                font-family="Arial, sans-serif"
+artifacts/project-ice/index.html-58-                font-weight="900"
+artifacts/project-ice/index.html-59-                font-size="28"
+artifacts/project-ice/index.html-60-                fill="white"
+artifacts/project-ice/index.html-61-              >
+artifacts/project-ice/index.html-62-                🏒
+artifacts/project-ice/index.html-63-              </text>
+artifacts/project-ice/index.html-64-            </svg>
+artifacts/project-ice/index.html-65-          </div>
+artifacts/project-ice/index.html-66-
+artifacts/project-ice/index.html-67-          <div class="title-lockup">
+artifacts/project-ice/index.html-68-            <h1 class="title">
+artifacts/project-ice/index.html-69-              <span class="title__word title__word--project">Project</span>
+artifacts/project-ice/index.html-70-              <span class="title__word title__word--ice">Ice</span>
+artifacts/project-ice/index.html-71-            </h1>
+artifacts/project-ice/index.html-72-
+artifacts/project-ice/index.html-73-            <p class="subtitle">Live the hockey life.</p>
+artifacts/project-ice/index.html-74-          </div>
+artifacts/project-ice/index.html-75-        </div>
+artifacts/project-ice/index.html-76-
+artifacts/project-ice/index.html-77-        <div class="menu-buttons">
+artifacts/project-ice/index.html-78-          <button class="btn btn--primary" id="btn-new-career">
+artifacts/project-ice/index.html-79-            <span class="btn__icon">🏒</span>
+artifacts/project-ice/index.html:80:            <span class="btn__label">New Career</span>
+artifacts/project-ice/index.html-81-            <span class="btn__arrow">›</span>
+artifacts/project-ice/index.html-82-          </button>
+artifacts/project-ice/index.html-83-
+artifacts/project-ice/index.html-84-          <button class="btn btn--secondary" id="btn-continue" disabled>
+artifacts/project-ice/index.html-85-            <span class="btn__icon">📁</span>
+artifacts/project-ice/index.html:86:            <span class="btn__label">Continue Career</span>
+artifacts/project-ice/index.html-87-            <span class="btn__tag">No Save Found</span>
+artifacts/project-ice/index.html-88-          </button>
+artifacts/project-ice/index.html-89-        </div>
+artifacts/project-ice/index.html-90-
+artifacts/project-ice/index.html-91-        <!-- ═══════════════════════════════════════════════════════════
+artifacts/project-ice/index.html-92-             DEV SHORTCUT — TEMPORARY, REMOVE BEFORE RELEASE
+artifacts/project-ice/index.html-93-             Skips cinematic flow and loads directly into Career Hub.
+artifacts/project-ice/index.html-94-             ═══════════════════════════════════════════════════════════ -->
+artifacts/project-ice/index.html-95-        <div class="dev-shortcut-area">
+artifacts/project-ice/index.html-96-          <span class="dev-shortcut-area__label">DEV SHORTCUT</span>
+artifacts/project-ice/index.html-97-          <button class="btn btn--dev" id="btn-dev-hub" disabled>
+artifacts/project-ice/index.html-98-            <span class="btn__label">Skip to Career Hub</span>
+artifacts/project-ice/index.html-99-          </button>
+artifacts/project-ice/index.html-100-
+artifacts/project-ice/index.html-101-          <button
+artifacts/project-ice/index.html-102-            id="btn-live-game-diagnostic"
+artifacts/project-ice/index.html-103-            type="button"
+artifacts/project-ice/index.html-104-            class="btn btn--dev"
+artifacts/project-ice/index.html-105-          >
+artifacts/project-ice/index.html-106-            <span class="btn__label">Run Live Game Diagnostic</span>
+artifacts/project-ice/index.html-107-          </button>
+artifacts/project-ice/index.html-108-
+artifacts/project-ice/index.html-109-          <span class="dev-shortcut-area__hint" id="dev-shortcut-hint">Create a career first.</span>
+artifacts/project-ice/index.html-110-        </div>
+artifacts/project-ice/index.html-111-
+artifacts/project-ice/index.html-112-        
+artifacts/project-ice/index.html-113-        <!-- ═══════════════════════════════════════════════════════════ -->
+artifacts/project-ice/index.html-114-
+artifacts/project-ice/index.html-115-        <footer class="footer">
+artifacts/project-ice/index.html-116-          <span class="footer__version">Pre-Alpha Build 0.0.2</span>
+artifacts/project-ice/index.html-117-        </footer>
+artifacts/project-ice/index.html-118-      </section>
+artifacts/project-ice/index.html-119-
+artifacts/project-ice/index.html-120-      <!-- PLAYER CREATION SCREEN -->
+artifacts/project-ice/index.html-121-      <section id="creation-screen" class="screen screen--hidden">
+artifacts/project-ice/index.html-122-        <header class="screen-header">
+artifacts/project-ice/index.html-123-          <button
+artifacts/project-ice/index.html-124-            class="back-button"
+artifacts/project-ice/index.html-125-            id="btn-back-title"
+artifacts/project-ice/index.html-126-            type="button"
+artifacts/project-ice/index.html-127-            aria-label="Return to title screen"
+artifacts/project-ice/index.html-128-          >
+artifacts/project-ice/index.html-129-            ‹
+artifacts/project-ice/index.html-130-          </button>
+artifacts/project-ice/index.html-131-
+artifacts/project-ice/index.html-132-          <div>
+artifacts/project-ice/index.html:133:            <p class="eyebrow">New Career</p>
+artifacts/project-ice/index.html-134-            <h2>Create Your Player</h2>
+artifacts/project-ice/index.html-135-          </div>
+artifacts/project-ice/index.html-136-
+artifacts/project-ice/index.html-137-          <div class="step-badge">1 of 4</div>
+artifacts/project-ice/index.html-138-        </header>
+artifacts/project-ice/index.html-139-
+artifacts/project-ice/index.html-140-        <div class="creation-content">
+artifacts/project-ice/index.html-141-          <div class="story-card">
+artifacts/project-ice/index.html-142-            <p class="story-card__label">Fall 2022</p>
+artifacts/project-ice/index.html-143-            <h3>Your hockey story starts here.</h3>
+artifacts/project-ice/index.html-144-            <p>
+artifacts/project-ice/index.html-145-              You are 14 years old and preparing for freshman tryouts. Four
+artifacts/project-ice/index.html-146-              years from now, the hockey world you know today will be waiting.
+artifacts/project-ice/index.html-147-            </p>
+artifacts/project-ice/index.html-148-          </div>
+artifacts/project-ice/index.html-149-
+artifacts/project-ice/index.html-150-          <form id="player-form" class="player-form">
+artifacts/project-ice/index.html-151-            <div class="field-row">
+artifacts/project-ice/index.html-152-              <label class="form-field">
+artifacts/project-ice/index.html-153-                <span>First name</span>
+artifacts/project-ice/index.html-154-                <input
+artifacts/project-ice/index.html-155-                  id="first-name"
+artifacts/project-ice/index.html-156-                  name="firstName"
+artifacts/project-ice/index.html-157-                  type="text"
+artifacts/project-ice/index.html-158-                  placeholder="Danner"
+artifacts/project-ice/index.html-159-                  maxlength="20"
+artifacts/project-ice/index.html-160-                  autocomplete="given-name"
+artifacts/project-ice/index.html-161-                  required
+artifacts/project-ice/index.html-162-                />
+artifacts/project-ice/index.html-163-              </label>
+artifacts/project-ice/index.html-164-
+artifacts/project-ice/index.html-165-              <label class="form-field">
+artifacts/project-ice/index.html-166-                <span>Last name</span>
+artifacts/project-ice/index.html-167-                <input
+artifacts/project-ice/index.html-168-                  id="last-name"
+artifacts/project-ice/index.html-169-                  name="lastName"
+artifacts/project-ice/index.html-170-                  type="text"
+artifacts/project-ice/index.html-171-                  placeholder="Stephenson"
+artifacts/project-ice/index.html-172-                  maxlength="24"
+artifacts/project-ice/index.html-173-                  autocomplete="family-name"
+artifacts/project-ice/index.html-174-                  required
+artifacts/project-ice/index.html-175-                />
+artifacts/project-ice/index.html-176-              </label>
+artifacts/project-ice/index.html-177-            </div>
+artifacts/project-ice/index.html-178-
+artifacts/project-ice/index.html-179-            <label class="form-field">
+artifacts/project-ice/index.html-180-              <span>Hometown</span>
+artifacts/project-ice/index.html-181-              <input
+artifacts/project-ice/index.html-182-                id="hometown"
+artifacts/project-ice/index.html-183-                name="hometown"
+artifacts/project-ice/index.html-184-                type="text"
+artifacts/project-ice/index.html-185-                placeholder="Phoenix, Arizona"
+artifacts/project-ice/index.html-186-                maxlength="40"
+artifacts/project-ice/index.html-187-                required
+artifacts/project-ice/index.html-188-              />
+artifacts/project-ice/index.html-189-            </label>
+artifacts/project-ice/index.html-190-
+artifacts/project-ice/index.html-191-            <fieldset class="choice-group">
+artifacts/project-ice/index.html-192-              <legend>Position</legend>
+artifacts/project-ice/index.html-193-
+artifacts/project-ice/index.html-194-              <div class="choice-grid">
+artifacts/project-ice/index.html-195-                <button
+artifacts/project-ice/index.html-196-                  class="choice-card"
+artifacts/project-ice/index.html-197-                  type="button"
+artifacts/project-ice/index.html-198-                  data-choice-group="position"
+artifacts/project-ice/index.html-199-                  data-value="Center"
+artifacts/project-ice/index.html-200-                >
+artifacts/project-ice/index.html-201-                  <span class="choice-card__icon">C</span>
+artifacts/project-ice/index.html-202-                  <span>Center</span>
+artifacts/project-ice/index.html-203-                </button>
+artifacts/project-ice/index.html-204-
+artifacts/project-ice/index.html-205-                <button
+artifacts/project-ice/index.html-206-                  class="choice-card"
+artifacts/project-ice/index.html-207-                  type="button"
+artifacts/project-ice/index.html-208-                  data-choice-group="position"
+artifacts/project-ice/index.html-209-                  data-value="Left Wing"
+artifacts/project-ice/index.html-210-                >
+artifacts/project-ice/index.html-211-                  <span class="choice-card__icon">LW</span>
+artifacts/project-ice/index.html-212-                  <span>Left Wing</span>
+artifacts/project-ice/index.html-213-                </button>
+artifacts/project-ice/index.html-214-
+artifacts/project-ice/index.html-215-                <button
+artifacts/project-ice/index.html-216-                  class="choice-card"
+artifacts/project-ice/index.html-217-                  type="button"
+artifacts/project-ice/index.html-218-                  data-choice-group="position"
+artifacts/project-ice/index.html-219-                  data-value="Right Wing"
+artifacts/project-ice/index.html-220-                >
+artifacts/project-ice/index.html-221-                  <span class="choice-card__icon">RW</span>
+artifacts/project-ice/index.html-222-                  <span>Right Wing</span>
+artifacts/project-ice/index.html-223-                </button>
+artifacts/project-ice/index.html-224-
+artifacts/project-ice/index.html-225-                <button
+artifacts/project-ice/index.html-226-                  class="choice-card"
+artifacts/project-ice/index.html-227-                  type="button"
+artifacts/project-ice/index.html-228-                  data-choice-group="position"
+artifacts/project-ice/index.html-229-                  data-value="Defenseman"
+artifacts/project-ice/index.html-230-                >
+artifacts/project-ice/index.html-231-                  <span class="choice-card__icon">D</span>
+artifacts/project-ice/index.html-232-                  <span>Defense</span>
+artifacts/project-ice/index.html-233-                </button>
+artifacts/project-ice/index.html-234-
+artifacts/project-ice/index.html-235-                <button
+artifacts/project-ice/index.html-236-                  class="choice-card"
+artifacts/project-ice/index.html-237-                  type="button"
+artifacts/project-ice/index.html-238-                  data-choice-group="position"
+artifacts/project-ice/index.html-239-                  data-value="Goalie"
+artifacts/project-ice/index.html-240-                >
+artifacts/project-ice/index.html-241-                  <span class="choice-card__icon">G</span>
+artifacts/project-ice/index.html-242-                  <span>Goalie</span>
+artifacts/project-ice/index.html-243-                </button>
+artifacts/project-ice/index.html-244-              </div>
+artifacts/project-ice/index.html-245-            </fieldset>
+artifacts/project-ice/index.html-246-
+artifacts/project-ice/index.html-247-            <fieldset class="choice-group">
+artifacts/project-ice/index.html-248-              <legend>Shoots / catches</legend>
+artifacts/project-ice/index.html-249-
+artifacts/project-ice/index.html-250-              <div class="choice-grid choice-grid--two">
+artifacts/project-ice/index.html-251-                <button
+artifacts/project-ice/index.html-252-                  class="choice-card"
+artifacts/project-ice/index.html-253-                  type="button"
+artifacts/project-ice/index.html-254-                  data-choice-group="handedness"
+artifacts/project-ice/index.html-255-                  data-value="Left"
+artifacts/project-ice/index.html-256-                >
+artifacts/project-ice/index.html-257-                  <span class="choice-card__icon">L</span>
+artifacts/project-ice/index.html-258-                  <span>Left</span>
+artifacts/project-ice/index.html-259-                </button>
+artifacts/project-ice/index.html-260-
+artifacts/project-ice/index.html-261-                <button
+artifacts/project-ice/index.html-262-                  class="choice-card"
+artifacts/project-ice/index.html-263-                  type="button"
+artifacts/project-ice/index.html-264-                  data-choice-group="handedness"
+artifacts/project-ice/index.html-265-                  data-value="Right"
+artifacts/project-ice/index.html-266-                >
+artifacts/project-ice/index.html-267-                  <span class="choice-card__icon">R</span>
+artifacts/project-ice/index.html-268-                  <span>Right</span>
+artifacts/project-ice/index.html-269-                </button>
+artifacts/project-ice/index.html-270-              </div>
+artifacts/project-ice/index.html-271-            </fieldset>
+artifacts/project-ice/index.html-272-            <!-- Player measurements -->
+artifacts/project-ice/index.html-273-            <fieldset class="creation-section creation-measurements">
+artifacts/project-ice/index.html-274-              <legend>Physical Profile</legend>
+artifacts/project-ice/index.html-275-
+artifacts/project-ice/index.html-276-              <div class="creation-field">
+artifacts/project-ice/index.html-277-                <label for="player-height">Height</label>
+artifacts/project-ice/index.html-278-
+artifacts/project-ice/index.html-279-                <select id="player-height" name="height">
+artifacts/project-ice/index.html-280-                  <option value="5'6&quot;">5'6"</option>
+artifacts/project-ice/index.html-281-                  <option value="5'7&quot;">5'7"</option>
+artifacts/project-ice/index.html-282-                  <option value="5'8&quot;">5'8"</option>
+artifacts/project-ice/index.html-283-                  <option value="5'9&quot;">5'9"</option>
+artifacts/project-ice/index.html-284-                  <option value="5'10&quot;" selected>5'10"</option>
+artifacts/project-ice/index.html-285-                  <option value="5'11&quot;">5'11"</option>
+artifacts/project-ice/index.html-286-                  <option value="6'0&quot;">6'0"</option>
+artifacts/project-ice/index.html-287-                  <option value="6'1&quot;">6'1"</option>
+artifacts/project-ice/index.html-288-                  <option value="6'2&quot;">6'2"</option>
+artifacts/project-ice/index.html-289-                  <option value="6'3&quot;">6'3"</option>
+artifacts/project-ice/index.html-290-                  <option value="6'4&quot;">6'4"</option>
+artifacts/project-ice/index.html-291-                  <option value="6'5&quot;">6'5"</option>
+artifacts/project-ice/index.html-292-                  <option value="6'6&quot;">6'6"</option>
+artifacts/project-ice/index.html-293-                </select>
+artifacts/project-ice/index.html-294-              </div>
+artifacts/project-ice/index.html-295-
+artifacts/project-ice/index.html-296-              <div class="creation-field">
+artifacts/project-ice/index.html-297-                <div class="creation-field__label-row">
+artifacts/project-ice/index.html-298-                  <label for="player-weight">Weight</label>
+artifacts/project-ice/index.html-299-                  <span id="player-weight-value">175 lbs</span>
+artifacts/project-ice/index.html-300-                </div>
+artifacts/project-ice/index.html-301-
+artifacts/project-ice/index.html-302-                <input
+artifacts/project-ice/index.html-303-                  id="player-weight"
+artifacts/project-ice/index.html-304-                  name="weight"
+artifacts/project-ice/index.html-305-                  type="range"
+artifacts/project-ice/index.html-306-                  min="130"
+artifacts/project-ice/index.html-307-                  max="250"
+artifacts/project-ice/index.html-308-                  step="1"
+artifacts/project-ice/index.html-309-                  value="175"
+artifacts/project-ice/index.html-310-                />
+artifacts/project-ice/index.html-311-              </div>
+artifacts/project-ice/index.html-312-
+artifacts/project-ice/index.html-313-              <div class="creation-field">
+artifacts/project-ice/index.html-314-                <label for="player-jersey-number">Jersey Number</label>
+artifacts/project-ice/index.html-315-
+artifacts/project-ice/index.html-316-                <input
+artifacts/project-ice/index.html-317-                  id="player-jersey-number"
+artifacts/project-ice/index.html-318-                  name="jerseyNumber"
+artifacts/project-ice/index.html-319-                  type="number"
+artifacts/project-ice/index.html-320-                  min="1"
+artifacts/project-ice/index.html-321-                  max="99"
+artifacts/project-ice/index.html-322-                  value="19"
+artifacts/project-ice/index.html-323-                  inputmode="numeric"
+artifacts/project-ice/index.html-324-                />
+artifacts/project-ice/index.html-325-              </div>
+artifacts/project-ice/index.html-326-            </fieldset>
+artifacts/project-ice/index.html-327-
+artifacts/project-ice/index.html-328-            <p id="form-error" class="form-error" aria-live="polite"></p>
+artifacts/project-ice/index.html-329-
+artifacts/project-ice/index.html-330-            <button class="btn btn--primary continue-creation" type="submit">
+artifacts/project-ice/index.html-331-              <span class="btn__label">Continue</span>
+artifacts/project-ice/index.html-332-              <span class="btn__arrow">›</span>
+artifacts/project-ice/index.html-333-            </button>
+artifacts/project-ice/index.html-334-          </form>
+artifacts/project-ice/index.html-335-        </div>
+artifacts/project-ice/index.html-336-      </section>
+artifacts/project-ice/index.html-337-
+artifacts/project-ice/index.html-338-      <!-- CAREER OVERVIEW SCREEN -->
+artifacts/project-ice/index.html-339-      <section id="career-overview-screen" class="screen screen--hidden">
+artifacts/project-ice/index.html-340-        <header class="screen-header">
+artifacts/project-ice/index.html-341-          <button
+artifacts/project-ice/index.html-342-            class="back-button"
+artifacts/project-ice/index.html-343-            id="btn-back-overview"
+artifacts/project-ice/index.html-344-            type="button"
+artifacts/project-ice/index.html-345-            aria-label="Back to Hockey Identity"
+artifacts/project-ice/index.html-346-          >
+artifacts/project-ice/index.html-347-            ‹
+artifacts/project-ice/index.html-348-          </button>
+artifacts/project-ice/index.html-349-          <div>
+artifacts/project-ice/index.html:350:            <p class="eyebrow">New Career</p>
+artifacts/project-ice/index.html-351-            <h2>Career Overview</h2>
+artifacts/project-ice/index.html-352-          </div>
+artifacts/project-ice/index.html-353-          <div class="step-badge">4 of 4</div>
+artifacts/project-ice/index.html-354-        </header>
+artifacts/project-ice/index.html-355-
+artifacts/project-ice/index.html-356-        <div class="overview-content">
+artifacts/project-ice/index.html-357-
+artifacts/project-ice/index.html-358-          <!-- Player header -->
+artifacts/project-ice/index.html-359-          <div class="overview-player">
+artifacts/project-ice/index.html-360-            <h2 class="overview-player__name" id="overview-player-name">—</h2>
+artifacts/project-ice/index.html-361-            <p class="overview-player__details" id="overview-player-position">—</p>
+artifacts/project-ice/index.html-362-            <p class="overview-player__hometown" id="overview-player-hometown">—</p>
+artifacts/project-ice/index.html-363-          </div>
+artifacts/project-ice/index.html-364-
+artifacts/project-ice/index.html-365-          <!-- Identity summary -->
+artifacts/project-ice/index.html-366-          <div class="overview-section">
+artifacts/project-ice/index.html-367-            <p class="overview-section__label">Hockey Identity</p>
+artifacts/project-ice/index.html-368-            <div class="overview-identity">
+artifacts/project-ice/index.html-369-              <div class="overview-identity-row">
+artifacts/project-ice/index.html-370-                <span class="overview-identity-row__label">Background</span>
+artifacts/project-ice/index.html-371-                <span class="overview-identity-row__value" id="overview-background">—</span>
+artifacts/project-ice/index.html-372-              </div>
+artifacts/project-ice/index.html-373-              <div class="overview-identity-row">
+artifacts/project-ice/index.html-374-                <span class="overview-identity-row__label">Archetype</span>
+artifacts/project-ice/index.html-375-                <span class="overview-identity-row__value" id="overview-archetype">—</span>
+artifacts/project-ice/index.html-376-              </div>
+artifacts/project-ice/index.html-377-              <div class="overview-identity-row">
+artifacts/project-ice/index.html-378-                <span class="overview-identity-row__label">Motivation</span>
+artifacts/project-ice/index.html-379-                <span class="overview-identity-row__value" id="overview-motivation">—</span>
+artifacts/project-ice/index.html-380-              </div>
+artifacts/project-ice/index.html-381-              <div class="overview-identity-row">
+artifacts/project-ice/index.html-382-                <span class="overview-identity-row__label">NHL Team</span>
+artifacts/project-ice/index.html-383-                <span class="overview-identity-row__value" id="overview-nhlteam">—</span>
+artifacts/project-ice/index.html-384-              </div>
+artifacts/project-ice/index.html-385-            </div>
+artifacts/project-ice/index.html-386-          </div>
+artifacts/project-ice/index.html-387-
+artifacts/project-ice/index.html-388-          <!-- Overall rating -->
+artifacts/project-ice/index.html-389-          <div class="overview-ovr-card">
+artifacts/project-ice/index.html-390-            <div class="overview-ovr-card__inner">
+artifacts/project-ice/index.html-391-              <span class="overview-ovr-card__number">60</span>
+artifacts/project-ice/index.html-392-              <span class="overview-ovr-card__label">OVERALL</span>
+artifacts/project-ice/index.html-393-            </div>
+artifacts/project-ice/index.html-394-          </div>
+artifacts/project-ice/index.html-395-
+artifacts/project-ice/index.html-396-          <!-- Attributes -->
+artifacts/project-ice/index.html-397-          <div class="overview-section">
+artifacts/project-ice/index.html-398-            <p class="overview-section__label">Attributes</p>
+artifacts/project-ice/index.html-399-            <div class="overview-attrs">
+artifacts/project-ice/index.html-400-              <div class="attr-row">
+artifacts/project-ice/index.html-401-                <span class="attr-row__name">Skating</span>
+artifacts/project-ice/index.html-402-                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+artifacts/project-ice/index.html-403-                <span class="attr-row__val">60</span>
+artifacts/project-ice/index.html-404-              </div>
+artifacts/project-ice/index.html-405-              <div class="attr-row">
+artifacts/project-ice/index.html-406-                <span class="attr-row__name">Shooting</span>
+artifacts/project-ice/index.html-407-                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+artifacts/project-ice/index.html-408-                <span class="attr-row__val">60</span>
+artifacts/project-ice/index.html-409-              </div>
+artifacts/project-ice/index.html-410-              <div class="attr-row">
+artifacts/project-ice/index.html-411-                <span class="attr-row__name">Passing</span>
+artifacts/project-ice/index.html-412-                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+artifacts/project-ice/index.html-413-                <span class="attr-row__val">60</span>
+artifacts/project-ice/index.html-414-              </div>
+artifacts/project-ice/index.html-415-              <div class="attr-row">
+artifacts/project-ice/index.html-416-                <span class="attr-row__name">Defense</span>
+artifacts/project-ice/index.html-417-                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+artifacts/project-ice/index.html-418-                <span class="attr-row__val">60</span>
+artifacts/project-ice/index.html-419-              </div>
+artifacts/project-ice/index.html-420-              <div class="attr-row">
+artifacts/project-ice/index.html-421-                <span class="attr-row__name">Physical</span>
+artifacts/project-ice/index.html-422-                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+artifacts/project-ice/index.html-423-                <span class="attr-row__val">60</span>
+artifacts/project-ice/index.html-424-              </div>
+artifacts/project-ice/index.html-425-              <div class="attr-row">
+artifacts/project-ice/index.html-426-                <span class="attr-row__name">Hockey IQ</span>
+artifacts/project-ice/index.html-427-                <div class="attr-row__track"><div class="attr-row__fill" style="width:60%"></div></div>
+artifacts/project-ice/index.html-428-                <span class="attr-row__val">60</span>
+artifacts/project-ice/index.html-429-              </div>
+artifacts/project-ice/index.html-430-            </div>
+artifacts/project-ice/index.html-431-          </div>
+artifacts/project-ice/index.html-432-
+artifacts/project-ice/index.html-433-          <!-- Begin button -->
+artifacts/project-ice/index.html-434-          <button class="btn btn--primary overview-begin-btn" id="btn-begin-career" type="button">
+artifacts/project-ice/index.html-435-            <span class="btn__label">Begin High School Career</span>
+artifacts/project-ice/index.html-436-            <span class="btn__arrow">›</span>
+artifacts/project-ice/index.html-437-          </button>
+artifacts/project-ice/index.html-438-
+artifacts/project-ice/index.html-439-        </div>
+artifacts/project-ice/index.html-440-      </section>
+artifacts/project-ice/index.html-441-
+artifacts/project-ice/index.html-442-      <!-- BEDROOM SCREEN -->
+artifacts/project-ice/index.html-443-      <section id="bedroom-screen" class="screen screen--hidden">
+artifacts/project-ice/index.html-444-        <div class="bedroom" aria-label="Player's bedroom">
+artifacts/project-ice/index.html-445-
+artifacts/project-ice/index.html-446-          <div class="br__wall"></div>
+artifacts/project-ice/index.html-447-          <div class="br__floor"></div>
+artifacts/project-ice/index.html-448-          <div class="br__baseboard"></div>
+artifacts/project-ice/index.html-449-
+artifacts/project-ice/index.html-450-          <!-- Window -->
+artifacts/project-ice/index.html-451-          <div class="br__window">
+artifacts/project-ice/index.html-452-            <div class="br__window-sky">
+artifacts/project-ice/index.html-453-              <div class="br__stars"></div>
+artifacts/project-ice/index.html-454-              <div class="br__moon"></div>
+artifacts/project-ice/index.html-455-            </div>
+artifacts/project-ice/index.html-456-            <div class="br__window-div-h"></div>
+artifacts/project-ice/index.html-457-            <div class="br__window-div-v"></div>
+artifacts/project-ice/index.html-458-            <div class="br__curtain br__curtain--l"></div>
+artifacts/project-ice/index.html-459-            <div class="br__curtain br__curtain--r"></div>
+artifacts/project-ice/index.html-460-            <div class="br__window-sill"></div>
+artifacts/project-ice/index.html-461-            <div class="br__moonlight"></div>
+artifacts/project-ice/index.html-462-          </div>
+artifacts/project-ice/index.html-463-
+artifacts/project-ice/index.html-464-          <!-- Desk -->
+artifacts/project-ice/index.html-465-          <div class="br__desk">
+artifacts/project-ice/index.html-466-            <div class="br__desk-face"></div>
+artifacts/project-ice/index.html-467-            <div class="br__laptop-screen">
+artifacts/project-ice/index.html-468-              <div class="br__laptop-screen-inner"></div>
+artifacts/project-ice/index.html-469-            </div>
+artifacts/project-ice/index.html-470-            <div class="br__laptop-base"></div>
+artifacts/project-ice/index.html-471-            <div class="br__laptop-glow"></div>
+artifacts/project-ice/index.html-472-          </div>
+artifacts/project-ice/index.html-473-
+artifacts/project-ice/index.html-474-          <!-- Hockey stick leaning against wall -->
+artifacts/project-ice/index.html-475-          <div class="br__stick-wrap">
+artifacts/project-ice/index.html-476-            <div class="br__stick-shaft"></div>
+artifacts/project-ice/index.html-477-            <div class="br__stick-blade"></div>
+artifacts/project-ice/index.html-478-          </div>
+artifacts/project-ice/index.html-479-
+artifacts/project-ice/index.html-480-          <!-- Headboard and bed -->
+artifacts/project-ice/index.html-481-          <div class="br__headboard"></div>
+artifacts/project-ice/index.html-482-          <div class="br__mattress">
+artifacts/project-ice/index.html-483-            <div class="br__pillow"></div>
+artifacts/project-ice/index.html-484-            <div class="br__blanket"></div>
+artifacts/project-ice/index.html-485-          </div>
+artifacts/project-ice/index.html-486-
+artifacts/project-ice/index.html-487-          <!-- Nightstand -->
+artifacts/project-ice/index.html-488-          <div class="br__nightstand">
+artifacts/project-ice/index.html-489-            <div class="br__nightstand-face"></div>
+artifacts/project-ice/index.html-490-          </div>
+artifacts/project-ice/index.html-491-
+artifacts/project-ice/index.html-492-          <!-- Phone (on nightstand) -->
+artifacts/project-ice/index.html-493-          <div class="br__phone">
+artifacts/project-ice/index.html-494-            <div class="br__phone-screen">
+artifacts/project-ice/index.html-495-              <div class="br__phone-time">7:18</div>
+artifacts/project-ice/index.html-496-            </div>
+artifacts/project-ice/index.html-497-          </div>
+artifacts/project-ice/index.html-498-          <div class="br__phone-glow"></div>
+artifacts/project-ice/index.html-499-
+artifacts/project-ice/index.html-500-          <!-- Hockey bag on floor -->
+artifacts/project-ice/index.html-501-          <div class="br__bag">
+artifacts/project-ice/index.html-502-            <div class="br__bag-body"></div>
+artifacts/project-ice/index.html-503-            <div class="br__bag-strap"></div>
+artifacts/project-ice/index.html-504-            <div class="br__bag-pocket"></div>
+artifacts/project-ice/index.html-505-          </div>
+artifacts/project-ice/index.html-506-
+artifacts/project-ice/index.html-507-          <!-- Notification -->
+artifacts/project-ice/index.html-508-          <div class="br__notification">
+artifacts/project-ice/index.html-509-            <div class="br__notification-row">
+artifacts/project-ice/index.html-510-              <span class="br__notification-icon">💬</span>
+artifacts/project-ice/index.html-511-              <span class="br__notification-app">Messages</span>
+artifacts/project-ice/index.html-512-              <span class="br__notification-time">7:17 PM</span>
+artifacts/project-ice/index.html-513-            </div>
+artifacts/project-ice/index.html-514-            <p class="br__notification-sender">Mom ❤️</p>
+artifacts/project-ice/index.html-515-            <p class="br__notification-text">"Big day tomorrow. Love you."</p>
+artifacts/project-ice/index.html-516-          </div>
+artifacts/project-ice/index.html-517-
+artifacts/project-ice/index.html-518-          <!-- Interaction toast -->
+artifacts/project-ice/index.html-519-          <div class="br__toast" id="br-toast"></div>
+artifacts/project-ice/index.html-520-
+artifacts/project-ice/index.html-521-        </div>
+artifacts/project-ice/index.html-522-
+artifacts/project-ice/index.html-523-        <!-- Messages overlay -->
+artifacts/project-ice/index.html-524-        <div id="messages-overlay" class="messages-overlay" aria-hidden="true">
+artifacts/project-ice/index.html-525-          <div class="messages-header">
+artifacts/project-ice/index.html-526-            <button class="messages-back" id="btn-close-messages" aria-label="Back to bedroom">‹</button>
+artifacts/project-ice/index.html-527-            <div class="messages-contact">
+artifacts/project-ice/index.html-528-              <div class="messages-avatar">❤️</div>
+artifacts/project-ice/index.html-529-              <p class="messages-contact__name">Mom ❤️</p>
+artifacts/project-ice/index.html-530-            </div>
+--
+artifacts/project-ice/index.html-4453-            <p class="bg-card__desc">You grew up in a hockey household and learned the game from an early age.</p>
+artifacts/project-ice/index.html-4454-            <div class="bg-card__stats">
+artifacts/project-ice/index.html-4455-              <span class="bg-card__stat bg-card__stat--strength">+ Coach Trust</span>
+artifacts/project-ice/index.html-4456-              <span class="bg-card__stat bg-card__stat--strength">+ Hockey IQ</span>
+artifacts/project-ice/index.html-4457-              <span class="bg-card__stat bg-card__stat--weakness">− Higher Expectations</span>
+artifacts/project-ice/index.html-4458-            </div>
+artifacts/project-ice/index.html-4459-          </button>
+artifacts/project-ice/index.html-4460-
+artifacts/project-ice/index.html-4461-          <button class="bg-card" type="button" data-background="Small Town Star">
+artifacts/project-ice/index.html-4462-            <div class="bg-card__top">
+artifacts/project-ice/index.html-4463-              <h3 class="bg-card__name">Small Town Star</h3>
+artifacts/project-ice/index.html-4464-              <span class="bg-card__check" aria-hidden="true">✓</span>
+artifacts/project-ice/index.html-4465-            </div>
+artifacts/project-ice/index.html-4466-            <p class="bg-card__desc">You dominated your local hockey scene but have never faced elite competition.</p>
+artifacts/project-ice/index.html-4467-            <div class="bg-card__stats">
+artifacts/project-ice/index.html-4468-              <span class="bg-card__stat bg-card__stat--strength">+ Confidence</span>
+artifacts/project-ice/index.html-4469-              <span class="bg-card__stat bg-card__stat--strength">+ Scoring</span>
+artifacts/project-ice/index.html-4470-              <span class="bg-card__stat bg-card__stat--weakness">− Competition Experience</span>
+artifacts/project-ice/index.html-4471-            </div>
+artifacts/project-ice/index.html-4472-          </button>
+artifacts/project-ice/index.html-4473-
+artifacts/project-ice/index.html-4474-          <button class="bg-card" type="button" data-background="Arizona Underdog">
+artifacts/project-ice/index.html-4475-            <div class="bg-card__top">
+artifacts/project-ice/index.html-4476-              <h3 class="bg-card__name">Arizona Underdog</h3>
+artifacts/project-ice/index.html-4477-              <span class="bg-card__check" aria-hidden="true">✓</span>
+artifacts/project-ice/index.html-4478-            </div>
+artifacts/project-ice/index.html-4479-            <p class="bg-card__desc">Growing up where hockey isn't the biggest sport made every opportunity harder to earn.</p>
+artifacts/project-ice/index.html-4480-            <div class="bg-card__stats">
+artifacts/project-ice/index.html-4481-              <span class="bg-card__stat bg-card__stat--strength">+ Work Ethic</span>
+artifacts/project-ice/index.html-4482-              <span class="bg-card__stat bg-card__stat--strength">+ Development Rate</span>
+artifacts/project-ice/index.html-4483-              <span class="bg-card__stat bg-card__stat--weakness">− Scout Exposure</span>
+artifacts/project-ice/index.html-4484-            </div>
+artifacts/project-ice/index.html-4485-          </button>
+artifacts/project-ice/index.html-4486-
+artifacts/project-ice/index.html-4487-          <button class="bg-card" type="button" data-background="Late Bloomer">
+artifacts/project-ice/index.html-4488-            <div class="bg-card__top">
+artifacts/project-ice/index.html-4489-              <h3 class="bg-card__name">Late Bloomer</h3>
+artifacts/project-ice/index.html-4490-              <span class="bg-card__check" aria-hidden="true">✓</span>
+artifacts/project-ice/index.html-4491-            </div>
+artifacts/project-ice/index.html-4492-            <p class="bg-card__desc">You're behind everyone else today, but your best hockey is still ahead of you.</p>
+artifacts/project-ice/index.html-4493-            <div class="bg-card__stats">
+artifacts/project-ice/index.html-4494-              <span class="bg-card__stat bg-card__stat--strength">+ Long-Term Growth</span>
+artifacts/project-ice/index.html-4495-              <span class="bg-card__stat bg-card__stat--strength">+ Adaptability</span>
+artifacts/project-ice/index.html-4496-              <span class="bg-card__stat bg-card__stat--weakness">− Lower Starting Overall</span>
+artifacts/project-ice/index.html-4497-            </div>
+artifacts/project-ice/index.html-4498-          </button>
+artifacts/project-ice/index.html-4499-
+artifacts/project-ice/index.html-4500-          <div class="bgselect-footer">
+artifacts/project-ice/index.html-4501-            <button class="btn btn--secondary" id="btn-continue-background" disabled>
+artifacts/project-ice/index.html-4502-              <span class="btn__label">Continue</span>
+artifacts/project-ice/index.html-4503-              <span class="btn__arrow">›</span>
+artifacts/project-ice/index.html-4504-            </button>
+artifacts/project-ice/index.html-4505-          </div>
+artifacts/project-ice/index.html-4506-
+artifacts/project-ice/index.html-4507-        </div>
+artifacts/project-ice/index.html-4508-      </section>
+artifacts/project-ice/index.html-4509-
+artifacts/project-ice/index.html-4510-      <!-- HOCKEY IDENTITY SCREEN -->
+artifacts/project-ice/index.html-4511-      <section id="identity-screen" class="screen screen--hidden">
+artifacts/project-ice/index.html-4512-        <header class="screen-header">
+artifacts/project-ice/index.html-4513-          <button
+artifacts/project-ice/index.html-4514-            class="back-button"
+artifacts/project-ice/index.html-4515-            id="btn-back-summary"
+artifacts/project-ice/index.html-4516-            type="button"
+artifacts/project-ice/index.html-4517-            aria-label="Return to player summary"
+artifacts/project-ice/index.html-4518-          >
+artifacts/project-ice/index.html-4519-            ‹
+artifacts/project-ice/index.html-4520-          </button>
+artifacts/project-ice/index.html-4521-
+artifacts/project-ice/index.html-4522-          <div>
+artifacts/project-ice/index.html:4523:            <p class="eyebrow">New Career</p>
+artifacts/project-ice/index.html-4524-            <h2>Hockey Identity</h2>
+artifacts/project-ice/index.html-4525-          </div>
+artifacts/project-ice/index.html-4526-
+artifacts/project-ice/index.html-4527-          <div class="step-badge">3 of 4</div>
+artifacts/project-ice/index.html-4528-        </header>
+artifacts/project-ice/index.html-4529-
+artifacts/project-ice/index.html-4530-        <div class="identity-content">
+artifacts/project-ice/index.html-4531-
+artifacts/project-ice/index.html-4532-          <button class="identity-card identity-card--active" type="button" id="btn-identity-background">
+artifacts/project-ice/index.html-4533-            <div class="identity-card__left">
+artifacts/project-ice/index.html-4534-              <span class="identity-card__icon" aria-hidden="true">🏘️</span>
+artifacts/project-ice/index.html-4535-            </div>
+artifacts/project-ice/index.html-4536-            <div class="identity-card__body">
+artifacts/project-ice/index.html-4537-              <h3 class="identity-card__title">Hockey Background</h3>
+artifacts/project-ice/index.html-4538-              <p class="identity-card__subtitle" id="identity-background-status">Not Selected</p>
+artifacts/project-ice/index.html-4539-              <span class="identity-card__status identity-card__status--empty" id="status-background">⚪ NOT SELECTED</span>
+artifacts/project-ice/index.html-4540-            </div>
+artifacts/project-ice/index.html-4541-            <span class="identity-card__arrow" aria-hidden="true">›</span>
+artifacts/project-ice/index.html-4542-          </button>
+artifacts/project-ice/index.html-4543-
+artifacts/project-ice/index.html-4544-          <button class="identity-card identity-card--active" type="button" id="btn-identity-archetype">
+artifacts/project-ice/index.html-4545-            <div class="identity-card__left">
+artifacts/project-ice/index.html-4546-              <span class="identity-card__icon" aria-hidden="true">⚡</span>
+artifacts/project-ice/index.html-4547-            </div>
+artifacts/project-ice/index.html-4548-            <div class="identity-card__body">
+artifacts/project-ice/index.html-4549-              <h3 class="identity-card__title">Player Archetype</h3>
+artifacts/project-ice/index.html-4550-              <p class="identity-card__subtitle" id="identity-archetype-status">Not Selected</p>
+artifacts/project-ice/index.html-4551-              <span class="identity-card__status identity-card__status--empty" id="status-archetype">⚪ NOT SELECTED</span>
+artifacts/project-ice/index.html-4552-            </div>
+artifacts/project-ice/index.html-4553-            <span class="identity-card__arrow" aria-hidden="true">›</span>
+artifacts/project-ice/index.html-4554-          </button>
+artifacts/project-ice/index.html-4555-
+artifacts/project-ice/index.html-4556-          <button class="identity-card identity-card--active" type="button" id="btn-identity-motivation">
+artifacts/project-ice/index.html-4557-            <div class="identity-card__left">
+artifacts/project-ice/index.html-4558-              <span class="identity-card__icon" aria-hidden="true">🔥</span>
+artifacts/project-ice/index.html-4559-            </div>
+artifacts/project-ice/index.html-4560-            <div class="identity-card__body">
+artifacts/project-ice/index.html-4561-              <h3 class="identity-card__title">Motivation</h3>
+artifacts/project-ice/index.html-4562-              <p class="identity-card__subtitle" id="identity-motivation-status">Not Selected</p>
+artifacts/project-ice/index.html-4563-              <span class="identity-card__status identity-card__status--empty" id="status-motivation">⚪ NOT SELECTED</span>
+artifacts/project-ice/index.html-4564-            </div>
+artifacts/project-ice/index.html-4565-            <span class="identity-card__arrow" aria-hidden="true">›</span>
+artifacts/project-ice/index.html-4566-          </button>
+artifacts/project-ice/index.html-4567-
+artifacts/project-ice/index.html-4568-          <button class="identity-card identity-card--active" type="button" id="btn-identity-nhlteam">
+artifacts/project-ice/index.html-4569-            <div class="identity-card__left">
+artifacts/project-ice/index.html-4570-              <span class="identity-card__icon" aria-hidden="true">🏒</span>
+artifacts/project-ice/index.html-4571-            </div>
+artifacts/project-ice/index.html-4572-            <div class="identity-card__body">
+artifacts/project-ice/index.html-4573-              <h3 class="identity-card__title">Favorite NHL Team</h3>
+artifacts/project-ice/index.html-4574-              <p class="identity-card__subtitle" id="identity-nhlteam-status">Not Selected</p>
+artifacts/project-ice/index.html-4575-              <span class="identity-card__status identity-card__status--empty" id="status-nhlteam">⚪ NOT SELECTED</span>
+artifacts/project-ice/index.html-4576-            </div>
+artifacts/project-ice/index.html-4577-            <span class="identity-card__arrow" aria-hidden="true">›</span>
+artifacts/project-ice/index.html-4578-          </button>
+artifacts/project-ice/index.html-4579-
+artifacts/project-ice/index.html-4580-          <div class="identity-footer">
+artifacts/project-ice/index.html-4581-            <button class="btn btn--secondary" id="btn-continue-setup" disabled>
+artifacts/project-ice/index.html:4582:              <span class="btn__label">Continue Career Setup</span>
+artifacts/project-ice/index.html-4583-            </button>
+artifacts/project-ice/index.html-4584-            <div class="identity-progress">
+artifacts/project-ice/index.html-4585-              <p class="identity-progress__label">Identity Progress</p>
+artifacts/project-ice/index.html-4586-              <p class="identity-progress__count">
+artifacts/project-ice/index.html-4587-                <span id="identity-complete-count">0</span> / 4 Complete
+artifacts/project-ice/index.html-4588-              </p>
+artifacts/project-ice/index.html-4589-            </div>
+artifacts/project-ice/index.html-4590-          </div>
+artifacts/project-ice/index.html-4591-
+artifacts/project-ice/index.html-4592-        </div>
+artifacts/project-ice/index.html-4593-      </section>
+artifacts/project-ice/index.html-4594-
+artifacts/project-ice/index.html-4595-      <!-- FIRST SUMMARY SCREEN -->
+artifacts/project-ice/index.html-4596-      <section id="summary-screen" class="screen screen--hidden">
+artifacts/project-ice/index.html-4597-        <header class="screen-header">
+artifacts/project-ice/index.html-4598-          <button
+artifacts/project-ice/index.html-4599-            class="back-button"
+artifacts/project-ice/index.html-4600-            id="btn-back-creation"
+artifacts/project-ice/index.html-4601-            type="button"
+artifacts/project-ice/index.html-4602-            aria-label="Return to player creation"
+artifacts/project-ice/index.html-4603-          >
+artifacts/project-ice/index.html-4604-            ‹
+artifacts/project-ice/index.html-4605-          </button>
+artifacts/project-ice/index.html-4606-
+artifacts/project-ice/index.html-4607-          <div>
+artifacts/project-ice/index.html-4608-            <p class="eyebrow">Career Created</p>
+artifacts/project-ice/index.html-4609-            <h2>Meet Your Player</h2>
+artifacts/project-ice/index.html-4610-          </div>
+artifacts/project-ice/index.html-4611-
+artifacts/project-ice/index.html-4612-          <div class="step-badge">2 of 4</div>
+artifacts/project-ice/index.html-4613-        </header>
+artifacts/project-ice/index.html-4614-
+artifacts/project-ice/index.html-4615-        <div class="summary-content">
+artifacts/project-ice/index.html-4616-          <div class="player-card">
+artifacts/project-ice/index.html-4617-            <div class="player-card__number">14</div>
+artifacts/project-ice/index.html-4618-
+artifacts/project-ice/index.html-4619-            <p class="player-card__label">Freshman Prospect</p>
+artifacts/project-ice/index.html-4620-            <h3 id="summary-name">Your Player</h3>
+artifacts/project-ice/index.html-4621-            <p id="summary-details">Position · Shoots</p>
+artifacts/project-ice/index.html-4622-
+artifacts/project-ice/index.html-4623-            <div class="player-card__divider"></div>
+artifacts/project-ice/index.html-4624-
+artifacts/project-ice/index.html-4625-            <div class="summary-stat">
+artifacts/project-ice/index.html-4626-              <span>Age</span>
+artifacts/project-ice/index.html-4627-              <strong>14</strong>
+artifacts/project-ice/index.html-4628-            </div>
+artifacts/project-ice/index.html-4629-
+artifacts/project-ice/index.html-4630-            <div class="summary-stat">
+artifacts/project-ice/index.html-4631-              <span>Hometown</span>
+artifacts/project-ice/index.html-4632-              <strong id="summary-hometown">Unknown</strong>
+artifacts/project-ice/index.html-4633-            </div>
+artifacts/project-ice/index.html-4634-
+artifacts/project-ice/index.html-4635-            <div class="summary-stat">
+artifacts/project-ice/index.html-4636-              <span>Career begins</span>
+artifacts/project-ice/index.html-4637-              <strong>Fall 2022</strong>
+artifacts/project-ice/index.html-4638-            </div>
+artifacts/project-ice/index.html-4639-          </div>
+artifacts/project-ice/index.html-4640-
+artifacts/project-ice/index.html-4641-          <div class="story-card">
+artifacts/project-ice/index.html-4642-            <p class="story-card__label">Up next</p>
+artifacts/project-ice/index.html-4643-            <h3>Build your hockey identity.</h3>
+artifacts/project-ice/index.html-4644-            <p>
+artifacts/project-ice/index.html-4645-              The next step will determine your background, motivation,
+artifacts/project-ice/index.html-4646-              archetype and favorite NHL team.
+artifacts/project-ice/index.html-4647-            </p>
+artifacts/project-ice/index.html-4648-          </div>
+artifacts/project-ice/index.html-4649-
+artifacts/project-ice/index.html-4650-          <button class="btn btn--primary" id="btn-continue-summary">
+artifacts/project-ice/index.html-4651-            <span class="btn__label">Continue</span>
+artifacts/project-ice/index.html-4652-            <span class="btn__arrow">›</span>
+artifacts/project-ice/index.html-4653-          </button>
+artifacts/project-ice/index.html-4654-
+artifacts/project-ice/index.html-4655-          <button class="text-button" id="btn-delete-save" type="button">
+artifacts/project-ice/index.html-4656-            Delete saved preview
+artifacts/project-ice/index.html-4657-          </button>
+artifacts/project-ice/index.html-4658-        </div>
+artifacts/project-ice/index.html-4659-      </section>
+artifacts/project-ice/index.html-4660-    </main>
+artifacts/project-ice/index.html-4661-    <script src="prospects.js"></script>
+artifacts/project-ice/index.html-4662-    <script src="/world.js"></script>
+artifacts/project-ice/index.html-4663-    <script src="/game.js"></script>
+artifacts/project-ice/index.html-4664-    <!-- CINEMATIC OVERLAY -->
+artifacts/project-ice/index.html-4665-    <div id="cinematic-overlay" role="status" aria-live="polite">
+artifacts/project-ice/index.html-4666-      <p id="cinematic-text"></p>
+artifacts/project-ice/index.html-4667-    </div>
+artifacts/project-ice/index.html-4668-
+artifacts/project-ice/index.html-4669-  </body>
+artifacts/project-ice/index.html-4670-</html>
