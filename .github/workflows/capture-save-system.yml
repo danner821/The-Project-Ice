@@ -1,0 +1,18 @@
+name: Capture Save System
+on:
+  push:
+    paths: ['.github/workflows/capture-save-system.yml']
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/capture_save_system.py
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add .github/save-system-inspection.txt
+          git commit -m 'Capture save system inspection'
+          git push
