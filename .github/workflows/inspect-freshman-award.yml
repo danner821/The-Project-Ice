@@ -1,0 +1,20 @@
+name: Inspect Freshman Award
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-freshman-award.yml'
+      - '.github/scripts/inspect_freshman_award.py'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_freshman_award.py > .github/freshman_award_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/freshman_award_audit.txt
+          git commit -m 'Persist freshman award audit' || exit 0
+          git push
