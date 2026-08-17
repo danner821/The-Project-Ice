@@ -1,0 +1,24 @@
+name: Patch Goal Feed Calendar
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-goal-calendar.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/patch_goal_calendar.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js artifacts/project-ice/public/style.css
+          git commit -m "Polish goal feed and extend season calendar"
+          git push
