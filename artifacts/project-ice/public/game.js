@@ -20160,18 +20160,31 @@ function pauseLiveGamePlayback() {
        * Pull the newly persisted world state back into the
        * presentation layer before opening Postgame.
        */
-      if (
-        typeof syncCareerPlayerWithWorld ===
-        'function'
-      ) {
-        syncCareerPlayerWithWorld();
-      }
+      /*
+       * These presentation refreshes are useful, but they are not allowed
+       * to block the final-horn Continue control. A late-season schedule
+       * migration or another optional UI refresh can throw even though the
+       * completed game has already been finalized, applied and saved.
+       */
+      try {
+        if (
+          typeof syncCareerPlayerWithWorld ===
+          'function'
+        ) {
+          syncCareerPlayerWithWorld();
+        }
 
-      if (
-        typeof refreshScheduleEvents ===
-        'function'
-      ) {
-        refreshScheduleEvents();
+        if (
+          typeof refreshScheduleEvents ===
+          'function'
+        ) {
+          refreshScheduleEvents();
+        }
+      } catch (error) {
+        console.warn(
+          '[Project Ice] Optional postgame presentation refresh failed; Continue remains available.',
+          error
+        );
       }
 
       /*
