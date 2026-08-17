@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 files = {
     'game': Path('artifacts/project-ice/public/game.js').read_text(),
@@ -23,12 +22,15 @@ for title,key,needle,b,a in [
     ('POSTGAME HTML','html','postgame-summary-screen',2500,6000),
     ('SIM APPROVAL','world','careerGameSimApproval',5000,10000),
     ('ADVANCE DATE','world','function advanceToDate',2500,14000),
-    ('TOI ACCRUAL','world','timeOnIceSeconds',6000,8000),
-    ('SPECIAL TEAMS SHIFT','world','specialTeamsShiftUnit',5000,10000),
+    ('PROCESS SEASON DATE','world','function processSeasonDate',3500,22000),
+    ('RESOLVED GAME RESULT','world','resolvedGameResult',7000,18000),
+    ('TOI ACCRUAL PLUS','world','timeOnIceSeconds +=',9000,14000),
+    ('TOI ACCRUAL ASSIGN','world','timeOnIceSeconds =',9000,14000),
+    ('SPECIAL TEAMS SHIFT','world','specialTeamsShiftUnit',7000,15000),
+    ('DEPLOYMENT AGE RESET','world','flow.deploymentAgeSeconds =',7000,13000),
 ]:
     parts.append(f'\n\n===== {title} =====\n'+block(files[key],needle,b,a))
 
-# CSS rules containing relevant selectors, with context.
 css=files['css']
 for needle in ['#pregame-matchup-screen','#live-game-screen','#postgame-summary-screen','.screen','live-game-career-decision','live-game-career-outcome']:
     parts.append(f'\n\n===== CSS {needle} =====\n'+block(css,needle,1500,4500))
