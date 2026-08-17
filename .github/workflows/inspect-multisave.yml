@@ -1,0 +1,12 @@
+name: Inspect Multi Save
+on:
+  push:
+    paths: ['.github/workflows/inspect-multisave.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_multisave.py
