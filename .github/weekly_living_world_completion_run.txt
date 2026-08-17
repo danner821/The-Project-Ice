@@ -17,10 +17,9 @@ PASS | major game beats
 PASS | dynamic news translator
 PASS | League news renderer
 PASS | full news renderer
-FAIL | Home View All news control
-FAIL | League View All news control
+PASS | Home View All news control
+PASS | League View All news control
 
-FAILED: Home View All news control, League View All news control
-PY_STATUS=1
+PY_STATUS=0
 WORLD_NODE_STATUS=0
 GAME_NODE_STATUS=0
