@@ -3245,6 +3245,9 @@ async function renderCareerSaveSelection() {
   careerSaveCount.textContent = `${saves.length} ${saves.length === 1 ? 'Save' : 'Saves'}`;
 
   saves.forEach(save => {
+    const shell = document.createElement('div');
+    shell.className = 'career-save-card-shell';
+
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'career-save-card';
@@ -3271,7 +3274,35 @@ async function renderCareerSaveSelection() {
       recoverCareerPreviewFromWorld();
       loadCareerPreview();
     });
-    careerSaveList.appendChild(card);
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'career-save-delete';
+    deleteButton.setAttribute('aria-label', `Delete ${save.playerName || 'career'}`);
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const playerName = save.playerName || 'this career';
+      const confirmed = window.confirm(`Delete ${playerName}? This cannot be undone.`);
+      if (!confirmed) return;
+
+      deleteButton.disabled = true;
+      card.disabled = true;
+      const deleted = await WorldEngine.deleteCareerSave(save.id);
+      if (!deleted) {
+        deleteButton.disabled = false;
+        card.disabled = false;
+        return;
+      }
+
+      await renderCareerSaveSelection();
+      updateContinueButton();
+    });
+
+    shell.appendChild(card);
+    shell.appendChild(deleteButton);
+    careerSaveList.appendChild(shell);
   });
 
   showScreen('career-saves');
@@ -21937,6 +21968,11 @@ document
     stage: 'hub',
     tryoutsComplete: true,
   };
+
+  /* The career becomes an official selectable save only now: tryouts are complete and Career Hub is unlocked. */
+  if (typeof WorldEngine.commitActiveCareerSave === 'function') {
+    WorldEngine.commitActiveCareerSave();
+  }
 
   saveCareerPreview();
   showScreen('hub');

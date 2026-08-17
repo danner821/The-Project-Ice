@@ -51,6 +51,9 @@ const WorldEngine = (() => {
   const ACTIVE_CAREER_ID_KEY =
     'projectice_active_career_id_v1';
 
+  const PENDING_CAREER_ID_KEY =
+    'projectice_pending_career_id_v1';
+
   function createCareerSaveId() {
     return `career-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
@@ -96,6 +99,7 @@ const WorldEngine = (() => {
       currentDate: state?.season?.currentDate || state?.player?.currentDate || state?.currentDate || null,
       seasonLabel: state?.season?.label || state?.currentSeason || '',
       stage: careerPlayer?.stage || state?.player?.stage || '',
+      tryoutsComplete: careerPlayer?.tryoutsComplete === true || state?.player?.tryoutsComplete === true,
       savedAt: new Date().toISOString(),
     };
   }
@@ -37997,7 +38001,8 @@ case 'career-defense':
       database.close();
 
       const activeCareerId = getActiveCareerId();
-      if (activeCareerId) {
+      const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+      if (activeCareerId && activeCareerId !== pendingCareerId) {
         upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
       }
     } catch (error) {
@@ -38292,7 +38297,15 @@ case 'career-defense':
       }
     }
 
-    return index
+    const officialIndex = index.filter(item =>
+      item?.stage === 'hub' || item?.tryoutsComplete === true
+    );
+
+    if (officialIndex.length !== index.length) {
+      writeCareerSaveIndex(officialIndex);
+    }
+
+    return officialIndex
       .slice()
       .sort((a, b) =>
         String(b?.savedAt || '')
@@ -38309,14 +38322,53 @@ case 'career-defense':
   }
 
   async function beginNewCareerSave() {
+    /*
+     * A New Career is a draft until tryouts are completed and the
+     * player reaches Career Hub. This prevents backing out of creation
+     * from filling Continue Career with empty/unnamed save slots.
+     */
+    const previousPendingId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+
+    if (previousPendingId) {
+      try {
+        const database = await openWorldDatabase();
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(previousPendingId));
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+        database.close();
+      } catch (error) {
+        console.warn('[WorldEngine] Could not clean abandoned pending career:', error);
+      }
+    }
+
     const careerId = createCareerSaveId();
     localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.setItem(PENDING_CAREER_ID_KEY, careerId);
+
     _state = buildDefaults();
     ensureCanonicalSeasonState(_state);
     if (!_state.player) _state.player = {};
     _state.player.currentDate = '2026-09-01';
-    await save();
+
     return careerId;
+  }
+
+  function commitActiveCareerSave() {
+    const careerId = getActiveCareerId();
+    if (!careerId) return false;
+
+    const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+    if (pendingCareerId === careerId) {
+      localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    }
+
+    upsertCareerSaveMetadata(careerId, _state);
+    save();
+    return true;
   }
 
   async function deleteCareerSave(careerId) {
@@ -38331,6 +38383,7 @@ case 'career-defense':
     database.close();
     writeCareerSaveIndex(readCareerSaveIndex().filter(item => item?.id !== careerId));
     if (getActiveCareerId() === careerId) localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
+    if (localStorage.getItem(PENDING_CAREER_ID_KEY) === careerId) localStorage.removeItem(PENDING_CAREER_ID_KEY);
     return true;
   }
 
@@ -41031,6 +41084,7 @@ case 'career-defense':
     listCareerSaves,
     selectCareerSave,
     beginNewCareerSave,
+    commitActiveCareerSave,
     deleteCareerSave,
     getActiveCareerId,
     ensureGeneratedRosters,
