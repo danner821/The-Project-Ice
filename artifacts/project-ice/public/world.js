@@ -15251,6 +15251,67 @@ const WorldEngine = (() => {
     trajectoryResult = {},
     context = {}
   ) {
+    /*
+     * COMPATIBILITY API ONLY.
+     *
+     * Potential movement is owned exclusively by
+     * evaluatePlayerPotentialWeek(). Keeping a second annual mutation
+     * path would allow season transitions to double-change a player's
+     * projection after the Weekly Living World already evaluated it.
+     *
+     * Older/future season-transition code may still call this function,
+     * so preserve its return contract while reporting the canonical
+     * potential state without mutating it. Annual trajectory remains a
+     * separate development-speed system.
+     */
+    if (!player || typeof player !== 'object') {
+      return {
+        success: false,
+        changed: false,
+        reason: 'invalid-player',
+        potentialBefore: null,
+        potentialAfter: null,
+        change: 0,
+      };
+    }
+
+    ensureCanonicalPlayerContract(player);
+
+    const canonicalPotential = Math.max(
+      25,
+      Math.min(
+        99,
+        Number(player.development?.potential ?? player.potential ?? player.overall) || 60
+      )
+    );
+
+    const role =
+      player.development?.potentialRole ||
+      player.potentialRole ||
+      getPotentialRole(player.position, canonicalPotential);
+
+    return {
+      success: true,
+      changed: false,
+      reason: 'weekly-potential-is-canonical',
+      potentialBefore: canonicalPotential,
+      potentialAfter: canonicalPotential,
+      change: 0,
+      potentialRole: role,
+      potentialTrend:
+        player.development?.potentialTrend ||
+        player.potentialTrend ||
+        'stable',
+      potentialConfidence:
+        Math.max(25, Math.min(100, Number(player.development?.potentialConfidence ?? player.potentialConfidence) || 50)),
+      trajectory:
+        trajectoryResult?.trajectory ||
+        'normal',
+      seasonNumber:
+        Math.max(1, Number(context.seasonNumber ?? _state.season?.seasonNumber) || 1),
+    };
+
+    /* LEGACY ANNUAL MUTATION BODY RETAINED BELOW UNREACHABLE FOR SAVE-COMPATIBILITY HISTORY. */
     if (
       !player ||
       typeof player !== 'object'
@@ -36416,6 +36477,13 @@ case 'career-defense':
   }
 
   function evaluatePlayerPotentialWeek(player = {}, dateString) {
+    /*
+     * CANONICAL DYNAMIC POTENTIAL ENGINE.
+     *
+     * This is the only function allowed to move a player's potential during
+     * an active career. Annual development trajectory may change growth rate,
+     * but it must not independently rewrite the player's potential label.
+     */
     ensureCanonicalPlayerContract(player);
 
     const normalizedDate = normalizeLivingWorldDateKey(dateString);
@@ -36499,6 +36567,11 @@ case 'career-defense':
     player.potentialAccuracy = development.potentialAccuracy;
     player.potentialTrend = development.potentialTrend;
     player.potentialConfidence = development.potentialConfidence;
+
+    if (player.scoutingProfile && typeof player.scoutingProfile === 'object') {
+      player.scoutingProfile.evaluationAccuracy =
+        development.potentialAccuracy;
+    }
 
     return {
       success: true,
