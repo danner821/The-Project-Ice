@@ -1,0 +1,19 @@
+name: Recover Official Career Saves
+on:
+  push:
+    paths: ['.github/workflows/recover-official-career-saves.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/recover_official_career_saves.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Recover valid careers from IndexedDB'
+          git push
