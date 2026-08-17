@@ -38,8 +38,8 @@ add('major game beats', 'function recordGameLivingWorldBeats' in w and 'major_pl
 add('dynamic news translator', 'function publishLivingWorldNewsForWeek' in w and 'award_leader_change' in w and 'season_stat_milestone' in w)
 add('League news renderer', bool(news_ui) and 'NewsSystem.getRecent' in news_ui)
 add('full news renderer', 'function renderFullNewsScreen' in g or 'function renderFullNews' in g)
-add('Home View All news control', 'btn-hub-news-view-all' in h)
-add('League View All news control', 'btn-league-news-view-all' in h)
+add('Home View All news control', h.count('news-view-all-button') >= 2)
+add('League View All news control', 'btn-league-view-all-news' in h)
 
 report='\n'.join(f"{'PASS' if ok else 'FAIL'} | {name}" for name,ok in checks)+'\n'
 Path('.github/weekly_living_world_completion_report.txt').write_text(report)
