@@ -3240,7 +3240,49 @@ function escapeHtml(value) {
 }
 
 async function renderCareerSaveSelection() {
-  const saves = await WorldEngine.listCareerSaves();
+  let saves = await WorldEngine.listCareerSaves();
+
+  /*
+   * The old lightweight preview is a last-resort recovery source only.
+   * If a career reached Hub but its IndexedDB/index write was interrupted,
+   * rebuild that official career instead of forcing the player to redo tryouts.
+   */
+  try {
+    const rawPreview = localStorage.getItem(SAVE_KEY);
+    const previewPlayer = rawPreview
+      ? JSON.parse(rawPreview)?.player
+      : null;
+
+    const previewName = previewPlayer
+      ? `${previewPlayer.firstName || ''} ${previewPlayer.lastName || ''}`.trim()
+      : '';
+    const previewTeamId = previewPlayer?.teamId || previewPlayer?.highSchoolTeamId || null;
+    const previewIsOfficial = Boolean(
+      previewName &&
+      previewTeamId &&
+      (
+        previewPlayer?.stage === 'hub' ||
+        previewPlayer?.tryoutsComplete === true
+      )
+    );
+    const previewAlreadyListed = previewIsOfficial && saves.some(save =>
+      String(save?.playerName || '').trim().toLowerCase() === previewName.toLowerCase()
+    );
+
+    if (
+      previewIsOfficial &&
+      !previewAlreadyListed &&
+      typeof WorldEngine.recoverOfficialCareerFromPreview === 'function'
+    ) {
+      const recovered = await WorldEngine.recoverOfficialCareerFromPreview(previewPlayer);
+      if (recovered) {
+        saves = await WorldEngine.listCareerSaves();
+      }
+    }
+  } catch (error) {
+    console.warn('[Project Ice] Career preview recovery was unavailable:', error);
+  }
+
   careerSaveList.innerHTML = '';
   careerSaveCount.textContent = `${saves.length} ${saves.length === 1 ? 'Save' : 'Saves'}`;
 
@@ -21893,7 +21935,7 @@ document.getElementById('btn-ts-enter-hub').addEventListener('click', () => {
 });
 document
 .getElementById('btn-begin-season')
-.addEventListener('click', () => {
+.addEventListener('click', async () => {
   const canonicalPlayer =
     WorldEngine.finalizeFreshCareerAfterTryouts({
       ...Game.player,
@@ -21972,7 +22014,11 @@ document
 
   /* The career becomes an official selectable save only now: tryouts are complete and Career Hub is unlocked. */
   if (typeof WorldEngine.commitActiveCareerSave === 'function') {
-    WorldEngine.commitActiveCareerSave();
+    const committed = await WorldEngine.commitActiveCareerSave();
+    if (!committed) {
+      console.error('[Project Ice] Career could not be durably committed after tryouts.');
+      return;
+    }
   }
 
   saveCareerPreview();

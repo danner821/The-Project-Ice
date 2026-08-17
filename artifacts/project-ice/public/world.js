@@ -38545,6 +38545,58 @@ case 'career-defense':
     return Boolean(repaired);
   }
 
+  async function recoverOfficialCareerFromPreview(previewPlayer = {}) {
+    const playerName = `${previewPlayer?.firstName || ''} ${previewPlayer?.lastName || ''}`.trim();
+    const teamId = previewPlayer?.teamId || previewPlayer?.highSchoolTeamId || null;
+    const isOfficialPreview = Boolean(
+      playerName &&
+      teamId &&
+      (
+        previewPlayer?.stage === 'hub' ||
+        previewPlayer?.tryoutsComplete === true
+      )
+    );
+
+    if (!isOfficialPreview) return null;
+
+    /* First prefer an existing active/pending id so recovery never duplicates a surviving slot. */
+    let careerId =
+      getActiveCareerId() ||
+      localStorage.getItem(PENDING_CAREER_ID_KEY) ||
+      null;
+
+    if (!careerId) {
+      careerId = createCareerSaveId();
+    }
+
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.removeItem(PENDING_CAREER_ID_KEY);
+
+    _state = buildDefaults();
+    configureFreshCareerSeason('2026-09-02');
+
+    (_state.teams || []).forEach(team => {
+      if (!Array.isArray(team.roster) || team.roster.length !== 20) {
+        team.roster = generateTeamRoster(team);
+      }
+    });
+
+    const canonicalPlayer = finalizeFreshCareerAfterTryouts({
+      ...previewPlayer,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    });
+
+    if (!canonicalPlayer) return null;
+
+    const saved = await save();
+    if (!saved) return null;
+
+    upsertCareerSaveMetadata(careerId, _state);
+    return buildCareerSaveMetadata(careerId, _state);
+  }
+
   async function selectCareerSave(careerId) {
     if (!careerId) return false;
     localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
@@ -38566,16 +38618,56 @@ case 'career-defense':
     if (previousPendingId) {
       try {
         const database = await openWorldDatabase();
-        await new Promise((resolve, reject) => {
-          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
-          transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(previousPendingId));
-          transaction.oncomplete = resolve;
-          transaction.onerror = () => reject(transaction.error);
-          transaction.onabort = () => reject(transaction.error);
+        const previousRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(getWorldRecordId(previousPendingId));
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
         });
+
+        const previousWorld = previousRecord?.world || null;
+        const previousPlayer = previousWorld?.player || null;
+        let previousCareerPlayer = null;
+
+        for (const team of previousWorld?.teams || []) {
+          previousCareerPlayer = (team?.roster || []).find(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === String(previousPlayer?.playerId || previousPlayer?.id || 'career-player')
+          );
+          if (previousCareerPlayer) break;
+        }
+
+        const previousPendingWasOfficial = Boolean(
+          previousWorld &&
+          (
+            previousPlayer?.stage === 'hub' ||
+            previousPlayer?.tryoutsComplete === true ||
+            previousCareerPlayer?.stage === 'hub' ||
+            previousCareerPlayer?.tryoutsComplete === true ||
+            (
+              (previousCareerPlayer?.firstName || previousPlayer?.firstName) &&
+              (previousCareerPlayer?.teamId || previousPlayer?.teamId) &&
+              Number(previousCareerPlayer?.overall || previousPlayer?.overall) > 0
+            )
+          )
+        );
+
+        if (previousPendingWasOfficial) {
+          upsertCareerSaveMetadata(previousPendingId, previousWorld);
+          localStorage.removeItem(PENDING_CAREER_ID_KEY);
+        } else {
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(previousPendingId));
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+        }
+
         database.close();
       } catch (error) {
-        console.warn('[WorldEngine] Could not clean abandoned pending career:', error);
+        console.warn('[WorldEngine] Could not inspect/clean abandoned pending career:', error);
       }
     }
 
@@ -38589,7 +38681,7 @@ case 'career-defense':
     return careerId;
   }
 
-  function commitActiveCareerSave() {
+  async function commitActiveCareerSave() {
     const careerId = getActiveCareerId();
     if (!careerId) return false;
 
@@ -38598,8 +38690,10 @@ case 'career-defense':
       localStorage.removeItem(PENDING_CAREER_ID_KEY);
     }
 
+    const saved = await save();
+    if (!saved) return false;
+
     upsertCareerSaveMetadata(careerId, _state);
-    save();
     return true;
   }
 
@@ -41317,6 +41411,7 @@ case 'career-defense':
     selectCareerSave,
     beginNewCareerSave,
     commitActiveCareerSave,
+    recoverOfficialCareerFromPreview,
     finalizeFreshCareerAfterTryouts,
     repairMalformedFreshCareerIfNeeded,
     deleteCareerSave,
