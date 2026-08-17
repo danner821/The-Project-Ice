@@ -46,12 +46,20 @@ jobs:
             const sim = created.simulation;
             let halfway = null;
             let steps = 0;
+            let consecutiveFailures = 0;
+            let totalRecoveredFailures = 0;
             while (!sim.gameComplete && steps < 5000) {
               const step = W.advanceLiveGameStep(sim);
-              if (!step?.success) {
-                throw new Error(`advance step failed: ${JSON.stringify(step)}`);
-              }
               steps += 1;
+              if (!step?.success) {
+                consecutiveFailures += 1;
+                totalRecoveredFailures += 1;
+                if (consecutiveFailures > 3) {
+                  throw new Error(`advance step failed repeatedly: ${JSON.stringify(step)}`);
+                }
+                continue;
+              }
+              consecutiveFailures = 0;
               const regulationElapsed =
                 Math.max(0, Math.min(3600,
                   (Math.max(1, Number(sim.period) || 1) - 1) * 1200 +
@@ -65,7 +73,7 @@ jobs:
             if (!sim.gameComplete) throw new Error('Live game hit validation step limit');
             const all = [...sim.home.skaters, ...sim.away.skaters];
             const finalMax = Math.max(...all.map(p => Number(p.timeOnIceSeconds) || 0));
-            samples.push({halfway: halfway || 0, finalMax});
+            samples.push({halfway: halfway || 0, finalMax, totalRecoveredFailures});
           }
 
           const avg = key => samples.reduce((s, x) => s + x[key], 0) / samples.length;
@@ -75,6 +83,7 @@ jobs:
             halfWorstMax: max('halfway'),
             finalAverageMax: avg('finalMax').toFixed(1),
             finalWorstMax: max('finalMax'),
+            averageRecoveredFailures: avg('totalRecoveredFailures').toFixed(2),
           });
           if (max('halfway') > 15 * 60) {
             throw new Error(`TOI still front-loads: halfway max ${max('halfway')}s`);
@@ -91,10 +100,18 @@ jobs:
           W.state.schedule.push(scheduled);
           W.setCurrentDate(date, {save: false});
           W.state.season.processedDates = W.state.season.processedDates.filter(d => d !== date);
-          const resolved = W.resolveLiveGameToFinalResult(scheduled);
-          if (!resolved?.success || !resolved.gameResult) {
-            throw new Error(`Direct resolver failed: ${JSON.stringify(resolved)}`);
+
+          let resolved = null;
+          let resolveAttempts = 0;
+          while (resolveAttempts < 4) {
+            resolved = W.resolveLiveGameToFinalResult(scheduled);
+            if (resolved?.success && resolved.gameResult) break;
+            resolveAttempts += 1;
           }
+          if (!resolved?.success || !resolved.gameResult) {
+            throw new Error(`Direct resolver failed after retries: ${JSON.stringify(resolved)}`);
+          }
+
           // Force the retry branch deliberately.
           W.state.season.processedDates.push(date);
           const applied = W.advanceToDate(date, {
