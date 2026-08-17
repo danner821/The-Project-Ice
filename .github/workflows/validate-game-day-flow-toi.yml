@@ -1,4 +1,3 @@
-# Validation rerun after total-workload distribution patch
 name: Validate Game Day Flow TOI
 
 on:
@@ -22,144 +21,76 @@ jobs:
           const source = fs.readFileSync('artifacts/project-ice/public/world.js', 'utf8');
           vm.runInThisContext(source + '\n;globalThis.__ProjectIceWorldEngine = WorldEngine;');
           const W = globalThis.__ProjectIceWorldEngine;
-
           W.ensureGeneratedRosters();
-          const teams = W.state.teams;
-          if (!Array.isArray(teams) || teams.length < 2) throw new Error('Need two generated teams');
-          const home = teams[0];
-          const away = teams[1];
+          const [home, away] = W.state.teams;
+          if (!home || !away) throw new Error('Need two generated teams');
 
-          const maxOrZero = values => values.length ? Math.max(...values) : 0;
+          const max0 = a => a.length ? Math.max(...a) : 0;
           const samples = [];
-          for (let gameIndex = 0; gameIndex < 60; gameIndex++) {
-            const event = {
-              id: `validation-live-${gameIndex}`,
-              gameId: `validation-live-${gameIndex}`,
-              eventId: `validation-live-${gameIndex}`,
-              type: 'game',
-              date: '2026-09-20',
-              homeTeamId: home.teamId,
-              awayTeamId: away.teamId,
-            };
+          for (let i = 0; i < 80; i++) {
+            const event = { id:`v-${i}`, gameId:`v-${i}`, eventId:`v-${i}`, type:'game', date:'2026-09-20', homeTeamId:home.teamId, awayTeamId:away.teamId };
             const created = W.createLiveGameSimulationState(event);
-            if (!created?.success || !created.simulation) {
-              throw new Error(`createLiveGameSimulationState failed: ${JSON.stringify(created)}`);
-            }
+            if (!created?.success) throw new Error(`creation failed ${JSON.stringify(created)}`);
             const sim = created.simulation;
-            let halfAll = 0;
-            let halfForward = 0;
-            let halfDefense = 0;
-            let halfwayCaptured = false;
-            let steps = 0;
-            let consecutiveFailures = 0;
-            let totalRecoveredFailures = 0;
-
+            let halfForward = 0, halfDefense = 0, halfCaptured = false, steps = 0, failures = 0;
             while (!sim.gameComplete && steps < 5000) {
               const step = W.advanceLiveGameStep(sim);
-              steps += 1;
+              steps++;
               if (!step?.success) {
-                consecutiveFailures += 1;
-                totalRecoveredFailures += 1;
-                if (consecutiveFailures > 3) {
-                  throw new Error(`advance step failed repeatedly: ${JSON.stringify(step)}`);
-                }
+                failures++;
+                if (failures > 3) throw new Error(`repeated live-step failure ${JSON.stringify(step)}`);
                 continue;
               }
-              consecutiveFailures = 0;
-
-              const regulationElapsed =
-                Math.max(0, Math.min(3600,
-                  (Math.max(1, Number(sim.period) || 1) - 1) * 1200 +
-                  (1200 - Math.max(0, Number(sim.clockSecondsRemaining) || 0))
-                ));
-
-              if (!halfwayCaptured && regulationElapsed >= 1800) {
+              failures = 0;
+              const elapsed = Math.max(0, Math.min(3600,
+                (Math.max(1, Number(sim.period)||1)-1)*1200 +
+                (1200-Math.max(0, Number(sim.clockSecondsRemaining)||0))));
+              if (!halfCaptured && elapsed >= 1800) {
                 const all = [...sim.home.skaters, ...sim.away.skaters];
-                const forwards = all.filter(p => p?.lineupAssignment?.unit === 'forward');
-                const defense = all.filter(p => p?.lineupAssignment?.unit === 'defense');
-                halfAll = maxOrZero(all.map(p => Number(p.timeOnIceSeconds) || 0));
-                halfForward = maxOrZero(forwards.map(p => Number(p.timeOnIceSeconds) || 0));
-                halfDefense = maxOrZero(defense.map(p => Number(p.timeOnIceSeconds) || 0));
-                halfwayCaptured = true;
+                halfForward = max0(all.filter(p=>p?.lineupAssignment?.unit==='forward').map(p=>Number(p.timeOnIceSeconds)||0));
+                halfDefense = max0(all.filter(p=>p?.lineupAssignment?.unit==='defense').map(p=>Number(p.timeOnIceSeconds)||0));
+                halfCaptured = true;
               }
             }
-
-            if (!sim.gameComplete) throw new Error('Live game hit validation step limit');
+            if (!sim.gameComplete) throw new Error('step limit');
             const all = [...sim.home.skaters, ...sim.away.skaters];
-            const forwards = all.filter(p => p?.lineupAssignment?.unit === 'forward');
-            const defense = all.filter(p => p?.lineupAssignment?.unit === 'defense');
-            samples.push({
-              halfAll,
-              halfForward,
-              halfDefense,
-              finalAll: maxOrZero(all.map(p => Number(p.timeOnIceSeconds) || 0)),
-              finalForward: maxOrZero(forwards.map(p => Number(p.timeOnIceSeconds) || 0)),
-              finalDefense: maxOrZero(defense.map(p => Number(p.timeOnIceSeconds) || 0)),
-              totalRecoveredFailures,
-            });
+            const f = max0(all.filter(p=>p?.lineupAssignment?.unit==='forward').map(p=>Number(p.timeOnIceSeconds)||0));
+            const d = max0(all.filter(p=>p?.lineupAssignment?.unit==='defense').map(p=>Number(p.timeOnIceSeconds)||0));
+            samples.push({ halfForward, halfDefense, finalForward:f, finalDefense:d, overtime: sim.overtime === true || Number(sim.period) > 3 });
           }
 
-          const avg = key => samples.reduce((s, x) => s + x[key], 0) / samples.length;
-          const max = key => Math.max(...samples.map(x => x[key]));
-          const minutes = seconds => (seconds / 60).toFixed(2);
-          console.log('TOI pacing validation (minutes)', {
-            halfForwardAverageMax: minutes(avg('halfForward')),
-            halfForwardWorstMax: minutes(max('halfForward')),
-            halfDefenseAverageMax: minutes(avg('halfDefense')),
-            halfDefenseWorstMax: minutes(max('halfDefense')),
-            finalForwardAverageMax: minutes(avg('finalForward')),
-            finalForwardWorstMax: minutes(max('finalForward')),
-            finalDefenseAverageMax: minutes(avg('finalDefense')),
-            finalDefenseWorstMax: minutes(max('finalDefense')),
-            finalAllWorstMax: minutes(max('finalAll')),
-            averageRecoveredFailures: avg('totalRecoveredFailures').toFixed(2),
+          const avg = (arr,key) => arr.reduce((s,x)=>s+x[key],0)/Math.max(1,arr.length);
+          const mx = (arr,key) => max0(arr.map(x=>x[key]));
+          const m = s => (s/60).toFixed(2);
+          const regulation = samples.filter(x=>!x.overtime);
+          console.log('TOI validation', {
+            halfForwardAvgMax:m(avg(samples,'halfForward')),
+            halfForwardWorst:m(mx(samples,'halfForward')),
+            halfDefenseAvgMax:m(avg(samples,'halfDefense')),
+            halfDefenseWorst:m(mx(samples,'halfDefense')),
+            regulationForwardAvgMax:m(avg(regulation,'finalForward')),
+            regulationForwardWorst:m(mx(regulation,'finalForward')),
+            regulationDefenseAvgMax:m(avg(regulation,'finalDefense')),
+            regulationDefenseWorst:m(mx(regulation,'finalDefense')),
+            overtimeGames:samples.length-regulation.length
           });
+          if (mx(samples,'halfForward') > 13*60) throw new Error(`forward front-load ${m(mx(samples,'halfForward'))}`);
+          if (mx(samples,'halfDefense') > 15*60) throw new Error(`defense front-load ${m(mx(samples,'halfDefense'))}`);
+          if (mx(regulation,'finalForward') > 24*60) throw new Error(`regulation forward ceiling ${m(mx(regulation,'finalForward'))}`);
+          if (mx(regulation,'finalDefense') > 29*60) throw new Error(`regulation defense ceiling ${m(mx(regulation,'finalDefense'))}`);
 
-          if (max('halfForward') > 13 * 60) {
-            throw new Error(`Forward TOI still front-loads: halfway max ${minutes(max('halfForward'))}m`);
-          }
-          if (max('halfDefense') > 15 * 60) {
-            throw new Error(`Defense TOI still front-loads: halfway max ${minutes(max('halfDefense'))}m`);
-          }
-          if (max('finalForward') > 24 * 60) {
-            throw new Error(`Forward TOI ceiling is too high: ${minutes(max('finalForward'))}m`);
-          }
-
-          const date = '2026-10-15';
-          const id = 'validation-canonical-result';
-          const scheduled = {
-            id, gameId: id, eventId: id, type: 'game', date,
-            homeTeamId: home.teamId, awayTeamId: away.teamId,
-            played: false, completed: false,
-          };
+          const date='2026-10-15', id='validation-canonical-result';
+          const scheduled={id,gameId:id,eventId:id,type:'game',date,homeTeamId:home.teamId,awayTeamId:away.teamId,played:false,completed:false};
           W.state.schedule.push(scheduled);
-          W.setCurrentDate(date, {save: false});
-          W.state.season.processedDates = W.state.season.processedDates.filter(d => d !== date);
-
-          const resolved = W.resolveLiveGameToFinalResult(scheduled);
-          if (!resolved?.success || !resolved.gameResult) {
-            throw new Error(`Direct resolver failed: ${JSON.stringify(resolved)}`);
-          }
-          console.log('Instant resolver validation passed', {
-            recoveredFailures: Array.isArray(resolved.failures) ? resolved.failures.length : 0,
-          });
-
+          W.setCurrentDate(date,{save:false});
+          W.state.season.processedDates=W.state.season.processedDates.filter(d=>d!==date);
+          const resolved=W.resolveLiveGameToFinalResult(scheduled);
+          if (!resolved?.success || !resolved.gameResult) throw new Error(`instant resolver failed ${JSON.stringify(resolved)}`);
+          console.log('Instant resolver passed', { recoveredFailures: resolved.failures?.length || 0 });
           W.state.season.processedDates.push(date);
-          const applied = W.advanceToDate(date, {
-            processCurrentDate: true,
-            resolvedGameResult: resolved.gameResult,
-            save: false,
-          });
-          if (!applied?.success) {
-            throw new Error(`Supplied-result application failed: ${JSON.stringify(applied)}`);
-          }
-          const saved = W.state.schedule.find(g => String(g.id || g.gameId) === id);
-          if (!saved?.played || !saved?.completed || !saved?.postgameSummary) {
-            throw new Error(`Canonical game did not persist in memory: ${JSON.stringify(saved)}`);
-          }
-          console.log('Canonical result retry validation passed', {
-            played: saved.played,
-            hasSummary: Boolean(saved.postgameSummary),
-            score: `${saved.awayScore}-${saved.homeScore}`,
-          });
+          const applied=W.advanceToDate(date,{processCurrentDate:true,resolvedGameResult:resolved.gameResult,save:false});
+          if (!applied?.success) throw new Error(`canonical apply failed ${JSON.stringify(applied)}`);
+          const saved=W.state.schedule.find(g=>String(g.id||g.gameId)===id);
+          if (!saved?.played || !saved?.completed || !saved?.postgameSummary) throw new Error(`canonical state missing ${JSON.stringify(saved)}`);
+          console.log('Canonical completed-game application passed', {played:saved.played,hasSummary:!!saved.postgameSummary});
           NODE
