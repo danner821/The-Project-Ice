@@ -1,0 +1,14 @@
+name: Inspect Visible Scouting UI
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-visible-scouting-ui.yml'
+      - '.github/scripts/inspect_visible_scouting_ui.py'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_visible_scouting_ui.py
