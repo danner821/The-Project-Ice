@@ -1,0 +1,24 @@
+name: Fix Career Save Lifecycle
+on:
+  push:
+    paths: ['.github/workflows/fix-career-save-lifecycle.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_career_save_lifecycle.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: |
+          grep -q 'commitActiveCareerSave' artifacts/project-ice/public/world.js
+          grep -q 'career-save-delete' artifacts/project-ice/public/game.js
+          grep -q 'PENDING_CAREER_ID_KEY' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css
+          git commit -m 'Finalize careers only after tryouts and add delete saves'
+          git push
