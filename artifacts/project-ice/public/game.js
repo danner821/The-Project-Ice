@@ -12387,7 +12387,7 @@ function updateHubScreen() {
 
     setText(
       'pp-development-potential',
-      potentialRole
+      `${potentialRole} • ${potential} POT`
     );
 
     setText(
@@ -12472,7 +12472,12 @@ function updateHubScreen() {
 
     if (potentialElement) {
       potentialElement.title =
-        `${potential} projected potential`;
+        `${potentialRole} projection • ${Math.round(
+          Math.max(25, Math.min(100, Number(
+            development.potentialConfidence ??
+            player.potentialConfidence
+          ) || 50))
+        )}% scouting confidence`;
     }
   }
 
@@ -12973,8 +12978,13 @@ function updateHubScreen() {
         )
       );
 
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      null;
+
     const evaluationAccuracy =
-      scouting.evaluationAccuracy ||
+      canonicalAccuracy ||
       (
         confidence >= 75
           ? 'High'
@@ -13087,6 +13097,11 @@ function updateHubScreen() {
     setText(
       'pp-scouting-accuracy',
       evaluationAccuracy
+    );
+
+    setText(
+      'pp-scouting-confidence-detail',
+      `Potential certainty • ${Math.round(confidence)}%`
     );
 
     setText(
