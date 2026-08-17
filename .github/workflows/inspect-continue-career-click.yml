@@ -1,0 +1,20 @@
+name: Inspect Continue Career Click
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-continue-career-click.yml'
+      - '.github/scripts/inspect_continue_career_click.py'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_continue_career_click.py > .github/continue_career_click_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/continue_career_click_audit.txt
+          git commit -m 'Persist Continue Career click audit' || exit 0
+          git push
