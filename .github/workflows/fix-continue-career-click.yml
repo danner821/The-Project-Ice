@@ -1,0 +1,22 @@
+name: Fix Continue Career Click
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-continue-career-click.yml'
+      - '.github/scripts/fix_continue_career_click.py'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_continue_career_click.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "Continue Career failed" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Harden Continue Career loading' || exit 0
+          git push
