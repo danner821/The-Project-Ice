@@ -1,5 +1,0 @@
-added canonical weekly award races and lineup movement
-PY_STATUS=0
-NODE_STATUS=0
-AWARD_GREP=0
-LINEUP_GREP=0
