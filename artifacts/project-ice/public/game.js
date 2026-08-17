@@ -3256,9 +3256,6 @@ function escapeHtml(value) {
 }
 
 async function renderCareerSaveSelection() {
-  const existingRecoveryDiagnostic = document.getElementById('career-recovery-diagnostic');
-  if (existingRecoveryDiagnostic) existingRecoveryDiagnostic.remove();
-
   let saves = await WorldEngine.listCareerSaves();
 
   /*
@@ -3365,35 +3362,6 @@ async function renderCareerSaveSelection() {
     shell.appendChild(deleteButton);
     careerSaveList.appendChild(shell);
   });
-
-  try {
-    if (typeof WorldEngine?.getCareerRecoveryDiagnostics === 'function') {
-      const recovery = await WorldEngine.getCareerRecoveryDiagnostics();
-      const panel = document.createElement('div');
-      panel.id = 'career-recovery-diagnostic';
-      panel.style.cssText = 'margin:14px 0;padding:12px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(0,0,0,.24);font-size:11px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;color:#dce8ff;';
-      const rows = [];
-      rows.push('RECOVERY DATA — SCREENSHOT THIS');
-      rows.push(`Active: ${recovery?.activeCareerId || 'none'}`);
-      rows.push('');
-      for (const record of recovery?.indexedDbRecords || []) {
-        rows.push(`${record.recordId} | ${record.name} | OVR ${record.overall ?? '-'} | Start ${record.startingOverall ?? '-'} | Line ${record.line ?? '-'} | Tryout ${record.overallTryoutScore ?? '-'} ${record.overallTryoutGrade ?? ''} | Attrs ${record.attributeCount ?? 0} | Trust ${record.coachTrust ?? '-'}`);
-      }
-      const preview = recovery?.localStorage?.projectice_save;
-      if (preview && typeof preview === 'object') {
-        rows.push('');
-        rows.push(`projectice_save | ${preview.name} | OVR ${preview.overall ?? '-'} | Start ${preview.startingOverall ?? '-'} | Line ${preview.line ?? '-'} | Tryout ${preview.overallTryoutScore ?? '-'} ${preview.overallTryoutGrade ?? ''} | Attrs ${preview.attributeCount ?? 0} | Trust ${preview.coachTrust ?? '-'}`);
-      }
-      const legacy = recovery?.localStorage?.projectice_world;
-      if (legacy && typeof legacy === 'object') {
-        rows.push(`projectice_world | ${legacy.name || 'Unnamed'} | OVR ${legacy.overall ?? '-'} | Start ${legacy.startingOverall ?? '-'} | Line ${legacy.line ?? '-'} | Tryout ${legacy.overallTryoutScore ?? '-'} ${legacy.overallTryoutGrade ?? ''} | Attrs ${legacy.attributeCount ?? 0} | Trust ${legacy.coachTrust ?? '-'}`);
-      }
-      panel.textContent = rows.join('\n');
-      careerSaveList?.insertAdjacentElement('afterend', panel);
-    }
-  } catch (error) {
-    console.warn('[Project Ice] Recovery diagnostic failed:', error);
-  }
 
   showScreen('career-saves');
 }
