@@ -1,0 +1,24 @@
+name: Unify Potential Contract
+on:
+  push:
+    paths:
+      - '.github/workflows/unify-potential-contract.yml'
+      - '.github/scripts/unify_potential_contract.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/unify_potential_contract.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q "CANONICAL DYNAMIC POTENTIAL ENGINE" artifacts/project-ice/public/world.js
+      - run: grep -q "weekly-potential-is-canonical" artifacts/project-ice/public/world.js
+      - run: grep -q "scoutingProfile.evaluationAccuracy" artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Unify NHL-style potential progression contract' || exit 0
+          git push
