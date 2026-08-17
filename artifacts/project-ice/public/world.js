@@ -38099,7 +38099,7 @@ case 'career-defense':
 
       if (
         resolvedRecord?.world &&
-        typeof storedRecord.world ===
+        typeof resolvedRecord.world ===
           'object'
       ) {
         _state = {
@@ -38212,11 +38212,55 @@ case 'career-defense':
   }
 
   async function listCareerSaves() {
-    /* Ensure a legacy single save is migrated before the list is shown. */
-    if (readCareerSaveIndex().length === 0) {
-      await load();
+    let index = readCareerSaveIndex();
+
+    /*
+     * LEGACY SINGLE-SAVE → MULTI-SAVE MIGRATION
+     *
+     * On old installs the title boot has already loaded the IndexedDB
+     * `default` world into _state. The first time the player opens
+     * Continue Career, preserve that exact loaded world as slot #1.
+     * Keeping the legacy record untouched gives us a recovery copy.
+     */
+    if (index.length === 0) {
+      const hasCareerPlayer =
+        Boolean(
+          getPlayerById(
+            _state.player?.playerId ||
+            _state.player?.id ||
+            'career-player'
+          )
+        ) ||
+        (_state.teams || []).some(team =>
+          (team?.roster || []).some(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === 'career-player'
+          )
+        );
+
+      if (hasCareerPlayer) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(
+          ACTIVE_CAREER_ID_KEY,
+          careerId
+        );
+
+        const migrated = await save();
+
+        if (migrated) {
+          index = readCareerSaveIndex();
+        }
+      }
     }
-    return readCareerSaveIndex().slice().sort((a, b) => String(b?.savedAt || '').localeCompare(String(a?.savedAt || '')));
+
+    return index
+      .slice()
+      .sort((a, b) =>
+        String(b?.savedAt || '')
+          .localeCompare(
+            String(a?.savedAt || '')
+          )
+      );
   }
 
   async function selectCareerSave(careerId) {
