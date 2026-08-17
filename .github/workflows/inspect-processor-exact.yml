@@ -11,3 +11,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python .github/scripts/inspect_processor_exact.py
+# retry completion
