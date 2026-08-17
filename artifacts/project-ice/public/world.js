@@ -38069,28 +38069,67 @@ case 'career-defense':
 
       let resolvedRecord = storedRecord;
 
-      /* Legacy single-world migration: preserve the user's existing career as slot #1. */
+      /*
+       * Legacy single-world migration: preserve the user's existing
+       * pre-multi-save career as the first selectable career slot.
+       *
+       * With no active career ID, getWorldRecordId() points at the old
+       * `default` record. A successful read still has to be copied into
+       * a career-specific record and added to the save index.
+       */
+      if (!getActiveCareerId() && resolvedRecord?.world) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).put({
+            ...resolvedRecord,
+            id: getWorldRecordId(careerId),
+          });
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+
+        resolvedRecord = {
+          ...resolvedRecord,
+          id: getWorldRecordId(careerId),
+        };
+        upsertCareerSaveMetadata(careerId, resolvedRecord.world);
+      }
+
+      /* If a career-specific record is missing, fall back to the old default record once. */
       if (!resolvedRecord?.world) {
-        const legacyDatabase = database;
         const legacyRecord = await new Promise((resolve, reject) => {
-          const transaction = legacyDatabase.transaction(WORLD_STORE_NAME, 'readonly');
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
           const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);
           request.onsuccess = () => resolve(request.result || null);
           request.onerror = () => reject(request.error);
         });
+
         if (legacyRecord?.world) {
           let careerId = getActiveCareerId();
           if (!careerId) {
             careerId = createCareerSaveId();
             localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
           }
+
           await new Promise((resolve, reject) => {
-            const transaction = legacyDatabase.transaction(WORLD_STORE_NAME, 'readwrite');
-            transaction.objectStore(WORLD_STORE_NAME).put({ ...legacyRecord, id: getWorldRecordId(careerId) });
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).put({
+              ...legacyRecord,
+              id: getWorldRecordId(careerId),
+            });
             transaction.oncomplete = resolve;
             transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
           });
-          resolvedRecord = { ...legacyRecord, id: getWorldRecordId(careerId) };
+
+          resolvedRecord = {
+            ...legacyRecord,
+            id: getWorldRecordId(careerId),
+          };
           upsertCareerSaveMetadata(careerId, legacyRecord.world);
         }
       }
