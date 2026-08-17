@@ -1,0 +1,13 @@
+name: Inspect Processor Exact
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-processor-exact.yml'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_processor_exact.py
