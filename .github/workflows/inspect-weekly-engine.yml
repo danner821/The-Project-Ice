@@ -1,0 +1,25 @@
+name: Inspect Weekly Engine
+
+on:
+  push:
+    paths:
+      - '.github/workflows/inspect-weekly-engine.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect weekly/date-processing architecture
+        run: |
+          echo '=== WORLD: ADVANCE/DATES ==='
+          grep -n -B 35 -A 170 -E 'function advanceDay\(|function advanceToDate\(|function setCurrentDate\(' artifacts/project-ice/public/world.js || true
+          echo '=== WORLD: TRUST/FORM/LINEUPS ==='
+          grep -n -B 25 -A 90 -E 'coachTrust|recentForm|lineupAssignment|specialTeams|recalculate|deployment' artifacts/project-ice/public/world.js | tail -n 900 || true
+          echo '=== WORLD: STANDINGS/STATS/NEWS ==='
+          grep -n -B 25 -A 100 -E 'standings|leader|news|headline|story|award|prospect' artifacts/project-ice/public/world.js | tail -n 1000 || true
+          echo '=== GAME: SIMULATE TO DATE ==='
+          grep -n -B 40 -A 150 -E 'function simulateToDate\(' artifacts/project-ice/public/game.js || true
