@@ -1,7 +1,0 @@
-PASS | deterministic_potential_roll
-PASS | scouting_no_games_observed_accuracy_writer
-PASS | freshman_award_backend
-FAIL | freshman_award_ui
-FAIL | prospect_ui_has_canonical_movement
-PASS | news_consumer_present
-PASS | weekly_guard_present
