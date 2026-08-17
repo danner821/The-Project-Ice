@@ -1,0 +1,23 @@
+name: Repair Meghan Snapshot
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-meghan-snapshot.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/repair_meghan_snapshot.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "repairKnownMeghanTryoutSnapshot" artifacts/project-ice/public/world.js
+      - run: '! grep -q "RECOVERY DATA — SCREENSHOT THIS" artifacts/project-ice/public/game.js'
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
+          git commit -m 'Restore Meghan known tryout outcome' || exit 0
+          git push
