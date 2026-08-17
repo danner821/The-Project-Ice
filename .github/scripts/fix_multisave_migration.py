@@ -1,17 +1,19 @@
 from pathlib import Path
-import re
 
 path = Path('artifacts/project-ice/public/world.js')
 text = path.read_text()
 
-pattern = re.compile(
-    r"      let resolvedRecord = storedRecord;\n.*?      database\.close\(\);\n\n      if \(\n        resolvedRecord\?\.world &&\n        typeof storedRecord\.world ===\n          'object'\n      \) \{\n",
-    re.S,
-)
+start_marker = "      /* Legacy single-world migration: preserve the user's existing career as slot #1. */\n"
+end_marker = "      database.close();\n"
+start = text.find(start_marker)
+if start < 0:
+    raise SystemExit('legacy migration start not found')
+end = text.find(end_marker, start)
+if end < 0:
+    raise SystemExit('legacy migration end not found')
+end += len(end_marker)
 
-replacement = """      let resolvedRecord = storedRecord;
-
-      /*
+replacement = """      /*
        * Legacy single-world migration: preserve the user's existing
        * pre-multi-save career as the first selectable career slot.
        *
@@ -41,10 +43,7 @@ replacement = """      let resolvedRecord = storedRecord;
         upsertCareerSaveMetadata(careerId, resolvedRecord.world);
       }
 
-      /*
-       * If a career-specific record was requested but is missing,
-       * make one final compatibility check for the old default record.
-       */
+      /* If a career-specific record is missing, fall back to the old default record once. */
       if (!resolvedRecord?.world) {
         const legacyRecord = await new Promise((resolve, reject) => {
           const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
@@ -80,17 +79,7 @@ replacement = """      let resolvedRecord = storedRecord;
       }
 
       database.close();
-
-      if (
-        resolvedRecord?.world &&
-        typeof resolvedRecord.world ===
-          'object'
-      ) {
 """
 
-updated, count = pattern.subn(replacement, text, count=1)
-if count != 1:
-    raise SystemExit(f'multi-save migration block matches: {count}')
-
-path.write_text(updated)
+path.write_text(text[:start] + replacement + text[end:])
 print('fixed multi-save legacy migration')
