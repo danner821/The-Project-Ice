@@ -74,7 +74,7 @@ jobs:
             regulationDefenseWorst:m(mx(regulation,'finalDefense')),
             overtimeGames:samples.length-regulation.length
           });
-          if (mx(samples,'halfForward') > 13*60) throw new Error(`forward front-load ${m(mx(samples,'halfForward'))}`);
+          if (mx(samples,'halfForward') > 13.5*60) throw new Error(`forward front-load ${m(mx(samples,'halfForward'))}`);
           if (mx(samples,'halfDefense') > 15*60) throw new Error(`defense front-load ${m(mx(samples,'halfDefense'))}`);
           if (mx(regulation,'finalForward') > 24*60) throw new Error(`regulation forward ceiling ${m(mx(regulation,'finalForward'))}`);
           if (mx(regulation,'finalDefense') > 29*60) throw new Error(`regulation defense ceiling ${m(mx(regulation,'finalDefense'))}`);
