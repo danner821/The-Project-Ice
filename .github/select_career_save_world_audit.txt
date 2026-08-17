@@ -1,0 +1,778 @@
+FIRST 891226
+
+---
+ ||
+        previewPlayer?.tryoutsComplete === true
+      )
+    );
+
+    if (!isOfficialPreview) return null;
+
+    /*
+     * Prefer the active/pending id only when it is empty or already belongs
+     * to this preview. Never overwrite another valid career during recovery.
+     */
+    let careerId =
+      getActiveCareerId() ||
+      localStorage.getItem(PENDING_CAREER_ID_KEY) ||
+      null;
+
+    if (careerId) {
+      try {
+        const database = await openWorldDatabase();
+        const existingRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(getWorldRecordId(careerId));
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+        database.close();
+
+        const existingWorld = existingRecord?.world || null;
+        const existingName = `${existingWorld?.player?.firstName || ''} ${existingWorld?.player?.lastName || ''}`.trim();
+        const existingHasDifferentOfficialCareer = Boolean(
+          existingWorld &&
+          existingName &&
+          existingName.toLowerCase() !== playerName.toLowerCase() &&
+          (
+            existingWorld?.player?.stage === 'hub' ||
+            existingWorld?.player?.tryoutsComplete === true
+          )
+        );
+
+        if (existingHasDifferentOfficialCareer) {
+          careerId = null;
+        }
+      } catch (error) {
+        console.warn('[WorldEngine] Could not verify recovery career id; using a new slot.', error);
+        careerId = null;
+      }
+    }
+
+    if (!careerId) {
+      careerId = createCareerSaveId();
+    }
+
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.removeItem(PENDING_CAREER_ID_KEY);
+
+    _state = buildDefaults();
+    configureFreshCareerSeason('2026-09-02');
+
+    (_state.teams || []).forEach(team => {
+      if (!Array.isArray(team.roster) || team.roster.length !== 20) {
+        team.roster = generateTeamRoster(team);
+      }
+    });
+
+    const canonicalPlayer = finalizeFreshCareerAfterTryouts({
+      ...previewPlayer,
+      stage: 'hub',
+      tryoutsComplete: true,
+      currentDate: '2026-09-02',
+    });
+
+    if (!canonicalPlayer) return null;
+
+    const saved = await save();
+    if (!saved) return null;
+
+    upsertCareerSaveMetadata(careerId, _state);
+    return buildCareerSaveMetadata(careerId, _state);
+  }
+
+  async function selectCareerSave(careerId) {
+    if (!careerId) return false;
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    const loaded = await load();
+    if (loaded) {
+      repairMalformedFreshCareerIfNeeded();
+    }
+    return loaded;
+  }
+
+  async function beginNewCareerSave() {
+    /*
+     * A New Career is a draft until tryouts are completed and the
+     * player reaches Career Hub. This prevents backing out of creation
+     * from filling Continue Career with empty/unnamed save slots.
+     */
+    const previousPendingId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+
+    if (previousPendingId) {
+      try {
+        const database = await openWorldDatabase();
+        const previousRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(getWorldRecordId(previousPendingId));
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+
+        const previousWorld = previousRecord?.world || null;
+        const previousPlayer = previousWorld?.player || null;
+        let previousCareerPlayer = null;
+
+        for (const team of previousWorld?.teams || []) {
+          previousCareerPlayer = (team?.roster || []).find(player =>
+            player?.isCareerPlayer === true ||
+            String(player?.id || player?.playerId || '') === String(previousPlayer?.playerId || previousPlayer?.id || 'career-player')
+          );
+          if (previousCareerPlayer) break;
+        }
+
+        const previousPendingWasOfficial = Boolean(
+          previousWorld &&
+          (
+            previousPlayer?.stage === 'hub' ||
+            previousPlayer?.tryoutsComplete === true ||
+            previousCareerPlayer?.stage === 'hub' ||
+            previousCareerPlayer?.tryoutsComplete === true ||
+            (
+              (previousCareerPlayer?.firstName || previousPlayer?.firstName) &&
+              (previousCareerPlayer?.teamId || previousPlayer?.teamId) &&
+              Number(previousCareerPlayer?.overall || previousPlayer?.overall) > 0
+            )
+          )
+        );
+
+        if (previousPendingWasOfficial) {
+          upsertCareerSaveMetadata(previousPendingId, previousWorld);
+          localStorage.removeItem(PENDING_CAREER_ID_KEY);
+        } else {
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(previousPendingId));
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+        }
+
+        database.close();
+      } catch (error) {
+        console.warn('[WorldEngine] Could not inspect/clean abandoned pending career:', error);
+      }
+    }
+
+    const careerId = createCareerSaveId();
+    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    localStorage.setItem(PENDING_CAREER_ID_KEY, careerId);
+
+    _state = buildDefaults();
+    configureFreshCareerSeason('2026-09-01');
+
+    return careerId;
+  }
+
+  async function commitActiveCareerSave() {
+    const careerId = getActiveCareerId();
+    if (!careerId) return false;
+
+    const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+    if (pendingCareerId === careerId) {
+      localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    }
+
+    const saved = await save();
+    if (!saved) return false;
+
+    upsertCareerSaveMetadata(careerId, _state);
+    return true;
+  }
+
+  async function deleteCareerSave(careerId) {
+    if (!careerId) return false;
+    const database = await openWorldDatabase();
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+      transaction.objectStore(WORLD_STORE_NAME).delete(getWorldRecordId(careerId));
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    database.close();
+    writeCareerSaveIndex(readCareerSaveIndex().filter(item => item?.id !== careerId));
+    if (getActiveCareerId() === careerId) localStorage.removeItem(ACTIVE_CAREER_ID_KEY);
+    if (localStorage.getItem(PENDING_CAREER_ID_KEY) === careerId) localStorage.removeItem(PENDING_CAREER_ID_KEY);
+    return true;
+  }
+
+  /** Reset only the currently active career to defaults. Other career slots are preserved. */
+  function reset() {
+    _state = buildDefaults();
+
+    ensureCanonicalSeasonState(
+      _state
+    );
+
+    if (!_state.player) {
+      _state.player = {};
+    }
+
+    _state.player.currentDate = '2026-09-01';
+
+    localStorage.removeItem(WORLD_KEY);
+    save();
+  }
+  function setCurrentDate(
+    dateString,
+    options = {}
+  ) {
+    if (
+      typeof dateString !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        dateString
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Invalid date: ${dateString}`
+      );
+
+      return null;
+    }
+
+    const parsedDate =
+      new Date(
+        `${dateString}T12:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Unusable date: ${dateString}`
+      );
+
+      return null;
+    }
+
+    if (
+      !_state.season ||
+      typeof _state.season !== 'object'
+    ) {
+      ensureCanonicalSeasonState(
+        _state
+      );
+    }
+
+    /*
+     * The Season Engine is the permanent source of truth.
+     */
+    _state.season.currentDate =
+      dateString;
+
+    const calculatedWeek =
+      getSeasonWeekForDate(
+        dateString,
+        _state.season.seasonStartYear
+      );
+
+    _state.season.currentWeek =
+      calculatedWeek;
+
+    /*
+     * Compatibility fields remain synchronized while
+     * existing Schedule and Hub code are migrated.
+     */
+    _state.currentDate =
+      dateString;
+
+    _state.currentYear =
+      Number(
+        dateString.slice(0, 4)
+      );
+
+    _state.currentWeek =
+      calculatedWeek;
+
+    if (
+      !_state.player ||
+      typeof _state.player !== 'object'
+    ) {
+      _state.player = {};
+    }
+
+    _state.player.currentDate =
+      dateString;
+
+    /*
+     * Keep the canonical roster version of the career player
+     * synchronized with the Season Engine. game.js renders from
+     * this player through syncCareerPlayerWithWorld().
+     */
+    const careerPlayer =
+      getPlayerById(
+        _state.player?.playerId ||
+        _state.player?.id ||
+        'career-player'
+      );
+
+    if (careerPlayer) {
+      careerPlayer.currentDate =
+        dateString;
+    }
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return dateString;
+  }
+
+  function advanceDay(
+    options = {}
+  ) {
+    const currentDate =
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate;
+
+    if (
+      typeof currentDate !== 'string'
+    ) {
+      console.warn(
+        '[WorldEngine] Cannot advance an invalid current date.'
+      );
+
+      return null;
+    }
+
+    const nextDate =
+      new Date(
+        `${currentDate}T12:00:00`
+      );
+
+    if (
+      Number.isNaN(
+        nextDate.getTime()
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Cannot advance date: ${currentDate}`
+      );
+
+      return null;
+    }
+
+    nextDate.setDate(
+      nextDate.getDate() + 1
+    );
+
+    const nextDateString = [
+      nextDate.getFullYear(),
+
+      String(
+        nextDate.getMonth() + 1
+      ).padStart(2, '0'),
+
+      String(
+        nextDate.getDate()
+      ).padStart(2, '0'),
+    ].join('-');
+
+    return setCurrentDate(
+      nextDateString,
+      options
+    );
+  }
+
+  function buildSimulationSummary({
+    daysAdvanced = 0,
+    dateProcessingResults = [],
+    crossedWeeks = [],
+    weeklyProcessingResults = [],
+  }) {
+
+    const summary = {
+      daysAdvanced,
+
+      processedDates:
+        dateProcessingResults.length,
+
+      totalEvents: 0,
+
+      completedEvents: 0,
+
+      pendingEvents: 0,
+
+      eventTypes: {},
+
+      crossedWeeks,
+
+      weeklyProcessingResults,
+    };
+
+    dateProcessingResults.forEach(
+      day => {
+
+        (day.eventResults || []).forEach(
+          event => {
+
+            summary.totalEvents += 1;
+
+            if (event.resolved) {
+              summary.completedEvents += 1;
+            } else {
+              summary.pendingEvents += 1;
+            }
+
+            summary.eventTypes[
+              event.type
+            ] =
+              (summary.eventTypes[
+                event.type
+              ] || 0) + 1;
+          }
+        );
+
+      }
+    );
+
+    return summary;
+  }
+
+  function advanceToDate(
+    targetDate,
+    options = {}
+  ) {
+    const currentDate =
+      _state.season?.currentDate ||
+      _state.player?.currentDate ||
+      _state.currentDate;
+
+    const startingWeek =
+      Math.max(
+        1,
+        Number(
+          _state.season?.currentWeek ??
+          _state.currentWeek
+        ) || 1
+      );
+
+    if (
+      typeof targetDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        targetDate
+      )
+    ) {
+      console.warn(
+        `[WorldEngine] Invalid target date: ${targetDate}`
+      );
+
+      return {
+        success: false,
+        currentDate,
+        targetDate,
+        daysAdvanced: 0,
+        crossedWeeks: [],
+        dateProcessingResults: [],
+        reason: 'invalid-target-date',
+      };
+    }
+
+    if (
+      typeof currentDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(
+        currentDate
+      )
+    ) {
+      console.warn(
+        '[WorldEngine] Cannot advance from an invalid current date.'
+      );
+
+      return {
+        success: false,
+        currentDate,
+        targetDate,
+        daysAdvanced: 0,
+        crossedWeeks: [],
+        dateProcessingResults: [],
+        reason: 'invalid-current-date',
+      };
+    }
+
+    if (targetDate < currentDate) {
+      return {
+        success: false,
+
+        currentDate,
+        targetDate,
+
+        daysAdvanced: 0,
+
+        crossedWeeks: [],
+
+        dateProcessingResults: [],
+
+        reason:
+          'target-before-current-date',
+      };
+    }
+
+    /*
+     * ROADMAP 6 — SAME-DAY CAREER GAME SIM
+     *
+     * Normally advancing to the current date is a no-op.
+     *
+     * Pregame Sim Game is the one exception: the calendar has
+     * already arrived on game day and the career game was held
+     * unresolved while waiting for the user's Play/Sim choice.
+     */
+    if (
+      targetDate === currentDate
+    ) {
+      if (
+        options
+          ?.processCurrentDate !==
+        true
+      ) {
+        return {
+          success: true,
+
+          currentDate,
+          targetDate,
+
+          daysAdvanced: 0,
+
+          crossedWeeks: [],
+
+          dateProcessingResults: [],
+
+          reason:
+            'already-current-date',
+        };
+      }
+
+      const currentDateResult =
+        processSeasonDate(
+          currentDate,
+          options
+        );
+
+      return {
+        success:
+          currentDateResult
+            ?.success !== false,
+
+        currentDate,
+        targetDate,
+
+        daysAdvanced: 0,
+
+        crossedWeeks: [],
+
+        dateProcessingResults: [
+          currentDateResult,
+        ],
+
+        stopSimulation:
+          currentDateResult
+            ?.stopSimulation === true,
+
+        blockingEventResult:
+          currentDateResult
+            ?.stopSimulation === true
+            ? currentDateResult
+            : null,
+
+        reason:
+          'current-date-processed',
+      };
+    }
+
+    let nextDate =
+      currentDate;
+
+    let daysAdvanced = 0;
+
+    const dateProcessingResults = [];
+
+    const crossedWeeks = [];
+
+    const weeklyProcessingResults = [];
+
+    let activeWeek =
+      startingWeek;
+
+    let blockingDateResult = null;
+
+    /*
+     * Safety guard prevents a malformed request from
+     * advancing through an unlimited number of days.
+     
+
+---
+      !Array.isArray(playerData.history)
+            ? playerData.history
+            : {}
+        ),
+      },
+
+      gameLog:
+        Array.isArray(playerData.gameLog)
+          ? [...playerData.gameLog]
+          : [],
+
+      accomplishments:
+        Array.isArray(playerData.accomplishments)
+          ? [...playerData.accomplishments]
+          : [],
+
+      specialTeamsAssignments: {
+        powerPlay: Array.isArray(
+          playerData
+            .specialTeamsAssignments
+            ?.powerPlay
+        )
+          ? [
+              ...playerData
+                .specialTeamsAssignments
+                .powerPlay,
+            ]
+          : [],
+
+        penaltyKill: Array.isArray(
+          playerData
+            .specialTeamsAssignments
+            ?.penaltyKill
+        )
+          ? [
+              ...playerData
+                .specialTeamsAssignments
+                .penaltyKill,
+            ]
+          : [],
+      },
+    };
+
+    ensureCanonicalPlayerContract(
+      careerPlayer
+    );
+
+    /*
+     * The generated roster begins with 20 players.
+     * The career player takes the lineup slot earned at tryouts,
+     * replacing the generated placeholder in that slot so the
+     * official team roster remains at 20 players.
+     */
+    const assignedRosterSlot =
+      careerPlayer.rosterSlot ||
+      careerPlayer.lineupAssignment?.rosterSlot ||
+      null;
+
+    if (assignedRosterSlot) {
+      targetTeam.roster =
+        targetTeam.roster.filter(player => {
+          const playerSlot =
+            player.rosterSlot ||
+            player.slot ||
+            null;
+
+          return (
+            String(playerSlot) !==
+            String(assignedRosterSlot)
+          );
+        });
+    }
+
+    targetTeam.roster.push(careerPlayer);
+
+    /*
+     * Reorganize every NPC by overall after the career
+     * player claims the lineup slot earned at tryouts.
+     *
+     * The career player's slot remains reserved.
+     */
+    refreshTeamRosterManagement(
+      targetTeam.teamId
+    );
+
+    return careerPlayer;
+  }
+
+  // ── Public API ───────────────────────────────────────────────
+
+  return {
+    /**
+     * Direct read access to world state.
+     * Future simulation code reads _state.teams, _state.schedule, etc.
+     * Do not mutate _state.newsItems directly — use news.publish().
+     */
+    get state() { return _state; },
+
+    /** The storage key, exposed so game.js can reference it if needed. */
+    WORLD_KEY,
+
+    news,
+    save,
+    load,
+    listCareerSaves,
+    selectCareerSave,
+    beginNewCareerSave,
+    commitActiveCareerSave,
+    recoverOfficialCareerFromPreview,
+    finalizeFreshCareerAfterTryouts,
+    repairMalformedFreshCareerIfNeeded,
+    deleteCareerSave,
+    getActiveCareerId,
+    ensureGeneratedRosters,
+    getOrderedRosterSlotsForPosition,
+    createEmptySpecialTeamsUnits,
+    assignNpcRosterSlots,
+    refreshTeamRosterManagement,
+    getTeamById,
+    getTeamRoster,
+    getPlayerById,
+    getCareerTryoutTargetOverall,
+    createGoalieAttributesFromOverall,
+    calculateGoalieOverallFromAttributes,
+    getAttributeUpgradeCost,
+    canUpgradePlayerAttribute,
+    upgradePlayerAttribute,
+    createLiveGameSimulationState,
+    finalizeLiveGameSimulation,
+    getLiveGameOnIcePlayers,
+    selectLiveGameEvenStrengthDeployment,
+    selectLiveGameOvertimeDeployment,
+    resolveLiveGameShootout,
+    scheduleNextLiveGameEventTime,
+    selectNextLiveGameEventType,
+    resolveLiveGameFaceoff,
+    resolveLiveGamePossessionAdvance,
+    resolveLiveGameShotAttempt,
+    resolveLiveGameHit,
+    resolveLiveGameTurnover,
+    resolveLiveGamePenalty,
+    advanceLiveGameSpecialTeamsClock,
+    advanceLiveGameStep,
+    resolveLiveGameToFinalResult,
+    runLiveGameSimulationDiagnostic,
+    runLiveGameCompetitiveBalanceDiagnostic,
+    runLiveGameStrengthGradientDiagnostic,
+    getLiveGameTeamSimulationProfile,
+    runLiveGameAttributeIsolationDiagnostic,
+    createCareerAttributesFromTryouts,
+    upsertCareerPlayer,
+    repairCompletedGameDevelopment,
+    reset,
+    syncSeedTeamMetadata,
+    getTrainingTypes() {
+      return structuredClone(
+        HIGH_SCHOOL_TRAINING_TYPES
+      );
+    },
+    createHighSchoolSchedule,
+    createHighSchoolCareerSchedule,
+    completePracticeEvent,
+    completeTrainingEvent,
+    completeRecoveryEvent,
+    completeCoachMeetingEvent,
+    setCurrentDate,
+    advanceDay,
+    advanceToDate,
+  };
+
+})();
+
