@@ -1,11 +1,9 @@
 # Project Ice — Authoritative Roadmap
 
 Updated: 2026-08-18
-Authoritative planning checkpoint: 2026-08-17
+Authoritative planning checkpoint: 2026-08-17, expanded by the Phase 2 vision session on 2026-08-18
 
-This file replaces the stale August 14 roadmap as the planning source of truth.
-
-IMPORTANT: Only roadmap items explicitly recovered from the August 17 planning checkpoint are locked below. Later phases are intentionally left open until the post-Phase-1 vision session rather than being silently reconstructed from older roadmaps.
+This file is the planning source of truth. Do not silently fall back to older roadmap files or prior phase ordering.
 
 ## Current checkpoint
 
@@ -13,9 +11,12 @@ Phase 1 — Real Prospects + Scouting Completion
 Status: COMPLETE / CHECKPOINT PASSED
 
 Phase 2 — Home / Career Hub Refresh
-Status: NEXT, but do not begin implementation until the user gives the post-Phase-1 vision.
+Status: IMPLEMENTED IN GITHUB / AWAITING LIVE REPLIT VISUAL VALIDATION
 
-Before Phase 2 implementation, perform the promised Phase 1 inventory and use the user’s new vision to define the exact Home/Career Hub scope.
+Primary implementation commit:
+- `f614010acf133cfcd1fdb766f74728ae7f8fa282` — Refresh Home career dashboard
+
+Before declaring Phase 2 complete, validate the refreshed Home screen in the live Replit build and repair any wiring, layout, or state issues found there.
 
 ---
 
@@ -85,11 +86,11 @@ Phase 1 exit condition: PASSED.
 ---
 
 # Phase 1 Inventory Checkpoint
-Status: COMPLETE AS A REVIEW STEP / awaiting user vision
+Status: COMPLETE
 
 Purpose: stop before Home work, compare the real current codebase against what is actually complete, partial or still missing, and then let the user redefine priorities before Phase 2 begins.
 
-Inventory conclusions to carry forward:
+Inventory conclusions carried forward:
 
 - Core persistence/world architecture is strong and should not be redesigned.
 - Player/development architecture is substantially built and should be tuned/extended, not replaced.
@@ -97,29 +98,177 @@ Inventory conclusions to carry forward:
 - Schedule/time flow and canonical game simulation are functional foundations, not future greenfield systems.
 - The real-prospect database/world foundation is now built; the remaining scouting work is primarily deeper career-facing scouting consequences and presentation.
 - Weekly living-world machinery exists in the backend but its player-facing storytelling layer remains incomplete.
-- Home is now behind the richness of the underlying world and is the next major player-facing opportunity.
+- Home had fallen behind the richness of the underlying world and became the next major player-facing priority.
 - Season lifecycle/history and post-HS/pro career remain major long-term structural work.
 - Do not perform cleanup-only refactors of monolithic runtime files unless a feature or regression path requires it.
 
 ---
 
 # Phase 2 — Home / Career Hub Refresh
-Status: NEXT — SCOPE TO BE DEFINED BY USER VISION
+Status: IMPLEMENTED / LIVE VALIDATION NEXT
 
-The August 17 roadmap explicitly placed Home / Career Hub Refresh immediately after Phase 1.
+Goal: make Home the main career dashboard — the screen that immediately answers who the player is, what matters now, what just happened, what is coming next, and where the career currently stands.
 
-Do not start coding this phase until the user gives the post-inventory vision.
+## Locked Home vision
 
-Known principles already carried forward:
+### Player identity header
 
-- Home should be the career dashboard, not a static menu.
-- It should surface truthful information from canonical world state.
-- It should prioritize what matters to the career player now.
-- It should use the existing compact/premium mobile visual language.
-- It should not become a GM dashboard.
-- News/objectives/cards should ultimately react to real state changes rather than disconnected random flavor text.
+- Keep the same core information fields already established on Home:
+  - player name
+  - position
+  - age
+  - overall
+  - reputation stars/tier
+  - current team
+- Fix the header so it resolves the actual canonical career player rather than showing stale or incorrect identity information.
+- Preserve the compact mobile footprint.
+- Restyle the colors slightly so the header feels more consistent with the rest of Project Ice: darker navy/glass surfaces, restrained blue accents, and less visually disconnected styling.
 
-Exact Phase 2 cards, layout, hierarchy, story surfaces and supporting systems will be locked after the user provides the new vision.
+### Dynamic Current Objective
+
+- Current Objective is no longer a static sentence.
+- It must change with the player’s actual stage and context.
+- Objective families can include:
+  - Make the Team during tryouts.
+  - Earn Your Role before meaningful game samples exist.
+  - Build Coach Trust when trust is low.
+  - Turn Attention Into Momentum when scouts are observing and ranking pressure matters.
+  - Goalie-specific role objectives when appropriate.
+  - Production/season-progress goals once the player is established.
+- Show a compact progress indicator and a meaningful contextual label rather than fake completion values.
+- Future levels of the career should reuse this same system with stage-appropriate objectives instead of requiring a new Home design.
+
+### This Week calendar
+
+- Preserve the existing weekly calendar because it is a core Home feature.
+- Audit it rather than redesigning it.
+- It must continue to read from the real schedule/current date.
+- Completed, current, and future days must render correctly.
+- Current events should enter the Event System.
+- Future dates should simulate to the selected date through the canonical time-flow path.
+- Completed events should route to the appropriate summary/history path where available.
+- The event detail panel remains attached to the selected day.
+
+### Next Big Moment
+
+- Add a dynamic card that surfaces the most meaningful upcoming career event.
+- Priority examples include scout-attended games, rivalry games, playoffs, championships, Game of the Week, prospect-related events, and other important career moments.
+- If no special event exists, fall back to the next game or next scheduled event.
+- This card should evolve naturally as new career systems are added.
+
+### Last Game
+
+- Add a compact Last Game snapshot.
+- It should read from completed canonical game/result state where available.
+- Show result and opponent without inventing a result.
+- Before any game exists, show an honest empty state.
+- Future polish can make this card reopen the canonical game summary if a stable result-to-summary navigation path is available.
+
+### Current Form
+
+- Add an at-a-glance form/status card.
+- Use actual season statistics rather than randomized labels.
+- Before games, show a season-start state.
+- Once a sample exists, present a compact trend driven by production/performance data.
+- The system may become more sophisticated later as a dedicated form model grows in the living-world layer.
+
+### Standings
+
+- Keep the existing Home standings preview.
+- Continue to use the canonical standings renderer and preserve team-row navigation.
+- Do not turn Home into a second full League screen.
+
+### Team Leaders
+
+- Remove the old hard-coded/fake player names and point totals.
+- Read from the player’s actual current team roster and live statistics.
+- Show a truthful empty state before team statistics exist.
+- Highlight the career player when they appear among the leaders.
+- Provide a quick route to the Team tab/full team context.
+
+### Career Status / Current Role
+
+- Add a compact career-status section that can answer at a glance:
+  - Current Role / line assignment
+  - PP/PK assignment when available
+  - Coach Trust
+  - Current season stat line
+  - Prospect status/rank
+- This should remain player-career context, not GM information.
+
+### Development Snapshot
+
+- Add a lightweight reminder of player development without duplicating the full Player tab.
+- Show current OVR and relevant progression context.
+- Potential may be surfaced because potential remains player-facing.
+- Future upgrade/XP notifications can plug into this surface when their canonical data contract is stable.
+
+### League News
+
+- Keep the existing League News block and its View All flow.
+- Continue to consume the canonical NewsSystem.
+- Home should surface only the most recent/relevant items, not duplicate the entire League tab.
+
+### Prospects
+
+- Remove the Top Prospects card from Home.
+- Prospect rankings remain on the League tab and full Prospect Rankings screen.
+- Home may still mention the career player’s own prospect status/rank inside Career Status when relevant.
+
+## Home layout hierarchy
+
+Target hierarchy:
+
+1. Player Header
+2. Current Objective
+3. This Week calendar
+4. Next Big Moment
+5. Last Game + Current Form
+6. Standings
+7. Team Leaders
+8. Career Status + Development Snapshot
+9. League News
+
+Cards should remain compact enough for portrait iPhone use and visually consistent with the polished Team/League/Player language already established.
+
+## Phase 2 implementation notes
+
+Implemented in `f614010acf133cfcd1fdb766f74728ae7f8fa282`:
+
+- Refreshed Home header styling while preserving the original identity fields/IDs.
+- Added a canonical career-player resolver for Home.
+- Added dynamic career-stage objective logic and progress presentation.
+- Preserved and re-wired the existing weekly calendar flow.
+- Added Next Big Moment.
+- Added Last Game and Current Form snapshots.
+- Preserved canonical Standings.
+- Replaced fake Team Leaders with live roster/stat-driven leaders and a real empty state.
+- Added Career Status with role, trust, season line, and prospect status.
+- Added Development Snapshot.
+- Preserved canonical League News.
+- Removed Home’s Top Prospects card.
+- Added scoped visual styling instead of redesigning unrelated screens.
+
+## Phase 2 validation checklist
+
+Before Phase 2 is marked complete, verify in Replit:
+
+- Correct player name, position, age, OVR, reputation and team in the top header.
+- Header visually matches the rest of the game.
+- Dynamic objective is sensible for the current career state.
+- Week calendar still selects days, opens current events, simulates to future dates, and handles completed events.
+- Next Big Moment is sensible for the current schedule.
+- Last Game does not invent data and begins populating after games.
+- Current Form changes only from real statistics.
+- Standings still navigate correctly.
+- Team Leaders show an honest pre-game empty state and real leaders once stats exist.
+- Career Status shows the correct line/role and coach trust.
+- League News remains populated and View All works.
+- Home no longer contains the separate Top Prospects card.
+- Team and Player shortcut buttons route correctly.
+- No regression to Continue Career or save/reload behavior.
+
+Phase 2 exit condition: the refreshed Home works as a truthful, polished main career dashboard in the live build and remains stable after reload.
 
 ---
 
@@ -128,9 +277,7 @@ Status: NOT RE-LOCKED YET
 
 The prior roadmaps contained later work such as living-world storytelling, deeper scouting consequences, season transition/history, post-high-school pathways, draft/NHL career and release calibration.
 
-Those remain valid long-term areas, but their exact ordering is intentionally NOT declared authoritative in this file until the user finishes the post-Phase-1 vision session.
-
-This prevents an older roadmap from silently overriding the August 17 plan again.
+Those remain valid long-term areas, but their exact ordering is intentionally NOT declared authoritative here until the user explicitly locks the next roadmap after Phase 2 validation.
 
 ---
 
