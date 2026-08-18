@@ -1,0 +1,25 @@
+name: Enforce External Prospect Overall
+on:
+  push:
+    paths:
+      - '.github/scripts/enforce_external_prospect_overall.py'
+      - '.github/workflows/enforce-external-prospect-overall.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/enforce_external_prospect_overall.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q 'Overall is never an independently upgraded rating' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Derive real prospect overall from attributes' || exit 0
+          git pull --rebase origin main
+          git push origin main
