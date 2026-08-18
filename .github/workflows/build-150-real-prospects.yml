@@ -1,0 +1,25 @@
+name: Build 150 Real Prospects
+on:
+  push:
+    paths:
+      - '.github/scripts/build_150_real_prospects.py'
+      - '.github/workflows/build-150-real-prospects.yml'
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/build_150_real_prospects.py > .github/real_prospect_build_log.txt
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: grep -q 'researchedRealProspectCount: 150' artifacts/project-ice/public/prospects.js
+      - run: grep -q 'CLASS_2027=87' .github/real_prospect_build_log.txt
+      - run: grep -q 'CLASS_2030=32' .github/real_prospect_build_log.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js .github/real_prospect_build_log.txt
+          git commit -m 'Add researched 150-player real prospect universe' || exit 0
+          git push
