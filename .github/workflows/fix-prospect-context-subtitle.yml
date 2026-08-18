@@ -1,0 +1,37 @@
+name: Fix Prospect Context Subtitle
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_prospect_context_subtitle.py'
+      - '.github/workflows/fix-prospect-context-subtitle.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: cp artifacts/project-ice/public/game.js /tmp/game.before.js
+      - run: python .github/scripts/fix_prospect_context_subtitle.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          before=Path('/tmp/game.before.js').read_text()
+          after=Path('artifacts/project-ice/public/game.js').read_text()
+          delta=len(after.splitlines())-len(before.splitlines())
+          print('GAME_LINE_DELTA=',delta)
+          if abs(delta) > 25:
+              raise SystemExit('Unexpectedly large game.js diff')
+          PY
+      - run: grep -q 'pr-player-context' artifacts/project-ice/public/game.js
+      - run: grep -q 'pr-player-context' artifacts/project-ice/public/style.css
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css
+          git commit -m 'Show team and league on prospect rankings' || exit 0
+          git pull --rebase origin main
+          git push origin main
