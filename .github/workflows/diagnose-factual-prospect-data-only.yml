@@ -1,0 +1,46 @@
+name: Diagnose Factual Prospect Data Only
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-factual-prospect-data-only.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/apply_factual_prospect_classes_final.py')
+          s=p.read_text()
+          marker='old_filter = """'
+          i=s.find(marker)
+          if i < 0: raise SystemExit('helper world-filter marker missing')
+          s=s[:i] + "pp.write_text(ps, encoding='utf-8')\nprint('FACTUAL_PROSPECT_CLASSES=191')\n"
+          p.write_text(s)
+          PY
+          PREP=$?
+          python .github/scripts/apply_factual_prospect_classes_final.py > /tmp/patch.out 2> /tmp/patch.err
+          PATCH=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/check.out 2>&1
+          CHECK=$?
+          node artifacts/project-ice/public/prospects.js > /tmp/run.out 2>&1
+          RUN=$?
+          node .github/scripts/audit_real_prospect_draft_classes.js > /tmp/audit.json 2> /tmp/audit.err
+          AUDIT=$?
+          {
+            echo "PREP=$PREP PATCH=$PATCH CHECK=$CHECK RUN=$RUN AUDIT=$AUDIT"
+            echo '---PATCH---'; cat /tmp/patch.out; cat /tmp/patch.err
+            echo '---CHECK---'; cat /tmp/check.out
+            echo '---RUN---'; cat /tmp/run.out
+            echo '---AUDIT---'; cat /tmp/audit.json; cat /tmp/audit.err
+          } > .github/factual_prospect_data_only_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/factual_prospect_data_only_diagnostic.txt
+          git commit -m 'Persist factual prospect data-only diagnostic' || exit 0
+          git push
