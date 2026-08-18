@@ -1,0 +1,25 @@
+name: Audit HS Real Prospect Pipeline
+on:
+  push:
+    paths:
+      - '.github/scripts/audit_hs_real_prospect_pipeline.js'
+      - '.github/workflows/audit-hs-real-prospect-pipeline.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          node .github/scripts/audit_hs_real_prospect_pipeline.js > .github/hs_real_prospect_pipeline_audit.json 2> .github/hs_real_prospect_pipeline_audit.err
+          STATUS=$?
+          echo "AUDIT_STATUS=$STATUS" > .github/hs_real_prospect_pipeline_audit.status
+          exit 0
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/hs_real_prospect_pipeline_audit.json .github/hs_real_prospect_pipeline_audit.err .github/hs_real_prospect_pipeline_audit.status
+          git commit -m 'Persist HS real prospect pipeline runtime audit' || exit 0
+          git push
