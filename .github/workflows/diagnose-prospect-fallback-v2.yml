@@ -1,0 +1,44 @@
+name: Diagnose Prospect Fallback V2
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-prospect-fallback-v2.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          cp artifacts/project-ice/public/game.js /tmp/game.before.js
+          python .github/scripts/unify_prospect_fallback_rows_v2.py > /tmp/out.txt 2> /tmp/err.txt
+          PATCH=$?
+          node --check artifacts/project-ice/public/game.js > /tmp/node.txt 2>&1
+          NODE=$?
+          python - <<'PY' > /tmp/verify.txt 2>&1
+          from pathlib import Path
+          before=Path('/tmp/game.before.js').read_text(errors='ignore').splitlines()
+          after=Path('artifacts/project-ice/public/game.js').read_text(errors='ignore').splitlines()
+          text='\n'.join(after)
+          print('DELTA',len(after)-len(before))
+          print('REPUTATION_MARKUP',text.count('<span class="pr-player-reputation">'))
+          print('CONTEXT_MARKUP',text.count('class="pr-player-context"'))
+          PY
+          VERIFY=$?
+          {
+            echo "PATCH_STATUS=$PATCH"
+            echo "NODE_STATUS=$NODE"
+            echo "VERIFY_STATUS=$VERIFY"
+            echo '--- OUT ---'; cat /tmp/out.txt
+            echo '--- ERR ---'; cat /tmp/err.txt
+            echo '--- NODE ---'; cat /tmp/node.txt
+            echo '--- VERIFY ---'; cat /tmp/verify.txt
+          } > .github/prospect_fallback_v2_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/prospect_fallback_v2_diagnostic.txt
+          git commit -m 'Persist prospect fallback V2 diagnostic' || exit 0
+          git push
