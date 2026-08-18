@@ -5048,7 +5048,13 @@ function openTeamProfile(teamId, origin) {
 function openPlayerProfile(player, origin = 'team-profile') {
   if (!player) return;
 
-  _activePlayerProfile = player;
+  const playerId = player?.id || player?.playerId || null;
+  const canonicalPlayer =
+    playerId && typeof WorldEngine?.getPlayerById === 'function'
+      ? WorldEngine.getPlayerById(playerId)
+      : null;
+
+  _activePlayerProfile = canonicalPlayer || player;
   _playerProfileOrigin = origin;
 
   renderPlayerProfile();
@@ -5087,28 +5093,47 @@ function renderProspectsScreen() {
    * The legacy generator below remains only as a pre-ranking fallback for old
    * saves / brand-new careers before the first scouting week has published.
    */
-  const canonicalRankedProspects = teams
-    .flatMap(team => {
-      const roster = Array.isArray(team?.roster) ? team.roster : [];
-      return roster.map(player => ({
-        player,
-        team,
-        rank: Math.max(0, Number(player?.scoutingProfile?.publicRank) || 0),
-      }));
-    })
-    .filter(entry => entry.rank > 0)
-    .sort((a, b) => a.rank - b.rank);
+  const canonicalRankedProspects =
+    (Array.isArray(WorldEngine.state.prospectRankings)
+      ? WorldEngine.state.prospectRankings
+      : [])
+      .map(ranking => {
+        const player =
+          typeof WorldEngine?.getPlayerById === 'function'
+            ? WorldEngine.getPlayerById(ranking?.playerId)
+            : null;
+        const resolvedPlayer = player || ranking;
+        const team = teams.find(team =>
+          String(team?.teamId || '') === String(ranking?.teamId || resolvedPlayer?.teamId || '')
+        ) || null;
+
+        return {
+          player: resolvedPlayer,
+          team,
+          ranking,
+          rank: Math.max(0, Number(ranking?.rank) || 0),
+        };
+      })
+      .filter(entry => entry.rank > 0 && entry.player)
+      .sort((a, b) => a.rank - b.rank);
 
   if (canonicalRankedProspects.length > 0) {
-    const canonicalRows = canonicalRankedProspects.map(({ player, team, rank }) => {
+    const canonicalRows = canonicalRankedProspects.map(({ player, team, ranking, rank }) => {
       const previousRank = Math.max(
         0,
         Number(player?.scoutingProfile?.previousRank) || 0
       );
       const rankChange = previousRank > 0 ? previousRank - rank : 0;
+      const externalTeamName =
+        ranking?.currentTeam ||
+        ranking?.teamName ||
+        player?.currentTeam ||
+        player?.realTeamSnapshot ||
+        '';
       const teamAbbreviation =
         team?.abbreviation ||
-        `${team?.schoolName || ''} ${team?.teamName || ''}`
+        player?.teamAbbreviation ||
+        String(externalTeamName)
           .trim()
           .split(/\s+/)
           .filter(Boolean)
@@ -5125,6 +5150,7 @@ function renderProspectsScreen() {
       );
 
       return {
+        ...ranking,
         ...player,
         currentRank: rank,
         previousRank: previousRank || null,
@@ -5132,9 +5158,20 @@ function renderProspectsScreen() {
         sourceType: 'world',
         isUser,
         schoolName: team?.schoolName || '',
-        teamName: team?.teamName || '',
+        teamName:
+          team?.teamName ||
+          ranking?.teamName ||
+          ranking?.currentTeam ||
+          player?.currentTeam ||
+          player?.realTeamSnapshot ||
+          '',
         teamAbbreviation,
-        league: player?.league || player?.teamLevel || 'HS',
+        league:
+          ranking?.league ||
+          player?.league ||
+          player?.realLeagueSnapshot ||
+          player?.teamLevel ||
+          'HS',
       };
     });
 
