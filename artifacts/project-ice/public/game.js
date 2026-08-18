@@ -22401,13 +22401,17 @@ if (btnPostgameContinue) {
     'click',
     () => {
       /*
-       * Route first. A non-critical refresh failure should never strand
-       * the player on the completed-game screen with a dead Continue button.
-       * openHubTab('schedule') already refreshes and renders Schedule.
+       * Return to the tab that launched the game. Home-launched games return
+       * Home; Schedule remains the fallback for every other launch path.
        */
-      openHubTab(
-        'schedule'
-      );
+      const returnOrigin =
+        EventSystem.getOrigin();
+
+      if (returnOrigin === 'hub') {
+        openHubTab('home');
+      } else {
+        openHubTab('schedule');
+      }
 
       try {
         refreshCareerUI();

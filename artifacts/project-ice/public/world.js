@@ -37648,7 +37648,7 @@ case 'career-defense':
       return { success: true, processed: true, reason: 'no-scouting-players', rankings: [] };
     }
 
-    const ranked = players
+    const rawRanked = players
       .map(player => ({
         player,
         playerId: player.id || player.playerId || null,
@@ -37658,6 +37658,43 @@ case 'career-defense':
         (b.score - a.score) ||
         ((Number(b.player?.overall) || 0) - (Number(a.player?.overall) || 0)) ||
         String(b.playerId || '').localeCompare(String(a.playerId || ''))
+      );
+
+    const rawRankByPlayerId =
+      new Map(
+        rawRanked.map((entry, index) => [
+          String(entry.playerId || ''),
+          index + 1,
+        ])
+      );
+
+    const ranked = rawRanked
+      .map(entry => {
+        const rawRank =
+          rawRankByPlayerId.get(
+            String(entry.playerId || '')
+          ) || 999;
+
+        const previousRank =
+          Number(
+            entry.player?.scoutingProfile?.publicRank
+          ) || 0;
+
+        return {
+          ...entry,
+          stabilizedRankScore:
+            previousRank > 0
+              ? (
+                  previousRank * 0.72 +
+                  rawRank * 0.28
+                )
+              : rawRank,
+        };
+      })
+      .sort((a, b) =>
+        (a.stabilizedRankScore - b.stabilizedRankScore) ||
+        (b.score - a.score) ||
+        String(a.playerId || '').localeCompare(String(b.playerId || ''))
       );
 
     const changes = [];
@@ -37869,6 +37906,19 @@ case 'career-defense':
           player?.potentialRole ||
           'a new projection';
         const direction = Number(beat.change || beat.potentialChange || 0);
+        const previousRole =
+          beat.potentialRoleBefore ||
+          beat.oldRole ||
+          beat.roleBefore ||
+          null;
+
+        if (
+          direction === 0 ||
+          (previousRole && previousRole === role)
+        ) {
+          return;
+        }
+
         const verb = direction < 0 ? 'revised to' : 'elevated to';
         publishOnce(
           `potential:${weekKey}:${beat.playerId || index}:${role}`,
@@ -37983,18 +38033,22 @@ case 'career-defense':
      * League-wide prospect movement: only meaningful jumps/crossings become
      * headlines so the feed does not turn into a weekly transaction log.
      */
+    let prospectMovementHeadlines = 0;
     (_state.prospectRankings || []).forEach(entry => {
       const rank = Math.max(0, Number(entry?.rank) || 0);
       const change = Number(entry?.rankChange) || 0;
       if (!rank || !change) return;
+      if (prospectMovementHeadlines >= 3) return;
 
       const previousRank = rank + change;
-      const bigMove = Math.abs(change) >= 8;
+      const bigMove = Math.abs(change) >= 10;
       const crossedTop20 = rank <= 20 && previousRank > 20;
       const crossedTop50 = rank <= 50 && previousRank > 50;
       const crossedTop100 = rank <= 100 && previousRank > 100;
 
       if (!bigMove && !crossedTop20 && !crossedTop50 && !crossedTop100) return;
+
+      prospectMovementHeadlines += 1;
 
       const player = getPlayer(entry.playerId);
       const movement = change > 0
