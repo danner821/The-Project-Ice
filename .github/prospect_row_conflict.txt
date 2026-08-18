@@ -1,0 +1,202 @@
+
+FILE artifacts/project-ice/public/game.js
+NEEDLE pr-player-reputation HITS [5567]
+
+          <span class="pr-col pr-col--name">
+            <span class="pr-player-name">
+              ${fullName}
+            </span>
+
+            <span class="pr-player-reputation">
+              ${stars}
+            </span>
+          </span>
+
+          <span class="pr-col pr-col--pos">
+            <span class="pr-pos-badge ${badgeCls}">
+              ${player.position}
+            </span>
+          </span>
+
+          <span class="pr-col pr-col--team">
+---
+NEEDLE pr-player-context HITS [5238]
+            data-player-id="${player.id || player.playerId || ''}"
+            data-player-source="world"
+          >
+            <span class="pr-col pr-col--rank">${rank}</span>
+            <span class="pr-col pr-col--name">
+              <span class="pr-player-name">${fullName}</span>
+              <span class="pr-player-context">${prospectContext || 'Prospect'}</span>
+            </span>
+            <span class="pr-col pr-col--pos">
+              <span class="pr-pos-badge ${badgeCls}">${player.position || '—'}</span>
+            </span>
+            <span class="pr-col pr-col--team">${teamDisplay}</span>
+            <span class="pr-col pr-col--league">${leagueDisplay}</span>
+            <span class="pr-col pr-col--draft">${draftYear}</span>
+            <span class="pr-col pr-col--trend">${trend}</span>
+          </div>
+        `;
+      })
+---
+NEEDLE renderProspectsScreen HITS [2213, 3588, 3605, 5078]
+  if (screenName === 'full-stats') {
+    fullStatsScreen.classList.remove('screen--hidden');
+    renderFullStatsScreen();
+  }
+  if (screenName === 'prospects') {
+    prospectsScreen.classList.remove('screen--hidden');
+    renderProspectsScreen();
+  }
+  if (screenName === 'event') {
+    eventScreen.classList.remove('screen--hidden');
+    // Content already populated by EventSystem.openEvent() before showScreen() is called
+  }
+  if (
+    screenName ===
+    'pregame-matchup'
+  ) {
+    pregameMatchupScreen
+      .classList.remove(
+---
+    renderLeagueAwardsPreview();
+    renderLeagueNewsPreview();
+    if (
+      !Array.isArray(Game.currentProspectRankings) ||
+      Game.currentProspectRankings.length === 0
+    ) {
+      renderProspectsScreen();
+    }
+    renderLeagueProspectsPreview();
+  }
+}
+const btnBackPlayerProfile =
+  document.getElementById('btn-back-player-profile');
+
+if (btnBackPlayerProfile) {
+  
+      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+---
+        if (_playerProfileOrigin === 'full-stats') {
+          showScreen('full-stats');
+          return;
+        }
+        if (_playerProfileOrigin === 'prospects') {
+          showScreen('prospects');
+          renderProspectsScreen();
+          return;
+        }
+        if (_playerProfileOrigin === 'league-prospects') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'hub-team') {
+      showScreen('hub');
+
+      document
+---
+  if (pos === 'LD' || pos === 'RD') return 'pr-pos-badge--def';
+  return 'pr-pos-badge--fwd';
+}
+
+let prospectsReady = false;
+
+function renderProspectsScreen() {
+  const container = document.getElementById('pr-rows');
+  if (!container) return;
+
+  const teams = WorldEngine.state.teams || [];
+  const playerTeamId = Game.player.teamId || '';
+
+  // Never show a hard-coded season on the scouting screen. Derive it from
+  // the canonical saved world date so old/new careers stay correct.
+  const prospectSeasonBadge = document.querySelector('#prospects-screen .sl-season-badge');
+  const prospectDateValue =
+    WorldEngine.state?.season?.currentDate ||
+---
+NEEDLE prospectContext HITS [5218, 5238]
+        const trend =
+          rankChange > 0
+            ? '🔼'
+            : rankChange < 0
+              ? '🔽'
+              : '➖';
+        const prospectContext = [
+          player.teamName || player.currentTeam || player.realTeamSnapshot || '',
+          leagueDisplay,
+        ]
+          .map(value => String(value || '').trim())
+          .filter(Boolean)
+          .filter((value, index, values) => values.indexOf(value) === index)
+          .join(' · ');
+
+        return `
+          <div
+            class="pr-row pr-row--data${player.isUser ? ' pr-row--user' : ''}"
+---
+            data-player-id="${player.id || player.playerId || ''}"
+            data-player-source="world"
+          >
+            <span class="pr-col pr-col--rank">${rank}</span>
+            <span class="pr-col pr-col--name">
+              <span class="pr-player-name">${fullName}</span>
+              <span class="pr-player-context">${prospectContext || 'Prospect'}</span>
+            </span>
+            <span class="pr-col pr-col--pos">
+              <span class="pr-pos-badge ${badgeCls}">${player.position || '—'}</span>
+            </span>
+            <span class="pr-col pr-col--team">${teamDisplay}</span>
+            <span class="pr-col pr-col--league">${leagueDisplay}</span>
+            <span class="pr-col pr-col--draft">${draftYear}</span>
+            <span class="pr-col pr-col--trend">${trend}</span>
+          </div>
+        `;
+      })
+---
+
+FILE artifacts/project-ice/public/style.css
+NEEDLE pr-player-reputation HITS [6390]
+  color: #dbe9ff;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-player-reputation {
+  color: #e7b84c;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.pr-row--user {
+  background: rgba(55, 125, 255, 0.15);
+  box-shadow: inset 3px 0 0 rgba(92, 155, 255, 0.95);
+}
+
+---
+NEEDLE pr-player-context HITS [14376]
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#prospects-screen .pr-player-context {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(115, 150, 205, 0.72);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+}
+
+---
+NEEDLE renderProspectsScreen HITS []
+NEEDLE prospectContext HITS []
