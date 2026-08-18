@@ -11309,12 +11309,10 @@ function renderPlayerProfile() {
     selectedPlayer.id || selectedPlayer.playerId || ''
   );
 
-  const canonicalPlayer = (WorldEngine.state.teams || [])
-    .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
-    .find(player =>
-      selectedPlayerId &&
-      String(player?.id || player?.playerId || '') === selectedPlayerId
-    );
+  const canonicalPlayer =
+    selectedPlayerId && typeof WorldEngine?.getPlayerById === 'function'
+      ? WorldEngine.getPlayerById(selectedPlayerId)
+      : null;
 
   const p = canonicalPlayer || selectedPlayer;
 
@@ -11330,9 +11328,22 @@ function renderPlayerProfile() {
     (WorldEngine.state.teams || [])
       .find(team => team.teamId === p.teamId);
 
+  const externalTeamName =
+    p.currentTeam ||
+    p.realTeamSnapshot ||
+    p.teamName ||
+    '';
+  const externalLeagueName =
+    p.league ||
+    p.realLeagueSnapshot ||
+    '';
   const fullTeamName = assignedTeam
     ? `${assignedTeam.schoolName} ${assignedTeam.teamName}`
-    : 'Freshman Tryouts';
+    : [externalTeamName, externalLeagueName]
+        .map(value => String(value || '').trim())
+        .filter(Boolean)
+        .filter((value, index, values) => values.indexOf(value) === index)
+        .join(' · ') || 'Unassigned';
   const nameEl = document.getElementById('player-profile-name');
 if (nameEl) {
   nameEl.textContent = name;
@@ -11349,9 +11360,15 @@ if (nameEl) {
 
   const ageEl = document.getElementById('player-profile-age');
   if (ageEl) {
-    const playerYear = p.year || 'Freshman';
+    const playerYear = p.year || '';
+    const draftYear = Number(p.draftYear) || null;
+    const ageContext = [
+      `${age} years old`,
+      playerYear,
+      draftYear ? `${draftYear} Draft` : '',
+    ].filter(Boolean);
 
-    ageEl.textContent = `${age} years old · ${playerYear}`;
+    ageEl.textContent = ageContext.join(' · ');
   }
 
   const teamEl = document.getElementById('player-profile-team');
@@ -11395,7 +11412,7 @@ if (nameEl) {
     document.getElementById('player-profile-weight');
 
   if (weightEl) {
-    const weight = Number(p.weight) || 175;
+    const weight = Number(p.weightLbs ?? p.weight) || 175;
     weightEl.textContent = `${weight} lbs`;
   }
 
@@ -11403,7 +11420,12 @@ if (nameEl) {
     document.getElementById('player-profile-shoots');
 
   if (shootsEl) {
-    shootsEl.textContent = `Shoots ${p.shoots || 'L'}`;
+    const isGoalie = String(p.position || '').trim().toUpperCase() === 'G';
+    if (isGoalie) {
+      shootsEl.textContent = `Catches ${p.catches || p.shoots || 'L'}`;
+    } else {
+      shootsEl.textContent = `Shoots ${p.shoots || 'L'}`;
+    }
   }
 
   const ovrEl = document.getElementById('pp-player-ovr');
@@ -11439,10 +11461,18 @@ if (nameEl) {
     document.getElementById('player-profile-potential-role');
 
   if (potentialRoleEl) {
+    const profilePosition = String(p.position || '').trim().toUpperCase();
+    const fallbackPotentialRole =
+      profilePosition === 'G'
+        ? 'Goalie Prospect'
+        : ['D', 'LD', 'RD'].includes(profilePosition)
+          ? 'Top 6 D'
+          : 'Top 9 F';
     potentialRoleEl.textContent =
       p.development?.potentialRole ||
       p.potentialRole ||
-      'Top 9 F';
+      p.potentialTier ||
+      fallbackPotentialRole;
   }
 
   const potentialAccuracyEl =
