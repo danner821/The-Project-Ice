@@ -16853,9 +16853,18 @@ function setupHubCalendar() {
 
       const eventData = scheduledEvent
         ? {
+            // Keep the entire canonical schedule record. Home is only a weekly
+            // view of Schedule; it must never manufacture a second event shape.
+            ...scheduledEvent,
             icon: scheduledEvent.icon || '📅',
             event:
-              scheduledEvent.label || 'Open Day',
+              scheduledEvent.label ||
+              scheduledEvent.title ||
+              'Open Day',
+            label:
+              scheduledEvent.label ||
+              scheduledEvent.title ||
+              'Open Day',
             location:
               scheduledEvent.location || '—',
             objective:
@@ -16863,8 +16872,6 @@ function setupHubCalendar() {
               'No scheduled activities.',
             eventId:
               scheduledEvent.eventId || 'open-day',
-            summaryScreen:
-              scheduledEvent.summaryScreen,
             isCompleted:
               Boolean(scheduledEvent.isCompleted),
           }
@@ -16941,17 +16948,15 @@ function setupHubCalendar() {
   });
 
   // ── Event panel button ────────────────────────────────────
-  // setupHubCalendar() is called repeatedly as the career UI refreshes.
-  // Use one replaceable click handler rather than stacking listeners on the
-  // persistent Home button, and pass the selected schedule payload through to
-  // EventSystem so Home opens the exact same event definition shown in the card.
+  // Home and Schedule are two views over the same canonical schedule. Keep one
+  // replaceable handler here, but use the exact same saved event record and the
+  // same underlying Schedule/EventSystem result routes.
   if (epBtn) {
     epBtn.onclick = () => {
       const selectedIndex = [...cards].findIndex(c =>
         c.classList.contains('hub-cal-card--selected')
       );
-      const selectedCard = cards[selectedIndex];
-      const d = selectedCard?.eventData;
+      const d = cards[selectedIndex]?.eventData;
 
       if (!d) return;
 
@@ -16959,11 +16964,46 @@ function setupHubCalendar() {
       const isCompleted = Boolean(d.isCompleted);
 
       if (isCompleted) {
-        if (d.eventId === 'tryout-freshman') {
+        if (d.type === 'game') {
+          const completedGameId =
+            d.gameId ||
+            d.id ||
+            d.eventId ||
+            null;
+
+          if (completedGameId && openPostgameSummary(completedGameId)) {
+            return;
+          }
+        }
+
+        if (
+          d.type !== 'game' &&
+          d.result &&
+          typeof d.result === 'object'
+        ) {
+          EventResultsSystem.open(d, {
+            success: true,
+            result: d.result,
+            date: d.completedAt || d.date,
+            coachNote: d.result?.coachNote || '',
+          });
+          return;
+        }
+
+        if (d.summaryScreen === 'tryout-summary') {
           openTryoutSummary('history');
           return;
         }
 
+        if (d.eventId) {
+          EventSystem.openEvent(d.eventId, 'hub', d);
+        }
+        return;
+      }
+
+      // Schedule treats a future game specially: enter its normal event/pregame
+      // path instead of simulating through it. Home must do the same.
+      if (isFuture && d.type === 'game') {
         if (d.eventId) {
           EventSystem.openEvent(d.eventId, 'hub', d);
         }
