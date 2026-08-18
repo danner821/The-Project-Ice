@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Project Ice Home/Schedule runtime patch — keep this existing patch path reusable.
 path = Path('artifacts/project-ice/public/game.js')
 text = path.read_text(encoding='utf-8')
 
