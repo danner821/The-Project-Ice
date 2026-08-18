@@ -1,0 +1,39 @@
+name: Diagnose 2029 Prospect Expansion
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-2029-prospect-expansion.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python .github/scripts/expand_2029_real_prospects.py > /tmp/patch.out 2> /tmp/patch.err
+          PATCH_STATUS=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/check.out 2>&1
+          CHECK_STATUS=$?
+          node artifacts/project-ice/public/prospects.js > /tmp/run.out 2>&1
+          RUN_STATUS=$?
+          {
+            echo "PATCH_STATUS=$PATCH_STATUS"
+            echo "CHECK_STATUS=$CHECK_STATUS"
+            echo "RUN_STATUS=$RUN_STATUS"
+            echo "--- PATCH OUT ---"
+            cat /tmp/patch.out
+            echo "--- PATCH ERR ---"
+            cat /tmp/patch.err
+            echo "--- NODE CHECK ---"
+            cat /tmp/check.out
+            echo "--- NODE RUN ---"
+            cat /tmp/run.out
+          } > .github/expand_2029_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/expand_2029_diagnostic.txt
+          git commit -m 'Persist 2029 prospect expansion diagnostic' || exit 0
+          git push
