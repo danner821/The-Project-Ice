@@ -14841,3 +14841,30 @@ body.full-news-open {
   padding-right: 2px;
   scroll-padding-inline: 2px;
 }
+
+
+/* PROJECT ICE — HOME WEEK CARD ROUNDING 2026-08-18 */
+/* Match the Home schedule shell to the rounded cards used throughout the hub. */
+#hub-tab-home .home-week-card {
+  border: 1px solid rgba(104, 158, 228, 0.22);
+  border-radius: 18px;
+  overflow: hidden;
+  padding-top: 14px;
+  background: linear-gradient(180deg, rgba(20, 55, 99, 0.72), rgba(11, 36, 72, 0.76));
+}
+#hub-tab-home .home-week-card .home-section-heading {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+#hub-tab-home .home-week-card .hub-cal__strip {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+#hub-tab-home .home-week-card .hub-event-panel {
+  margin-left: 0;
+  margin-right: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 0;
+}
