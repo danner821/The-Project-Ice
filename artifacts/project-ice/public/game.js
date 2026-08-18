@@ -5564,8 +5564,15 @@ function renderProspectsScreen() {
               ${fullName}
             </span>
 
-            <span class="pr-player-reputation">
-              ${stars}
+            <span class="pr-player-context">
+              ${[
+                player.teamName || player.currentTeam || player.realTeamSnapshot || '',
+                player.league || player.realLeagueSnapshot || 'HS',
+              ]
+                .map(value => String(value || '').trim())
+                .filter(Boolean)
+                .filter((value, index, values) => values.indexOf(value) === index)
+                .join(' · ') || 'Prospect'}
             </span>
           </span>
 
