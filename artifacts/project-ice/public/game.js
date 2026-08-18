@@ -16886,7 +16886,9 @@ function setupHubCalendar() {
         }),
         dateNumber: date.getDate(),
         isToday: i === TODAY_INDEX,
-        isCompleted: i < TODAY_INDEX
+        isCompleted:
+          Boolean(eventData.isCompleted) ||
+          i < TODAY_INDEX
       };
       
     const isToday     = i === TODAY_INDEX;
