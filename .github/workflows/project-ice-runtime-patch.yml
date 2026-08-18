@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/scripts/project_ice_runtime_patch.py'
       - '.github/workflows/project-ice-runtime-patch.yml'
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -24,6 +25,6 @@ jobs:
             echo 'No runtime changes to commit.'
             exit 0
           fi
-          git commit -m 'Refine postgame routing and scouting news balance'
+          git commit -m 'Build Phase 3.1 postseason foundation'
           git pull --rebase origin main
           git push origin main
