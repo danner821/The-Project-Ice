@@ -29,3 +29,4 @@ jobs:
           git commit -m 'Keep Home week calendar inside content edges' || exit 0
           git pull --rebase origin main
           git push origin main
+
