@@ -218,10 +218,10 @@ elif "_playerProfileOrigin === 'league'" not in game:
 # surface notable movement. Cap weekly movement stories at two and require
 # either a three-place swing or a move into/out of the top three. First-place
 # changes keep their dedicated leader headline below this block.
-standings_loop_old = """      currentSnapshot.standings.forEach(teamStanding => {
+standings_loop_old = """      (currentSnapshot.standings || []).forEach(teamStanding => {
 """
 standings_loop_new = """      let standingsMovementHeadlines = 0;
-      currentSnapshot.standings.forEach(teamStanding => {
+      (currentSnapshot.standings || []).forEach(teamStanding => {
 """
 
 if standings_loop_old in world:
@@ -237,10 +237,10 @@ standings_threshold_new = """        if (Math.abs(delta) < 2) return;
 
         const enteredTopThree =
           Number(teamStanding.rank) <= 3 &&
-          Number(priorStanding.rank) > 3;
+          Number(prior.rank) > 3;
         const leftTopThree =
           Number(teamStanding.rank) > 3 &&
-          Number(priorStanding.rank) <= 3;
+          Number(prior.rank) <= 3;
         const majorMove = Math.abs(delta) >= 3;
 
         if (!majorMove && !enteredTopThree && !leftTopThree) return;
