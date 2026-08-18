@@ -38072,6 +38072,7 @@ case 'career-defense':
         ? priorSnapshot.standings
         : [];
 
+      let standingsMovementHeadlines = 0;
       (currentSnapshot.standings || []).forEach(teamStanding => {
         const prior = priorStandings.find(item =>
           String(item?.teamId || '') === String(teamStanding?.teamId || '')
@@ -38079,6 +38080,20 @@ case 'career-defense':
         if (!prior) return;
         const delta = Number(prior.rank) - Number(teamStanding.rank);
         if (Math.abs(delta) < 2) return;
+        if (standingsMovementHeadlines >= 2) return;
+
+        const enteredTopThree =
+          Number(teamStanding.rank) <= 3 &&
+          Number(prior.rank) > 3;
+        const leftTopThree =
+          Number(teamStanding.rank) > 3 &&
+          Number(prior.rank) <= 3;
+        const majorMove = Math.abs(delta) >= 3;
+
+        if (!majorMove && !enteredTopThree && !leftTopThree) return;
+
+        standingsMovementHeadlines += 1;
+
         const team = getTeam(teamStanding.teamId);
         publishOnce(
           `standings:${weekKey}:${teamStanding.teamId}:${teamStanding.rank}`,

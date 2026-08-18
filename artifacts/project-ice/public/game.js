@@ -3596,6 +3596,11 @@ const btnBackPlayerProfile =
 if (btnBackPlayerProfile) {
   
       btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'league') {
+          openHubTab('league');
+          return;
+        }
+
         if (_playerProfileOrigin === 'full-stats') {
           showScreen('full-stats');
           return;
