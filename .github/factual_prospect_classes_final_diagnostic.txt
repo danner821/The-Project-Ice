@@ -1,0 +1,107 @@
+PATCH=1 CHECK=0 RUN=0 AUDIT=0
+---PATCH---
+external source-prune anchor missing
+---RUN---
+---AUDIT---
+{
+  "totalRows": 166,
+  "completeDobRows": 156,
+  "incompleteDobRows": [
+    {
+      "name": "Clive Mashinter",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Matthew Dodic",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Coen Chretien",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Michael Alati",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Breaker Seidenberg",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Jayden Widen",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Silas Suess",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Matteo Dellino",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Charlie Donovan",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Chase O'Toole",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    }
+  ],
+  "mismatches": [
+    {
+      "name": "Kellan Fitzgerald-Brown",
+      "birthDate": "2012-10-01",
+      "storedDraftYear": 2030,
+      "calculatedDraftYear": 2031
+    },
+    {
+      "name": "Aston Salts",
+      "birthDate": "2012-12-07",
+      "storedDraftYear": 2030,
+      "calculatedDraftYear": 2031
+    },
+    {
+      "name": "Cash Cieslak",
+      "birthDate": "2012-10-15",
+      "storedDraftYear": 2030,
+      "calculatedDraftYear": 2031
+    }
+  ],
+  "outside2027to2030": [
+    {
+      "name": "Kellan Fitzgerald-Brown",
+      "birthDate": "2012-10-01",
+      "storedDraftYear": 2030,
+      "calculatedDraftYear": 2031
+    },
+    {
+      "name": "Aston Salts",
+      "birthDate": "2012-12-07",
+      "storedDraftYear": 2030,
+      "calculatedDraftYear": 2031
+    },
+    {
+      "name": "Cash Cieslak",
+      "birthDate": "2012-10-15",
+      "storedDraftYear": 2030,
+      "calculatedDraftYear": 2031
+    }
+  ],
+  "classCounts": {
+    "2027": 87,
+    "2028": 28,
+    "2029": 3,
+    "2030": 48
+  }
+}
