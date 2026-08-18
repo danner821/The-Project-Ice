@@ -10605,7 +10605,8 @@ function renderScheduleCalendar(year, month) {
   }
 }
 function simulateToDate(
-  targetDate
+  targetDate,
+  origin = 'schedule'
 ) {
   const currentDate =
     WorldEngine.state.season
@@ -10850,7 +10851,7 @@ function simulateToDate(
     if (blockingScheduleEvent) {
       EventSystem.openEvent(
         blockingScheduleEvent.eventId,
-        'schedule',
+        origin,
         blockingScheduleEvent
       );
     }
@@ -17011,7 +17012,7 @@ function setupHubCalendar() {
       }
 
       if (isFuture) {
-        const nextDate = simulateToDate(d.date);
+        const nextDate = simulateToDate(d.date, 'hub');
 
         if (epToast) {
           epToast.hidden = false;
