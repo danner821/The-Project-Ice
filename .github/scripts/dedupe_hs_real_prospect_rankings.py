@@ -14,3 +14,5 @@ if count != 1:
 text = text.replace(old_generated, new_generated, 1)
 path.write_text(text, encoding='utf-8')
 print('HS_REAL_PROSPECT_RANKING_DEDUPE_PATCH=PASS')
+
+# Workflow trigger marker: v1
