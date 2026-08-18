@@ -1,0 +1,583 @@
+
+FILE artifacts/project-ice/public/game.js
+
+### renderLeagueAwardsPreview LINE 5933
+                player.playerId ||
+                player.id
+              ) === String(playerId)
+            );
+
+          if (!selectedPlayer) return;
+
+          openPlayerProfile(
+            selectedPlayer,
+            'league'
+          );
+        }
+      );
+    });
+}
+function renderLeagueAwardsPreview() {
+  const container =
+    document.getElementById('league-awards-preview');
+
+  if (!container) return;
+
+  /*
+   * Only players from the teams in the player's current league
+   * are eligible for these awards.
+   *
+   * During the HS stage, WorldEngine.state.teams contains only
+   * the eight Midwest Youth Hockey League teams.
+   */
+  const teams =
+    Array.isArray(WorldEngine.state.teams)
+      ? WorldEngine.state.teams
+      : [];
+
+  const players =
+    typeof getLivePlayersFromTeams === 'function'
+      ? getLivePlayersFromTeams(teams)
+      : [];
+
+  const normalizePosition = player =>
+    String(player?.position || '')
+      .trim()
+      .toUpperCase();
+
+  const isGoalie = player => {
+    const position = normalizePosition(player);
+
+    return (
+      position === 'G' ||
+      position === 'GOALIE' ||
+      position.includes('GOALTENDER')
+    );
+  };
+
+  const isDefenseman = player => {
+    const position = normalizePosition(player);
+
+    return (
+      position === 'D' ||
+      position === 'LD' ||
+      position === 'RD' ||
+      position.includes('DEFENSE')
+    );
+  };
+
+  const gamesPlayed = player =>
+    Number(player?.gamesPlayed) || 0;
+
+  /*
+   * Do not manufacture award contenders before games exist.
+   * As soon as live statistics are recorded, the races populate.
+   */
+  const hasLeagueGames =
+    players.some(player => gamesPlayed(player) > 0);
+
+  if (!hasLeagueGames) {
+    container.innerHTML = `
+      <div class="league-awards-empty">
+        No award races yet
+      </div>
+    `;
+
+    Game.currentLeagueAwardRaces = [];
+
+    return;
+  }
+
+  const getTeamLabel = player =>
+    player.teamAbbreviation ||
+    player.teamShortName ||
+    player.teamName ||
+    '—';
+
+  const getPlayerId = player =>
+    player.playerId ||
+    player.id ||
+    '';
+
+  const getFullName = player =>
+    `${player.firstName || ''} ${
+      player.lastName || ''
+    }`.trim() || 'Unknown Player';
+
+  const getTrendMarkup = player => {
+    const previousRank =
+      Number(player.awardPreviousRank);
+
+    const currentRank =
+      Number(player.awardCurrentRank);
+
+    if (
+      !Number.isFinite(previousRank) ||
+      !Number.isFinite(currentRank)
+    ) {
+      return `
+        <span
+          class="league-award-contender__trend
+                 league-award-contender__trend--new"
+        >
+          NEW
+        </span>
+      `;
+    }
+
+    const difference =
+      previousRank - currentRank;
+
+    if (difference > 0) {
+      return `
+        <span
+          class="league-award-contender__trend
+                 league-award-contender__trend--up"
+        >
+          ▲${difference}
+        </span>
+      `;
+    }
+
+    if (difference < 0) {
+      return `
+        <span
+          class="league-award-contender__trend
+                 league-award-contender__trend--down"
+        >
+          ▼${Math.abs(difference)}
+        </span>
+      `;
+    }
+
+    return `
+      <span
+        class="league-award-contender__trend
+               league-award-contender__trend--even"
+      >
+        —
+      </span>
+    `;
+  };
+
+  const calculateMvpScore = player => {
+    const points =
+      Number(player.points) || 0;
+
+    const goals =
+      Number(player.goals) || 0;
+
+    const plusMinus =
+      Number(player.plusMinus) || 0;
+
+    const reputation =
+      Number(
+        player.reputationStars ??
+        player.reputation
+      ) || 0;
+
+    return (
+      points * 5 +
+      goals * 2 +
+      plusMinus * 0.4 +
+      reputation * 1.5
+    );
+  };
+
+  const calculateGoalScore = player =>
+    (Number(player.goals) || 0) * 100 +
+    (Number(player.points) || 0);
+
+  const calculateAssistScore = player =>
+    (Number(player.assists) || 0) * 100 +
+    (Number(player.points) || 0);
+
+  const calculateDefenseScore = player => {
+    const points =
+      Number(player.points) || 0;
+
+    const plusMinus =
+      Number(player.plusMinus) || 0;
+
+    const defensiveRating =
+      Number(
+        player.defensiveRating ??
+        player.defense
+      ) || 0;
+
+    return (
+      points * 3 +
+      plusMinus * 1.5 +
+      defensiveRating * 0.15
+    );
+  };
+
+  const calculateGoalieScore = player => {
+    const wins =
+      Number(player.wins) || 0;
+
+    const savePercentage =
+      Number(player.savePercentage) || 0;
+
+    const shutouts =
+      Number(player.shutouts) || 0;
+
+    const gaa =
+      Number(player.goalsAgainstAverage);
+
+    const gaaBonus =
+      Number.isFinite(gaa)
+        ? Math.max(0, 5 - gaa)
+        : 0;
+
+    return (
+      wins * 8 +
+      savePercentage * 100 +
+      shutouts * 12 +
+      gaaBonus * 4
+    );
+  };
+
+  const rankPlayers = (
+    eligiblePlayers,
+    scoreFunction
+  ) =>
+    eligiblePlayers
+      .filter(player => gamesPlayed(player) > 0)
+      .map(player => ({
+        ...player,
+        awardScore: scoreFunction(player)
+      }))
+      .sort(
+        (a, b) =>
+          b.awardScore - a.awardScore
+      )
+      .slice(0, 3)
+      .map((player, index) => ({
+        ...player,
+        awardCurrentRank: index + 1
+      }));
+
+  const skaters =
+    players.filter(player => !isGoalie(player));
+
+  const defensemen =
+    players.filter(isDefenseman);
+
+  const goalies =
+    players.filter(isGoalie);
+
+  const awardRaces = [
+    {
+      awardId: 'mvp',
+      title: 'Most Valuable Player',
+      contenders: rankPlayers(
+        skaters,
+        calculateMvpScore
+      )
+    },
+    {
+      awardId: 'goal-scoring',
+      title: 'Goal Scoring Leader',
+      contenders: rankPlayers(
+        skaters,
+        calculateGoalScore
+      )
+    },
+    {
+      awardId: 'playmaker',
+      title: 'Playmaker Award',
+      contenders: rankPlayers(
+        skaters,
+        calculateAssistScore
+      )
+    },
+    {
+      awardId: 'defenseman',
+      title: 'Best Defenseman',
+      contenders: rankPlayers(
+        defensemen,
+        calculateDefenseScore
+      )
+    },
+    {
+      awardId: 'goalie',
+      title: 'Goaltender of the Year',
+      contenders: rankPlayers(
+        goalies,
+        calculateGoalieScore
+      )
+    }
+  ];
+
+  Game.currentLeagueAwardRaces =
+    awardRaces;
+
+  container.innerHTML = `
+    <div class="league-awards-list">
+      ${awardRaces
+        .map(award => {
+          const contenders =
+            award.contenders;
+
+          return `
+            <section
+              class="league-award-card"
+              data-award-id="${award.awardId}"
+            >
+              <header class="league-award-card__header">
+                <h4>${award.title}</h4>
+              </header>
+
+              <div class="league-award-card__contenders">
+                ${
+                  contenders.length > 0
+                    ? contenders
+                        .map(player => {
+                          const playerId =
+                            getPlayerId(player);
+
+                          return `
+                            <button
+                              class="league-award-contender ${
+                                player.isCareerPlayer ||
+                                player.isUser
+                                  ? 'career-player-highlight'
+                                  : ''
+                              }"
+                              type="button"
+                              data-player-id="${playerId}"
+                            >
+                              <span
+                                class="league-award-contender__rank"
+                              >
+                                ${player.awardCurrentRank}
+                              </span>
+
+                              <span
+                                class="league-award-contender__identity"
+                              >
+                                <strong>
+                                  ${getFullName(player)}
+                                </strong>
+
+                                <span>
+                                  ${getTeamLabel(player)}
+                                </span>
+                              </span>
+
+                              ${getTrendMarkup(player)}
+                            </button>
+                          `;
+                        })
+                        .join('')
+                    : `
+                      <div class="league-award-card__empty">
+                        No eligible players yet
+                      </div>
+                    `
+                }
+              </div>
+            </section>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+
+  container
+    .querySelectorAll(
+      '.league-award-contender[data-player-id]'
+    )
+    .forEach(button => {
+      button.addEventListener('click', () => {
+        const playerId =
+          button.dataset.playerId;
+
+        const selectedPlayer =
+          players.find(player =>
+            String(getPlayerId(player)) ===
+            String(playerId)
+          );
+
+        if (!selectedPlayer) return;
+
+        openPlayerProfile(
+          selectedPlayer,
+          'league'
+        );
+      });
+    });
+}
+
+### buildLivingWorldAwardRaces LINE -1
+
+### processLivingWorldAwardRaces LINE -1
+
+FILE artifacts/project-ice/public/world.js
+
+### renderLeagueAwardsPreview LINE -1
+
+### buildLivingWorldAwardRaces LINE 38195
+      );
+    }
+
+    const pointsPerGame = Math.max(0, Number(stats.points) || 0) / gp;
+    const goalsPerGame = Math.max(0, Number(stats.goals) || 0) / gp;
+    const plusMinusPerGame = Number(stats.plusMinus || 0) / gp;
+    return (
+      pointsPerGame * 76 +
+      goalsPerGame * 24 +
+      plusMinusPerGame * 4 +
+      overall * 0.34 +
+      reputation * 0.035
+    );
+  }
+
+  function buildLivingWorldAwardRaces(dateString, weekKey) {
+    const livingWorld = ensureLivingWorldState();
+    if (!Array.isArray(livingWorld.awardRaceSnapshots)) livingWorld.awardRaceSnapshots = [];
+
+    const players = (_state.teams || []).flatMap(team =>
+      (Array.isArray(team?.roster) ? team.roster : []).map(player => ({
+        player,
+        teamId: team.teamId,
+      }))
+    );
+
+    const previousSnapshot = livingWorld.awardRaceSnapshots.length
+      ? livingWorld.awardRaceSnapshots[livingWorld.awardRaceSnapshots.length - 1]
+      : null;
+
+    const playerId = player => String(player?.id || player?.playerId || '');
+    const position = player => normalizeAttributePosition(player?.position);
+    const overall = player => Math.max(0, Number(player?.overall) || 0);
+    const reputation = player => Math.max(0, Number(player?.reputationPoints) || ((Number(player?.reputationStars) || 0) * 20));
+
+    const snapshotPlayer = (entry, rank, score, previousRank) => ({
+      rank,
+      previousRank: previousRank || null,
+      rankChange: previousRank ? previousRank - rank : 0,
+      playerId: playerId(entry.player),
+      teamId: entry.teamId || entry.player?.teamId || null,
+      firstName: entry.player?.firstName || '',
+      lastName: entry.player?.lastName || '',
+      position: entry.player?.position || '',
+      overall: overall(entry.player),
+      score: Number(score.toFixed(3)),
+      stats: getLivingWorldPlayerStats(entry.player),
+    });
+
+    const makeRace = (key, label, eligible, scoreFunction) => {
+      const priorRace = previousSnapshot?.races?.find(race => race.key === key) || null;
+      const priorRanks = new Map((priorRace?.contenders || []).map(item => [String(item.playerId), Number(item.rank)]));
+      const contenders = players
+        .filter(entry => eligible(entry.player, getLivingWorldPlayerStats(entry.player)))
+        .map(entry => ({ entry, score: scoreFunction(entry.player, getLivingWorldPlayerStats(entry.player)) }))
+        .sort((a,b) => (b.score - a.score) || (overall(b.entry.player) - overall(a.entry.player)) || playerId(a.entry.player).localeCompare(playerId(b.entry.player)))
+        .slice(0, 5)
+        .map((item,index) => snapshotPlayer(item.entry, index + 1, item.score, priorRanks.get(playerId(item.entry.player))));
+      return { key, label, contenders };
+    };
+
+    const races = [
+      makeRace(
+        'mvp',
+        'Most Valuable Player',
+        (player, stats) => position(player) !== 'G' && stats.gamesPlayed > 0,
+        (player, stats) => stats.points * 5 + stats.goals * 2 + stats.plusMinus * 0.35 + overall(player) * 0.08 + reputation(player) * 0.025
+      ),
+      makeRace(
+        'goal_scorer',
+        'Top Goal Scorer',
+        (player, stats) => position(player) !== 'G' && stats.gamesPlayed > 0,
+        (player, stats) => stats.goals * 100 + stats.points
+      ),
+      makeRace(
+        'defenseman',
+        'Top Defenseman',
+        (player, stats) => position(player) === 'D' && stats.gamesPlayed > 0,
+        (player, stats) => stats.points * 3 + stats.plusMinus * 1.25 + overall(player) * 0.22
+      ),
+      makeRace(
+        'goalie',
+        'Top Goaltender',
+        (player, stats) => position(player) === 'G' && stats.gamesPlayed > 0,
+        (player, stats) => stats.wins * 8 + stats.savePercentage * 100 + stats.shutouts * 12 + Math.max(0, 5 - stats.goalsAgainstAverage) * 4 + overall(player) * 0.08
+      ),
+      makeRace(
+        'freshman_of_year',
+        'Freshman of the Year',
+        (player, stats) => isFreshmanAwardEligible(player) && stats.gamesPlayed > 0,
+        (player, stats) => calculateFreshmanOfYearScore(player, stats)
+      ),
+    ];
+
+    const snapshot = {
+      weekKey,
+      date: normalizeLivingWorldDateKey(dateString),
+      races,
+      awardDefinitions: {
+        freshman_of_year: {
+          key: 'freshman_of_year',
+          label: 'Freshman of the Year',
+          eligibility: 'freshman',
+          seasonAward: true,
+        },
+      },
+    };
+
+    const previousByKey = new Map((previousSnapshot?.races || []).map(race => [race.key, race]));
+    const careerPlayer = getCareerPlayerFromWorldState();
+    const careerId = String(careerPlayer?.id || careerPlayer?.playerId || '');
+
+    races.forEach(race => {
+      const previousRace = previousByKey.get(race.key) || null;
+      const oldLeader = previousRace?.contenders?.[0] || null;
+      const newLeader = race.contenders?.[0] || null;
+
+      if (
+        oldLeader?.playerId &&
+        newLeader?.playerId &&
+        String(oldLeader.playerId) !== String(newLeader.playerId)
+      ) {
+        livingWorld.recentBeats.push({
+          type: 'award_leader_change',
+          weekKey,
+          date: snapshot.date,
+          awardKey: race.key,
+          awardLabel: race.label,
+          previousLeaderId: oldLeader.playerId,
+          newLeaderId: newLeader.playerId,
+        });
+      }
+
+      const careerContender = race.contenders.find(item => String(item.playerId) === careerId) || null;
+      const previousCareer = previousRace?.contenders?.find(item => String(item.playerId) === careerId) || null;
+      if (
+        careerContender &&
+        careerContender.rank <= 3 &&
+        (!previousCareer || previousCareer.rank > 3)
+      ) {
+        livingWorld.recentBeats.push({
+          type: 'career_award_race_entry',
+          weekKey,
+          date: snapshot.date,
+          playerId: careerId,
+          awardKey: race.key,
+          awardLabel: race.label,
+          rank: careerContender.rank,
+        });
+      }
+    });
+
+    livingWorld.awardRaceSnapshots.push(snapshot);
+    livingWorld.awardRaceSnapshots = livingWorld.awardRaceSnapshots.slice(-60);
+    livingWorld.currentAwardRaces = structuredClone(races);
+    livingWorld.recentBeats = livingWorld.recentBeats.slice(-180);
+
+    return snapshot;
+  }
+
+
+### processLivingWorldAwardRaces LINE -1
