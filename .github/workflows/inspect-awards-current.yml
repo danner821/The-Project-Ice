@@ -1,0 +1,20 @@
+name: Inspect Awards Current
+on:
+  push:
+    paths:
+      - '.github/scripts/inspect_awards_current.py'
+      - '.github/workflows/inspect-awards-current.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_awards_current.py > .github/awards_current_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/awards_current_audit.txt
+          git commit -m 'Persist current awards renderer audit' || exit 0
+          git push
