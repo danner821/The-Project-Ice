@@ -1,0 +1,23 @@
+name: Inspect Home Refresh
+on:
+  push:
+    paths:
+      - '.github/scripts/inspect_home_refresh.py'
+      - '.github/workflows/inspect-home-refresh.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/inspect_home_refresh.py
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/home_refresh_audit.txt
+          git commit -m 'Persist Home refresh audit' || exit 0
+          git pull --rebase origin main
+          git push origin main
