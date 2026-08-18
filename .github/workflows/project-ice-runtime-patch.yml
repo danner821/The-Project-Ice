@@ -1,0 +1,28 @@
+name: Project Ice Runtime Patch
+on:
+  push:
+    paths:
+      - '.github/scripts/project_ice_runtime_patch.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/project_ice_runtime_patch.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Refine postgame routing and scouting news balance'
+          git pull --rebase origin main
+          git push origin main
