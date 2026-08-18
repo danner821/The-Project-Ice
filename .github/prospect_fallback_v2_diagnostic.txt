@@ -1,0 +1,11 @@
+PATCH_STATUS=1
+NODE_STATUS=0
+VERIFY_STATUS=0
+--- OUT ---
+--- ERR ---
+expected exactly 1 fallback reputation block, found 0
+--- NODE ---
+--- VERIFY ---
+DELTA 0
+REPUTATION_MARKUP 0
+CONTEXT_MARKUP 2
