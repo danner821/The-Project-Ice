@@ -1,0 +1,27 @@
+{
+  "sourceCount": 166,
+  "minimumCount": 150,
+  "externalCount": 166,
+  "allWorldCount": 166,
+  "classCounts": {
+    "2027": 87,
+    "2028": 28,
+    "2029": 3,
+    "2030": 48
+  },
+  "expectedClassCounts": {
+    "2027": 87,
+    "2028": 28,
+    "2029": 3,
+    "2030": 48
+  },
+  "knownClassErrors": [],
+  "duplicateIds": [],
+  "missingAttributeCount": 0,
+  "invalidYearCount": 0,
+  "invalidPersistenceCount": 0,
+  "missingFromWorldCount": 0,
+  "realPlayerCount": 166,
+  "persistentCount": 166,
+  "portCount": 166
+}
