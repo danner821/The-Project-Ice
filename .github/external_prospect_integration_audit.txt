@@ -1,0 +1,2395 @@
+
+### buildDefaults @ 855415
+(isSeasonOpener) {
+            featuredReasons.push(
+              'Opening night marks the beginning of the regular season.'
+            );
+
+            featuredReasons.push(
+              'A strong start can establish early momentum, coach trust, and reputation.'
+            );
+          }
+
+          if (isSeasonFinale) {
+            featuredReasons.push(
+              'The final game of the regular season could carry major standings implications.'
+            );
+
+            featuredReasons.push(
+              'A strong finish can influence playoff positioning and how the season is remembered.'
+            );
+          }
+
+          if (isGameOfWeek) {
+            featuredReasons.push(
+              'Selected as the league’s Game of the Week.'
+            );
+
+            featuredReasons.push(
+              'The featured matchup brings increased attention and a stronger opportunity to build reputation.'
+            );
+          }
+
+          if (isRivalry) {
+            featuredReasons.push(
+              `${homeTeam.schoolName} and ${awayTeam.schoolName} renew their rivalry.`
+            );
+
+            featuredReasons.push(
+              'Rivalry games carry added pressure and can have a major impact on coach trust and reputation.'
+            );
+          }
+
+          if (scoutsAttending > 0) {
+            featuredReasons.push(
+              scoutsAttending === 1
+                ? 'One junior scout is expected to attend.'
+                : `${scoutsAttending} junior scouts are expected to attend.`
+            );
+
+            featuredReasons.push(
+              scoutsAttending >= 3
+                ? 'A standout performance could significantly increase your scouting attention.'
+                : 'A strong performance could improve your scouting attention.'
+            );
+          }
+
+          games.push({
+            id: `hs-game-c${cycle + 1}-r${round + 1}-m${matchupIndex + 1}`,
+            date,
+
+            homeTeamId: homeTeam.teamId,
+            awayTeamId: awayTeam.teamId,
+
+            isMilestone,
+            milestoneType,
+
+            isSeasonOpener,
+            isSeasonFinale,
+
+            isGameOfWeek,
+
+            isFeatured:
+              isGameOfWeek,
+
+            isRivalry,
+
+            scoutsAttending,
+
+            hasScouts:
+              scoutsAttending > 0,
+
+            featuredReasons,
+
+            played: false,
+            homeScore: null,
+            awayScore: null,
+          });
+        });
+      }
+    }
+
+    return games;
+  }
+  function buildDefaults() {
+    return {
+      // Identity
+      id:      'default',
+      version: '0.0.1',
+
+      // ── Time ─────────────────────────────────────────────────
+      // currentDate is the in-game calendar date.
+      // Stored as { year, month, day } so arithmetic is simple.
+      currentDate: { year: 2022, month: 9, day: 4 },
+
+      // Human-readable season label (e.g. '2022-23')
+      currentSeason: '2022-23',
+
+      // Week number within the current season (1-indexed)
+      currentWeek: 1,
+
+      // Calendar year matching currentDate.year
+      currentYear: 2022,
+
+      // ── League ───────────────────────────────────────────────
+      league: {
+        name: 'Midwest Youth Hockey League',
+        // Future fields: divisions, tiers, numTeams, etc.
+      },
+
+      // ── World collections ────────────────────────────────────
+      // teams: seeded with the eight programs for the 2022-23 season.
+      // All other collections remain empty until future systems
+      // populate them and call WorldEngine.save() to persist.
+      teams: SEED_TEAMS.map(t => ({ ...t, roster: [] })),
+
+      players:          [],   // { id, name, position, teamId, … }
+      schedule: createHighSchoolCareerSchedule(
+        SEED_TEAMS.map(team => ({ ...team }))
+      ),   // Games, practices, recovery, and future career events
+      standings:        [],   // { teamId, wins, losses, points, … }
+      prospectRankings: [],   // { rank, playerId, … }
+
+      livingWorld: {
+        version: 1,
+        processedWeeks: [],
+        weeklySnapshots: [],
+        recentBeats: [],
+      },
+
+      // ── News ─────────────────────────────────────────────────
+      // Managed via WorldEngine.news — not written directly.
+      // Stored here so it persists with the world save.
+      newsItems: SEED_NEWS.map(item => ({ ...item })),
+    };
+  }
+
+  // ── Internal mutable state ──────────────────────────────────
+  let _state = buildDefaults();
+
+  /*
+   * New worlds receive the same permanent Season Engine
+   * contract as migrated saved worlds.
+   */
+  ensureCanonicalSeasonState(
+    _state
+  );
+
+  // ── News subsystem ──────────────────────────────────────────
+  // Exposes the same API surface as the old NewsSystem IIFE so
+  // game.js can alias it: const NewsSystem = WorldEngine.news;
+  //
+  // Dependency inversion: game.js registers renderHubNews via
+  // WorldEngine.news.onNewsChange() so this file never touches
+  // the DOM or references any game.js symbol.
+
+  let _onNewsChange = null;
+
+  const news = {
+    /**
+     * Register a callback invoked after every publish().
+     * Called once by game.js after renderHubNews is defined.
+     * @param {Function} cb
+     */
+    onNewsChange(cb) {
+      _onNewsChange = cb;
+    },
+
+    /**
+     * Add a headline to the top of the feed and notify listeners.
+     * @param {{ date: string, tag: string, headline: string }} item
+     */
+    publish({ date, tag, headline }) {
+      if (!headline) return;
+
+      const normalizedHeadline = String(headline).trim();
+      const normalizedDate = date || _state?.season?.currentDate || null;
+      const normalizedTag = tag || 'LEAGUE';
+
+      /*
+       * News is persistent world state. Avoid adjacent duplicate headlines
+       * when a UI refresh or compatibility path republishes the same beat.
+       */
+      const duplicate = (_state.newsItems || []).some(item =>
+        String(item?.headline || '') === normalizedHeadline &&
+        String(item?.date || '') === String(normalizedDate || '')
+      );
+
+      if (!duplicate) {
+        _state.newsItems.unshift({
+          date: normalizedDate,
+          tag: normalizedTag,
+          headline: normalizedHeadline,
+        });
+        _state.newsItems = _state.newsItems.slice(0, 100);
+      }
+
+      if (typeof _onNewsChange === 'function') _onNewsChange();
+    },
+
+    /**
+     * Return the n most recent headlines (default 3).
+     * @param {number} n
+     * @returns {{ date: string, tag: string, headline: string }[]}
+     */
+    getRecent(n = 3) {
+      return _state.newsItems.slice(0, n);
+    },
+  };
+
+  // ── Persistence ─────────────────────────────────────────────
+  // World state is persisted separately from the player save.
+  // Call save() after any simulation step that mutates _state.
+  // Call load() in init(); if no stored world exists it silently
+  // falls back to defaults.
+
+  async function save() {
+    const worldSnapshot =
+      structuredClone(_state);
+
+    /*
+     * Primary save: IndexedDB.
+     */
+    try {
+      const database =
+        await openWorldDatabase();
+
+      await new Promise(
+        (resolve, reject) => {
+          const transaction =
+            database.transaction(
+              WORLD_STORE_NAME,
+              'readwrite'
+            );
+
+          const store =
+            transaction.objectStore(
+              WORLD_STORE_NAME
+            );
+
+          const activeCareerId = getActiveCareerId();
+
+          store.put({
+            id:
+              getWorldRecordId(activeCareerId),
+
+            savedAt:
+              new Date()
+                .toISOString(),
+
+            world:
+              worldSnapshot,
+          });
+
+          transaction.oncomplete =
+            () => {
+              resolve();
+            };
+
+          transaction.onerror =
+            () => {
+              reject(
+                transaction.error ||
+                new Error(
+                  'Project Ice world save transaction failed.'
+                )
+              );
+            };
+
+          transaction.onabort =
+            () => {
+              reject(
+                transaction.error ||
+                new Error(
+                  'Project Ice world save transaction was aborted.'
+                )
+              );
+            };
+        }
+      );
+
+      database.close();
+
+      const activeCareerId = getActiveCareerId();
+      const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+      if (activeCareerId && activeCareerId !== pendingCareerId) {
+        upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
+      }
+    } catch (error) {
+      console.error(
+        '[WorldEngine] IndexedDB save failed:',
+        error
+      );
+
+      return false;
+    }
+
+
+    return true;
+  }
+
+  /**
+   * Load a persisted world. Merges stored data over defaults so
+   * missing fields from older save versions are back-filled.
+   * @returns {boolean} true if a stored world was found and loaded.
+   */
+  async function load() {
+    /*
+     * ============================================================
+     * PRIMARY LOAD — INDEXEDDB
+     * ============================================================
+     */
+    try {
+      const database =
+        await openWorldDatabase();
+
+      const storedRecord =
+        await new Promise(
+          (resolve, reject) => {
+            const transaction =
+              database.transaction(
+                WORLD_STORE_NAME,
+                'readonly'
+              );
+
+            const store =
+              transaction.objectStore(
+                WORLD_STORE_NAME
+              );
+
+            const request =
+              store.get(
+                getWorldRecordId()
+              );
+
+            request.onsuccess =
+              () => {
+                resolve(
+                  request.result ||
+                  null
+                );
+              };
+
+            request.onerror =
+              () => {
+                reject(
+                  request.error ||
+                  new Error(
+                    'Project Ice IndexedDB world load failed.'
+                  )
+                );
+              };
+          }
+        );
+
+      let resolvedRecord = storedRecord;
+
+      /*
+       * Legacy single-world migration: preserve the user's existing
+       * pre-multi-save career as the first selectable career slot.
+       *
+       * With no active career ID, getWorldRecordId() points at the old
+       * `default` record. A successful read still has to be copied into
+       * a career-specific record and added to the save index.
+       */
+      if (!getActiveCareerId() && resolvedRecord?.world) {
+        const careerId = createCareerSaveId();
+        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).put({
+            ...resolvedRecord,
+            id: getWorldRecordId(careerId),
+          });
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+
+        resolvedRecord = {
+          ...resolvedRecord,
+          id: getWorldRecordId(careerId),
+        };
+        upsertCareerSaveMetadata(careerId, resolvedRecord.world);
+      }
+
+      /* If a career-specific record is missing, fall back to the old default record once. */
+      if (!resolvedRecord?.world) {
+        const legacyRecord = await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+
+        if (legacyRecord?.world) {
+          let careerId = getActiveCareerId();
+          if (!careerId) {
+            careerId = createCareerSaveId();
+            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+          }
+
+          await new Promise((resolve, reject) => {
+            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+            transaction.objectStore(WORLD_STORE_NAME).put({
+              ...legacyRecord,
+              id: getWorldRecordId(careerId),
+            });
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+
+          resolvedRecord = {
+            ...legacyRecord,
+            id: getWorldRecordId(careerId),
+          };
+          upsertCareerSaveMetadata(careerId, legacyRecord.world);
+        }
+      }
+
+      database.close();
+
+      if (
+        resolvedRecord?.world &&
+        typeof resolvedRecord.world ===
+          'object'
+      ) {
+        _state = {
+          ...buildDefaults(),
+          ...resolvedRecord.world,
+        };
+
+        if (
+          !Array.isArray(
+            _state.newsItems
+          ) ||
+          _state.newsItems.length === 0
+        ) {
+          _state.newsItems =
+            SEED_NEWS.map(
+              item => ({
+                ...item,
+              })
+            );
+        }
+
+        ensureCanonicalSeasonState(
+          _state
+        );
+
+        /*
+         * IndexedDB is now authoritative.
+         * Remove the obsolete giant localStorage world so it cannot
+         * consume the browser quota needed by the small career preview.
+         */
+        localStorage.removeItem(
+          WORLD_KEY
+        );
+
+        return true;
+      }
+    } catch (error) {
+      console.warn(
+        '[WorldEngine] IndexedDB load unavailable, trying legacy localStorage:',
+        error
+      );
+    }
+
+    /*
+     * ============================================================
+     * LEGACY MIGRATION — LOCALSTORAGE
+     * ============================================================
+     *
+     * If IndexedDB does not have a world yet, import the existing
+     * localStorage world once so current careers are preserved.
+     */
+    try {
+      const stored =
+        localStorage.getItem(
+          WORLD_KEY
+        );
+
+      if (!stored) {
+        return false;
+      }
+
+      const parsed =
+        JSON.parse(stored);
+
+      _state = {
+        ...buildDefaults(),
+        ...parsed,
+      };
+
+      if (
+        !Array.isArray(
+          _state.newsItems
+        ) ||
+  
+
+### getPlayerById @ 935976
+eam.roster.forEach(player => {
+      const slot =
+        player.rosterSlot ||
+        player.slot ||
+        null;
+
+      if (!slot) {
+        player.lineupStatus = 'unassigned';
+        player.lineupAssignment = null;
+        return;
+      }
+
+      let lineupAssignment = null;
+
+      const forwardMatch =
+        slot.match(
+          /^fwd-(\d+)-(lw|c|rw)$/
+        );
+
+      const defenseMatch =
+        slot.match(
+          /^def-(\d+)-(ld|rd)$/
+        );
+
+      if (forwardMatch) {
+        const line =
+          Number(forwardMatch[1]);
+
+        const position =
+          forwardMatch[2].toUpperCase();
+
+        lineupAssignment = {
+          unit: 'forward',
+          line,
+          position,
+          role: `Line ${line} ${position}`,
+          status: 'active',
+        };
+      } else if (defenseMatch) {
+        const pair =
+          Number(defenseMatch[1]);
+
+        const position =
+          defenseMatch[2].toUpperCase();
+
+        lineupAssignment = {
+          unit: 'defense',
+          pair,
+          position,
+          role: `Pair ${pair} ${position}`,
+          status: 'active',
+        };
+      } else if (
+        slot === 'g-starter' ||
+        slot === 'g-backup'
+      ) {
+        const goalieRole =
+          slot === 'g-starter'
+            ? 'Starter'
+            : 'Backup';
+
+        lineupAssignment = {
+          unit: 'goalie',
+          goalieRole,
+          position: 'G',
+          role: goalieRole,
+          status: 'active',
+        };
+      }
+
+      player.lineupAssignment =
+        lineupAssignment;
+
+      player.lineupStatus =
+        lineupAssignment
+          ? 'active'
+          : 'unassigned';
+    });
+
+    /*
+     * Rebuild the coach-selected PP and PK deployments
+     * after the canonical roster and even-strength lineup
+     * have been refreshed.
+     *
+     * Hidden evaluation scores are discarded. Only the
+     * selected player IDs remain on team.specialTeams.
+     */
+    assignSpecialTeamsUnits(team);
+
+    if (options.save !== false) {
+      save();
+    }
+
+    return team;
+  }
+
+  function getTeamById(teamId) {
+    if (!teamId) return null;
+
+    const teams =
+      Array.isArray(_state.teams)
+        ? _state.teams
+        : [];
+
+    return (
+      teams.find(
+        team =>
+          String(team.teamId) ===
+          String(teamId)
+      ) || null
+    );
+  }
+
+  function getTeamRoster(teamId) {
+    const team = getTeamById(teamId);
+
+    return team && Array.isArray(team.roster)
+      ? team.roster
+      : [];
+  }
+
+  function getPlayerById(playerId) {
+    if (!playerId) return null;
+
+    const teams =
+      Array.isArray(_state.teams)
+        ? _state.teams
+        : [];
+
+    for (const team of teams) {
+      const roster =
+        Array.isArray(team.roster)
+          ? team.roster
+          : [];
+
+      const player = roster.find(
+        rosterPlayer =>
+          String(
+            rosterPlayer.playerId ||
+            rosterPlayer.id
+          ) === String(playerId)
+      );
+
+      if (player) {
+        return player;
+      }
+    }
+
+    return null;
+  }
+  function normalizeCareerPosition(position) {
+    const rawPosition =
+      String(position || 'C')
+        .trim()
+        .toUpperCase();
+
+    if (
+      rawPosition === 'C' ||
+      rawPosition.includes('CENTER')
+    ) {
+      return 'C';
+    }
+
+    if (
+      rawPosition === 'LW' ||
+      rawPosition.includes('LEFT WING')
+    ) {
+      return 'LW';
+    }
+
+    if (
+      rawPosition === 'RW' ||
+      rawPosition.includes('RIGHT WING')
+    ) {
+      return 'RW';
+    }
+
+    if (
+      rawPosition === 'RD' ||
+      rawPosition.includes('RIGHT DEFENSE')
+    ) {
+      return 'RD';
+    }
+
+    if (
+      rawPosition === 'D' ||
+      rawPosition === 'LD' ||
+      rawPosition.includes('DEFENSE')
+    ) {
+      return 'LD';
+    }
+
+    if (
+      rawPosition === 'G' ||
+      rawPosition.includes('GOAL')
+    ) {
+      return 'G';
+    }
+
+    return 'C';
+  }
+
+  function createInitialCareerLineupAssignment(
+    playerData = {}
+  ) {
+    const position =
+      normalizeCareerPosition(
+        playerData.position
+      );
+
+    const rawStartingLine =
+      String(
+        playerData.startingLine || ''
+      );
+
+    const lineMatch =
+      rawStartingLine.match(/\d+/);
+
+    const requestedLine =
+      lineMatch
+        ? Number(lineMatch[0])
+        : null;
+
+    let rosterSlot = null;
+    let lineupAssignment = null;
+
+    if (
+      position === 'C' ||
+      position === 'LW' ||
+      position === 'RW'
+    ) {
+      const line =
+        Math.max(
+          1,
+          Math.min(
+            4,
+            requestedLine || 4
+          )
+        );
+
+      const slotPosition =
+        position.toLowerCase();
+
+      rosterSlot =
+        `fwd-${line}-${slotPosition}`;
+
+      lineupAssignment = {
+        unit: 'forward',
+        line,
+        position,
+        role: `Line ${line} ${position}`,
+        status: 'active',
+      };
+    } else if (
+      position === 'LD' ||
+      position === 'RD'
+    ) {
+      const pair =
+        Math.max(
+          1,
+          Math.min(
+            3,
+            requestedLine || 3
+          )
+        );
+
+      const slotPosition =
+        position.toLowerCase();
+
+      rosterSlot =
+        `def-${pair}-${slotPosition}`;
+
+      lineupAssignment = {
+        unit: 'defense',
+        pair,
+        position,
+        role: `Pair ${pair} ${position}`,
+        status: 'active',
+      };
+    } else if (position === 'G') {
+      const goalieRole =
+        requestedLine === 1
+          ? 'Starter'
+          : 'Backup';
+
+      rosterSlot =
+        goalieRole === 'Starter'
+          ? 'g-starter'
+          : 'g-backup';
+
+      lineupAssignment = {
+        unit: 'goalie',
+        goalieRole,
+        position: 'G',
+        role: goalieRole,
+        status: 'active',
+      };
+    }
+
+    return {
+      rosterSlot,
+      lineupAssignment,
+      lineupStatus:
+        lineupAssignment
+          ? 'active'
+          : 'unassigned',
+    };
+  }
+
+  function getCareerTryoutTargetOverall(
+    tryoutScore
+  ) {
+    const score = Math.max(
+      0,
+      Math.min(
+        100,
+        Number(tryoutScore) || 0
+      )
+    );
+
+    /*
+     * Freshman starting range:
+     * weakest results begin around 60 OVR,
+     * exceptional results can reach 68 OVR.
+     *
+     * This is only the attribute-generation target.
+     * Final overall must still be calculated from attributes.
+     */
+    if (score >= 97) return 68;
+    if (score >= 93) return 67;
+    if (score >= 88) return 66;
+    if (score >= 82) return 65;
+    if (score >= 75) return 64;
+    if (score >= 68) return 63;
+    if (score >= 60) return 62;
+    if (score >= 50) return 61;
+
+    return 60;
+  }
+
+  function createCareerAttributesFromTryouts(
+    playerData = {}
+  ) {
+    const results =
+      playerData.tryoutResults || {};
+
+    const skatingScore =
+      Number(results.skating?.score) || 0;
+
+    const puckControlScore =
+      Number(results.puckControl?.score) || 0;
+
+    const scrimmageScore =
+      Number(results.scrimmage?.score) || 0;
+
+    const overallTryoutScore =
+      Number(playerData.overallTryoutScore) ||
+      Math.round(
+        (
+          skatingScore +
+          puckControlScore +
+          scrimmageScore
+        ) / 3
+      ) ||
+      0;
+
+    const targetOverall =
+      getCareerTryoutTargetOverall(
+        overallTryoutScore
+      );
+
+    const position =
+      normalizeCareerPosition(
+        playerData.position
+      );
+
+    const archetype =
+      playerData.archetype ||
+      'Balanced';
+
+    /*
+     * Begin with the same attribute-generation foundation
+     * used by generated World Engine players.
+     */
+    const attributes =
+      createAttributesFromOverall(
+        targetOverall,
+        position,
+        archetype
+      );
+
+    function getDrillAdjustment(
+      drillScore
+    ) {
+      const difference =
+        Number(drillScore) -
+        overallTryoutScore;
+
+      return Math.max(
+        -5,
+        Math.min(
+          5,
+          Math.round(difference / 5)
+        )
+      );
+    }
+
+    const skatingAdjustment =
+      getDrillAdjustment(skatingScore);
+
+    const puckAdjustment =
+      getDrillAdjustment(puckControlScore);
+
+    const scrimmageAdjustment =
+      getDrillAdjustment(scrimmageScore);
+
+    const adjustKeys = (
+      keys,
+      adjustment
+    ) => {
+      keys.forEach(key => {
+        if (
+          typeof attributes[key] !==
+          'number'
+        ) {
+          return;
+        }
+
+        attributes[key] =
+          clampAttribute(
+            attributes[key] +
+            adjustment
+          );
+      });
+    };
+
+    adjustKeys(
+      [
+        'speed',
+        'acceleration',
+        'agility',
+        'balance',
+        'endurance',
+      ],
+      skatingAdjustment
+    );
+
+    adjustKeys(
+      [
+        'passing',
+        'puckControl',
+        'deking',
+        'handEye',
+        'wristShotAccuracy',
+      ],
+      puckAdjustment
+    );
+
+    adjustKeys(
+      [
+        'offensiveAwareness',
+        'defensiveAwareness',
+        'poise',
+        'discipline',
+        'stickChecking',
+        'shotBlocking',
+      ],
+      scrimmageAdjustment
+    );
+
+    /*
+     * Normalize the finished attribute set back toward the
+     * intended 60–68 starting band while preserving the
+     * strengths and weaknesses created by each drill.
+     */
+    let calculatedOverall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    let normalizationDifference =
+      targetOverall -
+      calculatedOverall;
+
+    if (normalizationDifference !== 0) {
+      PLAYER_ATTRIBUTE_KEYS.forEach(key => {
+        attributes[key] =
+          clampAttribute(
+            attributes[key] +
+            normalizationDifference
+          );
+      });
+    }
+
+    calculatedOverall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    return {
+      attributes,
+      overall: calculatedOverall,
+      targetOverall,
+
+      tryoutProfile: {
+        overallScore:
+          overallTryoutScore,
+
+        skatingScore,
+        puckControlScore,
+        scrimmageScore,
+
+        skatingAdjustment,
+        puckAdjustment,
+        scrimmageAdjustment,
+      },
+    };
+  }
+
+  function upsertCareerPlayer(playerData = {}) {
+    const careerPlayerId =
+      playerData.playerId ||
+      playerData.id ||
+      'career-player';
+
+    const teamId =
+      playerData.teamId ||
+      playerData.highSchoolTeamId ||
+      null;
+
+    if (!teamId) {
+      console.warn(
+        '[WorldEngine] Cannot add career player without a teamId.'
+      );
+
+      return null;
+    }
+
+    const targetTeam = getTeamById(teamId);
+
+    if (!targetTeam) {
+      console.warn(
+        `[WorldEngine] Career player team not found: ${teamId}`
+      );
+
+      return null;
+    }
+
+    /*
+     * Ensure only one canonical career-player record exists
+     * anywhere in the world.
+     */
+    _state.teams.forEach(team => {
+      if (!Array.isArray(team.roster)) {
+        team.roster = [];
+        return;
+      }
+
+      team.roster = team.roster.filter(player => {
+        const playerId =
+          player.playerId ||
+          player.id ||
+          '';
+
+        return (
+          String(playerId) !==
+          String(careerPlayerId)
+        );
+      });
+    });
+
+    const position =
+      normalizeCareerPosition(
+        playerData.position
+      );
+
+    const tryoutAbility =
+      createCareerAttributesFromTryouts(
+        playerData
+      );
+
+    const attributes =
+      playerData.attributes &&
+      Object.keys(playerData.attributes).length > 0
+        ? {
+            ...playerData.attributes,
+          }
+        : tryoutAbility.attributes;
+
+    const overall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    const initialLineup =
+      createInitialCareerLineupAssignment(
+        playerData
+      );
+
+    const careerPlayer = {
+      ...playerData,
+
+      id: careerPlayerId,
+      playerId: careerPlayerId,
+
+      firstName:
+        playerData.firstName || '',
+
+      lastName:
+        playerData.lastName || '',
+
+      teamId:
+        targetTeam.teamId,
+
+      schoolName:
+        targetTeam.schoolName,
+
+      teamName:
+        targetTeam.teamName,
+
+      position,
+
+      attributes,
+      overall,
+
+      tryoutProfile:
+        playerData.tryoutProfile ||
+        tryoutAbility.tryoutProfile,
+
+      startingOverall:
+        Number(playerData.startingOverall) ||
+        overall,
+
+      isCareerPlayer: true,
+
+      /*
+       * The permanent lineup engine will assign these fields.
+       * We intentionally do not hard-code third-line center here.
+       */
+      rosterSlot:
+        playerData.rosterSlot ||
+        initialLineup.rosterSlot,
+
+      lineupAssignment:
+        playerData.lineupAssignment ||
+        initialLineup.lineupAssignment,
+
+      lineupStatus:
+        playerData.lineupStatus ||
+        initialLineup.lineupStatus,
+
+      coachTrust:
+        Number(playerData.coachTrust) || 50,
+
+      recentForm:
+        Number(playerData.recentForm) || 50,
+
+      morale:
+        Number(playerData.morale) || 50,
+
+      injured:
+        Boolean(playerData.injured),
+
+      injury:
+        playerData.injury || null,
+
+      reputationStars:
+        Number(playerData.reputationStars) || 1,
+
+      reputationPoints:
+        Number(playerData.reputationPoints) || 0,
+
+      gamesPlayed:
+        Number(playerData.gamesPlayed) || 0,
+
+      goals:
+        Number(playerData.goals) || 0,
+
+      assists:
+        Number(playerData.assists) || 0,
+
+      points:
+        Number(playerData.points) || 0,
+
+      plusMinus:
+        Number(playerData.plusMinus) || 0,
+
+      penaltyMinutes:
+        Number(playerData.penaltyMinutes) || 0,
+
+      shots:
+        Number(playerData.shots) || 0,
+
+      seasonStats: {
+        ...(playerData.seasonStats || {}),
+      },
+
+      careerStats: {
+        ...(playerData.careerStats || {}),
+      },
+
+      development: {
+        ...(playerData.development || {}),
+      },
+
+      health: {
+        ...(playerData.health || {}),
+      },
+
+      scoutingProfile: {
+        ...(playerData.scoutingProfile || {}),
+      },
+
+      history: {
+        ...(
+          playerData.history &&
+          !Array.isArray(playerData.history)
+            ? playerData.history
+            : {}
+        ),
+      },
+
+      gameLog:
+        Array.isArray(playerData.gameLog)
+          ? [...playerData.gameLog]
+          : [],
+
+      accomplishments:
+        Array.isArray(playerData.accomplishments)
+          ? [...playerData.accomplishments]
+   
+
+### processScoutingWeek @ 777976
+valWatch
+      : null;
+
+    profile.rivalWatch = nextWatch;
+    if (!Array.isArray(profile.rivalWatchHistory)) profile.rivalWatchHistory = [];
+
+    const lastHistory = profile.rivalWatchHistory[profile.rivalWatchHistory.length - 1] || null;
+    if (lastHistory?.weekKey === weekKey) {
+      profile.rivalWatchHistory[profile.rivalWatchHistory.length - 1] = structuredClone(nextWatch);
+    } else {
+      profile.rivalWatchHistory.push(structuredClone(nextWatch));
+      profile.rivalWatchHistory = profile.rivalWatchHistory.slice(-52);
+    }
+
+    const changed = Boolean(
+      !previousWatch ||
+      Number(previousWatch.currentRank) !== careerRank ||
+      String(previousWatch.above?.playerId || '') !== String(nextWatch.above?.playerId || '') ||
+      String(previousWatch.below?.playerId || '') !== String(nextWatch.below?.playerId || '') ||
+      String(previousWatch.positionRival?.playerId || '') !== String(nextWatch.positionRival?.playerId || '')
+    );
+
+    if (changed) {
+      const livingWorld = ensureLivingWorldState();
+      livingWorld.recentBeats.push({
+        type: 'scouting_rival_watch',
+        weekKey,
+        date: nextWatch.date,
+        playerId: careerId,
+        currentRank: careerRank,
+        previousRank: Math.max(0, Number(profile.previousRank) || 0) || null,
+        above: nextWatch.above,
+        below: nextWatch.below,
+        positionRival: nextWatch.positionRival,
+      });
+      if (livingWorld.recentBeats.length > 120) {
+        livingWorld.recentBeats = livingWorld.recentBeats.slice(-120);
+      }
+    }
+
+    return {
+      success: true,
+      updated: true,
+      changed,
+      reason: changed ? 'scouting-rival-watch-updated' : 'scouting-rival-watch-stable',
+      rivalWatch: nextWatch,
+    };
+  }
+
+  function processPersistentScoutingReports(dateString) {
+    const players = (_state?.teams || []).flatMap(team =>
+      Array.isArray(team?.roster) ? team.roster : []
+    );
+    const results = players.map(player => {
+      const organizationResult = updateScoutingOrganizationsWatching(player, dateString);
+      const reportResult = updatePersistentScoutingReport(player, dateString);
+      return {
+        ...reportResult,
+        organizationResult,
+      };
+    });
+    const rivalWatchResult =
+      updateCareerScoutingRivalWatch(
+        dateString
+      );
+
+    return {
+      success: true,
+      processed: true,
+      updated: results.filter(result => result?.updated).length,
+      results,
+      rivalWatchResult,
+    };
+  }
+
+  function processScoutingWeek(dateString) {
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
+    const weekStart = getWeekStartDate(normalizedDate);
+    const weekEnd = getWeekEndDate(normalizedDate);
+    const weekKey = getLivingWorldWeekKey(normalizedDate);
+
+    if (!normalizedDate || !weekStart || !weekEnd || !weekKey) {
+      return { success: false, processed: false, reason: 'invalid-scouting-week' };
+    }
+
+    const livingWorldState = ensureLivingWorldState();
+    if (!Array.isArray(livingWorldState.scoutingProcessedWeeks)) {
+      livingWorldState.scoutingProcessedWeeks = [];
+    }
+
+    if (livingWorldState.scoutingProcessedWeeks.includes(weekKey)) {
+      return {
+        success: true,
+        processed: false,
+        reason: 'scouting-week-already-processed',
+        weekKey,
+        rankings: Array.isArray(_state.prospectRankings) ? _state.prospectRankings : [],
+        changes: [],
+        careerChange: null,
+      };
+    }
+
+    const players = (_state?.teams || []).flatMap(team =>
+      (Array.isArray(team?.roster) ? team.roster : []).map(player => {
+        ensureCanonicalPlayerContract(player);
+        return player;
+      })
+    );
+
+    if (players.length === 0) {
+      _state.prospectRankings = [];
+      return { success: true, processed: true, reason: 'no-scouting-players', rankings: [] };
+    }
+
+    const ranked = players
+      .map(player => ({
+        player,
+        playerId: player.id || player.playerId || null,
+        score: calculateWeeklyScoutingScore(player),
+      }))
+      .sort((a, b) =>
+        (b.score - a.score) ||
+        ((Number(b.player?.overall) || 0) - (Number(a.player?.overall) || 0)) ||
+        String(b.playerId || '').localeCompare(String(a.playerId || ''))
+      );
+
+    const changes = [];
+
+    ranked.forEach((entry, index) => {
+      const player = entry.player;
+      const profile = player.scoutingProfile || (player.scoutingProfile = createDefaultScoutingProfile());
+      const newRank = index + 1;
+      const previousRank = Number(profile.publicRank) || null;
+      const scoutedGames = getScoutedGamesForPlayer(player, weekStart, weekEnd);
+      const additionalObserved = scoutedGames.length;
+      const weeklyExposure = scoutedGames.reduce(
+        (sum, game) => sum + getScoutingGameSpotlightWeight(game),
+        0
+      );
+      const spotlightGames = scoutedGames.filter(game =>
+        getScoutingGameSpotlightWeight(game) >= 2.5
+      ).length;
+      const priorInterest = profile.interestLevel || 'None';
+
+      profile.previousRank = previousRank;
+      profile.publicRank = newRank;
+      profile.rankChange = previousRank ? previousRank - newRank : 0;
+      profile.lastRankedWeek = weekKey;
+      profile.gamesObserved = (Number(profile.gamesObserved) || 0) + additionalObserved;
+      profile.scoutingExposureScore = Number((
+        (Number(profile.scoutingExposureScore) || 0) + weeklyExposure
+      ).toFixed(2));
+      profile.spotlightGamesObserved =
+        (Number(profile.spotlightGamesObserved) || 0) + spotlightGames;
+      profile.lastScoutedWeek = additionalObserved > 0
+        ? weekKey
+        : (profile.lastScoutedWeek || null);
+      profile.evaluationAccuracy =
+        player.development?.potentialAccuracy ||
+        player.potentialAccuracy ||
+        getPotentialAccuracyFromConfidence(
+          player.development?.potentialConfidence ??
+          player.potentialConfidence ??
+          50
+        );
+      profile.interestLevel = getScoutingInterestLevel(newRank, profile.gamesObserved);
+
+      if (additionalObserved > 0) {
+        profile.scoutingHistory.push({
+          type: spotlightGames > 0 ? 'spotlight-games-observed' : 'games-observed',
+          weekKey,
+          startDate: weekStart,
+          endDate: weekEnd,
+          gamesObserved: additionalObserved,
+          totalGamesObserved: profile.gamesObserved,
+          exposureAdded: Number(weeklyExposure.toFixed(2)),
+          totalExposure: profile.scoutingExposureScore,
+          spotlightGames,
+          rank: newRank,
+        });
+      }
+
+      if (previousRank !== newRank || priorInterest !== profile.interestLevel || additionalObserved > 0) {
+        changes.push({
+          playerId: entry.playerId,
+          previousRank,
+          newRank,
+          rankChange: profile.rankChange,
+          interestBefore: priorInterest,
+          interestAfter: profile.interestLevel,
+          gamesObserved: additionalObserved,
+          exposureAdded: Number(weeklyExposure.toFixed(2)),
+          spotlightGames,
+        });
+      }
+    });
+
+    _state.prospectRankings = ranked.map((entry, index) => ({
+      rank: index + 1,
+      playerId: entry.playerId,
+      teamId: entry.player?.teamId || null,
+      firstName: entry.player?.firstName || '',
+      lastName: entry.player?.lastName || '',
+      position: entry.player?.position || '',
+      overall: Number(entry.player?.overall) || 0,
+      potential: Number(entry.player?.development?.potential ?? entry.player?.potential) || 0,
+      score: entry.score,
+      interestLevel: entry.player?.scoutingProfile?.interestLevel || 'None',
+      rankChange: Number(entry.player?.scoutingProfile?.rankChange) || 0,
+      previousRank: Number(entry.player?.scoutingProfile?.previousRank) || null,
+      scoutingExposureScore: Number(entry.player?.scoutingProfile?.scoutingExposureScore) || 0,
+      spotlightGamesObserved: Number(entry.player?.scoutingProfile?.spotlightGamesObserved) || 0,
+      weekKey,
+    }));
+
+    const careerPlayer = getCareerPlayerFromWorldState();
+    const careerId = String(careerPlayer?.id || careerPlayer?.playerId || 'career-player');
+    const careerChange = changes.find(change => String(change.playerId || '') === careerId) || null;
+    const livingWorld = ensureLivingWorldState();
+
+    if (careerChange) {
+      livingWorld.recentBeats.push({
+        type: 'scouting_update',
+        weekKey,
+        date: normalizedDate,
+        ...careerChange,
+      });
+      if (livingWorld.recentBeats.length > 120) {
+        livingWorld.recentBeats = livingWorld.recentBeats.slice(-120);
+      }
+    }
+
+    const scoutingReportResult =
+      processPersistentScoutingReports(
+        normalizedDate
+      );
+
+    livingWorldState.scoutingProcessedWeeks.push(weekKey);
+    if (livingWorldState.scoutingProcessedWeeks.length > 120) {
+      livingWorldState.scoutingProcessedWeeks =
+        livingWorldState.scoutingProcessedWeeks.slice(-120);
+    }
+
+    return {
+      success: true,
+      processed: true,
+      reason: 'weekly-scouting-processed',
+      weekKey,
+      rankings: _state.prospectRankings,
+      changes,
+      careerChange,
+    };
+  }
+
+  function publishLivingWorldNewsForWeek(dateString, weekKey) {
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
+    const livingWorld = ensureLivingWorldState();
+
+    if (!normalizedDate || !weekKey) {
+      return { success: false, published: 0, reason: 'invalid-news-week' };
+    }
+
+    if (!Array.isArray(livingWorld.newsBeatIds)) {
+      livingWorld.newsBeatIds = [];
+    }
+
+    const publishedIds = new Set(livingWorld.newsBeatIds.map(String));
+    let published = 0;
+
+    const getPlayer = playerId => {
+      const id = String(playerId || '');
+      if (!id) return null;
+      return (_state.teams || [])
+        .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
+        .find(player => String(player?.id || player?.playerId || '') === id) || null;
+    };
+
+    const getTeam = teamId =>
+      (_state.teams || []).find(team =>
+        String(team?.teamId || '') === String(teamId || '')
+      ) || null;
+
+    const playerName = player =>
+      `${player?.firstName || ''} ${player?.lastName || ''}`.trim() || 'A prospect';
+
+    const teamName = team =>
+      `${team?.schoolName || ''} ${team?.teamName || ''}`.trim() || 'A team';
+
+    const publishOnce = (id, tag, headline) => {
+      const safeId = String(id || '');
+      if (!safeId || !headline || publishedIds.has(safeId)) return false;
+      news.publish({ date: normalizedDate, tag, headline });
+      publishedIds.add(safeId);
+      published += 1;
+      return true;
+    };
+
+    /* Potential changes are rare by design, so every visible tier change is news. */
+    const weekBeats = (livingWorld.recentBeats || []).filter(beat => {
+      const beatDate = normalizeLivingWorldDateKey(beat?.date);
+      return !beatDate || beatDate <= normalizedDate;
+    });
+
+    weekBeats.forEach((beat, index) => {
+      if (beat?.type === 'potential_update') {
+        const player = getPlayer(beat.playerId);
+        const role =
+          beat.potentialRoleAfter ||
+          beat.newRole ||
+          beat.roleAfter ||
+          player?.development?.potentialRole ||
+          player?.potentialRole ||
+          'a new projection';
+        const direction = Number(beat.change || beat.potentialChange || 0);
+        const verb = direction < 0 ? 'revised to' : 'elevated to';
+        publishOnce(
+          `potential:${weekKey}:${beat.playerId || index}:${role}`,
+          'SCOUTING',
+          `${playerName(player)}'s potential is ${verb} ${role}.`
+        );
+      }
+
+      if (beat?.type === 'season_award_winner') {
+        const player = getPlayer(beat.playerId || beat.winnerPlayerId);
+        publishOnce(
+          beat.beatId || `season-award:${beat.seasonId || weekKey}:${beat.awardKey}:${beat.playerId || beat.winnerPlayerId}`,
+          'AWARDS',
+          `${playerName(player)} wins ${beat.awardLabel || 'a league award'}.`
+        );
+      }
+
+      if (beat?.type === 'award_leader_change') {
+        const player = getPlayer(beat.newLeaderId);
+        publishOnce(
+          `award:${weekKey}:${beat.awardKey}:${beat.newLeaderId}`,
+          'AWARDS',
+          `${playerName(player)} moves into the lead for ${beat.awardLabel || 'a major league award'}.`
+        );
+      }
+
+      if (beat?.type === 'career_award_race_entry') {
+        const player = getPlayer(beat.playerId);
+        publishOnce(
+          `award-entry:${weekKey}:${beat.awardKey}:${beat.playerId}`,
+          'AWARDS',
+          `${playerName(player)} enters the top three in the ${beat.awardLabel || 'award'} race.`
+        );
+      }
+
+      if (beat?.type === 'career_lineup_change') {
+        const player = getPlayer(beat.playerId);
+        publishOnce(
+          `lineup:${weekKey}:${beat.playerId}:${beat.toLabel}`,
+          'TEAM',
+          `${playerName(player)} moves from ${beat.fromLabel || 'the previous role'} to ${beat.toLabel || 'a new lineup role'}.`
+        );
+      }
+    });
+
+
+    weekBeats.forEach((beat, index) => {
+      const player = getPlayer(beat?.playerId);
+
+      if (beat?.type === 'major_player_performance') {
+        const goals = Math.max(0, Number(beat.goals) || 0);
+        const assists = Math.max(0, Number(beat.assists) || 0);
+        const points = Math.max(0, Number(beat.points) || goals + assists);
+        const headline = goals >= 4
+          ? `${playerName(player)} erupts for ${goals} goals in a dominant performance.`
+          : goals >= 3
+            ? `${playerName(player)} records a hat trick in a ${points}-point night.`
+            : `${playerName(player)} puts up ${points} points in a breakout performance.`;
+        publishOnce(
+          beat.beatId || `major-performance:${beat.gameId || weekKey}:${beat.playerId || index}`,
+          'PERFORMANCE',
+          headline
+        );
+      }
+
+      if (beat?.type === 'major_goalie_performance') {
+        const saves = Math.max(0, Number(beat.saves) || 0);
+        const headline = beat.shutout
+          ? `${playerName(player)} turns aside ${saves} shots in a statement shutout.`
+          : `${playerName(player)} delivers a ${saves}-save performance between the pipes.`;
+        publishOnce(
+          beat.beatId || `goalie-performance:${beat.gameId || weekKey}:${beat.playerId || index}`,
+          'PERFORMANCE',
+          headline
+        );
+      }
+
+      if (beat?.type === 'season_stat_milestone') {
+        const labels = {
+          goals: 'goals',
+   
+
+### processPotentialWeek @ 759630
+ development.potentialRole = getPotentialRole(player.position, newPotential);
+    development.potentialConfidence = Number(newConfidence.toFixed(2));
+    development.potentialAccuracy = getPotentialAccuracyFromConfidence(newConfidence);
+    development.potentialSignal = changed ? Number((signal * 0.35).toFixed(4)) : Number(signal.toFixed(4));
+    development.potentialTrend = changed
+      ? (appliedDelta > 0 ? 'rising' : 'falling')
+      : signal >= 1.15
+        ? 'rising'
+        : signal <= -1.15
+          ? 'falling'
+          : 'stable';
+    development.lastPotentialEvaluationWeek = weekKey;
+
+    if (!Array.isArray(development.potentialHistory)) {
+      development.potentialHistory = [];
+    }
+
+    if (changed) {
+      development.lastPotentialChangeWeek = currentWeek;
+      development.lastPotentialChangeSeason = _state.season?.label || _state.currentSeason || null;
+      development.potentialHistory.push({
+        weekKey,
+        date: normalizedDate,
+        from: oldPotential,
+        to: newPotential,
+        fromRole: oldRole,
+        toRole: development.potentialRole,
+        trend: development.potentialTrend,
+        confidence: development.potentialConfidence,
+        evidence,
+      });
+      development.potentialHistory = development.potentialHistory.slice(-40);
+    }
+
+    /* Keep legacy/player-facing fields synchronized with canonical development. */
+    player.potential = newPotential;
+    player.potentialRole = development.potentialRole;
+    player.potentialAccuracy = development.potentialAccuracy;
+    player.potentialTrend = development.potentialTrend;
+    player.potentialConfidence = development.potentialConfidence;
+
+    if (player.scoutingProfile && typeof player.scoutingProfile === 'object') {
+      player.scoutingProfile.evaluationAccuracy =
+        development.potentialAccuracy;
+    }
+
+    return {
+      success: true,
+      changed,
+      weekKey,
+      oldPotential,
+      newPotential,
+      oldRole,
+      newRole: development.potentialRole,
+      trend: development.potentialTrend,
+      confidence: development.potentialConfidence,
+      accuracy: development.potentialAccuracy,
+      signal: development.potentialSignal,
+      threshold: Number(threshold.toFixed(4)),
+      reevaluationChance: Number(reevaluationChance.toFixed(4)),
+      reevaluationRoll: Number(reevaluationRoll.toFixed(4)),
+      upwardThreshold: Number(upwardThreshold.toFixed(4)),
+      upwardChance: Number(upwardChance.toFixed(4)),
+      evidence,
+    };
+  }
+
+  function processPotentialWeek(dateString) {
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
+    const weekKey = getLivingWorldWeekKey(normalizedDate);
+    if (!normalizedDate || !weekKey) {
+      return { success: false, processed: false, reason: 'invalid-potential-week' };
+    }
+
+    const players = (_state?.teams || []).flatMap(team =>
+      (Array.isArray(team?.roster) ? team.roster : [])
+    );
+
+    const results = players.map(player => evaluatePlayerPotentialWeek(player, normalizedDate));
+    const changes = results.filter(result => result?.changed === true);
+    const careerPlayer = getCareerPlayerFromWorldState();
+    const careerId = String(careerPlayer?.id || careerPlayer?.playerId || 'career-player');
+    const careerIndex = players.findIndex(player =>
+      String(player?.id || player?.playerId || '') === careerId
+    );
+    const careerResult = careerIndex >= 0 ? results[careerIndex] : null;
+
+    if (careerResult?.changed) {
+      const livingWorld = ensureLivingWorldState();
+      livingWorld.recentBeats.push({
+        type: 'potential_update',
+        weekKey,
+        date: normalizedDate,
+        playerId: careerId,
+        from: careerResult.oldPotential,
+        to: careerResult.newPotential,
+        fromRole: careerResult.oldRole,
+        toRole: careerResult.newRole,
+        trend: careerResult.trend,
+        accuracy: careerResult.accuracy,
+      });
+      if (livingWorld.recentBeats.length > 120) {
+        livingWorld.recentBeats = livingWorld.recentBeats.slice(-120);
+      }
+    }
+
+    return {
+      success: true,
+      processed: true,
+      reason: 'weekly-potential-processed',
+      weekKey,
+      evaluated: results.length,
+      changes,
+      careerResult,
+    };
+  }
+
+  function getScoutingAttributeGroups(player = {}) {
+    const isGoalie = normalizeAttributePosition(player.position) === 'G';
+    if (isGoalie) {
+      return [
+        { label: 'Athleticism', keys: ['reflexes', 'agility', 'lateralMovement', 'recoverySpeed'] },
+        { label: 'Positioning', keys: ['positioning', 'angles', 'puckTracking'] },
+        { label: 'Rebound Control', keys: ['reboundControl', 'stickControl'] },
+        { label: 'Glove', keys: ['gloveHigh', 'gloveLow'] },
+        { label: 'Blocker', keys: ['blockerHigh', 'blockerLow'] },
+        { label: 'Composure', keys: ['anticipation', 'composure', 'consistency'] },
+      ];
+    }
+
+    return [
+      { label: 'Skating', keys: ['speed', 'acceleration', 'agility', 'balance'] },
+      { label: 'Shot', keys: ['wristShotPower', 'wristShotAccuracy', 'slapShotPower', 'slapShotAccuracy'] },
+      { label: 'Puck Skills', keys: ['passing', 'puckControl', 'deking', 'handEye'] },
+      { label: 'Offensive IQ', keys: ['offensiveAwareness', 'poise'] },
+      { label: 'Defensive Game', keys: ['defensiveAwareness', 'stickChecking', 'shotBlocking'] },
+      { label: 'Physical Game', keys: ['bodyChecking', 'strength', 'durability'] },
+    ];
+  }
+
+  function getScoutingTraitEvaluations(player = {}) {
+    const attributes = player.attributes || {};
+    const overall = Math.max(25, Math.min(99, Number(player.overall) || 50));
+    const groups = getScoutingAttributeGroups(player)
+      .map(group => {
+        const values = group.keys
+          .map(key => Number(attributes[key]))
+          .filter(Number.isFinite);
+        if (!values.length) return null;
+        const rating = values.reduce((sum, value) => sum + value, 0) / values.length;
+        return {
+          label: group.label,
+          rating: Number(rating.toFixed(2)),
+          relative: Number((rating - overall).toFixed(2)),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.rating - a.rating);
+
+    return {
+      strengths: groups
+        .filter(item => item.relative >= 2 || item.rating >= overall + 1)
+        .slice(0, 3),
+      weaknesses: [...groups]
+        .sort((a, b) => a.rating - b.rating)
+        .filter(item => item.relative <= -2 || item.rating <= overall - 1)
+        .slice(0, 3),
+      groups,
+    };
+  }
+
+  function buildScoutingReportSummary(player = {}, profile = {}) {
+    const name = [player.firstName, player.lastName].filter(Boolean).join(' ') || 'Prospect';
+    const interest = profile.interestLevel || 'None';
+    const accuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      profile.evaluationAccuracy ||
+      'Low';
+    const trend = String(player.development?.potentialTrend || player.potentialTrend || 'stable').toLowerCase();
+    const observed = Math.max(0, Number(profile.gamesObserved) || 0);
+
+    if (observed <= 0) {
+      return 'Play in scout-attended games to begin building an external evaluation.';
+    }
+
+    const trendText =
+      trend === 'rising'
+        ? 'The projection is trending upward as evaluators continue to gather evidence.'
+        : trend === 'falling'
+          ? 'Evaluators are becoming less bullish on the current projection.'
+          : 'The current projection remains steady.';
+
+    if (observed < 3) {
+      return `${name} has only been seen in a small sample. Early notes are forming, but scouts are not ready to make strong conclusions yet. ${trendText}`;
+    }
+
+    if (observed < 8) {
+      return `${name} is becoming a more established scouting target. ${interest} interest is developing and the evaluation is currently ${String(accuracy).toLowerCase()} confidence. ${trendText}`;
+    }
+
+    return `${name} now has a meaningful body of scouted games. The hockey world has a ${String(accuracy).toLowerCase()}-confidence read on the player, with ${interest.toLowerCase()} external interest. ${trendText}`;
+  }
+
+  function updatePersistentScoutingReport(player = {}, dateString) {
+    if (!player || typeof player !== 'object') {
+      return { success: false, updated: false, reason: 'invalid-player' };
+    }
+
+    ensureCanonicalPlayerContract(player);
+    const profile = player.scoutingProfile && typeof player.scoutingProfile === 'object'
+      ? player.scoutingProfile
+      : (player.scoutingProfile = {});
+
+    if (!Array.isArray(profile.scoutingHistory)) profile.scoutingHistory = [];
+    if (!Array.isArray(profile.strengthsKnown)) profile.strengthsKnown = [];
+    if (!Array.isArray(profile.weaknessesKnown)) profile.weaknessesKnown = [];
+
+    const observed = Math.max(0, Number(profile.gamesObserved) || 0);
+    const evaluation = getScoutingTraitEvaluations(player);
+
+    /*
+     * Traits reveal slowly. One observed game can expose one obvious trait;
+     * a few observations unlock a fuller report. This prevents the scouting
+     * page from instantly becoming a perfect attribute readout.
+     */
+    const revealCount = observed >= 8 ? 3 : observed >= 3 ? 2 : observed >= 1 ? 1 : 0;
+    profile.strengthsKnown = evaluation.strengths
+      .slice(0, revealCount)
+      .map(item => item.label);
+    profile.weaknessesKnown = evaluation.weaknesses
+      .slice(0, revealCount)
+      .map(item => item.label);
+
+    const normalizedDate = normalizeLivingWorldDateKey(dateString) || dateString || null;
+    const weekKey = getLivingWorldWeekKey(normalizedDate);
+    const lastReport = profile.scoutingHistory[profile.scoutingHistory.length - 1] || null;
+
+    /* One report snapshot per week. */
+    if (lastReport?.weekKey === weekKey) {
+      lastReport.summary = buildScoutingReportSummary(player, profile);
+      lastReport.gamesObserved = observed;
+      lastReport.interestLevel = profile.interestLevel || 'None';
+      lastReport.evaluationAccuracy =
+        player.development?.potentialAccuracy || player.potentialAccuracy || profile.evaluationAccuracy || 'Low';
+      lastReport.strengthsKnown = [...profile.strengthsKnown];
+      lastReport.weaknessesKnown = [...profile.weaknessesKnown];
+      return { success: true, updated: true, reason: 'scouting-report-week-refreshed', report: lastReport };
+    }
+
+    const report = {
+      weekKey,
+      date: normalizedDate,
+      gamesObserved: observed,
+      publicRank: Number(profile.publicRank) || null,
+      previousRank: Number(profile.previousRank) || null,
+      interestLevel: profile.interestLevel || 'None',
+      evaluationAccuracy:
+        player.development?.potentialAccuracy || player.potentialAccuracy || profile.evaluationAccuracy || 'Low',
+      strengthsKnown: [...profile.strengthsKnown],
+      weaknessesKnown: [...profile.weaknessesKnown],
+      summary: buildScoutingReportSummary(player, profile),
+    };
+
+    profile.scoutingHistory.push(report);
+    profile.scoutingHistory = profile.scoutingHistory.slice(-52);
+    return { success: true, updated: true, reason: 'scouting-report-created', report };
+  }
+
+  function getScoutingOrganizationPool(player = {}) {
+    const age = Math.max(14, Number(player.age) || 14);
+    const levelText = [
+      player.teamLevel,
+      player.level,
+      player.league,
+      player.currentLeague,
+      player.careerLevel,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if (/nhl/.test(levelText)) {
+      return [
+        'NHL Pro Scouting',
+        'National Media Watch',
+        'International Pro Scouting',
+      ];
+    }
+
+    if (/college|ncaa/.test(levelText) || age >= 18) {
+      return [
+        'NHL Central Scouting',
+        'NHL Team Scouts',
+        'Pro Development Staff',
+      ];
+    }
+
+    if (age >= 16) {
+      return [
+        'NHL Central Scouting',
+        'College Programs',
+        'Junior Hockey Scouts',
+      ];
+    }
+
+    return [
+      'Regional Prep Scouts',
+      'Junior Hockey Scouts',
+      'College Programs',
+    ];
+  }
+
+  function updateScoutingOrganizationsWatching(player = {}, dateString) {
+    if (!player || typeof player !== 'object') {
+      return { success: false, updated: false, reason: 'invalid-player' };
+    }
+
+    ensureCanonicalPlayerContract(player);
+    const profile = player.scoutingProfile && typeof player.scoutingProfile === 'object'
+      ? player.scoutingProfile
+      : (player.scoutingProfile = {});
+
+    const observed = Math.max(0, Number(profile.gamesObserved) || 0);
+    const rank = Math.max(0, Number(profile.publicRank) || 0);
+    const interest = String(profile.interestLevel || 'None').toLowerCase();
+    const pool = getScoutingOrganizationPool(player);
+
+    let count = 0;
+    if (observed >= 1 || interest === 'low') count = 1;
+    if (observed >= 3 || interest === 'moderate' || (rank > 0 && rank <= 100)) count = 2;
+    if (observed >= 6 || interest === 'high' || (rank > 0 && rank <= 35)) count = 3;
+
+    /*
+     * Interest should build from actual exposure. A player cannot accumulate a
+     * wall of watching organizations before anyone has seen him play.
+     */
+    if (observed <= 0) count = 0;
+
+    const previous = Array.isArray(profile.organizationsWatching)
+      ? profile.organizationsWatching.map(item => typeof item === 'string' ? item : item?.name).filter(Boolean)
+      : [];
+
+    const next = pool.slice(0, count);
+    profile.organizationsWatching = next.map(name => ({
+      name,
+      since: previous.includes(name)
+        ? (profile.organizationInterestHistory || []).find(item => item?.name === name)?.since || dateString || null
+        : dateString || null,
+    }));
+
+    if (!Array.isArray(profile.organizationInterestHistory)) {
+      profile.organizationInterestHistory = [];
+    }
+
+    next.forEach(name => {
+      if (!profile.organizationInterestHistory.some(item => item?.name === name)) {
+        profile.organizationInterestHistory.push({
+          name,
+          since: dateString || null,
+          firstObservedGames: observed,
+          firstPublicRank: rank || null,
+        });
+      }
+    });
+
+    profile.organizationInterestHistory = profile.organizationInterestHistory.slice(-24);
+
+    return {
+      success: true,
+      updated: true,
+      reason: 'scouting-organizations-updated',
+      organizationsWatching: profile.organizationsWatching,
+    };
+  }
+
+  function buildScoutingRivalSnapshot(player = {}) {
+    if (!player || typeof player !== 'object') return null;
+    const profile = player.scoutingProfi
+
+### calculateWeeklyScoutingScore @ 744134
+ Number(game?.scoutsAttending) || 0);
+    if (scouts <= 0) return 0;
+
+    const contextText = [
+      game.specialGameType,
+      game.specialType,
+      game.eventType,
+      game.milestoneType,
+      game.label,
+      game.title,
+      game.banner,
+      game.context?.specialGameType,
+      game.context?.milestoneType,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const isProspectClash = Boolean(
+      game.isTopProspectClash ||
+      game.topProspectClash ||
+      /top\s*prospect|prospect\s*clash/.test(contextText)
+    );
+
+    const isGameOfWeek = Boolean(
+      game.isGameOfWeek ||
+      /game\s*of\s*the\s*week/.test(contextText)
+    );
+
+    /*
+     * gamesObserved remains a literal count of games. This separate exposure
+     * score represents how intense the evaluation environment was.
+     */
+    let weight = 1 + Math.min(2.5, Math.max(0, scouts - 1) * 0.35);
+    if (isGameOfWeek) weight += 0.35;
+    if (isProspectClash) weight += 1.5;
+
+    return Number(weight.toFixed(2));
+  }
+
+  function getScoutingSpotlightPerformanceMomentum(player = {}) {
+    const profile = player.scoutingProfile || {};
+    const exposure = Math.max(0, Number(profile.scoutingExposureScore) || 0);
+    if (exposure <= 0) return 0;
+
+    const stats = getScoutingPlayerStats(player);
+    const overall = Number(player.overall) || 50;
+    const position = normalizeAttributePosition(player.position);
+    let performanceSignal = 0;
+
+    if (position === 'G') {
+      const seasonStats = player.stats || player.seasonStats || {};
+      const savePercentage = Number(
+        seasonStats.savePercentage ?? seasonStats.svPct ?? player.savePercentage
+      ) || 0;
+      if (savePercentage > 0) {
+        performanceSignal = Math.max(-1, Math.min(1, (savePercentage - 0.900) / 0.055));
+      }
+    } else if (stats.gp > 0) {
+      const pointsPerGame = stats.points / Math.max(1, stats.gp);
+      const expectedPpg = Math.max(
+        0.18,
+        Math.min(1.35, 0.30 + ((overall - 55) * 0.025))
+      );
+      performanceSignal = Math.max(
+        -1,
+        Math.min(1, (pointsPerGame - expectedPpg) / 0.65)
+      );
+    }
+
+    /*
+     * Exposure amplifies what scouts are seeing; it never rewards attendance
+     * by itself. Strong play under a brighter spotlight can move a ranking
+     * faster, while poor play can do the opposite.
+     */
+    const exposureFactor = Math.min(1, exposure / 12);
+    return Number((performanceSignal * exposureFactor * 4).toFixed(3));
+  }
+
+  function calculateWeeklyScoutingScore(player = {}) {
+    const overall = Number(player.overall) || 50;
+    const potential = Number(
+      player.development?.potential ??
+      player.potential ??
+      overall
+    ) || overall;
+    const stats = getScoutingPlayerStats(player);
+    const pointsPerGame = stats.gp > 0 ? stats.points / stats.gp : 0;
+    const coachTrust = Number(player.coachTrust) || 50;
+    const reputation = Number(player.reputationPoints) ||
+      ((Number(player.reputationStars) || 1) * 20);
+    const spotlightMomentum =
+      getScoutingSpotlightPerformanceMomentum(player);
+
+    return Number((
+      overall * 0.48 +
+      potential * 0.28 +
+      Math.min(20, pointsPerGame * 10) * 0.10 +
+      Math.min(100, reputation) * 0.09 +
+      Math.min(100, coachTrust) * 0.05 +
+      spotlightMomentum
+    ).toFixed(3));
+  }
+
+  function getScoutedGamesForPlayer(player, weekStart, weekEnd) {
+    const schedule = Array.isArray(_state?.season?.schedule)
+      ? _state.season.schedule
+      : (Array.isArray(_state?.schedule) ? _state.schedule : []);
+
+    return schedule.filter(game => {
+      const gameDate = normalizeLivingWorldDateKey(game?.date);
+      if (!gameDate || gameDate < weekStart || gameDate > weekEnd) return false;
+      if (!(game?.played === true || game?.completed === true || game?.status === 'final')) return false;
+      if ((Number(game?.scoutsAttending) || 0) <= 0) return false;
+      return String(game?.homeTeamId || '') === String(player?.teamId || '') ||
+        String(game?.awayTeamId || '') === String(player?.teamId || '');
+    });
+  }
+
+
+  function getPotentialAccuracyFromConfidence(confidence) {
+    const safeConfidence = Math.max(0, Math.min(100, Number(confidence) || 0));
+    if (safeConfidence >= 75) return 'High';
+    if (safeConfidence >= 45) return 'Medium';
+    return 'Low';
+  }
+
+  function getPotentialWeekEvidence(player = {}) {
+    ensureCanonicalPlayerContract(player);
+
+    const development = player.development || {};
+    const stats = player.seasonStats || {};
+    const age = Number(player.age ?? development.currentAge) || 14;
+    const overall = Number(player.overall) || 50;
+    const gamesPlayed = Number(stats.gamesPlayed ?? player.gamesPlayed) || 0;
+    const recentForm = Math.max(0, Math.min(100, Number(player.recentForm) || 50));
+    const coachTrust = Math.max(0, Math.min(100, Number(player.coachTrust) || 50));
+    const injuryGamesMissed = Math.max(0, Number(player.health?.gamesMissed) || 0);
+    const growthLedger = development.seasonAttributeGrowth || {};
+    const attributeGrowth = Object.values(growthLedger).reduce(
+      (sum, value) => sum + Math.max(0, Number(value) || 0),
+      0
+    );
+
+    let performanceSignal = 0;
+    const position = normalizeAttributePosition(player.position);
+
+    if (gamesPlayed >= 3) {
+      if (position === 'G') {
+        const savePercentage = Number(stats.savePercentage ?? player.savePercentage) || 0;
+        if (savePercentage > 0) {
+          performanceSignal = Math.max(-1, Math.min(1, (savePercentage - 0.900) / 0.055));
+        }
+      } else {
+        const goals = Number(stats.goals ?? player.goals) || 0;
+        const assists = Number(stats.assists ?? player.assists) || 0;
+        const points = Number(stats.points ?? player.points) || (goals + assists);
+        const pointsPerGame = points / Math.max(1, gamesPlayed);
+        const expectedPpg = Math.max(0.18, Math.min(1.35, 0.30 + ((overall - 55) * 0.025)));
+        performanceSignal = Math.max(-1, Math.min(1, (pointsPerGame - expectedPpg) / 0.65));
+      }
+    }
+
+    const formSignal = (recentForm - 50) / 50;
+    const trustSignal = (coachTrust - 50) / 50;
+    const growthSignal = Math.max(-1, Math.min(1, attributeGrowth / 12));
+    const injurySignal = Math.max(-1, -injuryGamesMissed / 8);
+
+    /*
+     * Dynamic potential should react to sustained evidence, not one hot week.
+     * Performance is the largest input, while development, form, trust and
+     * health provide supporting context. Younger players remain more fluid.
+     */
+    const ageFlexibility = age <= 18 ? 1 : age <= 23 ? 0.72 : age <= 27 ? 0.42 : 0.20;
+    const evidence = (
+      performanceSignal * 0.48 +
+      growthSignal * 0.22 +
+      formSignal * 0.14 +
+      trustSignal * 0.10 +
+      injurySignal * 0.06
+    ) * ageFlexibility;
+
+    return {
+      evidence: Number(Math.max(-1, Math.min(1, evidence)).toFixed(4)),
+      performanceSignal: Number(performanceSignal.toFixed(4)),
+      growthSignal: Number(growthSignal.toFixed(4)),
+      formSignal: Number(formSignal.toFixed(4)),
+      trustSignal: Number(trustSignal.toFixed(4)),
+      injurySignal: Number(injurySignal.toFixed(4)),
+      gamesPlayed,
+      age,
+      overall,
+    };
+  }
+
+  function getPotentialRoleBoundary(position, currentPotential, direction = 1) {
+    const safePotential = Math.max(25, Math.min(99, Number(currentPotential) || 60));
+    const currentRole = getPotentialRole(position, safePotential);
+    const step = direction >= 0 ? 1 : -1;
+
+    for (
+      let candidate = safePotential + step;
+      candidate >= 25 && candidate <= 99;
+      candidate += step
+    ) {
+      if (getPotentialRole(position, candidate) !== currentRole) {
+        return candidate;
+      }
+    }
+
+    return safePotential;
+  }
+
+  function isNHLLevelPlayer(player = {}) {
+    const levelText = [
+      player.teamLevel,
+      player.level,
+      player.league,
+      player.currentLeague,
+      player.careerLevel,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toUpperCase();
+
+    return /(^|\s)NHL($|\s)/.test(levelText);
+  }
+
+  function isFranchisePotentialRole(role = '') {
+    return String(role).toLowerCase().includes('franchise');
+  }
+
+  function isElitePotentialRole(role = '') {
+    return String(role).toLowerCase().includes('elite');
+  }
+
+  /*
+   * Project Ice draft-potential calibration.
+   * EA does not publish its hidden per-tier generation table, so these are
+   * our own targets chosen to reproduce the Franchise-mode feel: virtually no
+   * generated Franchise prospects, a useful handful of Elite prospects, then
+   * a much larger middle of Top-6/Top-4 and Top-9/Top-6D projections.
+   *
+   * This contract is intentionally centralized now so the later NHL Entry
+   * Draft generator cannot invent a different potential economy.
+   */
+  const PROJECT_ICE_DRAFT_POTENTIAL_CALIBRATION = Object.freeze({
+    classSize: 224,
+    franchise: Object.freeze({
+      minimumYearsBetween: 3,
+      forcedByYearsSinceLast: 5,
+      chanceAtYear3: 0.40,
+      chanceAtYear4: 0.68,
+      targetPerClass: Object.freeze([0, 1]),
+    }),
+    elite: Object.freeze({ min: 10, max: 15 }),
+    topRole: Object.freeze({ min: 48, max: 64 }),
+    middleRole: Object.freeze({ min: 72, max: 92 }),
+    depthRole: Object.freeze({ min: 54, max: 84 }),
+    confidenceWeights: Object.freeze({
+      franchise: Object.freeze({ low: 0.08, medium: 0.77, high: 0.15 }),
+      elite: Object.freeze({ low: 0.18, medium: 0.68, high: 0.14 }),
+      topRole: Object.freeze({ low: 0.27, medium: 0.68, high: 0.05 }),
+      middleRole: Object.freeze({ low: 0.38, medium: 0.60, high: 0.02 }),
+    }),
+  });
+
+  function getProjectIceDraftPotentialCalibration() {
+    return PROJECT_ICE_DRAFT_POTENTIAL_CALIBRATION;
+  }
+
+  function getDeterministicLivingWorldRoll(seedText = '') {
+    const text = String(seedText || 'project-ice');
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967296;
+  }
+
+  function evaluatePlayerPotentialWeek(player = {}, dateString) {
+    /*
+     * CANONICAL DYNAMIC POTENTIAL ENGINE.
+     *
+     * This is the only function allowed to move a player's potential during
+     * an active career. Annual development trajectory may change growth rate,
+     * but it must not independently rewrite the player's potential label.
+     */
+    ensureCanonicalPlayerContract(player);
+
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
+    const weekKey = getLivingWorldWeekKey(normalizedDate);
+    const development = player.development;
+
+    if (!normalizedDate || !weekKey || !development) {
+      return { success: false, changed: false, reason: 'invalid-potential-evaluation' };
+    }
+
+    if (development.lastPotentialEvaluationWeek === weekKey) {
+      return { success: true, changed: false, reason: 'potential-week-already-evaluated', weekKey };
+    }
+
+    const evidence = getPotentialWeekEvidence(player);
+    const priorSignal = Number(development.potentialSignal) || 0;
+    const signal = Math.max(-4, Math.min(4, priorSignal * 0.76 + evidence.evidence));
+    const oldPotential = Math.max(25, Math.min(99, Number(development.potential ?? player.potential) || evidence.overall));
+    const oldRole = development.potentialRole || getPotentialRole(player.position, oldPotential);
+    const oldConfidence = Math.max(25, Math.min(100, Number(development.potentialConfidence) || 50));
+
+    /*
+     * Public scouting certainty is deliberately the ONLY clue that the
+     * projection may be getting stale. When sustained performance/growth no
+     * longer fits the current projection, certainty erodes. When the evidence
+     * fits again, observation slowly rebuilds confidence. We never expose the
+     * hidden signal or distance to a potential change.
+     */
+    const observedGames = Math.max(0, Number(player.scoutingProfile?.gamesObserved) || 0);
+    const mismatchStrength = Math.max(0, Math.abs(signal) - 0.85);
+    const evidenceStrength = Math.abs(Number(evidence.evidence) || 0);
+    const meaningfulMismatch = evidenceStrength >= 0.22 && mismatchStrength > 0;
+
+    let confidenceDelta;
+    if (meaningfulMismatch) {
+      confidenceDelta = -Math.min(2.4, 0.35 + mismatchStrength * 0.72);
+    } else {
+      confidenceDelta = 0.18 + Math.min(0.52, observedGames * 0.025);
+    }
+
+    let newConfidence = Math.max(25, Math.min(100, oldConfidence + confidenceDelta));
+
+    /*
+     * Actual potential movement should feel like NHL Franchise: rare, delayed,
+     * and impossible to time precisely. Strong sustained evidence first has to
+     * destabilize the scouting projection, then clear a long cooldown, then
+     * survive a hidden reevaluation roll.
+     */
+    const threshold = 3.05 + ((newConfidence - 25) / 75) * 0.70;
+
+    const currentWeek = Math.max(1, Number(_state.season?.currentWeek) || 1);
+    const lastChangedWeek = Number(development.lastPotentialChangeWeek) || -999;
+    const weeksSinceChange = currentWeek - lastChangedWeek;
+    const cooldownMet = weeksSinceChange >= 10;
+
+    const thresholdExcess = Math.max(0, Math.abs(signal) - threshold);
+    const reevaluationChance = Math.min(0.28, 0.08 + thresholdExcess * 0.11);
+    const reevaluationRoll = getDeterministicLivingWorldRoll([
+      _state.season?.seasonId || _state.season?.year || 'season',
+      weekKey,
+      player.id || player.playerId || 'player',
+      'potential-reevaluation',
+    ].join(':'));
+
+    let targetPotential = oldPotential;
+    const upwardBoundary = getPotentialRoleBoundary(player.position, oldPotential, 1);
+    const downwardBoundary = getPotentialRoleBoundary(player.position, oldPotential, -1);
+    const upwardRole = getPotentialRole(player.position, upwardBoundary);
+    const upwardIsFranchise = isFranchisePotentialRole(upwardRole);
+    const currentlyElite = isElitePotentialRole(oldRole);
+    const nhlLevel = isNHLLevelPlayer(player);
+
+    /*
+     * Elite is an attainable high-end outcome for a genuinely dominant young
+     * career player. Franchise is different: draft-age/HS players almost never
+     * receive it, while an already-Elite player proving himself as one of the
+     * NHL's dominant stars has a materially better (still rare) path there.
+     */
+    let upwardChance = reevaluationChance;
+    let upwardThreshold = threshold;
+
+    if (upwardIsFranchise) {
+      upwardThreshold += nhlLevel && currentlyElite ? 0.35 : 0.9
