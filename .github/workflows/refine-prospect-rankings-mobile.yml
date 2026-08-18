@@ -1,0 +1,36 @@
+name: Refine Prospect Rankings Mobile
+on:
+  push:
+    paths:
+      - '.github/scripts/refine_prospect_rankings_mobile.py'
+      - '.github/workflows/refine-prospect-rankings-mobile.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch current gameplay files
+        run: python .github/scripts/refine_prospect_rankings_mobile.py
+      - name: Validate syntax and diff size
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          GAME_LINES=$(git diff --numstat -- artifacts/project-ice/public/game.js | awk '{print $1+$2}')
+          STYLE_LINES=$(git diff --numstat -- artifacts/project-ice/public/style.css | awk '{print $1+$2}')
+          echo "GAME_CHANGED_LINES=${GAME_LINES:-0}"
+          echo "STYLE_CHANGED_LINES=${STYLE_LINES:-0}"
+          test "${GAME_LINES:-0}" -le 80
+          test "${STYLE_LINES:-0}" -le 80
+          grep -q "#prospects-screen .pr-player-context" artifacts/project-ice/public/style.css
+          grep -q "prospectSeasonBadge" artifacts/project-ice/public/game.js
+      - name: Commit gameplay change
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css
+          git commit -m 'Refine mobile prospect rankings presentation' || exit 0
+          git pull --rebase origin main
+          git push origin main
