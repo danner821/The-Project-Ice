@@ -687,15 +687,24 @@
       <section id="hub-screen" class="screen screen--hidden">
 
         <!-- Fixed player identity bar -->
-          <div class="hub-info-bar" id="hub-info-bar">
-          <p class="hub-info-bar__name" id="hub-player-name">—</p>
-          <p class="hub-info-bar__attrs">
-            <span id="hub-player-pos">C</span><span class="hub-info-bar__dot"> · </span><span>Age <span id="hub-player-age-bar">14</span></span><span class="hub-info-bar__dot"> · </span><span>OVR <span class="hub-info-bar__ovr-inline" id="hub-player-ovr">60</span></span>
-          </p>
-          <p class="hub-info-bar__rep">
-            <span class="hub-info-bar__rep-stars" id="hub-rep-stars">⭐⭐☆☆☆</span>
-            <span class="hub-info-bar__rep-tier" id="hub-rep-tier">Local Prospect</span>
-          </p>
+        <div class="hub-info-bar hub-info-bar--refreshed" id="hub-info-bar">
+          <div class="hub-info-bar__accent" aria-hidden="true"></div>
+          <div class="hub-info-bar__main">
+            <div class="hub-info-bar__identity">
+              <p class="hub-info-bar__name" id="hub-player-name">—</p>
+              <p class="hub-info-bar__attrs">
+                <span id="hub-player-pos">C</span>
+                <span class="hub-info-bar__dot">•</span>
+                <span>Age <span id="hub-player-age-bar">14</span></span>
+                <span class="hub-info-bar__dot">•</span>
+                <span>OVR <span class="hub-info-bar__ovr-inline" id="hub-player-ovr">60</span></span>
+              </p>
+            </div>
+            <div class="hub-info-bar__reputation">
+              <span class="hub-info-bar__rep-stars" id="hub-rep-stars">★☆☆☆☆</span>
+              <span class="hub-info-bar__rep-tier" id="hub-rep-tier">Local Prospect</span>
+            </div>
+          </div>
           <p class="hub-info-bar__team" id="hub-info-team">Freshman Tryouts</p>
         </div>
 
@@ -705,25 +714,35 @@
           
           <!-- Home tab panel -->
           <div id="hub-tab-home" class="hub-tab-panel hub-tab-panel--active">
-            <!-- Objective bar -->
-            <div class="hub-objective-bar">
-              <span class="hub-objective-bar__label">Current Objective</span>
-              <span class="hub-objective-bar__text" id="hub-current-objective">
-                Impress the coaching staff during freshman tryouts.
-              </span>
-            </div>
+
+            <!-- Dynamic career objective -->
+            <section class="home-objective" aria-labelledby="home-objective-label">
+              <div class="home-objective__topline">
+                <span class="home-section-kicker" id="home-objective-label">Current Objective</span>
+                <span class="home-objective__stage" id="home-objective-stage">Freshman Season</span>
+              </div>
+              <h2 class="home-objective__title" id="hub-current-objective-title">Earn Your Role</h2>
+              <p class="home-objective__text" id="hub-current-objective">Establish yourself in the lineup and build coach trust.</p>
+              <div class="home-objective__progress-row">
+                <div class="home-objective__progress-track" aria-hidden="true">
+                  <div class="home-objective__progress-fill" id="home-objective-progress-fill"></div>
+                </div>
+                <span class="home-objective__progress-label" id="home-objective-progress-label">0%</span>
+              </div>
+            </section>
 
             <!-- Weekly calendar -->
-            <div class="hub-cal">
-
-              <div class="hub-cal__header">
+            <section class="hub-cal home-week-card">
+              <div class="home-section-heading">
+                <div>
+                  <span class="home-section-kicker">Schedule</span>
+                  <h3>This Week</h3>
+                </div>
                 <span class="hub-cal__week-label">Week of September 8, 2022</span>
               </div>
 
-              <!-- Horizontal card strip — cards injected by setupHubCalendar() -->
               <div class="hub-cal__strip" id="hub-cal-strip"></div>
 
-              <!-- Event detail panel — content updated on card selection -->
               <div class="hub-event-panel" id="hub-event-panel">
                 <div class="hub-event-panel__hero">
                   <span class="hub-event-panel__icon" id="hub-ep-icon">🏒</span>
@@ -743,17 +762,42 @@
                   <span class="btn__label" id="hub-ep-btn-label">Enter Event</span>
                   <span class="btn__arrow">›</span>
                 </button>
-                <p class="hub-event-panel__toast" id="hub-ep-toast" hidden>
-                  Simulation system coming soon.
-                </p>
+                <p class="hub-event-panel__toast" id="hub-ep-toast" hidden></p>
               </div>
+            </section>
 
+            <!-- Context that changes with the career -->
+            <section class="home-feature-card" id="home-big-moment-card">
+              <div class="home-feature-card__icon" id="home-big-moment-icon">📅</div>
+              <div class="home-feature-card__content">
+                <span class="home-section-kicker">Next Big Moment</span>
+                <h3 id="home-big-moment-title">Opening Week</h3>
+                <p id="home-big-moment-detail">Your next important career event will appear here.</p>
+                <span class="home-feature-card__meta" id="home-big-moment-meta">Coming up</span>
+              </div>
+            </section>
+
+            <div class="home-snapshot-grid">
+              <section class="home-snapshot-card" id="home-last-game-card">
+                <span class="home-section-kicker">Last Game</span>
+                <strong class="home-snapshot-card__value" id="home-last-game-result">No games yet</strong>
+                <span class="home-snapshot-card__detail" id="home-last-game-detail">Your most recent result will appear here.</span>
+              </section>
+
+              <section class="home-snapshot-card" id="home-form-card">
+                <span class="home-section-kicker">Current Form</span>
+                <strong class="home-snapshot-card__value" id="home-form-status">Season Start</strong>
+                <span class="home-snapshot-card__detail" id="home-form-detail">No regular-season sample yet.</span>
+              </section>
             </div>
 
-            <!-- Dashboard: Standings (preview — top 4, populated by renderHubStandings()) -->
-            <div class="hub-dash-card" id="hub-standings-card">
+            <!-- Standings -->
+            <section class="hub-dash-card home-dashboard-card" id="hub-standings-card">
               <div class="hub-dash-card__header">
-                <span class="hub-dash-card__title">Standings</span>
+                <div>
+                  <span class="home-section-kicker">League</span>
+                  <span class="hub-dash-card__title">Standings</span>
+                </div>
                 <button class="hub-dash-card__action hub-dash-card__action--btn" id="btn-hub-standings-all" aria-label="View full standings">View All ›</button>
               </div>
               <div class="hub-dash-card__body">
@@ -765,70 +809,76 @@
                     <span class="hub-standings__stat">L</span>
                     <span class="hub-standings__stat hub-standings__stat--pts">PTS</span>
                   </div>
-                  <!-- rows injected by renderHubStandings() -->
                 </div>
               </div>
-            </div>
+            </section>
 
-            <!-- Dashboard: Team Leaders -->
-            <div class="hub-dash-card">
+            <!-- Correct live team leaders -->
+            <section class="hub-dash-card home-dashboard-card" id="home-team-leaders-card">
               <div class="hub-dash-card__header">
-                <span class="hub-dash-card__title">Team Leaders</span>
-                <span class="hub-dash-card__action">View All ›</span>
+                <div>
+                  <span class="home-section-kicker">My Team</span>
+                  <span class="hub-dash-card__title">Team Leaders</span>
+                </div>
+                <button class="hub-dash-card__action hub-dash-card__action--btn" id="btn-hub-team-leaders-all" type="button">Team ›</button>
               </div>
               <div class="hub-dash-card__body">
-                <div class="hub-leaders">
-                  <div class="hub-leaders__section-label">Points</div>
-                  <div class="hub-leaders__row">
-                    <span class="hub-leaders__rank">1</span>
-                    <span class="hub-leaders__name">J. Mitchell</span>
-                    <span class="hub-leaders__pos-badge">C</span>
-                    <span class="hub-leaders__stat">5 pts</span>
-                  </div>
-                  <div class="hub-leaders__row">
-                    <span class="hub-leaders__rank">2</span>
-                    <span class="hub-leaders__name">A. Kowalski</span>
-                    <span class="hub-leaders__pos-badge">RW</span>
-                    <span class="hub-leaders__stat">4 pts</span>
-                  </div>
-                  <div class="hub-leaders__row hub-leaders__row--you">
-                    <span class="hub-leaders__rank">3</span>
-                    <span class="hub-leaders__name" id="hub-leaders-you-name">You</span>
-                    <span class="hub-leaders__pos-badge" id="hub-leaders-you-pos">—</span>
-                    <span class="hub-leaders__stat">2 pts</span>
-                  </div>
+                <div class="hub-leaders" id="hub-team-leaders-list"></div>
+              </div>
+            </section>
+
+            <!-- Player career status -->
+            <section class="home-career-card">
+              <div class="home-section-heading home-section-heading--compact">
+                <div>
+                  <span class="home-section-kicker">Career Status</span>
+                  <h3>Where You Stand</h3>
+                </div>
+                <button class="home-text-action" id="btn-home-open-player" type="button">Player ›</button>
+              </div>
+
+              <div class="home-career-grid">
+                <div class="home-career-stat">
+                  <span>Current Role</span>
+                  <strong id="home-current-role">—</strong>
+                </div>
+                <div class="home-career-stat">
+                  <span>Coach Trust</span>
+                  <strong id="home-coach-trust">—</strong>
+                </div>
+                <div class="home-career-stat">
+                  <span>Season Line</span>
+                  <strong id="home-season-line">0 GP · 0 PTS</strong>
+                </div>
+                <div class="home-career-stat">
+                  <span>Prospect Status</span>
+                  <strong id="home-prospect-status">Not Ranked</strong>
                 </div>
               </div>
-            </div>
 
-            <!-- Dashboard: League News (populated by NewsSystem in game.js) -->
-            <div class="hub-dash-card">
+              <div class="home-development-strip">
+                <div>
+                  <span class="home-section-kicker">Development Snapshot</span>
+                  <strong id="home-development-title">Building your game</strong>
+                  <p id="home-development-detail">Your progression updates will surface here.</p>
+                </div>
+                <span class="home-development-strip__ovr" id="home-development-ovr">60 OVR</span>
+              </div>
+            </section>
+
+            <!-- League News stays canonical -->
+            <section class="hub-dash-card home-dashboard-card">
               <div class="hub-dash-card__header">
-                <span class="hub-dash-card__title">League News</span>
-                <button
-                  class="hub-dash-card__action news-view-all-button"
-                  id="btn-hub-view-all-news"
-                  type="button"
-                >
-                  View All ›
-                </button>
+                <div>
+                  <span class="home-section-kicker">Living World</span>
+                  <span class="hub-dash-card__title">League News</span>
+                </div>
+                <button class="hub-dash-card__action news-view-all-button" id="btn-hub-view-all-news" type="button">View All ›</button>
               </div>
               <div class="hub-dash-card__body">
-                <div class="hub-news" id="hub-news-list">
-                  <!-- rendered by renderHubNews() -->
-                </div>
+                <div class="hub-news" id="hub-news-list"></div>
               </div>
-            </div>
-
-            <!-- Dashboard: Top 100 Prospects -->
-            <div class="hub-dash-card hub-dash-card--tappable" id="hub-prospects-card"
-                 role="button" tabindex="0" aria-label="Open Top 100 Prospect Rankings">
-              <div class="hub-dash-card__header">
-                <span class="hub-dash-card__title">⭐ Top 100 Prospects</span>
-                <span class="hub-dash-card__action">View ›</span>
-              </div>
-              <p class="hub-prospects-teaser">Season rankings · Updated weekly</p>
-            </div>
+            </section>
 
           </div><!-- /#hub-tab-home -->
 

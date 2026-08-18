@@ -16404,6 +16404,7 @@ function setupTeamLineupToggle(
 function refreshCareerUI() {
   refreshScheduleEvents();
 
+  renderHomeDashboard();
   setupHubCalendar();
 
   renderScheduleCalendar(
@@ -16415,7 +16416,390 @@ function refreshCareerUI() {
 
   renderTeamTab();
 }
+// ── Home / Career Hub Refresh ───────────────────────────────
+function getHomeCareerPlayer() {
+  const gameId = String(Game.player?.id || Game.player?.playerId || 'career-player');
+  const direct =
+    typeof WorldEngine?.getPlayerById === 'function'
+      ? WorldEngine.getPlayerById(gameId)
+      : null;
+
+  if (direct) return direct;
+
+  const teams = Array.isArray(WorldEngine?.state?.teams)
+    ? WorldEngine.state.teams
+    : [];
+
+  for (const team of teams) {
+    const roster = Array.isArray(team?.roster) ? team.roster : [];
+    const found = roster.find(player => {
+      const id = String(player?.id || player?.playerId || '');
+      return Boolean(
+        player?.isCareerPlayer ||
+        player?.isUser ||
+        (id && id === gameId)
+      );
+    });
+    if (found) return found;
+  }
+
+  return Game.player || {};
+}
+
+function getHomePlayerStats(player) {
+  const nested =
+    player?.seasonStats ||
+    player?.stats ||
+    player?.statistics ||
+    {};
+
+  const read = (...keys) => {
+    for (const key of keys) {
+      const direct = Number(player?.[key]);
+      if (Number.isFinite(direct)) return direct;
+      const value = Number(nested?.[key]);
+      if (Number.isFinite(value)) return value;
+    }
+    return 0;
+  };
+
+  const gp = read('gamesPlayed', 'gp');
+  const goals = read('goals', 'g');
+  const assists = read('assists', 'a');
+  const points = Math.max(read('points', 'pts'), goals + assists);
+  return { gp, goals, assists, points };
+}
+
+function getHomeTeam(player) {
+  const teamId = player?.teamId || Game.player?.teamId || '';
+  return (WorldEngine.state?.teams || []).find(team =>
+    String(team?.teamId || '') === String(teamId)
+  ) || null;
+}
+
+function getHomeCoachTrust(player) {
+  const candidates = [
+    player?.coachTrust,
+    player?.development?.coachTrust,
+    player?.developmentState?.coachTrust,
+    Game.player?.coachTrust,
+  ];
+  const raw = candidates.find(value => Number.isFinite(Number(value)));
+  return Math.max(0, Math.min(100, Number(raw ?? 50)));
+}
+
+function getHomeStageLabel(player) {
+  const year = String(player?.year || Game.player?.year || '').trim();
+  const age = Number(player?.age || Game.player?.age || 14);
+  const level = String(player?.teamLevel || Game.player?.teamLevel || '').trim();
+  if (year) return `${year} Season`;
+  if (level) return `${level} · Age ${age}`;
+  return `Age ${age} Season`;
+}
+
+function getHomeObjective(player, stats, coachTrust) {
+  const position = String(player?.position || Game.player?.position || '').toUpperCase();
+  const rank = Number(player?.scoutingProfile?.publicRank || Game.player?.prospectRank || 0);
+  const observed = Number(player?.scoutingProfile?.gamesObserved || 0);
+
+  if (!Game.player?.tryoutsComplete) {
+    return {
+      title: 'Make the Team',
+      text: 'Show the coaching staff you belong during freshman tryouts.',
+      progress: Math.max(0, Math.min(100, coachTrust)),
+      label: `${Math.round(coachTrust)}% coach trust`,
+    };
+  }
+
+  if (stats.gp === 0) {
+    return {
+      title: 'Earn Your Role',
+      text: 'Establish yourself in the lineup and build trust before the season settles in.',
+      progress: Math.max(10, coachTrust),
+      label: `${Math.round(coachTrust)}% coach trust`,
+    };
+  }
+
+  if (coachTrust < 55) {
+    return {
+      title: 'Build Coach Trust',
+      text: 'Play responsible hockey and make the most of every shift to earn a larger role.',
+      progress: Math.round((coachTrust / 55) * 100),
+      label: `${Math.round(coachTrust)} / 55 trust target`,
+    };
+  }
+
+  if (observed > 0 && (!rank || rank > 50)) {
+    const target = rank ? 50 : 100;
+    const progress = rank ? Math.max(10, Math.min(95, ((101 - rank) / 51) * 100)) : 15;
+    return {
+      title: 'Turn Attention Into Momentum',
+      text: 'Scouts are watching. Keep producing and push your name up the prospect board.',
+      progress,
+      label: rank ? `Currently #${rank}` : 'Evaluation underway',
+    };
+  }
+
+  if (position === 'G' || position.includes('GOAL')) {
+    const targetGp = Math.max(5, stats.gp + (stats.gp < 5 ? 5 - stats.gp : 3));
+    return {
+      title: 'Own the Crease',
+      text: 'Stack quality starts and give your team a chance to win every night.',
+      progress: Math.min(100, (stats.gp / targetGp) * 100),
+      label: `${stats.gp} starts logged`,
+    };
+  }
+
+  const nextPointTarget = Math.max(5, Math.ceil((stats.points + 1) / 5) * 5);
+  return {
+    title: 'Drive Your Season Forward',
+    text: 'Keep producing, protect your role, and make this stretch of the season count.',
+    progress: Math.min(100, (stats.points / nextPointTarget) * 100),
+    label: `${stats.points} / ${nextPointTarget} points`,
+  };
+}
+
+function getHomeCurrentRole(player) {
+  const line =
+    player?.startingLine ||
+    player?.lineAssignment ||
+    Game.player?.startingLine ||
+    'Depth Role';
+  const extras = [];
+  const pp = player?.powerPlayUnit || player?.ppUnit || Game.player?.powerPlayUnit;
+  const pk = player?.penaltyKillUnit || player?.pkUnit || Game.player?.penaltyKillUnit;
+  if (pp) extras.push(String(pp).toUpperCase().startsWith('PP') ? String(pp).toUpperCase() : `PP${pp}`);
+  if (pk) extras.push(String(pk).toUpperCase().startsWith('PK') ? String(pk).toUpperCase() : `PK${pk}`);
+  return [line, ...extras].filter(Boolean).join(' · ');
+}
+
+function getHomeUpcomingMoment() {
+  const today = String(Game.player?.currentDate || WorldEngine.state?.season?.currentDate || '').slice(0, 10);
+  const events = Array.isArray(scheduleEvents) ? scheduleEvents : [];
+  const upcoming = events
+    .filter(event => {
+      const date = String(event?.date || '').slice(0, 10);
+      return date && (!today || date >= today) && !event?.isCompleted;
+    })
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+  const priorityWords = /scout|rival|playoff|championship|tournament|game of the week|prospect|last game/i;
+  return upcoming.find(event => priorityWords.test(`${event?.label || ''} ${event?.objective || ''}`)) ||
+    upcoming.find(event => /game/i.test(String(event?.label || ''))) ||
+    upcoming[0] || null;
+}
+
+function getHomeCompletedGames() {
+  const buckets = [
+    WorldEngine.state?.completedGames,
+    WorldEngine.state?.gameResults,
+    WorldEngine.state?.results,
+    WorldEngine.state?.season?.completedGames,
+    WorldEngine.state?.season?.gameResults,
+    WorldEngine.state?.season?.schedule,
+    WorldEngine.state?.schedule,
+  ].filter(Array.isArray);
+
+  const seen = new Set();
+  return buckets.flat().filter(game => {
+    if (!game || typeof game !== 'object') return false;
+    const complete = Boolean(
+      game.isCompleted || game.completed || game.gameComplete ||
+      game.status === 'completed' || game.status === 'final' ||
+      game.finalScore || game.result
+    );
+    if (!complete) return false;
+    const key = String(game.gameId || game.id || `${game.date || ''}-${game.homeTeamId || game.home?.teamId || ''}-${game.awayTeamId || game.away?.teamId || ''}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => String(b.date || b.completedAt || '').localeCompare(String(a.date || a.completedAt || '')));
+}
+
+function getHomeLastGame(team) {
+  if (!team) return null;
+  const teamId = String(team.teamId || '');
+  const game = getHomeCompletedGames().find(item => {
+    const homeId = String(item.homeTeamId || item.home?.teamId || item.homeTeam?.teamId || '');
+    const awayId = String(item.awayTeamId || item.away?.teamId || item.awayTeam?.teamId || '');
+    return teamId && (homeId === teamId || awayId === teamId);
+  });
+  if (!game) return null;
+
+  const homeId = String(game.homeTeamId || game.home?.teamId || game.homeTeam?.teamId || '');
+  const isHome = homeId === teamId;
+  const readScore = (side) => {
+    const direct = game?.[`${side}Score`];
+    if (Number.isFinite(Number(direct))) return Number(direct);
+    const nested = game?.finalScore?.[side] ?? game?.result?.[side] ?? game?.[side]?.score ?? game?.[`${side}Team`]?.score;
+    return Number.isFinite(Number(nested)) ? Number(nested) : null;
+  };
+  const homeScore = readScore('home');
+  const awayScore = readScore('away');
+  const own = isHome ? homeScore : awayScore;
+  const opp = isHome ? awayScore : homeScore;
+  const oppId = isHome
+    ? String(game.awayTeamId || game.away?.teamId || game.awayTeam?.teamId || '')
+    : String(game.homeTeamId || game.home?.teamId || game.homeTeam?.teamId || '');
+  const opponent = (WorldEngine.state?.teams || []).find(t => String(t.teamId) === oppId);
+  const opponentName = opponent ? `${opponent.schoolName} ${opponent.teamName}` : (game.opponentName || 'Opponent');
+  const result = own != null && opp != null ? (own > opp ? 'W' : own < opp ? 'L' : 'T') : 'Final';
+  return {
+    result,
+    score: own != null && opp != null ? `${own}–${opp}` : 'Final',
+    opponentName,
+    date: game.date || game.completedAt || '',
+  };
+}
+
+function renderHomeTeamLeaders(player, team) {
+  const container = document.getElementById('hub-team-leaders-list');
+  if (!container) return;
+  if (!team) {
+    container.innerHTML = '<div class="home-empty-state">Team not assigned yet.</div>';
+    return;
+  }
+
+  const roster = typeof WorldEngine?.getTeamRoster === 'function'
+    ? WorldEngine.getTeamRoster(team.teamId)
+    : (team.roster || []);
+
+  const skaters = roster
+    .filter(p => String(p?.position || '').toUpperCase() !== 'G')
+    .map(p => ({ player: p, stats: getHomePlayerStats(p) }))
+    .filter(entry => entry.stats.gp > 0 || entry.stats.points > 0)
+    .sort((a, b) => (b.stats.points - a.stats.points) || (b.stats.goals - a.stats.goals) || String(a.player.lastName || '').localeCompare(String(b.player.lastName || '')))
+    .slice(0, 3);
+
+  if (!skaters.length) {
+    container.innerHTML = '<div class="home-empty-state">No team stats yet. Leaders will populate after the season begins.</div>';
+    return;
+  }
+
+  const careerId = String(player?.id || player?.playerId || Game.player?.id || 'career-player');
+  container.innerHTML = skaters.map((entry, index) => {
+    const p = entry.player;
+    const id = String(p?.id || p?.playerId || '');
+    const isUser = p?.isCareerPlayer || p?.isUser || (id && id === careerId);
+    const name = `${String(p?.firstName || '').slice(0, 1)}. ${p?.lastName || ''}`.trim();
+    return `
+      <div class="hub-leaders__row${isUser ? ' hub-leaders__row--you' : ''}">
+        <span class="hub-leaders__rank">${index + 1}</span>
+        <span class="hub-leaders__name">${name || 'Player'}</span>
+        <span class="hub-leaders__pos-badge">${p?.position || '—'}</span>
+        <span class="hub-leaders__stat">${entry.stats.points} pts</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderHomeDashboard() {
+  const home = document.getElementById('hub-tab-home');
+  if (!home) return;
+
+  const player = getHomeCareerPlayer();
+  const stats = getHomePlayerStats(player);
+  const team = getHomeTeam(player);
+  const coachTrust = getHomeCoachTrust(player);
+  const fullName = `${player?.firstName || Game.player?.firstName || ''} ${player?.lastName || Game.player?.lastName || ''}`.trim() || 'Career Player';
+  const position = player?.position || Game.player?.position || '—';
+  const age = Number(player?.age || Game.player?.age || 14);
+  const overall = Number(player?.overall || Game.player?.overall || 60);
+  const repStars = Math.max(1, Math.min(5, Number(player?.reputationStars || Game.player?.reputationStars || 1)));
+  const repLabels = {1:'Local Prospect',2:'Regional Prospect',3:'Rising Prospect',4:'National Prospect',5:'Elite Prospect'};
+
+  const nameEl = document.getElementById('hub-player-name');
+  const posEl = document.getElementById('hub-player-pos');
+  const ageEl = document.getElementById('hub-player-age-bar');
+  const ovrEl = document.getElementById('hub-player-ovr');
+  const starsEl = document.getElementById('hub-rep-stars');
+  const tierEl = document.getElementById('hub-rep-tier');
+  const teamEl = document.getElementById('hub-info-team');
+  if (nameEl) nameEl.textContent = fullName;
+  if (posEl) posEl.textContent = position;
+  if (ageEl) ageEl.textContent = age;
+  if (ovrEl) ovrEl.textContent = overall;
+  if (starsEl) starsEl.textContent = '★'.repeat(repStars) + '☆'.repeat(5 - repStars);
+  if (tierEl) tierEl.textContent = repLabels[repStars] || 'Prospect';
+  if (teamEl) teamEl.textContent = team ? `${team.schoolName} ${team.teamName}` : 'Freshman Tryouts';
+
+  const objective = getHomeObjective(player, stats, coachTrust);
+  const objectiveTitle = document.getElementById('hub-current-objective-title');
+  const objectiveText = document.getElementById('hub-current-objective');
+  const objectiveStage = document.getElementById('home-objective-stage');
+  const objectiveFill = document.getElementById('home-objective-progress-fill');
+  const objectiveLabel = document.getElementById('home-objective-progress-label');
+  if (objectiveTitle) objectiveTitle.textContent = objective.title;
+  if (objectiveText) objectiveText.textContent = objective.text;
+  if (objectiveStage) objectiveStage.textContent = getHomeStageLabel(player);
+  if (objectiveFill) objectiveFill.style.width = `${Math.max(0, Math.min(100, objective.progress))}%`;
+  if (objectiveLabel) objectiveLabel.textContent = objective.label;
+
+  const role = getHomeCurrentRole(player);
+  const roleEl = document.getElementById('home-current-role');
+  const trustEl = document.getElementById('home-coach-trust');
+  const seasonLineEl = document.getElementById('home-season-line');
+  const prospectEl = document.getElementById('home-prospect-status');
+  if (roleEl) roleEl.textContent = role;
+  if (trustEl) trustEl.textContent = `${Math.round(coachTrust)}%`;
+  if (seasonLineEl) seasonLineEl.textContent = `${stats.gp} GP · ${stats.goals}G · ${stats.assists}A · ${stats.points}PTS`;
+  const rank = Number(player?.scoutingProfile?.publicRank || Game.player?.prospectRank || 0);
+  if (prospectEl) prospectEl.textContent = rank ? `#${rank} Prospect` : (repLabels[repStars] || 'Not Ranked');
+
+  const devTitle = document.getElementById('home-development-title');
+  const devDetail = document.getElementById('home-development-detail');
+  const devOvr = document.getElementById('home-development-ovr');
+  const potential = player?.potentialRole || player?.potentialTier || player?.potential || Game.player?.potential;
+  if (devTitle) devTitle.textContent = coachTrust >= 70 ? 'Role is trending up' : coachTrust < 45 ? 'Opportunity to earn more' : 'Development on track';
+  if (devDetail) devDetail.textContent = potential ? `Potential: ${potential} · Keep stacking practices, games, and objectives.` : 'Keep stacking practices, games, and objectives to grow your attributes.';
+  if (devOvr) devOvr.textContent = `${overall} OVR`;
+
+  const moment = getHomeUpcomingMoment();
+  const momentIcon = document.getElementById('home-big-moment-icon');
+  const momentTitle = document.getElementById('home-big-moment-title');
+  const momentDetail = document.getElementById('home-big-moment-detail');
+  const momentMeta = document.getElementById('home-big-moment-meta');
+  if (momentIcon) momentIcon.textContent = moment?.icon || '📅';
+  if (momentTitle) momentTitle.textContent = moment?.label || 'No Major Event Scheduled';
+  if (momentDetail) momentDetail.textContent = moment?.objective || 'Keep building toward the next major career moment.';
+  if (momentMeta) {
+    const parsed = moment?.date ? new Date(`${moment.date}T12:00:00`) : null;
+    momentMeta.textContent = parsed && !Number.isNaN(parsed.getTime())
+      ? parsed.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'})
+      : 'Career calendar';
+  }
+
+  const lastGame = getHomeLastGame(team);
+  const lastResult = document.getElementById('home-last-game-result');
+  const lastDetail = document.getElementById('home-last-game-detail');
+  if (lastResult) lastResult.textContent = lastGame ? `${lastGame.result} ${lastGame.score}` : 'No games yet';
+  if (lastDetail) lastDetail.textContent = lastGame ? `vs ${lastGame.opponentName}` : 'Your most recent result will appear here.';
+
+  const formStatus = document.getElementById('home-form-status');
+  const formDetail = document.getElementById('home-form-detail');
+  if (stats.gp > 0) {
+    const ppg = stats.points / stats.gp;
+    const label = ppg >= 1.25 ? '🔥 Hot' : ppg >= 0.65 ? '↗ Trending' : ppg >= 0.3 ? 'Steady' : 'Building';
+    if (formStatus) formStatus.textContent = label;
+    if (formDetail) formDetail.textContent = `${stats.points} PTS in ${stats.gp} GP · ${ppg.toFixed(2)} P/GP`;
+  } else {
+    if (formStatus) formStatus.textContent = 'Season Start';
+    if (formDetail) formDetail.textContent = 'No regular-season sample yet.';
+  }
+
+  renderHomeTeamLeaders(player, team);
+  renderHubStandings();
+  renderHubNews();
+
+  const teamButton = document.getElementById('btn-hub-team-leaders-all');
+  if (teamButton) teamButton.onclick = () => document.querySelector('[data-hub-tab="team"]')?.click();
+  const playerButton = document.getElementById('btn-home-open-player');
+  if (playerButton) playerButton.onclick = () => document.querySelector('[data-hub-tab="player"]')?.click();
+}
+
 function setupHubCalendar() {
+  renderHomeDashboard();
+
   const currentDateKey =
     Game.player.currentDate || '2026-09-01';
 
