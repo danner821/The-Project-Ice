@@ -1,0 +1,12 @@
+PATCH_STATUS=1
+PROSPECT_CHECK=0
+PROSPECT_RUN=0
+WORLD_CHECK=0
+--- PATCH ---
+  File "/home/runner/work/The-Project-Ice/The-Project-Ice/.github/scripts/apply_factual_prospect_class_corrections.py", line 55
+    "  ['Kellan Fitzgerald-Brown', 'D', 'New Jersey Rockets 14U AAA', 'THF 14U', '2012-10-01', 'USA', '6\\'1"', 196, 'L', 2030, 22],\n",
+                                                                                                                       ^
+SyntaxError: unterminated string literal (detected at line 55)
+--- PROSPECT CHECK ---
+--- PROSPECT RUN ---
+--- WORLD CHECK ---
