@@ -1,0 +1,22 @@
+name: Roadmap Current State Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/roadmap-current-state-audit.yml'
+      - '.github/scripts/roadmap_current_state_audit.py'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/roadmap_current_state_audit.py > .github/roadmap_current_state_audit.txt
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/roadmap_current_state_audit.txt
+          git commit -m 'Persist current roadmap state audit' || exit 0
+          git push
