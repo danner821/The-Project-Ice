@@ -1,0 +1,19 @@
+PATCH_STATUS=0
+CHECK_STATUS=0
+RUN_STATUS=1
+--- PATCH OUT ---
+EXPANDED_2029_REAL_PROSPECTS=33
+--- PATCH ERR ---
+--- NODE CHECK ---
+--- NODE RUN ---
+file:///home/runner/work/The-Project-Ice/The-Project-Ice/artifacts/project-ice/public/prospects.js:558
+  throw new Error('[Project Ice] Real prospect IDs must be unique.');
+        ^
+
+Error: [Project Ice] Real prospect IDs must be unique.
+    at file:///home/runner/work/The-Project-Ice/The-Project-Ice/artifacts/project-ice/public/prospects.js:558:9
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.23.2
