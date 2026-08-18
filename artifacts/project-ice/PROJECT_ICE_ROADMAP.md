@@ -1,150 +1,153 @@
-# Project Ice — Updated Roadmap
+# Project Ice — Authoritative Roadmap
 
-Updated: 2026-08-14
+Updated: 2026-08-18
+Authoritative planning checkpoint: 2026-08-17
 
-This roadmap supersedes earlier ordering unless a later architectural finding requires a change. Any order change should be explained before implementation.
+This file replaces the stale August 14 roadmap as the planning source of truth.
 
-## Phase 0 — Stability Hardening and Cleanup
-Status: COMPLETE
+IMPORTANT: Only roadmap items explicitly recovered from the August 17 planning checkpoint are locked below. Later phases are intentionally left open until the post-Phase-1 vision session rather than being silently reconstructed from older roadmaps.
 
-Goal: lock the current foundation before adding more interconnected systems.
+## Current checkpoint
 
-Completed:
-- Repaired the final-horn async bug directly in canonical `game.js`.
-- Restored direct runtime loading of `game.js` and retired `game-loader.js`.
-- Verified Continue Career opens normally.
-- Verified Play Game completion persists after reload and Continue Career.
-- Verified Sim Game completion persists after reload and Continue Career.
-- Confirmed the prior bug where completed games returned as unplayed after reload remains fixed.
-- Kept `career-persistence.js` only as the IndexedDB migration/preview compatibility bridge.
-- Removed zero-risk troubleshooting residue.
-- Established save-schema/versioning and migration policy in `PROJECT_ICE_SAVE_SCHEMA.md`; recovered previews carry an explicit `previewVersion` while retaining legacy compatibility.
-- Established the core regression procedure in `PROJECT_ICE_REGRESSION.md`.
-- Deferred removal of dormant Replit/React scaffolding until the runtime/build is proven independent of it.
+Phase 1 — Real Prospects + Scouting Completion
+Status: COMPLETE / CHECKPOINT PASSED
 
-Exit criteria: PASSED. The current career can be played, simulated, closed, reloaded and continued without the temporary game loader or completed-game rollback.
+Phase 2 — Home / Career Hub Refresh
+Status: NEXT, but do not begin implementation until the user gives the post-Phase-1 vision.
 
-## Phase 1 — Complete Live Game Experience
-Status: NEXT
+Before Phase 2 implementation, perform the promised Phase 1 inventory and use the user’s new vision to define the exact Home/Career Hub scope.
 
-Goal: finish the player-facing Play Game experience now that the canonical simulation engine is working.
+---
 
-- Add contextual interactive decisions during live Play Game at appropriate moments rather than on every possession.
-- Initial decision families should include choices such as pass / shoot when the career player has the puck, with future context-sensitive options added only where they improve the career experience.
-- Decisions must resolve through the same canonical simulation state and player attributes used by the rest of the engine; choices should influence probabilities and outcomes rather than bypassing the simulation.
-- Decision opportunities should depend on deployment, game state, position, zone, teammates/opponents, score/time context, special-teams state and the career player's attributes.
-- Keep the live game primarily a simulation presentation, not an arcade control game.
-- Preserve speed controls, pause/resume, event markers, scrollable event feed, career-player tracker and postgame handoff.
-- Ensure Play Game and Sim Game remain statistically consistent because both use the same canonical hockey engine.
+# Phase 1 — Real Prospects + Scouting Completion
 
-Exit criteria: Play Game occasionally gives meaningful career-player decisions, those decisions visibly affect the live sequence through the canonical engine, and the full game still saves/reloads correctly.
+Goal: finish the real-prospect world and make the League/Scouting surfaces read from one canonical prospect ecosystem before moving to Home.
 
-## Phase 2 — Weekly Living World
+## Real prospect database and class rules
 
-Goal: make the hockey world visibly change around the career player every week.
+- Deep real-prospect pool across the 2027, 2028, 2029 and 2030 NHL draft classes.
+- 150 real prospects is a floor, not a hard cap or quota.
+- Draft classes must remain factual; do not rebalance or relabel real players merely to make class counts look even.
+- Full Prospect Rankings may include 2024–2026 bridge/history players.
+- 2024–2026 bridge/history players never port into the later Project Ice NHL world.
+- Persistent future-world real prospects are 2027–2030.
+- Real players use stable persistent identities.
+- Project Ice game ratings/potential/development values are game-balance evaluations, not official scouting ratings.
 
-- Process all AI games through the universal simulation engine.
-- Generate a weekly world recap from canonical changes rather than random flavor text.
-- Surface standings movers, hot/cold teams, statistical leaders and notable performances.
-- Track player form/context changes that can later feed Scouting and News.
-- Create a reusable world-event/history record so downstream systems consume the same events.
-- Preserve the rule that the user controls only the career player; coaching/roster/team decisions happen around the player.
+## World integration
 
-Exit criteria: advancing one week produces a coherent set of world changes that remain correct after reload.
+- Real prospects live in the canonical World Engine rather than only as UI/database rows.
+- Current 2027 freshmen can enter the fictional Project Ice HS league.
+- Future 2028–2030 cohorts remain outside the HS rosters until their proper entry year.
+- HS integration replaces generated roster slots; it does not enlarge team rosters.
+- A real prospect rostered in Project Ice HS remains the same player identity.
+- Their factual real-world team is preserved separately as biography/history context.
+- Their active Project Ice team becomes the HS program while they are rostered there.
+- No duplicate active-world/external copies of the same real player.
 
-## Phase 3 — Scouting and Prospect World
+## Prospect rankings and UI
 
-Goal: connect career performance to an evolving prospect ecosystem.
+- Full Prospect Rankings use the canonical weekly ranking system.
+- Public rank, previous rank, rank movement and NEW status are supported.
+- Prospect rows show useful team/league context rather than five-star reputation clutter.
+- League Top Prospects preview and the full Prospect Rankings screen read from the same prospect world.
+- Prospect rows/cards open the canonical player profile path.
+- HS-integrated real prospects appear only once in rankings.
 
-- Complete the real-player prospect database for the 2027, 2028, 2029 and 2030 NHL draft classes before the prospect world is considered complete.
-- Research and add the planned deep pool of real prospects across those four classes, not merely a handful of headline names. Preserve `realPlayer: true` and stable IDs so real prospects remain distinct from generated filler players.
-- Treat real-player ratings, potential tiers and development seeds as Project Ice game-balance values informed by the best available scouting context, not as official ratings.
-- Keep generated prospects as depth around the real-player pool so every draft class remains large enough for a believable world.
-- Integrate the 2027-2030 real prospect pool with persistent world state so prospects age, develop, produce stats and remain the same people across seasons.
-- Scouts in attendance become functional context, not just presentation.
-- Prospect Watch / Rival Watch.
-- Watchlist and evolving scouting evaluations.
-- Player-facing potential remains visible, while certainty/evaluation can evolve.
-- Scouting reacts to performance, competition level, role, development and important games.
+## Scouting foundation
 
-Current note: `public/prospects.js` is only a partial seed list and must not be mistaken for the finished 2027-2030 database.
+- Scouts-in-attendance context exists.
+- Prospect profiles expose player-facing scouting information while hidden evaluation/certainty systems can evolve underneath.
+- Rival Watch / Prospect Watch infrastructure belongs to the scouting/living-world layer.
+- Player-facing potential remains visible.
+- Scouting/ranking systems should react to actual world state rather than disconnected fake data.
 
-Exit criteria: the planned real 2027-2030 prospect classes exist in-world, develop persistently, and scouting information changes for understandable reasons across weeks/seasons.
+## Award/ranking integration rules
 
-## Phase 4 — News and Home Hub Refresh
+- Award races must not manufacture contenders before games have been played.
+- Before league GP exists, the League Award Races section should show an honest empty state.
+- Weekly ranking/award movement should be driven by canonical snapshots.
 
-Goal: turn world events into a clean career narrative.
+## Phase 1 visual validation completed
 
-- Dynamic League News generated from living-world events.
-- Home hub prioritizes what matters to the career player this week.
-- Rival/prospect stories, streaks, standings races, milestones and scout attention.
-- Avoid duplicate news by using persistent event IDs/history.
-- Keep the existing compact visual language rather than redesigning the whole app again.
+Validated in the live Replit build on 2026-08-18:
 
-Exit criteria: Home feels like a living career dashboard rather than a static menu.
+- Jamie Glance and Kayden Stroeder are present on Summit Academy’s HS roster.
+- Their player profiles open normally.
+- Duplicate prospect-ranking entries caused by HS + external copies were fixed.
+- HS-integrated real prospects now appear once in rankings.
+- Award Races correctly show no contenders before games exist.
+- League Top Prospects preview is populated and visually consistent with the rankings system.
+- Current HS real-prospect pipeline audit preserved 20-player rosters and prevented premature future-class roster insertion.
 
-## Phase 5 — Season Transition, Awards and History
+Phase 1 exit condition: PASSED.
 
-Goal: make Year 1 safely become Year 2 and establish true multi-season careers.
+---
 
-- End-of-season standings/results freeze.
-- Postseason handling appropriate to the current level.
-- Awards/championship/milestone history.
-- Per-season player/team statistics archived.
-- Age/year advancement.
-- New schedule generation without destroying historical results.
-- Development/offseason progression using the existing development engine.
-- Save-schema migration finalized for multi-season state.
+# Phase 1 Inventory Checkpoint
+Status: COMPLETE AS A REVIEW STEP / awaiting user vision
 
-Exit criteria: complete a season, reload, begin the next season and retain all prior history/statistics.
+Purpose: stop before Home work, compare the real current codebase against what is actually complete, partial or still missing, and then let the user redefine priorities before Phase 2 begins.
 
-## Phase 6 — Post-High-School Career Pathways
+Inventory conclusions to carry forward:
 
-Goal: expand the world beyond high school while keeping the same career-mode philosophy.
+- Core persistence/world architecture is strong and should not be redesigned.
+- Player/development architecture is substantially built and should be tuned/extended, not replaced.
+- Team, lineup, special teams, League stats and standings are mature enough to consume future systems.
+- Schedule/time flow and canonical game simulation are functional foundations, not future greenfield systems.
+- The real-prospect database/world foundation is now built; the remaining scouting work is primarily deeper career-facing scouting consequences and presentation.
+- Weekly living-world machinery exists in the backend but its player-facing storytelling layer remains incomplete.
+- Home is now behind the richness of the underlying world and is the next major player-facing opportunity.
+- Season lifecycle/history and post-HS/pro career remain major long-term structural work.
+- Do not perform cleanup-only refactors of monolithic runtime files unless a feature or regression path requires it.
 
-- Travel/junior/college/pro opportunity structure as designed.
-- Tryout/offers/commitment transitions controlled by world systems and player career choices where appropriate.
-- Level-specific rosters, schedules, statistics and scouting.
-- Career timeline records every transition.
+---
 
-Exit criteria: the player can leave high school and continue seamlessly into the next career level.
+# Phase 2 — Home / Career Hub Refresh
+Status: NEXT — SCOPE TO BE DEFINED BY USER VISION
 
-## Phase 7 — Draft and NHL Career Ecosystem
+The August 17 roadmap explicitly placed Home / Career Hub Refresh immediately after Phase 1.
 
-Goal: deliver the long-form destination of Project Ice.
+Do not start coding this phase until the user gives the post-inventory vision.
 
-- Draft eligibility and draft event.
-- NHL organization assignment and roster ecosystem.
-- NHL/AHL-level deployment and career progression.
-- Contracts/career milestones/awards/history where appropriate to a player career mode.
-- The real 2027-2030 prospect classes established in Phase 3 must remain persistent through their draft years and professional transitions rather than being regenerated later.
-- Real historical/current-world alignment only where intentionally designed.
-- Continue to avoid GM control: drafting, trades, coaching and roster construction happen around the player.
+Known principles already carried forward:
 
-Exit criteria: a career can progress from age 14 into a persistent professional career.
+- Home should be the career dashboard, not a static menu.
+- It should surface truthful information from canonical world state.
+- It should prioritize what matters to the career player now.
+- It should use the existing compact/premium mobile visual language.
+- It should not become a GM dashboard.
+- News/objectives/cards should ultimately react to real state changes rather than disconnected random flavor text.
 
-## Phase 8 — Release Cleanup and Calibration
+Exact Phase 2 cards, layout, hierarchy, story surfaces and supporting systems will be locked after the user provides the new vision.
 
-Goal: turn the working pre-alpha into a stable, maintainable game build.
+---
 
-- Remove dev shortcut and diagnostics.
-- Remove migration bridges that are no longer required.
-- Remove dormant scaffolding only after build verification.
-- Break up monolithic files where doing so reduces real maintenance risk.
-- Full simulation calibration: scoring, shots, penalties, special teams, goalie performance, ice time, development pace and regression.
-- Regression pass across New Career, Continue Career, every hub tab, game flow, season transition and long-term saves.
+# Later phases
+Status: NOT RE-LOCKED YET
 
-## Locked Design Principles
+The prior roadmaps contained later work such as living-world storytelling, deeper scouting consequences, season transition/history, post-high-school pathways, draft/NHL career and release calibration.
+
+Those remain valid long-term areas, but their exact ordering is intentionally NOT declared authoritative in this file until the user finishes the post-Phase-1 vision session.
+
+This prevents an older roadmap from silently overriding the August 17 plan again.
+
+---
+
+# Locked Project Ice design principles
 
 - Project Ice is a player career mode, not a GM mode.
+- The user controls the career player; drafting, coaching, roster management and team-building decisions happen around the player.
 - Overall is calculated from attributes and is never directly upgraded.
 - Archetype is primarily a player-facing label; actual development comes from the saved development profile/personality/potential/context.
 - Potential stays player-facing.
 - No fatigue mechanic.
 - Career-player lineup role is contextual; AI/NPC lineup ordering is primarily ability-based.
-- Practice/recovery are quick career events, not separate playable mini-games.
-- Play Game, Sim Game and background games should share one canonical hockey simulation engine.
-- Play Game should include occasional contextual career-player decisions without becoming an arcade control mode.
-- Real prospects use persistent identities and coexist with generated depth; they are never regenerated as anonymous replacements.
-- New systems should read/write canonical world state and persist through IndexedDB.
+- Practice/recovery are quick career events, not separate playable minigames.
+- Play Game, Sim Game and background games share one canonical hockey simulation engine.
+- Real prospects use persistent identities and coexist with generated depth.
+- Real prospect draft classes remain factual rather than being forced into artificial quotas.
+- New systems should read/write canonical World Engine state and persist through IndexedDB.
 - Prefer small focused commits and immediate testing over large rewrites.
+- Always reference the latest code and this roadmap before making architectural decisions.
+- If roadmap order changes later, explain why before implementation.
