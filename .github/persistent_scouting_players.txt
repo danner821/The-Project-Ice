@@ -1,0 +1,263 @@
+### processPersistentScoutingReports 37517
+
+    return {
+      success: true,
+      updated: true,
+      changed,
+      reason: changed ? 'scouting-rival-watch-updated' : 'scouting-rival-watch-stable',
+      rivalWatch: nextWatch,
+    };
+  }
+
+  function processPersistentScoutingReports(dateString) {
+    const players = (_state?.teams || []).flatMap(team =>
+      Array.isArray(team?.roster) ? team.roster : []
+    );
+    const results = players.map(player => {
+      const organizationResult = updateScoutingOrganizationsWatching(player, dateString);
+      const reportResult = updatePersistentScoutingReport(player, dateString);
+      return {
+        ...reportResult,
+        organizationResult,
+      };
+    });
+    const rivalWatchResult =
+      updateCareerScoutingRivalWatch(
+        dateString
+      );
+
+    return {
+      success: true,
+      processed: true,
+      updated: results.filter(result => result?.updated).length,
+      results,
+      rivalWatchResult,
+    };
+  }
+
+  function processScoutingWeek(dateString) {
+    const normalizedDate = normalizeLivingWorldDateKey(dateString);
+    const weekStart = getWeekStartDate(normalizedDate);
+    const weekEnd = getWeekEndDate(normalizedDate);
+    const weekKey = getLivingWorldWeekKey(normalizedDate);
+
+    if (!normalizedDate || !weekStart || !weekEnd || !weekKey) {
+      return { success: false, processed: false, reason: 'invalid-scouting-week' };
+    }
+
+    const livingWorldState = ensureLivingWorldState();
+    if (!Array.isArray(livingWorldState.scoutingProcessedWeeks)) {
+      livingWorldState.scoutingProcessedWeeks = [];
+    }
+
+    if (livingWorldState.scoutingProcessedWeeks.includes(weekKey)) {
+      return {
+        success: true,
+        processed: false,
+        reason: 'scouting-week-already-processed',
+        weekKey,
+        rankings: Array.isArray(_state.prospectRankings) ? _state.prospectRankings : [],
+        changes: [],
+        careerChange: null,
+      };
+    }
+
+    const players = (_state?.teams || []).flatMap(team =>
+      (Array.isArray(team?.roster) ? team.roster : []).map(player => {
+        ensureCanonicalPlayerContract(player);
+        return player;
+      })
+    );
+
+    if (players.length === 0) {
+      _state.prospectRankings = [];
+      return { success: true, processed: true, reason: 'no-scouting-players', rankings: [] };
+    }
+
+    const ranked = players
+      .map(player => ({
+        player,
+        playerId: player.id || player.playerId || null,
+        score: calculateWeeklyScoutingScore(player),
+      }))
+      .sort((a, b) =>
+        (b.score - a.score) ||
+        ((Number(b.player?.overall) || 0) - (Number(a.player?.overall) || 0)) ||
+        String(b.playerId || '').localeCompare(String(a.playerId || ''))
+      );
+
+    const changes = [];
+
+    ranked.forEach((entry, index) => {
+      const player = entry.player;
+      const profile = player.scoutingProfile || (player.scoutingProfile = createDefaultScoutingProfile());
+      const newRank = index + 1;
+      const previousRank = Number(profile.publicRank) || null;
+      const scoutedGames = getScoutedGamesForPlayer(player, weekStart, weekEnd);
+      const additionalObserved = scoutedGames.length;
+      const weeklyExposure = scoutedGames.reduce(
+        (sum, game) => sum + getScoutingGameSpotlightWeight(game),
+        0
+      );
+      const spotlightGames = scoutedGames.filter(game =>
+        getScoutingGameSpotlightWeight(game) >= 2.5
+      ).length;
+      const priorInterest = profile.interestLevel || 'None';
+
+      profile.previousRank = previousRank;
+      profile.publicRank = newRank;
+      profile.rankChange = previousRank ? previousRank - newRank : 0;
+      profile.lastRankedWeek = weekKey;
+      profile.gamesObserved = (Number(profile.gamesObserved) || 0) + additionalObserved;
+      profile.scoutingExposureScore = Number((
+        (Number(profile.scoutingExposureScore) || 0) + weeklyExposure
+      ).toFixed(2));
+      profile.spotlightGamesObserved =
+        (Number(profile.spotlightGamesObserved) || 0) + spotlightGames;
+      profile.lastScoutedWeek = additionalObserved > 0
+        ? weekKey
+        : (profile.lastScoutedWeek || null);
+      profile.evaluationAccuracy =
+        player.development?.potentialAccuracy ||
+        player.potentialAccuracy ||
+        getPotentialAccuracyFromConfidence(
+          player.development?.potentialConfidence ??
+          player.potentialConfidence ??
+          50
+        );
+      profile.interestLevel = getScoutingInterestLevel(newRank, profile.gamesObserved);
+
+      if (additionalObserved > 0) {
+        profile.scoutingHistory.push({
+### updatePersistentScoutingReport 37195
+      return `${name} has only been seen in a small sample. Early notes are forming, but scouts are not ready to make strong conclusions yet. ${trendText}`;
+    }
+
+    if (observed < 8) {
+      return `${name} is becoming a more established scouting target. ${interest} interest is developing and the evaluation is currently ${String(accuracy).toLowerCase()} confidence. ${trendText}`;
+    }
+
+    return `${name} now has a meaningful body of scouted games. The hockey world has a ${String(accuracy).toLowerCase()}-confidence read on the player, with ${interest.toLowerCase()} external interest. ${trendText}`;
+  }
+
+  function updatePersistentScoutingReport(player = {}, dateString) {
+    if (!player || typeof player !== 'object') {
+      return { success: false, updated: false, reason: 'invalid-player' };
+    }
+
+    ensureCanonicalPlayerContract(player);
+    const profile = player.scoutingProfile && typeof player.scoutingProfile === 'object'
+      ? player.scoutingProfile
+      : (player.scoutingProfile = {});
+
+    if (!Array.isArray(profile.scoutingHistory)) profile.scoutingHistory = [];
+    if (!Array.isArray(profile.strengthsKnown)) profile.strengthsKnown = [];
+    if (!Array.isArray(profile.weaknessesKnown)) profile.weaknessesKnown = [];
+
+    const observed = Math.max(0, Number(profile.gamesObserved) || 0);
+    const evaluation = getScoutingTraitEvaluations(player);
+
+    /*
+     * Traits reveal slowly. One observed game can expose one obvious trait;
+     * a few observations unlock a fuller report. This prevents the scouting
+     * page from instantly becoming a perfect attribute readout.
+     */
+    const revealCount = observed >= 8 ? 3 : observed >= 3 ? 2 : observed >= 1 ? 1 : 0;
+    profile.strengthsKnown = evaluation.strengths
+      .slice(0, revealCount)
+      .map(item => item.label);
+    profile.weaknessesKnown = evaluation.weaknesses
+      .slice(0, revealCount)
+      .map(item => item.label);
+
+    const normalizedDate = normalizeLivingWorldDateKey(dateString) || dateString || null;
+    const weekKey = getLivingWorldWeekKey(normalizedDate);
+    const lastReport = profile.scoutingHistory[profile.scoutingHistory.length - 1] || null;
+
+    /* One report snapshot per week. */
+    if (lastReport?.weekKey === weekKey) {
+      lastReport.summary = buildScoutingReportSummary(player, profile);
+      lastReport.gamesObserved = observed;
+      lastReport.interestLevel = profile.interestLevel || 'None';
+      lastReport.evaluationAccuracy =
+        player.development?.potentialAccuracy || player.potentialAccuracy || profile.evaluationAccuracy || 'Low';
+      lastReport.strengthsKnown = [...profile.strengthsKnown];
+      lastReport.weaknessesKnown = [...profile.weaknessesKnown];
+      return { success: true, updated: true, reason: 'scouting-report-week-refreshed', report: lastReport };
+    }
+
+    const report = {
+      weekKey,
+      date: normalizedDate,
+      gamesObserved: observed,
+      publicRank: Number(profile.publicRank) || null,
+      previousRank: Number(profile.previousRank) || null,
+      interestLevel: profile.interestLevel || 'None',
+      evaluationAccuracy:
+        player.development?.potentialAccuracy || player.potentialAccuracy || profile.evaluationAccuracy || 'Low',
+      strengthsKnown: [...profile.strengthsKnown],
+      weaknessesKnown: [...profile.weaknessesKnown],
+      summary: buildScoutingReportSummary(player, profile),
+    };
+
+    profile.scoutingHistory.push(report);
+    profile.scoutingHistory = profile.scoutingHistory.slice(-52);
+    return { success: true, updated: true, reason: 'scouting-report-created', report };
+  }
+
+  function getScoutingOrganizationPool(player = {}) {
+    const age = Math.max(14, Number(player.age) || 14);
+    const levelText = [
+      player.teamLevel,
+      player.level,
+      player.league,
+      player.currentLeague,
+      player.careerLevel,
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if (/nhl/.test(levelText)) {
+      return [
+        'NHL Pro Scouting',
+        'National Media Watch',
+        'International Pro Scouting',
+      ];
+    }
+
+    if (/college|ncaa/.test(levelText) || age >= 18) {
+      return [
+        'NHL Central Scouting',
+        'NHL Team Scouts',
+        'Pro Development Staff',
+      ];
+    }
+
+    if (age >= 16) {
+      return [
+        'NHL Central Scouting',
+        'College Programs',
+        'Junior Hockey Scouts',
+      ];
+    }
+
+    return [
+      'Regional Prep Scouts',
+      'Junior Hockey Scouts',
+      'College Programs',
+    ];
+  }
+
+  function updateScoutingOrganizationsWatching(player = {}, dateString) {
+    if (!player || typeof player !== 'object') {
+      return { success: false, updated: false, reason: 'invalid-player' };
+    }
+
+    ensureCanonicalPlayerContract(player);
+    const profile = player.scoutingProfile && typeof player.scoutingProfile === 'object'
+      ? player.scoutingProfile
+      : (player.scoutingProfile = {});
+
+    const observed = Math.max(0, Number(profile.gamesObserved) || 0);
+    const rank = Math.max(0, Number(profile.publicRank) || 0);
+    const interest = String(profile.interestLevel || 'None').toLowerCase();
+    const pool = getScoutingOrganizationPool(player);
+### updatePersistentScoutingOrganizations -1
