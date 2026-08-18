@@ -1,0 +1,20 @@
+name: Inspect Prospect UI Current
+on:
+  push:
+    paths:
+      - '.github/scripts/inspect_prospect_ui_current.py'
+      - '.github/workflows/inspect-prospect-ui-current.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_prospect_ui_current.py > .github/prospect_ui_current.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/prospect_ui_current.txt
+          git commit -m 'Persist current prospect UI audit' || exit 0
+          git push
