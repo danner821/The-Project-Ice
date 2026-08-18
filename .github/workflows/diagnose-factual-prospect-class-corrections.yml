@@ -1,0 +1,38 @@
+name: Diagnose Factual Prospect Class Corrections
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-factual-prospect-class-corrections.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python .github/scripts/apply_factual_prospect_class_corrections.py > /tmp/patch.out 2> /tmp/patch.err
+          PATCH_STATUS=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/pcheck.out 2>&1
+          PCHECK=$?
+          node artifacts/project-ice/public/prospects.js > /tmp/prun.out 2>&1
+          PRUN=$?
+          node --check artifacts/project-ice/public/world.js > /tmp/wcheck.out 2>&1
+          WCHECK=$?
+          {
+            echo "PATCH_STATUS=$PATCH_STATUS"
+            echo "PROSPECT_CHECK=$PCHECK"
+            echo "PROSPECT_RUN=$PRUN"
+            echo "WORLD_CHECK=$WCHECK"
+            echo "--- PATCH ---"; cat /tmp/patch.out; cat /tmp/patch.err
+            echo "--- PROSPECT CHECK ---"; cat /tmp/pcheck.out
+            echo "--- PROSPECT RUN ---"; cat /tmp/prun.out
+            echo "--- WORLD CHECK ---"; cat /tmp/wcheck.out
+          } > .github/factual_prospect_class_correction_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/factual_prospect_class_correction_diagnostic.txt
+          git commit -m 'Persist factual prospect class correction diagnostic' || exit 0
+          git push
