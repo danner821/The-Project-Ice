@@ -5082,6 +5082,23 @@ function renderProspectsScreen() {
   const teams = WorldEngine.state.teams || [];
   const playerTeamId = Game.player.teamId || '';
 
+  // Never show a hard-coded season on the scouting screen. Derive it from
+  // the canonical saved world date so old/new careers stay correct.
+  const prospectSeasonBadge = document.querySelector('#prospects-screen .sl-season-badge');
+  const prospectDateValue =
+    WorldEngine.state?.season?.currentDate ||
+    Game.player?.currentDate ||
+    WorldEngine.state?.currentDate ||
+    '';
+  if (prospectSeasonBadge && prospectDateValue) {
+    const prospectDate = new Date(`${String(prospectDateValue).slice(0, 10)}T12:00:00`);
+    if (!Number.isNaN(prospectDate.getTime())) {
+      const calendarYear = prospectDate.getFullYear();
+      const startYear = prospectDate.getMonth() >= 6 ? calendarYear : calendarYear - 1;
+      prospectSeasonBadge.textContent = `${startYear}–${String((startYear + 1) % 100).padStart(2, '0')}`;
+    }
+  }
+
   /*
    * CANONICAL SCOUTING RANKINGS FIRST.
    *
@@ -5198,13 +5215,14 @@ function renderProspectsScreen() {
             : rankChange < 0
               ? '🔽'
               : '➖';
-        const reputationStars = Math.max(
-          1,
-          Math.min(5, Number(player.reputationStars) || 1)
-        );
-        const stars =
-          '★'.repeat(reputationStars) +
-          '☆'.repeat(5 - reputationStars);
+        const prospectContext = [
+          player.teamName || player.currentTeam || player.realTeamSnapshot || '',
+          leagueDisplay,
+        ]
+          .map(value => String(value || '').trim())
+          .filter(Boolean)
+          .filter((value, index, values) => values.indexOf(value) === index)
+          .join(' · ');
 
         return `
           <div
@@ -5217,7 +5235,7 @@ function renderProspectsScreen() {
             <span class="pr-col pr-col--rank">${rank}</span>
             <span class="pr-col pr-col--name">
               <span class="pr-player-name">${fullName}</span>
-              <span class="pr-player-reputation">${stars}</span>
+              <span class="pr-player-context">${prospectContext || 'Prospect'}</span>
             </span>
             <span class="pr-col pr-col--pos">
               <span class="pr-pos-badge ${badgeCls}">${player.position || '—'}</span>
