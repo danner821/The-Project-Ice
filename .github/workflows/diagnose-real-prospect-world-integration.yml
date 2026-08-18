@@ -1,0 +1,29 @@
+name: Diagnose Real Prospect World Integration
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-real-prospect-world-integration.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python .github/scripts/integrate_real_prospects_world.py > /tmp/out.txt 2> /tmp/err.txt
+          STATUS=$?
+          {
+            echo "PATCH_STATUS=$STATUS"
+            echo "--- OUT ---"
+            cat /tmp/out.txt
+            echo "--- ERR ---"
+            cat /tmp/err.txt
+          } > .github/real_prospect_world_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/real_prospect_world_diagnostic.txt
+          git commit -m 'Persist real prospect world integration diagnostic' || exit 0
+          git push
