@@ -14827,3 +14827,17 @@ body.full-news-open {
 #hub-screen .home-development-strip p {
   color: rgba(194, 213, 239, 0.72);
 }
+
+
+/* PROJECT ICE — HOME WEEK CALENDAR EDGE FIX 2026-08-18 */
+/* Keep the Home week scroller inside the Home content column.
+   The shared calendar strip intentionally bleeds 20px past its parent, but
+   on the refreshed Home palette that exposes a different background at both
+   viewport edges. Home should retain horizontal scrolling without that bleed. */
+#hub-tab-home .home-week-card .hub-cal__strip {
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 2px;
+  padding-right: 2px;
+  scroll-padding-inline: 2px;
+}
