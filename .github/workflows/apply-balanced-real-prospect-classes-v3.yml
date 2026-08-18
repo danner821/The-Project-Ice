@@ -1,0 +1,39 @@
+name: Apply Balanced Real Prospect Classes V3
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-balanced-real-prospect-classes-v3.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/rebalance_real_prospect_classes.py')
+          s=p.read_text()
+          old='    rows.append(list(ast.literal_eval(stripped)))\n'
+          new="    python_literal = re.sub(r'\\bnull\\b', 'None', stripped)\n    python_literal = re.sub(r'\\btrue\\b', 'True', python_literal)\n    python_literal = re.sub(r'\\bfalse\\b', 'False', python_literal)\n    rows.append(list(ast.literal_eval(python_literal)))\n"
+          if old not in s: raise SystemExit('parser anchor missing')
+          p.write_text(s.replace(old,new,1))
+          PY
+          python .github/scripts/rebalance_real_prospect_classes.py
+          git checkout -- .github/scripts/rebalance_real_prospect_classes.py
+      - run: python .github/scripts/prune_rebalanced_real_prospects.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: grep -q '2027: 38, 2028: 38, 2029: 37, 2030: 37' artifacts/project-ice/public/prospects.js
+      - run: grep -q 'curatedSourceIds' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js artifacts/project-ice/public/world.js
+          git commit -m 'Rebalance real prospects across 2027 to 2030' || exit 0
+          git pull --rebase origin main
+          git push origin main
