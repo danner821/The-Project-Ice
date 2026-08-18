@@ -1,0 +1,35 @@
+name: Apply Factual Prospect Class Corrections V2
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-factual-prospect-class-corrections-v2.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/apply_factual_prospect_class_corrections.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node .github/scripts/audit_real_prospect_draft_classes.js > /tmp/class-audit.json
+      - run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const audit = JSON.parse(fs.readFileSync('/tmp/class-audit.json', 'utf8'));
+          if (audit.totalRows !== 191) throw new Error(`Expected 191, got ${audit.totalRows}`);
+          if (audit.mismatches.length !== 0) throw new Error(`Draft-class mismatches remain: ${JSON.stringify(audit.mismatches)}`);
+          const expected = {2027:87, 2028:28, 2029:29, 2030:47};
+          if (JSON.stringify(audit.classCounts) !== JSON.stringify(expected)) throw new Error(`Bad class counts ${JSON.stringify(audit.classCounts)}`);
+          NODE
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js artifacts/project-ice/public/world.js
+          git commit -m 'Correct real prospect draft eligibility classes' || exit 0
+          git pull --rebase origin main
+          git push origin main
