@@ -1,0 +1,27 @@
+name: Lock Prospect Bridge Classes
+on:
+  push:
+    paths:
+      - '.github/scripts/lock_prospect_bridge_classes.py'
+      - '.github/workflows/lock-prospect-bridge-classes.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/lock_prospect_bridge_classes.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q 'return 2024' artifacts/project-ice/public/world.js
+      - run: grep -q 'isRankingOnlyBridgeProspect' artifacts/project-ice/public/world.js
+      - run: grep -q 'canProspectPortToNhlWorld' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Lock historical prospect bridge classes' || exit 0
+          git pull --rebase origin main
+          git push origin main
