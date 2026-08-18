@@ -1,0 +1,47 @@
+name: Apply Factual Prospect Data Only
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-factual-prospect-data-only.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Make robust helper data-only for this run
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/apply_factual_prospect_classes_final.py')
+          s=p.read_text()
+          marker='old_filter = """'
+          i=s.find(marker)
+          if i < 0: raise SystemExit('helper world-filter marker missing')
+          s=s[:i] + "pp.write_text(ps, encoding='utf-8')\nprint('FACTUAL_PROSPECT_CLASSES=191')\n"
+          p.write_text(s)
+          PY
+      - run: python .github/scripts/apply_factual_prospect_classes_final.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: node .github/scripts/audit_real_prospect_draft_classes.js > /tmp/audit.json
+      - run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const a=JSON.parse(fs.readFileSync('/tmp/audit.json','utf8'));
+          const expected={'2027':87,'2028':28,'2029':29,'2030':47};
+          if(a.totalRows!==191) throw new Error(`rows=${a.totalRows}`);
+          if(a.mismatches.length!==0) throw new Error(`mismatches=${JSON.stringify(a.mismatches)}`);
+          if(JSON.stringify(a.classCounts)!==JSON.stringify(expected)) throw new Error(JSON.stringify(a.classCounts));
+          NODE
+      - run: git checkout -- .github/scripts/apply_factual_prospect_classes_final.py
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js
+          git commit -m 'Correct and expand factual prospect draft classes' || exit 0
+          git pull --rebase origin main
+          git push origin main
