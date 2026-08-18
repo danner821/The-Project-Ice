@@ -1,0 +1,36 @@
+name: Diagnose Balanced Real Prospects
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-balanced-real-prospects.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python .github/scripts/rebalance_real_prospect_classes.py > /tmp/rebalance.out 2> /tmp/rebalance.err
+          A=$?
+          python .github/scripts/prune_rebalanced_real_prospects.py > /tmp/prune.out 2> /tmp/prune.err
+          B=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/js.out 2>&1
+          C=$?
+          {
+            echo "REBALANCE_STATUS=$A"
+            cat /tmp/rebalance.out
+            cat /tmp/rebalance.err
+            echo "PRUNE_STATUS=$B"
+            cat /tmp/prune.out
+            cat /tmp/prune.err
+            echo "JS_STATUS=$C"
+            cat /tmp/js.out
+          } > .github/balanced_prospect_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/balanced_prospect_diagnostic.txt
+          git commit -m 'Persist balanced prospect diagnostic' || exit 0
+          git push
