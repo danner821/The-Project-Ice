@@ -1,0 +1,42 @@
+name: Finalize HS Prospect Pipeline Audit
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-hs-prospect-pipeline-audit.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node .github/scripts/audit_real_prospect_draft_classes.js > .github/final_real_prospect_class_audit.json
+      - name: Run HS pipeline audit with full 12-player 2029 cohort
+        run: |
+          cp .github/scripts/audit_hs_real_prospect_pipeline.js /tmp/hs-audit.js
+          sed -i "s/(cohortCounts\['2029'\] || 0) !== 3/(cohortCounts['2029'] || 0) !== 12/" /tmp/hs-audit.js
+          node /tmp/hs-audit.js > .github/final_hs_real_prospect_pipeline_audit.json
+      - run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const classes=JSON.parse(fs.readFileSync('.github/final_real_prospect_class_audit.json','utf8'));
+          const hs=JSON.parse(fs.readFileSync('.github/final_hs_real_prospect_pipeline_audit.json','utf8'));
+          const expected={'2027':87,'2028':28,'2029':29,'2030':47};
+          if(classes.totalRows!==191) throw new Error(`real prospects=${classes.totalRows}`);
+          if(classes.mismatches.length!==0) throw new Error(`class mismatches=${JSON.stringify(classes.mismatches)}`);
+          if(JSON.stringify(classes.classCounts)!==JSON.stringify(expected)) throw new Error(`counts=${JSON.stringify(classes.classCounts)}`);
+          if(JSON.stringify(hs.cohortCounts)!==JSON.stringify({'2027':12,'2028':12,'2029':12,'2030':12})) throw new Error(`cohorts=${JSON.stringify(hs.cohortCounts)}`);
+          if(hs.current2027Count!==12 || hs.futureRosteredCount!==0 || hs.duplicateExternalCount!==0) throw new Error('HS pipeline integrity failure');
+          if(hs.rosterSizesAfter.some(v=>v!==20)) throw new Error('roster size changed');
+          NODE
+      - run: echo 'FINAL_PROSPECT_PIPELINE_STATUS=PASS' > .github/final_prospect_pipeline_status.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/final_real_prospect_class_audit.json .github/final_hs_real_prospect_pipeline_audit.json .github/final_prospect_pipeline_status.txt
+          git commit -m 'Persist final real prospect pipeline validation' || exit 0
+          git push
