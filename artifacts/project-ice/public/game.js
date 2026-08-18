@@ -11405,15 +11405,17 @@ if (nameEl) {
     document.getElementById('player-profile-height');
 
   if (heightEl) {
-    heightEl.textContent = p.height || `5'10"`;
+    heightEl.textContent = p.height || (p.realPlayer === true ? '—' : `5'10"`);
   }
 
   const weightEl =
     document.getElementById('player-profile-weight');
 
   if (weightEl) {
-    const weight = Number(p.weightLbs ?? p.weight) || 175;
-    weightEl.textContent = `${weight} lbs`;
+    const weight = Number(p.weightLbs ?? p.weight) || null;
+    weightEl.textContent = weight
+      ? `${weight} lbs`
+      : (p.realPlayer === true ? '—' : '175 lbs');
   }
 
   const shootsEl =
@@ -11421,10 +11423,15 @@ if (nameEl) {
 
   if (shootsEl) {
     const isGoalie = String(p.position || '').trim().toUpperCase() === 'G';
+    const handedness = isGoalie ? (p.catches || p.shoots || '') : (p.shoots || '');
     if (isGoalie) {
-      shootsEl.textContent = `Catches ${p.catches || p.shoots || 'L'}`;
+      shootsEl.textContent = handedness
+        ? `Catches ${handedness}`
+        : (p.realPlayer === true ? 'Catches —' : 'Catches L');
     } else {
-      shootsEl.textContent = `Shoots ${p.shoots || 'L'}`;
+      shootsEl.textContent = handedness
+        ? `Shoots ${handedness}`
+        : (p.realPlayer === true ? 'Shoots —' : 'Shoots L');
     }
   }
 
