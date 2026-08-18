@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/scripts/project_ice_runtime_patch.py'
+      - '.github/workflows/project-ice-runtime-patch.yml'
 permissions:
   contents: write
 jobs:
