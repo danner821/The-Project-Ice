@@ -38252,9 +38252,15 @@ case 'career-defense':
         (player, stats) => stats.goals * 100 + stats.points
       ),
       makeRace(
+        'playmaker',
+        'Playmaker Award',
+        (player, stats) => position(player) !== 'G' && stats.gamesPlayed > 0,
+        (player, stats) => stats.assists * 100 + stats.points
+      ),
+      makeRace(
         'defenseman',
         'Top Defenseman',
-        (player, stats) => position(player) === 'D' && stats.gamesPlayed > 0,
+        (player, stats) => ['LD', 'RD'].includes(position(player)) && stats.gamesPlayed > 0,
         (player, stats) => stats.points * 3 + stats.plusMinus * 1.25 + overall(player) * 0.22
       ),
       makeRace(
