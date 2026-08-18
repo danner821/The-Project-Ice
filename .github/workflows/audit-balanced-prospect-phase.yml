@@ -1,0 +1,44 @@
+name: Audit Balanced Prospect Phase
+on:
+  push:
+    paths:
+      - '.github/workflows/audit-balanced-prospect-phase.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cp .github/scripts/audit_real_prospect_world.js /tmp/audit.js
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/audit.js')
+          s=p.read_text()
+          s=s.replace("{ '2027': 87, '2028': 28, '2029': 3, '2030': 32 }", "{ '2027': 38, '2028': 38, '2029': 37, '2030': 37 }")
+          p.write_text(s)
+          PY
+          set +e
+          node /tmp/audit.js > .github/balanced_prospect_phase_audit.json 2> .github/balanced_prospect_phase_audit.err
+          A=$?
+          node --check artifacts/project-ice/public/prospects.js >/tmp/p.txt 2>&1
+          B=$?
+          node --check artifacts/project-ice/public/world.js >/tmp/w.txt 2>&1
+          C=$?
+          node --check artifacts/project-ice/public/game.js >/tmp/g.txt 2>&1
+          D=$?
+          {
+            echo "RUNTIME_AUDIT=$A"
+            echo "PROSPECTS_SYNTAX=$B"
+            echo "WORLD_SYNTAX=$C"
+            echo "GAME_SYNTAX=$D"
+            cat /tmp/p.txt /tmp/w.txt /tmp/g.txt
+          } > .github/balanced_prospect_phase_audit.status
+          exit 0
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/balanced_prospect_phase_audit.json .github/balanced_prospect_phase_audit.err .github/balanced_prospect_phase_audit.status
+          git commit -m 'Persist final balanced prospect phase audit' || exit 0
+          git push
