@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Home refresh audit helper — triggered after the authoritative Phase 2 vision lock.
 ROOT = Path('artifacts/project-ice')
 index = (ROOT / 'index.html').read_text(encoding='utf-8', errors='ignore')
 game = (ROOT / 'public/game.js').read_text(encoding='utf-8', errors='ignore')
