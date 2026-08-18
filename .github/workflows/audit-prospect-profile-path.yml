@@ -1,0 +1,20 @@
+name: Audit Prospect Profile Path
+on:
+  push:
+    paths:
+      - '.github/scripts/audit_prospect_profile_path.py'
+      - '.github/workflows/audit-prospect-profile-path.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/audit_prospect_profile_path.py > .github/prospect_profile_path_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/prospect_profile_path_audit.txt
+          git commit -m 'Persist prospect profile path audit' || exit 0
+          git push
