@@ -1,0 +1,27 @@
+name: Add HS Real Prospect Pipeline
+on:
+  push:
+    paths:
+      - '.github/scripts/add_hs_real_prospect_pipeline.py'
+      - '.github/workflows/add-hs-real-prospect-pipeline.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/add_hs_real_prospect_pipeline.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q 'HIGH_SCHOOL_REAL_PROSPECTS_PER_CLASS = 12' artifacts/project-ice/public/world.js
+      - run: grep -q 'function promoteHighSchoolProspectCohort' artifacts/project-ice/public/world.js
+      - run: grep -q 'getHighSchoolProspectPipeline' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Add real prospect high school entry pipeline' || exit 0
+          git pull --rebase origin main
+          git push origin main
