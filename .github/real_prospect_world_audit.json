@@ -1,0 +1,55 @@
+{
+  "sourceCount": 150,
+  "externalCount": 150,
+  "allWorldCount": 150,
+  "classCounts": {
+    "2027": 87,
+    "2028": 28,
+    "2029": 3,
+    "2030": 32
+  },
+  "positionCounts": {
+    "G": 5,
+    "D": 35,
+    "F": 64,
+    "C": 25,
+    "RW": 5,
+    "C/W": 3,
+    "LW": 7,
+    "RW/C": 3,
+    "C/LW": 2,
+    "RW/LW": 1
+  },
+  "potentialRoleCounts": {
+    "Starter": 4,
+    "Top 4 D": 18,
+    "Top 6 D": 16,
+    "Top 9 F": 45,
+    "Top 6 F": 46,
+    "Fringe Starter": 1,
+    "Franchise": 1,
+    "Elite": 19
+  },
+  "accuracyCounts": {
+    "Medium": 100,
+    "Low": 50
+  },
+  "overallRange": [
+    46,
+    70
+  ],
+  "potentialRange": [
+    78,
+    96
+  ],
+  "realPlayerCount": 150,
+  "persistentCount": 150,
+  "portCount": 150,
+  "rankingOnlyCount": 0,
+  "duplicateIds": [],
+  "missingAttributes": [],
+  "invalidDraftYears": [],
+  "invalidPort": [],
+  "invalidHiddenPotential": [],
+  "notInAllWorld": []
+}
