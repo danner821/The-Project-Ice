@@ -1,0 +1,26 @@
+name: Dedupe HS Real Prospect Rankings
+on:
+  push:
+    paths:
+      - '.github/scripts/dedupe_hs_real_prospect_rankings.py'
+      - '.github/workflows/dedupe-hs-real-prospect-rankings.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/dedupe_hs_real_prospect_rankings.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q 'rosteredRealProspectIds' artifacts/project-ice/public/game.js
+      - run: grep -q "sourceType: isRosteredRealProspect ? 'real-hs' : 'fictional-hs'" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Prevent duplicate HS real prospects in rankings' || exit 0
+          git pull --rebase origin main
+          git push origin main
