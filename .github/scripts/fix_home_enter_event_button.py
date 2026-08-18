@@ -3,44 +3,54 @@ from pathlib import Path
 path = Path('artifacts/project-ice/public/game.js')
 text = path.read_text(encoding='utf-8')
 
-# Event Results currently always returns to Schedule, even when the event was
-# entered from Home. That also leaves the Home week snapshot displaying the
-# pre-completion card until another full render happens.
-start = text.find("const btnEventResultsContinue =")
-if start < 0:
-    raise SystemExit('Event Results Continue anchor not found')
+# Home can enter a future event by simulating up to its date. simulateToDate()
+# was hard-coded to reopen blocking player events with origin='schedule', so by
+# the time Event Results opened, EventSystem.getOrigin() correctly reported
+# 'schedule' even though the player had launched from Home. Make the simulation
+# path origin-aware instead of trying to repair the origin after completion.
 
-route = """      openHubTab(
-        'schedule'
+old_signature = """function simulateToDate(
+  targetDate
+) {
+"""
+new_signature = """function simulateToDate(
+  targetDate,
+  origin = 'schedule'
+) {
+"""
+if old_signature not in text:
+    raise SystemExit('simulateToDate signature anchor not found')
+text = text.replace(old_signature, new_signature, 1)
+
+old_blocking_route = """      EventSystem.openEvent(
+        blockingScheduleEvent.eventId,
+        'schedule',
+        blockingScheduleEvent
       );
 """
-route_index = text.find(route, start)
-if route_index < 0:
-    raise SystemExit('Event Results forced-Schedule route not found')
-
-replacement = """      const returnOrigin =
-        EventSystem.getOrigin();
-
-      /*
-       * Event Results should return to the surface that launched the event.
-       * Home is a weekly view of the canonical Schedule, so refresh that shared
-       * schedule data before returning to Home. This immediately converts the
-       * just-completed card to DONE and prevents re-entering the event.
-       */
-      if (returnOrigin === 'hub') {
-        refreshScheduleEvents();
-        setupHubCalendar();
-        openHubTab('home');
-      } else {
-        openHubTab('schedule');
-      }
+new_blocking_route = """      EventSystem.openEvent(
+        blockingScheduleEvent.eventId,
+        origin,
+        blockingScheduleEvent
+      );
 """
+if old_blocking_route not in text:
+    raise SystemExit('blocking event origin route anchor not found')
+text = text.replace(old_blocking_route, new_blocking_route, 1)
 
-text = (
-    text[:route_index] +
-    replacement +
-    text[route_index + len(route):]
-)
+# Only the Home weekly snapshot needs to override the default. Schedule callers
+# keep the default 'schedule' origin automatically.
+home_start = text.find('// ── Event panel button')
+home_end = text.find('// Scroll completed card', home_start)
+if home_start < 0 or home_end < 0:
+    raise SystemExit('Home event action block not found')
+home_block = text[home_start:home_end]
+old_home_sim = "simulateToDate(d.date);"
+new_home_sim = "simulateToDate(d.date, 'hub');"
+if old_home_sim not in home_block:
+    raise SystemExit('Home simulateToDate call not found')
+home_block = home_block.replace(old_home_sim, new_home_sim, 1)
+text = text[:home_start] + home_block + text[home_end:]
 
 path.write_text(text, encoding='utf-8')
-print('EVENT_RESULTS_ORIGIN_AND_HOME_REFRESH=APPLIED')
+print('HOME_SIMULATION_ORIGIN=APPLIED')
