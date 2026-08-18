@@ -1,0 +1,31 @@
+name: Fix Home Week Calendar Edges
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_home_week_calendar_edges.py'
+      - '.github/workflows/fix-home-week-calendar-edges.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_home_week_calendar_edges.py
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          style = Path('artifacts/project-ice/public/style.css').read_text(errors='ignore')
+          assert 'HOME WEEK CALENDAR EDGE FIX 2026-08-18' in style
+          assert '#hub-tab-home .home-week-card .hub-cal__strip' in style
+          print('HOME_WEEK_CALENDAR_EDGE_VALIDATION=PASS')
+          PY
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/style.css
+          git commit -m 'Keep Home week calendar inside content edges' || exit 0
+          git pull --rebase origin main
+          git push origin main
