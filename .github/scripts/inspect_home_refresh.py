@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Focused Home runtime audit.
 ROOT = Path('artifacts/project-ice')
 game = (ROOT / 'public/game.js').read_text(encoding='utf-8', errors='ignore')
 style = (ROOT / 'public/style.css').read_text(encoding='utf-8', errors='ignore')
