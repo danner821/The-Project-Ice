@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Project Ice runtime patch: preserve canonical completion on the current Home date.
 path = Path('artifacts/project-ice/public/game.js')
 text = path.read_text(encoding='utf-8')
 
