@@ -1,0 +1,898 @@
+### SCHEDULE_ACTION
+uleCalendar(
+    scheduleViewYear,
+    scheduleViewMonth
+  );
+
+  renderScheduleKeyEvents();
+
+  /*
+   * If the Season Engine stopped for a player-controlled
+   * event, open that event instead of silently remaining
+   * on the calendar.
+   */
+  if (
+    result?.stopSimulation === true
+  ) {
+    const blockingWorldEvent =
+      result.blockingEventResult
+        ?.event ||
+      null;
+
+    const blockingEventId =
+      blockingWorldEvent
+        ?.eventId ||
+      blockingWorldEvent
+        ?.id ||
+      null;
+
+    const blockingScheduleEvent =
+      scheduleEvents.find(event =>
+        String(event.eventId) ===
+        String(blockingEventId)
+      ) || null;
+
+    /*
+     * Career games now stop the Season Engine on game day
+     * before being resolved.
+     *
+     * Route that stop directly into the Pregame Matchup instead
+     * of reopening the generic Begin Event screen.
+     */
+    if (
+      result
+        ?.blockingEventResult
+        ?.reason ===
+        'career-game-awaiting-user-choice' &&
+      blockingScheduleEvent
+    ) {
+      openPregameMatchup(
+        blockingScheduleEvent
+      );
+
+      return reachedDate;
+    }
+
+    if (blockingScheduleEvent) {
+      EventSystem.openEvent(
+        blockingScheduleEvent.eventId,
+        'schedule',
+        blockingScheduleEvent
+      );
+    }
+}
+
+/*
+* When normal simulation completes one or more games,
+* immediately open the first newly completed game's
+* permanently saved Postgame Summary.
+*
+* Do not override a practice, recovery session, meeting,
+* or other player-controlled event that stopped simulation.
+*/
+
+const canonicalSchedule =
+  Array.isArray(
+    WorldEngine.state.schedule
+  )
+    ? WorldEngine.state.schedule
+    : [];
+
+
+  const newlyCompletedGame =
+    canonicalSchedule
+      .filter(game => {
+        if (
+          game?.type !== 'game' ||
+          game?.played !== true ||
+          !game?.postgameSummary
+        ) {
+          return false;
+        }
+
+        const gameId =
+          String(
+            game.id ||
+            game.gameId ||
+            ''
+          );
+
+        if (!gameId) {
+          return false;
+        }
+
+        const isCareerTeamGame =
+          careerTeamId &&
+          (
+            String(
+              game.homeTeamId || ''
+            ) ===
+              String(careerTeamId) ||
+            String(
+              game.awayTeamId || ''
+            ) ===
+              String(careerTeamId)
+          );
+
+        if (!isCareerTeamGame) {
+          return false;
+        }
+
+        return (
+          !previouslyCompletedCareerGameIds
+            .has(gameId)
+        );
+      })
+      .sort((a, b) =>
+        String(a.date || '')
+          .localeCompare(
+            String(b.date || '')
+          )
+      )[0] ||
+    null;
+
+const completedGameId =
+  newlyCompletedGame
+    ?.gameId ||
+  newlyCompletedGame
+    ?.id ||
+  null;
+
+if (completedGameId) {
+  openPostgameSummary(
+    completedGameId
+  );
+}
+
+
+return reachedDate;
+}
+document
+.getElementById('schedule-selected-day-action')
+?.addEventListener('click', () => {
+  const selectedCell = document.querySelector(
+    '.schedule-day--selected'
+  );
+
+  if (!selectedCell) return;
+
+  const selectedDateKey =
+    selectedCell.dataset.date;
+
+  if (!selectedDateKey) return;
+
+const currentDate =
+  Game.player.currentDate || '2026-09-01';
+
+if (selectedDateKey <= currentDate) return;
+
+const selectedEvent =
+  scheduleEvents.find(
+    event =>
+      String(event.date) ===
+      String(selectedDateKey)
+  ) ||
+  null;
+
+/*
+ * Games should enter their normal pregame event screen first.
+ * The game is not simulated until the player presses
+ * Begin Event from that screen.
+ */
+if (
+  selectedEvent?.type === 'game' &&
+  selectedEvent.isCompleted !== true
+) {
+  EventSystem.openEvent(
+    selectedEvent.eventId,
+    'schedule',
+    selectedEvent
+  );
+
+  return;
+}
+
+simulateToDate(selectedDateKey);
+});
+document
+.getElementById('schedule-selected-day-details')
+?.addEventListener('click', () => {
+  const detailsButton =
+    document.getElementById('schedule-selected-day-details');
+
+  const eventId =
+    detailsButton?.dataset.eventId;
+
+    const selectedEvent =
+      scheduleEvents.find(
+        event =>
+          String(event.eventId) ===
+          String(eventId)
+      );
+
+    if (!selectedEvent) return;
+
+    /*
+     * Completed career events reopen their permanently saved
+     * completion screen instead of reopening the pre-event screen.
+     *
+     * This is display-only. Event rewards are not processed again.
+     */
+    /*
+     * Completed games reopen their permanently saved
+     * postgame summary instead of the pregame event page.
+     */
+    const isCompletedGame =
+      Boolean(selectedEvent.isCompleted) &&
+      selectedEvent.type === 'game';
+
+    if (isCompletedGame) {
+      const completedGameId =
+        selectedEvent.gameId ||
+        selectedEvent.eventId ||
+        null;
+
+      if (
+        completedGameId &&
+        openPostgameSummary(
+          completedGameId
+        )
+      ) {
+        return;
+      }
+
+      console.error(
+        '[Schedule] Could not open completed game summary.',
+        selectedEvent
+      );
+
+      return;
+    }
+  
+    const isCompletedCareerEvent =
+      Boolean(selectedEvent.isCompleted) &&
+      selectedEvent.type !== 'game' &&
+      selectedEvent.result &&
+      typeof selectedEvent.result === 'object';
+
+    if (isCompletedCareerEvent) {
+      EventResultsSystem.open(
+        selectedEvent,
+        {
+          success: true,
+
+          result:
+            selectedEvent.result,
+
+          date:
+            selectedEvent.completedAt ||
+            selectedEvent.date,
+
+          coachNote:
+            selectedEvent.result
+              ?.coachNote ||
+            '',
+        }
+      );
+
+      return;
+    }
+
+    if (
+    selectedEvent.isCompleted &&
+    selectedEvent.summaryScreen === 'tryout-summary'
+  ) {
+    openTryoutSummary('history');
+    return;
+  }
+
+  EventSystem.openEvent(
+    selectedEvent.eventId,
+    'schedule',
+    selectedEvent
+  );
+});
+function renderScheduleKeyEvents() {
+  const list =
+    document.getElementById(
+      'schedule-upcoming-list'
+    );
+
+  if (!list) return;
+
+  const events =
+    Array.isArray(scheduleEvents)
+      ? scheduleEvents
+      : [];
+
+  /*
+   * Use the career's current date when available.
+   * The September 1 fallback matches the present HS calendar.
+   */
+  const currentDateKey =
+    Game.currentDateKey ||
+    Game.currentDate ||
+    Game.player?.currentDateKey ||
+    Game.player?.currentDate ||
+    '2026-09-01';
+
+  const ignoredTypes =
+    new Set([
+      'practice',
+      'recovery',
+      'off'
+    ]);
+
+  const getEventTypeLabel = event => {
+    const type =
+      String(event?.type || '')
+        .trim()
+        .toLowerCase();
+
+    if (type === 'game') {
+      return 'Game';
+    }
+
+    if (type === 'tryout') {
+      return 'Tryout';
+    }
+
+    if (
+      type === 'meeting' ||
+      String(event?.eventId || '').includes('meeting')
+    ) {
+      return 'Meeting';
+    }
+
+    if (
+      type === 'scouting' ||
+      String(event?.eventId || '').includes('scout')
+    ) {
+      return 'Scouting';
+    }
+
+    if (
+      type === 'ranking' ||
+      String(event?.eventId || '').includes('ranking')
+    ) {
+      return 'Rankings';
+    }
+
+    if (
+      type === 'playoff' ||
+      String(event?.eventId || '').includes('playoff')
+    ) {
+      return 'Playoffs';
+    }
+
+    return 'Event';
+  };
+
+  const formatUpcomingDate = dateKey => {
+    const date =
+      new Date(`${dateKey}T12:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return dateKey;
+    }
+
+    return date.toLocaleDateString(
+      'en-US',
+      {
+        month: 'short',
+        day: 'numeric'
+      }
+    );
+  };
+
+  const upcomingEvents =
+    events
+      .filter(event => {
+        if (!event?.date) return false;
+
+        const type =
+          String(event.type || '')
+            .trim()
+            .toLowerCase();
+
+        if (ignoredTypes.has(type)) {
+          return false;
+        }
+
+        if (event.isCompleted) {
+          return false;
+        }
+
+        return (
+          String(event.date) >=
+          String(currentDateKey)
+        );
+      })
+      .sort((a, b) =>
+        String(a.date).localeCompare(
+          String(b.date)
+        )
+      )
+      .slice(0, 3);
+
+  if (upcomingEvents.length === 0) {
+    list.innerHTML = `
+      <p class="schedule-upcoming-empty">
+        Nothing important scheduled yet.
+      </p>
+    `;
+
+    return;
+  }
+
+  list.innerHTML = upcomingEvents
+    .map(event => {
+      const label =
+        event.label ||
+        event.shortLabel ||
+        'Upcoming Event';
+
+      const typeLabel =
+        getEventTypeLabel(event);
+
+      const upcomingIcon =
+        String(event.type || '').toLowerCase() === 'game'
+          ? getScheduleGameIcon(event)
+          : event.icon || '';
+
+      return `
+        <div
+          class="schedule-upcoming-item"
+          data-event-id="${event.eventId || ''}"
+          data-event-date="${event.date}"
+        >
+          <div class="schedule-upcoming-item__date">
+            ${formatUpcomingDate(event.date)}
+          </div>
+
+          <div class="schedule-upcoming-item__content">
+  <span class="schedule-upcoming-item__type">
+    ${upcomingIcon
+      ? `<span aria-hidden="true">${upcomingIcon}</span> `
+      : ''
+    }${typeLabel}
+  </span>
+
+  <strong class="schedule-upcoming-item__title">
+    ${label}
+  </strong>
+</div>
+        </div>
+      `;
+    })
+    .join('');
+  list
+  .querySelectorAll('.schedule-upcoming-item')
+  .forEach(item => {
+    item.addEventListener('click', () => {
+      const eventDate =
+        item.dataset.eventDate;
+
+      if (!eventDate) return;
+
+      const targetDate =
+        new Date(`${eventDate}T12:00:00`);
+
+      if (Number.isNaN(targetDate.getTime())) {
+        return;
+      }
+
+      scheduleViewYear =
+        targetDate.getFullYear();
+
+      scheduleViewMonth =
+        targetDate.getMonth();
+
+      renderScheduleCalendar(
+        scheduleViewYear,
+        scheduleViewMonth
+      );
+
+      const targetCell =
+        document
+
+
+### BEGIN_EVENT
+NOT FOUND
+
+
+### HOME_EVENT_BUTTON
+────────────────────
+  const cards = strip.querySelectorAll('.hub-cal-card');
+
+  function selectDay(index) {
+    cards.forEach(c => c.classList.remove('hub-cal-card--selected'));
+    cards[index].classList.add('hub-cal-card--selected');
+
+    const d = cards[index].eventData;
+    const isFuture    = index > TODAY_INDEX;
+    const isCompleted = Boolean(d.isCompleted);
+
+    if (epIcon) epIcon.textContent = isCompleted ? '✅' : d.icon;
+    if (epName) epName.textContent = d.event;
+    if (epLoc)  epLoc.textContent  = d.location;
+    if (epObj)  epObj.textContent  = isCompleted ? 'This event has been completed.' : d.objective;
+
+    if (epBtnLbl) {
+      if (isCompleted)   epBtnLbl.textContent = 'View Summary';
+      else if (isFuture) epBtnLbl.textContent = 'Simulate to Selected Day';
+      else               epBtnLbl.textContent = 'Enter Event';
+    }
+    if (epToast) epToast.hidden = true;
+  }
+
+  cards.forEach((card, i) => {
+    card.addEventListener('click', () => selectDay(i));
+  });
+
+  // ── Event panel button ────────────────────────────────────
+  // setupHubCalendar() is called repeatedly as the career UI refreshes.
+  // Use one replaceable click handler rather than stacking listeners on the
+  // persistent Home button, and pass the selected schedule payload through to
+  // EventSystem so Home opens the exact same event definition shown in the card.
+  if (epBtn) {
+    epBtn.onclick = () => {
+      const selectedIndex = [...cards].findIndex(c =>
+        c.classList.contains('hub-cal-card--selected')
+      );
+      const selectedCard = cards[selectedIndex];
+      const d = selectedCard?.eventData;
+
+      if (!d) return;
+
+      const isFuture = selectedIndex > TODAY_INDEX;
+      const isCompleted = Boolean(d.isCompleted);
+
+      if (isCompleted) {
+        if (d.eventId === 'tryout-freshman') {
+          openTryoutSummary('history');
+          return;
+        }
+
+        if (d.eventId) {
+          EventSystem.openEvent(d.eventId, 'hub', d);
+        }
+        return;
+      }
+
+      if (isFuture) {
+        const nextDate = simulateToDate(d.date);
+
+        if (epToast) {
+          epToast.hidden = false;
+          epToast.textContent = `Advanced to ${nextDate}`;
+        }
+
+        refreshCareerUI();
+        return;
+      }
+
+      if (!d.eventId) return;
+
+      EventSystem.openEvent(d.eventId, 'hub', d);
+    };
+  }
+
+  // Scroll completed card into view, then settle on today
+  const completedCard = strip.querySelector('.hub-cal-card--completed');
+  if (completedCard) {
+    completedCard.scrollIntoView({ behavior: 'instant', inline: 'start', block: 'nearest' });
+  }
+  selectDay(TODAY_INDEX);
+}
+
+// ── Standings screen navigation ──────────────────────────────
+document.getElementById('btn-hub-standings-all').addEventListener('click', () => {
+  showScreen('standings');
+});
+document.getElementById('btn-league-full-standings')
+  .addEventListener('click', () => {
+    showScreen('standings');
+});
+
+document.getElementById('btn-back-standings').addEventListener('click', () => {
+  showScreen('hub');
+});
+
+// ── Team Profile navigation ───────────────────────────────────
+// Event delegation — one listener per standings container.
+// Any click on a row with data-team-id opens the team profile.
+
+document.getElementById('hub-standings-preview').addEventListener('click', e => {
+  const row = e.target.closest('[data-team-id]');
+  if (!row) return;
+  openTeamProfile(row.dataset.teamId, 'hub');
+});
+document
+.getElementById('league-standings-preview-rows')
+?.addEventListener('click', event => {
+  const row = event.target.closest('[data-team-id]');
+  if (!row) return;
+
+  openTeamProfile(
+    row.dataset.teamId,
+    'league'
+  );
+});
+document.getElementById('sl-rows').addEventListener('click', e => {
+  const row = e.target.closest('[data-team-id]');
+  if (!row) return;
+  openTeamProfile(row.dataset.teamId, 'standings');
+});
+
+document.getElementById('btn-back-team-profile').addEventListener('click', () => {
+  showScreen(_teamProfileOrigin === 'standings' ? 'standings' : 'hub');
+});
+
+// Roster row tap highlight — one delegated listener on the roster container.
+// Adds .is-tapped for a brief flash; no navigation yet.
+document.getElementById('tp-roster').addEventListener('click', e => {
+  const row = e.target.closest('.tp-roster-row');
+  if (!row) return;
+  row.classList.add('is-tapped');
+  setTimeout(() => row.classList.remove('is-tapped'), 220);
+});
+
+// ── Top 100 Prospects navigation ──────────────────────────────
+
+// Hub card → open prospects screen
+document
+.getElementById('hub-prospects-card')
+?.addEventListener('click', () => {
+  Game.prospectScreenOrigin = 'home';
+  showScreen('prospects');
+});
+
+// Back button → return to hub
+document
+.getElementById('btn-back-prospects')
+?.addEventListener('click', () => {
+  if (Game.prospectScreenOrigin === 'league') {
+    openHubTab('league');
+    return;
+  }
+
+  openHubTab('home');
+});
+
+// Row tap → brief flash + show toast
+document
+.getElementById('pr-rows')
+?.addEventListener('click', event => {
+  const row =
+    event.target.closest('.pr-row--data');
+
+  if (!row) return;
+
+  const playerId =
+    row.dataset.playerId;
+
+  if (!playerId) return;
+
+  const visibleProspects =
+    Array.isArray(Game.visibleProspects)
+      ? Game.visibleProspects
+      : [];
+
+  const selectedProspect =
+    visibleProspects.find(player =>
+      String(player.id || player.playerId) ===
+      String(playerId)
+    );
+
+  if (!selectedProspect) {
+    console.warn(
+      'Prospect not found:',
+      playerId
+    );
+    return;
+  }
+
+  row.classList.add('is-tapped');
+
+  setTimeout(() => {
+    row.classList.remove('is-tapped');
+  }, 200);
+
+  openPlayerProfile(
+    selectedProspect,
+    'prospects'
+  );
+});
+
+// ── Event screen navigation ───────────────────────────────────
+
+// Back — returns to whichever screen opened this event
+document
+.getElementById('btn-back-event')
+.addEventListener('click', () => {
+  const origin = EventSystem.getOrigin();
+
+  showScreen('hub');
+
+  const targetTab =
+    origin === 'schedule'
+      ? 'schedule'
+
+
+
+### EVENTSYSTEM_OPEN
+pe--\S+/g, '')
+        .trim();
+      screen.classList.add(`ev-type--${def.type}`);
+    }
+
+    // Reset the "coming soon" toast
+    const toast = document.getElementById('ev-begin-toast');
+    if (toast) toast.hidden = true;
+  }
+
+  // ── Public API ─────────────────────────────────────────────
+
+  /**
+   * Open the event screen for a given catalog entry.
+   * @param {string} eventId   — key in EVENT_CATALOG
+   * @param {string} [origin]  — screen name to return to on Back (default 'hub')
+   */
+  function openEvent(eventId, origin = 'hub', eventData = null) {
+    const catalogDef = EVENT_CATALOG[eventId];
+
+        const def = eventData
+        ? {
+            /*
+             * Preserve the canonical schedule identity and any
+             * event-specific data such as id, eventId, date and focus.
+             */
+            ...catalogDef,
+            ...eventData,
+
+            title:
+              eventData.label ||
+              catalogDef?.title ||
+              'Upcoming Event',
+          type:
+            eventData.type ||
+            catalogDef?.type ||
+            'event',
+          icon:
+            eventData.icon ||
+            catalogDef?.icon ||
+            '🏒',
+          location:
+            eventData.location ||
+            catalogDef?.location ||
+            '—',
+          objective:
+            eventData.objective ||
+            catalogDef?.objective ||
+            'Prepare for the event.',
+          description:
+            eventData.description ||
+            catalogDef?.description ||
+            'Review the event details before continuing.',
+          details:
+            eventData.details ||
+            catalogDef?.details ||
+            {},
+        isFeatured:
+          eventData.isFeatured ??
+          catalogDef?.isFeatured ??
+          false,
+
+        featuredReasons:
+          Array.isArray(eventData.featuredReasons)
+            ? eventData.featuredReasons
+            : Array.isArray(catalogDef?.featuredReasons)
+              ? catalogDef.featuredReasons
+              : []
+        }
+      : catalogDef;
+
+    if (!def) {
+      console.warn(
+        `EventSystem.openEvent: unknown event "${eventId}"`
+      );
+      return;
+    }
+
+    _origin = origin;
+    _populate(def);
+    showScreen('event');
+  }
+
+  /** Which screen Back should return to. */
+  function getOrigin() { return _origin; }
+
+  /** Returns the catalog definition of the event currently on screen. */
+  function getCurrentDef() { return _currentDef; }
+
+  return { openEvent, getOrigin, getCurrentDef, EVENT_CATALOG };
+})();
+
+// ── Screen navigation ───────────────────────────────────────
+function showScreen(screenName) {
+  titleScreen.classList.add('screen--hidden');
+  careerSavesScreen.classList.add('screen--hidden');
+  creationScreen.classList.add('screen--hidden');
+  summaryScreen.classList.add('screen--hidden');
+  identityScreen.classList.add('screen--hidden');
+  careerOverviewScreen.classList.add('screen--hidden');
+  bedroomScreen.classList.add('screen--hidden');
+  nhlTeamScreen.classList.add('screen--hidden');
+  motivationScreen.classList.add('screen--hidden');
+  archetypeScreen.classList.add('screen--hidden');
+  backgroundScreen.classList.add('screen--hidden');
+  arenaScreen.classList.add('screen--hidden');
+  hubScreen.classList.add('screen--hidden');
+  standingsScreen.classList.add('screen--hidden');
+  teamProfileScreen.classList.add('screen--hidden');
+  playerProfileScreen.classList.add('screen--hidden');
+  fullStatsScreen.classList.add('screen--hidden');
+  prospectsScreen.classList.add('screen--hidden');
+  eventScreen.classList.add(
+    'screen--hidden'
+  );
+  pregameMatchupScreen.classList.add(
+    'screen--hidden'
+  );
+  liveGameScreen.classList.add(
+    'screen--hidden'
+  );
+
+  eventResultsScreen.classList.add(
+    'screen--hidden'
+  );
+
+  postgameSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+
+  boxScoreScreen.classList.add(
+    'screen--hidden'
+  );
+
+  tryoutSummaryScreen.classList.add(
+    'screen--hidden'
+  );
+  rosterRevealScreen.classList.add('screen--hidden');
+  coachIntroScreen.classList.add('screen--hidden');
+  coachResultsScreen.classList.add('screen--hidden');
+  skatingEvalScreen.classList.add('screen--hidden');
+  skatingResultsScreen.classList.add('screen--hidden');
+
+  if (screenName === 'title')      titleScreen.classList.remove('screen--hidden');
+  if (screenName === 'career-saves') careerSavesScreen.classList.remove('screen--hidden');
+  if (screenName === 'creation')   creationScreen.classList.remove('screen--hidden');
+  if (screenName === 'summary')    summaryScreen.classList.remove('screen--hidden');
+  if (screenName === 'identity') {
+    // Clear archetype if the saved choice is no longer valid for the current position
+    if (Game.player.archetype && !isArchetypeValidForPosition(Game.player.archetype, Game.player.position)) {
+      Game.player.archetype = '';
+    }
+    identityScreen.classList.remove('screen--hidden');
+    updateIdentityScreen();
+  }
+  if (screenName === 'overview') {
+    careerOverviewScreen.classList.remove('screen--hidden');
+    updateCareerOverview();
+  }
+  if (screenName === 'bedroom') {
+    bedroomScreen.classList.remove('screen--hidden');
+  }
+  if (screenName === 'nhlteam') {
+    nhlTeamScreen.classList.remove('screen--hidden');
+    restoreNhlTeamSelection();
+  }
+  if (screenName === 'motivation') {
+    motivationScreen.classList.remove('screen--hidden');
+    restoreMotivationSelection();
+  }
+  if (screenName === 'archetype') {
+    archetypeScreen.classList.remove('screen--hidden');
+    filterArchetypeCards();
+    rest
