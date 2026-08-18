@@ -1,0 +1,39 @@
+name: Diagnose Balanced Real Prospects V2
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-balanced-real-prospects-v2.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/scripts/rebalance_real_prospect_classes.py')
+          s=p.read_text()
+          old='    rows.append(list(ast.literal_eval(stripped)))\n'
+          new="    python_literal = re.sub(r'\\bnull\\b', 'None', stripped)\n    python_literal = re.sub(r'\\btrue\\b', 'True', python_literal)\n    python_literal = re.sub(r'\\bfalse\\b', 'False', python_literal)\n    rows.append(list(ast.literal_eval(python_literal)))\n"
+          p.write_text(s.replace(old,new,1))
+          PY
+          set +e
+          python .github/scripts/rebalance_real_prospect_classes.py > /tmp/a.out 2> /tmp/a.err
+          A=$?
+          python .github/scripts/prune_rebalanced_real_prospects.py > /tmp/b.out 2> /tmp/b.err
+          B=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/c.out 2>&1
+          C=$?
+          {
+            echo "REBALANCE_STATUS=$A"; cat /tmp/a.out; cat /tmp/a.err
+            echo "PRUNE_STATUS=$B"; cat /tmp/b.out; cat /tmp/b.err
+            echo "NODE_STATUS=$C"; cat /tmp/c.out
+          } > .github/balanced_prospect_diagnostic_v2.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/balanced_prospect_diagnostic_v2.txt
+          git commit -m 'Persist balanced prospect diagnostic v2' || exit 0
+          git push
