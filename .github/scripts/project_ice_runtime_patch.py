@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 
+# Stable GitHub-only Project Ice runtime patch entrypoint.
 GAME = Path('artifacts/project-ice/public/game.js')
 WORLD = Path('artifacts/project-ice/public/world.js')
 
