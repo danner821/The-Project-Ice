@@ -16941,14 +16941,21 @@ function setupHubCalendar() {
   });
 
   // ── Event panel button ────────────────────────────────────
+  // setupHubCalendar() is called repeatedly as the career UI refreshes.
+  // Use one replaceable click handler rather than stacking listeners on the
+  // persistent Home button, and pass the selected schedule payload through to
+  // EventSystem so Home opens the exact same event definition shown in the card.
   if (epBtn) {
-    epBtn.addEventListener('click', () => {
-      const selectedIndex = [...cards].findIndex(c => c.classList.contains('hub-cal-card--selected'));
+    epBtn.onclick = () => {
+      const selectedIndex = [...cards].findIndex(c =>
+        c.classList.contains('hub-cal-card--selected')
+      );
       const selectedCard = cards[selectedIndex];
       const d = selectedCard?.eventData;
 
       if (!d) return;
-      const isFuture    = selectedIndex > TODAY_INDEX;
+
+      const isFuture = selectedIndex > TODAY_INDEX;
       const isCompleted = Boolean(d.isCompleted);
 
       if (isCompleted) {
@@ -16957,9 +16964,13 @@ function setupHubCalendar() {
           return;
         }
 
-          EventSystem.openEvent(d.eventId, 'hub');
-          return;
-      } else if (isFuture) {
+        if (d.eventId) {
+          EventSystem.openEvent(d.eventId, 'hub', d);
+        }
+        return;
+      }
+
+      if (isFuture) {
         const nextDate = simulateToDate(d.date);
 
         if (epToast) {
@@ -16968,16 +16979,13 @@ function setupHubCalendar() {
         }
 
         refreshCareerUI();
-      } else {
-        // Enter the event via the Event System
-        const selectedCard = cards[selectedIndex];
-        const selectedEvent = selectedCard?.eventData;
-
-        if (!selectedEvent?.eventId) return;
-
-        EventSystem.openEvent(selectedEvent.eventId, 'hub');
+        return;
       }
-    });
+
+      if (!d.eventId) return;
+
+      EventSystem.openEvent(d.eventId, 'hub', d);
+    };
   }
 
   // Scroll completed card into view, then settle on today
