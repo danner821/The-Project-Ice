@@ -50,17 +50,22 @@ if old_2029 not in ps:
     raise SystemExit('current 2029 block missing')
 ps = ps.replace(old_2029, new_2029, 1)
 
-# Remove three known 2031 first-year eligible players from the 2030-only universe.
-for row in [
-    "  ['Kellan Fitzgerald-Brown', 'D', 'New Jersey Rockets 14U AAA', 'THF 14U', '2012-10-01', 'USA', '6\\'1"', 196, 'L', 2030, 22],\n",
-    "  ['Aston Salts', 'F', 'Växjö Lakers HC U16', 'U16 Region', '2012-12-07', 'Sweden', '', null, 'L', 2030, 30],\n",
-    "  ['Cash Cieslak', 'F', 'Chicago Mission 14U AAA', '14U AAA', '2012-10-15', 'USA', '', null, 'R', 2030, 32],\n",
-]:
-    if row not in ps:
-        raise SystemExit(f'known 2031 row missing: {row[:40]}')
-    ps = ps.replace(row, '', 1)
+# Remove known 2031 first-year eligible players by exact identity rather than
+# brittle whole-line quoting.
+remove_names = {'Kellan Fitzgerald-Brown', 'Aston Salts', 'Cash Cieslak'}
+filtered_lines = []
+removed = set()
+for line in ps.splitlines(keepends=True):
+    matched = next((name for name in remove_names if f"'{name}'" in line and ', 2030,' in line), None)
+    if matched:
+        removed.add(matched)
+        continue
+    filtered_lines.append(line)
+ps = ''.join(filtered_lines)
+if removed != remove_names:
+    raise SystemExit(f'failed to remove all known 2031 players: removed={sorted(removed)}')
 
-# Add two late-2011 players that belong in 2030 (the other two are already present).
+# Add two late-2011 players that are factual 2030 first-year eligibles.
 insert_anchor = "  ['Kale Nicol', 'F', 'Brandon Wheat Kings U18 AAA', 'MU18HL', '2012-02-11', 'Canada', '5\\'8"', 165, 'L', 2030, 1],\n"
 insert_rows = """  ['Callum Brooks', 'F', 'Huron-Perth Lakers U16 AAA', 'ALLIANCE U16', '2011-10-25', 'Canada', '5\\'10"', 148, 'L', 2030, 49],
   ['Noah Carignan', 'F', 'Fraser Valley Thunderbirds U17', 'BCEHL U17', '2011-10-01', 'Canada', '5\\'7"', 146, 'L', 2030, 50],
@@ -69,7 +74,6 @@ if insert_anchor not in ps:
     raise SystemExit('2030 insertion anchor missing')
 ps = ps.replace(insert_anchor, insert_anchor + insert_rows, 1)
 
-# Source labeling: 2029 now includes the eligibility portal; 2030 includes the 2012 watchlist.
 old_source = "biographySource: draftYear === 2030 ? 'Elite Prospects 2012-born watchlist' : 'Elite Prospects draft center',"
 new_source = """biographySource:
       draftYear === 2030
@@ -81,9 +85,6 @@ if old_source not in ps:
     raise SystemExit('biography source anchor missing')
 ps = ps.replace(old_source, new_source, 1)
 
-# Save migration: an existing world may still contain a previously sourced real player
-# that has since been removed after factual class correction. External prospects must be
-# constrained to the current curated source IDs. Rostered HS prospects are separate.
 old_filter = """    _state.externalProspects = _state.externalProspects.filter(player =>
       player &&
       Number(player.draftYear) >= 2027 &&
