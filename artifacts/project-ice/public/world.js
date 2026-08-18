@@ -37536,6 +37536,34 @@ case 'career-defense':
     };
   }
 
+  function getProjectIceProspectDraftYear(player = {}) {
+    const explicit = Number(player?.draftYear);
+    if (Number.isFinite(explicit) && explicit >= 2024) return explicit;
+
+    const year = String(
+      player?.year || player?.schoolYear || player?.classYear || ''
+    ).trim().toLowerCase();
+
+    if (year.includes('senior')) return 2024;
+    if (year.includes('junior')) return 2025;
+    if (year.includes('sophomore')) return 2026;
+    if (year.includes('freshman')) return 2027;
+    return null;
+  }
+
+  function isRankingOnlyBridgeProspect(player = {}) {
+    const draftYear = getProjectIceProspectDraftYear(player);
+    return Boolean(draftYear && draftYear >= 2024 && draftYear <= 2026);
+  }
+
+  function canProspectPortToNhlWorld(player = {}) {
+    const draftYear = getProjectIceProspectDraftYear(player);
+    if (!draftYear || draftYear <= 2026) return false;
+    if (player?.rankingOnly === true) return false;
+    if (player?.portToNhlWorld === false) return false;
+    return draftYear >= 2027;
+  }
+
   function processScoutingWeek(dateString) {
     const normalizedDate = normalizeLivingWorldDateKey(dateString);
     const weekStart = getWeekStartDate(normalizedDate);
@@ -37660,7 +37688,7 @@ case 'career-defense':
       firstName: entry.player?.firstName || '',
       lastName: entry.player?.lastName || '',
       position: entry.player?.position || '',
-      draftYear: Number(entry.player?.draftYear) || null,
+      draftYear: getProjectIceProspectDraftYear(entry.player),
       overall: Number(entry.player?.overall) || 0,
       potential: Number(entry.player?.development?.potential ?? entry.player?.potential) || 0,
       potentialRole:
@@ -37678,9 +37706,11 @@ case 'career-defense':
       league: entry.player?.league || entry.player?.realLeagueSnapshot || '',
       nationality: entry.player?.nationality || '',
       realPlayer: entry.player?.realPlayer === true,
-      persistentProspect: entry.player?.persistentProspect === true,
-      portToNhlWorld: entry.player?.portToNhlWorld === true,
-      rankingOnly: entry.player?.rankingOnly === true,
+      persistentProspect:
+        !isRankingOnlyBridgeProspect(entry.player) &&
+        getProjectIceProspectDraftYear(entry.player) >= 2027,
+      portToNhlWorld: canProspectPortToNhlWorld(entry.player),
+      rankingOnly: isRankingOnlyBridgeProspect(entry.player),
       score: entry.score,
       interestLevel: entry.player?.scoutingProfile?.interestLevel || 'None',
       rankChange: Number(entry.player?.scoutingProfile?.rankChange) || 0,
@@ -44201,6 +44231,8 @@ case 'career-defense':
     getPlayerById,
     getAllWorldPlayers,
     getExternalProspects: () => ensureExternalProspectWorld(),
+    getProjectIceProspectDraftYear,
+    canProspectPortToNhlWorld,
     getCareerTryoutTargetOverall,
     createGoalieAttributesFromOverall,
     calculateGoalieOverallFromAttributes,
