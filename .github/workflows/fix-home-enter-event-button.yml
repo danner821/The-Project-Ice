@@ -1,4 +1,4 @@
-name: Preserve Event Result Origin
+name: Preserve Home Simulation Origin
 on:
   push:
     paths:
@@ -19,27 +19,21 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           game = Path('artifacts/project-ice/public/game.js').read_text(errors='ignore')
-          start = game.find('const btnEventResultsContinue =')
-          end = game.find('const btnBackEvent', start)
-          if end < 0:
-              end = min(len(game), start + 5000)
-          block = game[start:end]
           checks = {
-            'uses launch origin': 'EventSystem.getOrigin()' in block,
-            'returns Home events to Home': "openHubTab('home')" in block,
-            'refreshes canonical schedule first': 'refreshScheduleEvents();' in block,
-            'refreshes Home week cards first': 'setupHubCalendar();' in block,
-            'Schedule-origin events still return Schedule': "openHubTab('schedule')" in block,
+            'simulateToDate accepts origin': "origin = 'schedule'" in game[game.find('function simulateToDate('):game.find('function simulateToDate(') + 300],
+            'blocking event preserves origin': "blockingScheduleEvent.eventId,\n        origin," in game,
+            'Home simulation passes hub origin': "simulateToDate(d.date, 'hub');" in game[game.find('// ── Event panel button'):game.find('// Scroll completed card')],
+            'results still return by EventSystem origin': 'EventSystem.getOrigin()' in game[game.find('const btnEventResultsContinue ='):game.find('const btnEventResultsContinue =') + 3000],
           }
           for key, value in checks.items():
               print(key, 'PASS' if value else 'FAIL')
           if not all(checks.values()):
-              raise SystemExit('event result origin validation failed')
+              raise SystemExit('Home simulation origin validation failed')
           PY
       - run: |
           git config user.name 'Project Ice Bot'
           git config user.email 'actions@github.com'
           git add artifacts/project-ice/public/game.js
-          git commit -m 'Return completed events to their launch tab' || exit 0
+          git commit -m 'Preserve Home origin through simulated events' || exit 0
           git pull --rebase origin main
           git push origin main
