@@ -1,0 +1,24 @@
+name: Apply 150 Real Prospects Now
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-150-real-prospects-now.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/build_150_real_prospects.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js
+          git commit -m 'Add researched 150-player real prospect universe' || exit 0
+          git pull --rebase origin main
+          git push origin main
