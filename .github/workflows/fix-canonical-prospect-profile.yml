@@ -1,0 +1,34 @@
+name: Fix Canonical Prospect Profile
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_canonical_prospect_profile.py'
+      - '.github/workflows/fix-canonical-prospect-profile.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: |
+          BEFORE=$(wc -l < artifacts/project-ice/public/game.js)
+          python .github/scripts/fix_canonical_prospect_profile.py
+          AFTER=$(wc -l < artifacts/project-ice/public/game.js)
+          DELTA=$((AFTER-BEFORE))
+          echo "GAME_LINE_DELTA=$DELTA"
+          test "$DELTA" -ge -5
+          test "$DELTA" -le 40
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q "WorldEngine.getPlayerById(selectedPlayerId)" artifacts/project-ice/public/game.js
+      - run: grep -q "p.weightLbs ?? p.weight" artifacts/project-ice/public/game.js
+      - run: grep -q "Catches" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Fix canonical real prospect player profiles' || exit 0
+          git pull --rebase origin main
+          git push origin main
