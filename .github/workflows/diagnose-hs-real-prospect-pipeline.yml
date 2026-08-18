@@ -1,0 +1,29 @@
+name: Diagnose HS Real Prospect Pipeline
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-hs-real-prospect-pipeline.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python .github/scripts/add_hs_real_prospect_pipeline.py > /tmp/out.txt 2> /tmp/err.txt
+          STATUS=$?
+          {
+            echo "PATCH_STATUS=$STATUS"
+            echo "--- OUT ---"
+            cat /tmp/out.txt
+            echo "--- ERR ---"
+            cat /tmp/err.txt
+          } > .github/hs_real_prospect_pipeline_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/hs_real_prospect_pipeline_diagnostic.txt
+          git commit -m 'Persist HS real prospect pipeline diagnostic' || exit 0
+          git push
