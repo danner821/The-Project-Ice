@@ -1,0 +1,25 @@
+REBALANCE_STATUS=1
+Traceback (most recent call last):
+  File "/home/runner/work/The-Project-Ice/The-Project-Ice/.github/scripts/rebalance_real_prospect_classes.py", line 20, in <module>
+    rows.append(list(ast.literal_eval(stripped)))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ast.py", line 112, in literal_eval
+    return _convert(node_or_string)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ast.py", line 92, in _convert
+    return list(map(_convert, node.elts))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ast.py", line 111, in _convert
+    return _convert_signed_num(node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ast.py", line 85, in _convert_signed_num
+    return _convert_num(node)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/ast.py", line 76, in _convert_num
+    _raise_malformed_node(node)
+  File "/usr/lib/python3.12/ast.py", line 73, in _raise_malformed_node
+    raise ValueError(msg + f': {node!r}')
+ValueError: malformed node or string on line 1: <ast.Name object at 0x7f81f3ac15d0>
+PRUNE_STATUS=0
+SAVE_SAFE_PROSPECT_PRUNING=OK
+JS_STATUS=0
