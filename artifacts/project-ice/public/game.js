@@ -5296,62 +5296,77 @@ function renderProspectsScreen() {
 
   const userRosterSlot = getUserRosterSlot();
 
-  // Add all fictional high-school roster players.
+  // Add all high-school roster players. Real prospects moved into a Project
+  // Ice HS program remain the same canonical player.
   const generatedProspects = teams.flatMap(team => {
     const roster = Array.isArray(team.roster) ? team.roster : [];
 
     return roster
       .filter(player => {
-        // Hide the fictional player occupying the user's roster slot.
         const isReplacedByUser =
           team.teamId === playerTeamId &&
           player.rosterSlot === userRosterSlot;
-
         return !isReplacedByUser;
       })
-      .map(player => ({
-        ...player,
+      .map(player => {
+        const isRosteredRealProspect = Boolean(
+          player?.realPlayer ||
+          player?.isRealProspect ||
+          String(player?.id || player?.playerId || '').startsWith('real-')
+        );
 
-        sourceType: 'fictional-hs',
-        isUser: false,
-        realPlayer: false,
-
-        schoolName: team.schoolName,
-        teamName: team.teamName,
-        teamAbbreviation: `${team.schoolName} ${team.teamName}`
-          .split(/\s+/)
-          .filter(Boolean)
-          .map(word => word[0])
-          .join('')
-          .toUpperCase(),
-
-        league: 'HS',
-      }));
+        return {
+          ...player,
+          sourceType: isRosteredRealProspect ? 'real-hs' : 'fictional-hs',
+          isUser: false,
+          realPlayer: isRosteredRealProspect,
+          schoolName: team.schoolName,
+          teamName: team.teamName,
+          teamAbbreviation: `${team.schoolName} ${team.teamName}`
+            .split(/\s+/)
+            .filter(Boolean)
+            .map(word => word[0])
+            .join('')
+            .toUpperCase(),
+          league: 'HS',
+        };
+      });
   });
 
-  // Add all real 2027-and-younger prospects.
+  // A real player rostered in the Project Ice HS world must appear only once.
+  // Keep the HS/world copy and suppress the historical real-team database row
+  // from the fallback ranking pool.
+  const rosteredRealProspectIds = new Set(
+    generatedProspects
+      .filter(player => player.realPlayer)
+      .map(player => String(player.id || player.playerId || ''))
+      .filter(Boolean)
+  );
+
   const realProspects =
     typeof REAL_PROSPECTS !== 'undefined' &&
     Array.isArray(REAL_PROSPECTS)
-      ? REAL_PROSPECTS.map(player => ({
-          ...player,
-
-          sourceType: 'real',
-          isUser: false,
-          realPlayer: true,
-
-          // These allow the same renderer to handle every player type.
-          schoolName: '',
-          teamName: player.currentTeam || '',
-          teamAbbreviation:
-            player.teamAbbreviation ||
-            String(player.currentTeam || '—')
-              .split(/\s+/)
-              .filter(Boolean)
-              .map(word => word[0])
-              .join('')
-              .toUpperCase(),
-        }))
+      ? REAL_PROSPECTS
+          .filter(player => {
+            const playerId = String(player?.id || player?.playerId || '');
+            return !playerId || !rosteredRealProspectIds.has(playerId);
+          })
+          .map(player => ({
+            ...player,
+            sourceType: 'real',
+            isUser: false,
+            realPlayer: true,
+            schoolName: '',
+            teamName: player.currentTeam || '',
+            teamAbbreviation:
+              player.teamAbbreviation ||
+              String(player.currentTeam || '—')
+                .split(/\s+/)
+                .filter(Boolean)
+                .map(word => word[0])
+                .join('')
+                .toUpperCase(),
+          }))
       : [];
 
   const prospectPool = [
