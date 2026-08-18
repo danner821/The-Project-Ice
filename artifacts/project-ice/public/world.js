@@ -43487,7 +43487,21 @@ case 'career-defense':
       player.realPlayer === true
     );
 
-    _state.externalProspects.forEach(player => ensureCanonicalPlayerContract(player));
+    _state.externalProspects.forEach(player => {
+      /*
+       * Overall is never an independently upgraded rating in Project Ice.
+       * The database OVR only seeds the initial attribute spread; canonical
+       * saved OVR always resolves from those attributes.
+       */
+      if (player?.attributes && typeof player.attributes === 'object') {
+        player.overall =
+          normalizeAttributePosition(player.position) === 'G'
+            ? calculateGoalieOverallFromAttributes(player.attributes)
+            : calculateOverallFromAttributes(player.attributes, player.position);
+      }
+
+      ensureCanonicalPlayerContract(player);
+    });
     return _state.externalProspects;
   }
 
