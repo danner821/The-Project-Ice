@@ -1,0 +1,25 @@
+name: Audit Real Prospect World
+on:
+  push:
+    paths:
+      - '.github/scripts/audit_real_prospect_world.js'
+      - '.github/workflows/audit-real-prospect-world.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          node .github/scripts/audit_real_prospect_world.js > .github/real_prospect_world_audit.json 2> .github/real_prospect_world_audit.err
+          STATUS=$?
+          echo "AUDIT_STATUS=$STATUS" > .github/real_prospect_world_audit.status
+          exit 0
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/real_prospect_world_audit.json .github/real_prospect_world_audit.err .github/real_prospect_world_audit.status
+          git commit -m 'Persist canonical real prospect runtime audit' || exit 0
+          git push
