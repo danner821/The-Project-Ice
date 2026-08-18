@@ -36665,6 +36665,29 @@ case 'career-defense':
     return Number((performanceSignal * exposureFactor * 4).toFixed(3));
   }
 
+  function getProspectClassReadinessAdjustment(player = {}) {
+    const draftYear = getProjectIceProspectDraftYear(player);
+    if (!draftYear) return 0;
+
+    /*
+     * Opening Project Ice world: 2024 seniors, 2025 juniors, 2026 sophomores,
+     * 2027 freshmen. Older players are physically closer to the next level;
+     * younger future classes can still rank, but must be exceptional enough to
+     * overcome a readiness gap rather than winning the board on potential alone.
+     */
+    const careerPlayer = getCareerPlayerFromWorldState();
+    const careerDraftYear = getProjectIceProspectDraftYear(careerPlayer) || 2027;
+    const classDistance = draftYear - careerDraftYear;
+
+    if (classDistance <= -3) return 10.5;
+    if (classDistance === -2) return 7.0;
+    if (classDistance === -1) return 3.5;
+    if (classDistance === 0) return 0;
+    if (classDistance === 1) return -5.0;
+    if (classDistance === 2) return -10.0;
+    return -15.0;
+  }
+
   function calculateWeeklyScoutingScore(player = {}) {
     const overall = Number(player.overall) || 50;
     const potential = Number(
@@ -36679,6 +36702,8 @@ case 'career-defense':
       ((Number(player.reputationStars) || 1) * 20);
     const spotlightMomentum =
       getScoutingSpotlightPerformanceMomentum(player);
+    const classReadinessAdjustment =
+      getProspectClassReadinessAdjustment(player);
 
     return Number((
       overall * 0.48 +
@@ -36686,7 +36711,8 @@ case 'career-defense':
       Math.min(20, pointsPerGame * 10) * 0.10 +
       Math.min(100, reputation) * 0.09 +
       Math.min(100, coachTrust) * 0.05 +
-      spotlightMomentum
+      spotlightMomentum +
+      classReadinessAdjustment
     ).toFixed(3));
   }
 
@@ -36911,8 +36937,11 @@ case 'career-defense':
     let confidenceDelta;
     if (meaningfulMismatch) {
       confidenceDelta = -Math.min(2.4, 0.35 + mismatchStrength * 0.72);
-    } else {
+    } else if (observedGames > 0) {
       confidenceDelta = 0.18 + Math.min(0.52, observedGames * 0.025);
+    } else {
+      /* No observation = no free increase in scouting certainty. */
+      confidenceDelta = 0;
     }
 
     let newConfidence = Math.max(25, Math.min(100, oldConfidence + confidenceDelta));
@@ -37223,14 +37252,37 @@ case 'career-defense':
     const normalizedDate = normalizeLivingWorldDateKey(dateString) || dateString || null;
     const weekKey = getLivingWorldWeekKey(normalizedDate);
     const lastReport = profile.scoutingHistory[profile.scoutingHistory.length - 1] || null;
+    const canonicalAccuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+      profile.evaluationAccuracy ||
+      'Low';
+    const sameKnownTraits = (first = [], second = []) =>
+      JSON.stringify(first || []) === JSON.stringify(second || []);
+    const reportMeaningfullyChanged = Boolean(
+      !lastReport ||
+      Number(lastReport.gamesObserved || 0) !== observed ||
+      String(lastReport.interestLevel || 'None') !== String(profile.interestLevel || 'None') ||
+      String(lastReport.evaluationAccuracy || 'Low') !== String(canonicalAccuracy) ||
+      !sameKnownTraits(lastReport.strengthsKnown, profile.strengthsKnown) ||
+      !sameKnownTraits(lastReport.weaknessesKnown, profile.weaknessesKnown)
+    );
 
-    /* One report snapshot per week. */
+    if (lastReport && lastReport.weekKey !== weekKey && !reportMeaningfullyChanged) {
+      return {
+        success: true,
+        updated: false,
+        reason: 'scouting-report-no-new-evidence',
+        report: lastReport,
+      };
+    }
+
+    /* One report snapshot per week when scouting information actually changes. */
     if (lastReport?.weekKey === weekKey) {
       lastReport.summary = buildScoutingReportSummary(player, profile);
       lastReport.gamesObserved = observed;
       lastReport.interestLevel = profile.interestLevel || 'None';
-      lastReport.evaluationAccuracy =
-        player.development?.potentialAccuracy || player.potentialAccuracy || profile.evaluationAccuracy || 'Low';
+      lastReport.evaluationAccuracy = canonicalAccuracy;
       lastReport.strengthsKnown = [...profile.strengthsKnown];
       lastReport.weaknessesKnown = [...profile.weaknessesKnown];
       return { success: true, updated: true, reason: 'scouting-report-week-refreshed', report: lastReport };
@@ -37243,8 +37295,7 @@ case 'career-defense':
       publicRank: Number(profile.publicRank) || null,
       previousRank: Number(profile.previousRank) || null,
       interestLevel: profile.interestLevel || 'None',
-      evaluationAccuracy:
-        player.development?.potentialAccuracy || player.potentialAccuracy || profile.evaluationAccuracy || 'Low',
+      evaluationAccuracy: canonicalAccuracy,
       strengthsKnown: [...profile.strengthsKnown],
       weaknessesKnown: [...profile.weaknessesKnown],
       summary: buildScoutingReportSummary(player, profile),
@@ -37425,8 +37476,7 @@ case 'career-defense':
     const careerId = String(careerPlayer.id || careerPlayer.playerId || 'career-player');
     const careerPosition = normalizeAttributePosition(careerPlayer.position);
 
-    const candidates = (_state.teams || [])
-      .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
+    const candidates = getAllWorldPlayers()
       .filter(player => {
         const playerId = String(player?.id || player?.playerId || '');
         const rank = Math.max(0, Number(player?.scoutingProfile?.publicRank) || 0);
