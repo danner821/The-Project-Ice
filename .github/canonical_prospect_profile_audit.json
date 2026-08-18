@@ -1,0 +1,36 @@
+{
+  "dupont": {
+    "id": "real-landon-dupont",
+    "name": "Landon DuPont",
+    "position": "D",
+    "draftYear": 2027,
+    "team": "Everett Silvertips",
+    "league": "WHL",
+    "height": "6'0\"",
+    "weightLbs": 190,
+    "shoots": "R",
+    "catches": null,
+    "overall": 70,
+    "potentialRole": "Franchise",
+    "potentialAccuracy": "Medium",
+    "attributeCount": 23,
+    "canonicalLookupSameObject": true
+  },
+  "goalie": {
+    "id": "real-ilja-nikitins",
+    "name": "Iļja Ņikitins",
+    "position": "G",
+    "draftYear": 2027,
+    "team": "Philadelphia Rebels",
+    "league": "NAHL",
+    "height": "6'0\"",
+    "weightLbs": 179,
+    "shoots": null,
+    "catches": null,
+    "overall": 62,
+    "potentialRole": "Starter",
+    "potentialAccuracy": "Medium",
+    "attributeCount": 19,
+    "canonicalLookupSameObject": true
+  }
+}
