@@ -1,0 +1,40 @@
+name: Diagnose 150 Prospect Build
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-150-prospect-build.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run diagnostics without aborting
+        run: |
+          set +e
+          python .github/scripts/build_150_real_prospects.py > /tmp/out.txt 2> /tmp/err.txt
+          PY_STATUS=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/node.txt 2>&1
+          NODE_STATUS=$?
+          node artifacts/project-ice/public/prospects.js > /tmp/run.txt 2>&1
+          RUN_STATUS=$?
+          {
+            echo "PY_STATUS=$PY_STATUS"
+            echo "NODE_STATUS=$NODE_STATUS"
+            echo "RUN_STATUS=$RUN_STATUS"
+            echo "--- STDOUT ---"
+            cat /tmp/out.txt
+            echo "--- STDERR ---"
+            cat /tmp/err.txt
+            echo "--- NODE CHECK ---"
+            cat /tmp/node.txt
+            echo "--- NODE RUN ---"
+            cat /tmp/run.txt
+          } > .github/real_prospect_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/real_prospect_diagnostic.txt
+          git commit -m 'Persist researched prospect build diagnostic' || exit 0
+          git push
