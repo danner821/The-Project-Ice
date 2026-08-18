@@ -23,18 +23,18 @@ jobs:
           after=Path('artifacts/project-ice/public/game.js').read_text(errors='ignore').splitlines()
           delta=len(after)-len(before)
           print('GAME_LINE_DELTA',delta)
-          if abs(delta) > 20:
+          if abs(delta) > 80:
               raise SystemExit('unexpectedly large game.js line delta')
           text='\n'.join(after)
-          if '<span class="pr-player-reputation">' in text:
-              raise SystemExit('fallback reputation markup still present')
-          if text.count('class="pr-player-context"') < 2:
-              raise SystemExit('expected canonical and fallback context rows')
+          if 'rosteredRealProspectIds' not in text:
+              raise SystemExit('missing rostered-real-prospect dedupe set')
+          if "sourceType: isRosteredRealProspect ? 'real-hs' : 'fictional-hs'" not in text:
+              raise SystemExit('missing canonical real-HS source marker')
           PY
       - run: |
           git config user.name 'Project Ice Bot'
           git config user.email 'actions@github.com'
           git add artifacts/project-ice/public/game.js
-          git commit -m 'Unify fallback prospect row context' || exit 0
+          git commit -m 'Deduplicate rostered real prospects in rankings' || exit 0
           git pull --rebase origin main
           git push origin main
