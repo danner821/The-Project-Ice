@@ -1,0 +1,40 @@
+name: Recover Known Good Runtime
+on:
+  push:
+    paths:
+      - '.github/workflows/recover-known-good-runtime.yml'
+permissions:
+  contents: write
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore known-good UI/runtime and completed Living World backend
+        run: |
+          git checkout 016596c1e3a2f9c1b9914a4940a8760630cd21c7 -- artifacts/project-ice/public/game.js
+          git checkout 679cf2810122aec4b812393418b37fd66e020c3a -- artifacts/project-ice/public/world.js
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('artifacts/project-ice/public/game.js')
+          s=p.read_text()
+          s=s.replace('  if (isDevSession) return;','  if (window.PROJECT_ICE_DEV_SESSION === true) return;',1)
+          s=s.replace('    isDevSession = true;\n    window.PROJECT_ICE_DEV_SESSION = true;','    window.PROJECT_ICE_DEV_SESSION = true;',1)
+          p.write_text(s)
+          PY
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q "function renderCareerSaveSelection" artifacts/project-ice/public/game.js
+      - run: grep -q "function loadCareerPreview" artifacts/project-ice/public/game.js
+      - run: grep -q "function renderLeagueProspectsPreview" artifacts/project-ice/public/game.js
+      - run: grep -q "function renderFullNewsScreen" artifacts/project-ice/public/game.js
+      - run: grep -q "freshman_of_year" artifacts/project-ice/public/world.js
+      - name: Commit recovery
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+          git commit -m 'Recover runtime from last confirmed working build' || exit 0
+          git push
