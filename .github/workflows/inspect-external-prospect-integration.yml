@@ -1,0 +1,20 @@
+name: Inspect External Prospect Integration
+on:
+  push:
+    paths:
+      - '.github/scripts/inspect_external_prospect_integration.py'
+      - '.github/workflows/inspect-external-prospect-integration.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_external_prospect_integration.py > .github/external_prospect_integration_audit.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/external_prospect_integration_audit.txt
+          git commit -m 'Persist external prospect integration audit' || exit 0
+          git push
