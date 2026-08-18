@@ -1,0 +1,236 @@
+{
+  "rosterSizesBefore": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+  ],
+  "rosterSizesAfter": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+  ],
+  "externalBefore": 154,
+  "externalAfter": 154,
+  "cohortCounts": {
+    "2027": 12,
+    "2028": 12,
+    "2029": 3,
+    "2030": 12
+  },
+  "realHsCount": 12,
+  "current2027Count": 12,
+  "futureRosteredCount": 0,
+  "duplicateExternalCount": 0,
+  "teamDistribution": [
+    {
+      "teamId": "team-summit-academy",
+      "realHsCount": 2,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-iron-peak",
+      "realHsCount": 2,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-north-ridge",
+      "realHsCount": 2,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-cedar-valley",
+      "realHsCount": 2,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-westbrook",
+      "realHsCount": 1,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-granite-falls",
+      "realHsCount": 1,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-lakeview",
+      "realHsCount": 1,
+      "rosterSize": 20
+    },
+    {
+      "teamId": "team-oakridge",
+      "realHsCount": 1,
+      "rosterSize": 20
+    }
+  ],
+  "currentAllWorldCopies": [
+    {
+      "id": "real-jamie-glance",
+      "copies": 1
+    },
+    {
+      "id": "real-kayden-stroeder",
+      "copies": 1
+    },
+    {
+      "id": "real-ilya-kolomytsev",
+      "copies": 1
+    },
+    {
+      "id": "real-lenni-kokkonen",
+      "copies": 1
+    },
+    {
+      "id": "real-tyden-lafournaise",
+      "copies": 1
+    },
+    {
+      "id": "real-noah-davidson",
+      "copies": 1
+    },
+    {
+      "id": "real-carter-meyer",
+      "copies": 1
+    },
+    {
+      "id": "real-andrei-nikolayev",
+      "copies": 1
+    },
+    {
+      "id": "real-ben-harvey",
+      "copies": 1
+    },
+    {
+      "id": "real-douglas-johnsson",
+      "copies": 1
+    },
+    {
+      "id": "real-timothy-kazda",
+      "copies": 1
+    },
+    {
+      "id": "real-loik-gariepy",
+      "copies": 1
+    }
+  ],
+  "sample2027": [
+    {
+      "id": "real-jamie-glance",
+      "name": "Jamie Glance",
+      "draftYear": 2027,
+      "teamId": "team-summit-academy",
+      "rosterSlot": "slot-1",
+      "currentTeam": "Summit Academy Titans",
+      "realTeamSnapshot": "U.S. National U18 Team"
+    },
+    {
+      "id": "real-kayden-stroeder",
+      "name": "Kayden Stroeder",
+      "draftYear": 2027,
+      "teamId": "team-summit-academy",
+      "rosterSlot": "slot-4",
+      "currentTeam": "Summit Academy Titans",
+      "realTeamSnapshot": "Edmonton Oil Kings"
+    },
+    {
+      "id": "real-ilya-kolomytsev",
+      "name": "Ilya Kolomytsev",
+      "draftYear": 2027,
+      "teamId": "team-iron-peak",
+      "rosterSlot": "slot-1",
+      "currentTeam": "Iron Peak Wolves",
+      "realTeamSnapshot": "Irbis Kazan"
+    },
+    {
+      "id": "real-lenni-kokkonen",
+      "name": "Lenni Kokkonen",
+      "draftYear": 2027,
+      "teamId": "team-iron-peak",
+      "rosterSlot": "slot-12",
+      "currentTeam": "Iron Peak Wolves",
+      "realTeamSnapshot": "Kärpät U20"
+    },
+    {
+      "id": "real-tyden-lafournaise",
+      "name": "Tyden Lafournaise",
+      "draftYear": 2027,
+      "teamId": "team-north-ridge",
+      "rosterSlot": "slot-1",
+      "currentTeam": "North Ridge Falcons",
+      "realTeamSnapshot": "Lethbridge Hurricanes"
+    },
+    {
+      "id": "real-noah-davidson",
+      "name": "Noah Davidson",
+      "draftYear": 2027,
+      "teamId": "team-north-ridge",
+      "rosterSlot": "slot-4",
+      "currentTeam": "North Ridge Falcons",
+      "realTeamSnapshot": "Medicine Hat Tigers"
+    },
+    {
+      "id": "real-carter-meyer",
+      "name": "Carter Meyer",
+      "draftYear": 2027,
+      "teamId": "team-cedar-valley",
+      "rosterSlot": "slot-1",
+      "currentTeam": "Cedar Valley Storm",
+      "realTeamSnapshot": "U.S. National U17 Team"
+    },
+    {
+      "id": "real-andrei-nikolayev",
+      "name": "Andrei Nikolayev",
+      "draftYear": 2027,
+      "teamId": "team-cedar-valley",
+      "rosterSlot": "slot-18",
+      "currentTeam": "Cedar Valley Storm",
+      "realTeamSnapshot": "New Jersey Jr. Titans"
+    },
+    {
+      "id": "real-ben-harvey",
+      "name": "Ben Harvey",
+      "draftYear": 2027,
+      "teamId": "team-westbrook",
+      "rosterSlot": "slot-1",
+      "currentTeam": "Westbrook Knights",
+      "realTeamSnapshot": "Prince Albert Raiders"
+    },
+    {
+      "id": "real-douglas-johnsson",
+      "name": "Douglas Johnsson",
+      "draftYear": 2027,
+      "teamId": "team-granite-falls",
+      "rosterSlot": "slot-12",
+      "currentTeam": "Granite Falls Bears",
+      "realTeamSnapshot": "Skellefteå AIK U20"
+    },
+    {
+      "id": "real-timothy-kazda",
+      "name": "Timothy Kazda",
+      "draftYear": 2027,
+      "teamId": "team-lakeview",
+      "rosterSlot": "slot-1",
+      "currentTeam": "Lakeview Lynx",
+      "realTeamSnapshot": "Chicago Steel"
+    },
+    {
+      "id": "real-loik-gariepy",
+      "name": "Loïk Gariepy",
+      "draftYear": 2027,
+      "teamId": "team-oakridge",
+      "rosterSlot": "slot-1",
+      "currentTeam": "Oakridge Ravens",
+      "realTeamSnapshot": "Victoriaville Tigres"
+    }
+  ]
+}
