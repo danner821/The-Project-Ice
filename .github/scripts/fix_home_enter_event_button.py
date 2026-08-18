@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# Extract the exact live Schedule/Home/EventSystem action paths so the next patch
+# can consolidate behavior without guessing at the monolithic runtime.
 path = Path('artifacts/project-ice/public/game.js')
 text = path.read_text(encoding='utf-8')
 out = Path('.github/home_schedule_action_audit.txt')
