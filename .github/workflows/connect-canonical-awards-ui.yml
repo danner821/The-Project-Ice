@@ -1,0 +1,50 @@
+name: Connect Canonical Awards UI
+on:
+  push:
+    paths:
+      - '.github/scripts/connect_canonical_awards_ui.py'
+      - '.github/workflows/connect-canonical-awards-ui.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply guarded patch
+        run: |
+          BEFORE_LINES=$(wc -l < artifacts/project-ice/public/game.js)
+          python .github/scripts/connect_canonical_awards_ui.py
+          AFTER_LINES=$(wc -l < artifacts/project-ice/public/game.js)
+          DELTA=$((AFTER_LINES-BEFORE_LINES))
+          echo "BEFORE_LINES=$BEFORE_LINES"
+          echo "AFTER_LINES=$AFTER_LINES"
+          echo "LINE_DELTA=$DELTA"
+          if [ "$DELTA" -lt 0 ] || [ "$DELTA" -gt 220 ]; then
+            echo "Unexpected game.js line-count change; refusing commit."
+            exit 1
+          fi
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q 'canonicalAwardRaces' artifacts/project-ice/public/game.js
+      - run: grep -q 'Freshman of the Year' artifacts/project-ice/public/world.js
+      - name: Guard diff size
+        run: |
+          NUMSTAT=$(git diff --numstat -- artifacts/project-ice/public/game.js)
+          echo "$NUMSTAT"
+          ADDED=$(echo "$NUMSTAT" | awk '{print $1}')
+          DELETED=$(echo "$NUMSTAT" | awk '{print $2}')
+          [ -z "$ADDED" ] && ADDED=0
+          [ -z "$DELETED" ] && DELETED=0
+          if [ "$ADDED" -gt 220 ] || [ "$DELETED" -gt 8 ]; then
+            echo "Unexpected awards UI diff; refusing commit."
+            exit 1
+          fi
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Render League awards from canonical weekly races' || exit 0
+          git pull --rebase origin main
+          git push origin main
