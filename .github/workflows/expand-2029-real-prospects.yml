@@ -1,0 +1,28 @@
+name: Expand 2029 Real Prospects
+on:
+  push:
+    paths:
+      - '.github/scripts/expand_2029_real_prospects.py'
+      - '.github/workflows/expand-2029-real-prospects.yml'
+permissions:
+  contents: write
+jobs:
+  expand:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/expand_2029_real_prospects.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: grep -q '2029: 33' artifacts/project-ice/public/prospects.js
+      - run: grep -q "\['Juho Nyberg'" artifacts/project-ice/public/prospects.js
+      - run: grep -q "\['Tyler Longo'" artifacts/project-ice/public/prospects.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js
+          git commit -m 'Expand verified 2029 real prospect class' || exit 0
+          git pull --rebase origin main
+          git push origin main
