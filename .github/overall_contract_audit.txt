@@ -1,0 +1,2170 @@
+
+FILE artifacts/project-ice/public/world.js
+### LINE 2392:   function createAttributesFromOverall(
+        angles: 3,
+        lateralMovement: 3,
+        reboundControl: 3,
+        puckTracking: 3,
+      },
+    };
+
+    return bonuses[archetype]?.[key] || 0;
+  }
+
+  function createAttributesFromOverall(
+    overall,
+    position,
+    archetype = 'Balanced'
+  ) {
+    const normalizedPosition = normalizeAttributePosition(position);
+
+    const attributes = {};
+
+    PLAYER_ATTRIBUTE_KEYS.forEach(key => {
+      const randomVariance = Math.floor(Math.random() * 9) - 4;
+      const archetypeBonus = getArchetypeAttributeBonus(archetype, key);
+
+      attributes[key] = clampAttribute(
+        Number(overall) + randomVariance + archetypeBonus
+      );
+    });
+
+    // Position-specific realism adjustments.
+    if (normalizedPosition === 'C') {
+      attributes.faceoffs = clampAttribute(attributes.faceoffs + 8);
+      attributes.passing = clampAttribute(attributes.passing + 3);
+    }
+
+    if (normalizedPosition === 'LW' || normalizedPosition === 'RW') {
+      attributes.faceoffs = clampAttribute(attributes.faceoffs - 12);
+      attributes.speed = clampAttribute(attributes.speed + 2);
+    }
+
+    if (normalizedPosition === 'LD' || normalizedPosition === 'RD') {
+      attributes.faceoffs = clampAttribute(attributes.faceoffs - 18);
+      attributes.defensiveAwareness = clampAttribute(
+        attributes.defensiveAwareness + 4
+      );
+    }
+
+    return attributes;
+  }
+
+  function createGoalieAttributesFromOverall(
+    overall,
+    archetype = 'Hybrid Goalie'
+  ) {
+    const baseOverall =
+      Number(overall) || 60;
+
+    const attributes = {};
+
+    GOALIE_ATTRIBUTE_KEYS.forEach(key => {
+      const randomVariance =
+        Math.floor(Math.random() * 9) - 4;
+
+      const archetypeBonus =
+        getArchetypeAttributeBonus(
+          archetype,
+          key
+        );
+
+      attributes[key] =
+        clampAttribute(
+          baseOverall +
+          randomVariance +
+          archetypeBonus
+        );
+    });
+
+    /*
+     * Small realism adjustments shared by all goalies.
+     * Core save skills should generally be more developed
+     * than puck-playing ability at the high-school level.
+     */
+    attributes.positioning =
+      clampAttribute(
+        attributes.positioning + 2
+      );
+
+    attributes.puckTracking =
+      clampAttribute(
+        attributes.puckTracking + 2
+      );
+
+    attributes.puckHandling =
+      clampAttribute(
+        attributes.puckHandling - 5
+      );
+
+    attributes.goaliePassing =
+      clampAttribute(
+        attributes.goaliePassing - 4
+      );
+
+    return attributes;
+  }
+
+  function calculateGoalieOverallFromAttributes(
+    attributes = {}
+  ) {
+    const weights = {
+      // Most important core save abilities
+      positioning: 1.45,
+### LINE 2431:   function createGoalieAttributesFromOverall(
+    if (normalizedPosition === 'LD' || normalizedPosition === 'RD') {
+      attributes.faceoffs = clampAttribute(attributes.faceoffs - 18);
+      attributes.defensiveAwareness = clampAttribute(
+        attributes.defensiveAwareness + 4
+      );
+    }
+
+    return attributes;
+  }
+
+  function createGoalieAttributesFromOverall(
+    overall,
+    archetype = 'Hybrid Goalie'
+  ) {
+    const baseOverall =
+      Number(overall) || 60;
+
+    const attributes = {};
+
+    GOALIE_ATTRIBUTE_KEYS.forEach(key => {
+      const randomVariance =
+        Math.floor(Math.random() * 9) - 4;
+
+      const archetypeBonus =
+        getArchetypeAttributeBonus(
+          archetype,
+          key
+        );
+
+      attributes[key] =
+        clampAttribute(
+          baseOverall +
+          randomVariance +
+          archetypeBonus
+        );
+    });
+
+    /*
+     * Small realism adjustments shared by all goalies.
+     * Core save skills should generally be more developed
+     * than puck-playing ability at the high-school level.
+     */
+    attributes.positioning =
+      clampAttribute(
+        attributes.positioning + 2
+      );
+
+    attributes.puckTracking =
+      clampAttribute(
+        attributes.puckTracking + 2
+      );
+
+    attributes.puckHandling =
+      clampAttribute(
+        attributes.puckHandling - 5
+      );
+
+    attributes.goaliePassing =
+      clampAttribute(
+        attributes.goaliePassing - 4
+      );
+
+    return attributes;
+  }
+
+  function calculateGoalieOverallFromAttributes(
+    attributes = {}
+  ) {
+    const weights = {
+      // Most important core save abilities
+      positioning: 1.45,
+      reflexes: 1.40,
+      puckTracking: 1.35,
+      reboundControl: 1.30,
+      angles: 1.25,
+
+      // Movement and recovery
+      lateralMovement: 1.25,
+      agility: 1.15,
+      recoverySpeed: 1.15,
+
+      // Save-specific technique
+      gloveHigh: 1.10,
+      gloveLow: 1.10,
+      blockerHigh: 1.10,
+      blockerLow: 1.10,
+      fiveHole: 1.15,
+      stickControl: 1.05,
+
+      // Mental reliability
+      anticipation: 1.20,
+      composure: 1.15,
+      consistency: 1.20,
+
+      // Puck playing matters, but less
+      puckHandling: 0.65,
+      goaliePassing: 0.60,
+    };
+
+    let totalValue = 0;
+    let totalWeight = 0;
+
+    GOALIE_ATTRIBUTE_KEYS.forEach(key => {
+      const value =
+        Number(attributes?.[key]) || 50;
+
+      const weight =
+        Number(weights[key]) || 1;
+
+      totalValue += value * weight;
+### OVERALL ASSIGN 2435
+      attributes.defensiveAwareness = clampAttribute(
+        attributes.defensiveAwareness + 4
+      );
+    }
+
+    return attributes;
+  }
+
+  function createGoalieAttributesFromOverall(
+    overall,
+    archetype = 'Hybrid Goalie'
+  ) {
+    const baseOverall =
+      Number(overall) || 60;
+
+    const attributes = {};
+
+    GOALIE_ATTRIBUTE_KEYS.forEach(key => {
+      const randomVariance =
+        Math.floor(Math.random() * 9) - 4;
+
+      const archetypeBonus =
+        getArchetypeAttributeBonus(
+          archetype,
+          key
+        );
+
+      attributes[key] =
+        clampAttribute(
+          baseOverall +
+          randomVariance +
+          archetypeBonus
+        );
+    });
+
+    /*
+     * Small realism adjustments shared by all goalies.
+     * Core save skills should generally be more developed
+     * than puck-playing ability at the high-school level.
+     */
+    attributes.positioning =
+      clampAttribute(
+        attributes.positioning + 2
+      );
+
+    attributes.puckTracking =
+      clampAttribute(
+### LINE 2486:   function calculateGoalieOverallFromAttributes(
+      );
+
+    attributes.goaliePassing =
+      clampAttribute(
+        attributes.goaliePassing - 4
+      );
+
+    return attributes;
+  }
+
+  function calculateGoalieOverallFromAttributes(
+    attributes = {}
+  ) {
+    const weights = {
+      // Most important core save abilities
+      positioning: 1.45,
+      reflexes: 1.40,
+      puckTracking: 1.35,
+      reboundControl: 1.30,
+      angles: 1.25,
+
+      // Movement and recovery
+      lateralMovement: 1.25,
+      agility: 1.15,
+      recoverySpeed: 1.15,
+
+      // Save-specific technique
+      gloveHigh: 1.10,
+      gloveLow: 1.10,
+      blockerHigh: 1.10,
+      blockerLow: 1.10,
+      fiveHole: 1.15,
+      stickControl: 1.05,
+
+      // Mental reliability
+      anticipation: 1.20,
+      composure: 1.15,
+      consistency: 1.20,
+
+      // Puck playing matters, but less
+      puckHandling: 0.65,
+      goaliePassing: 0.60,
+    };
+
+    let totalValue = 0;
+    let totalWeight = 0;
+
+    GOALIE_ATTRIBUTE_KEYS.forEach(key => {
+      const value =
+        Number(attributes?.[key]) || 50;
+
+      const weight =
+        Number(weights[key]) || 1;
+
+      totalValue += value * weight;
+      totalWeight += weight;
+    });
+
+    const calculatedOverall =
+      totalWeight > 0
+        ? Math.round(
+            totalValue / totalWeight
+          )
+        : 50;
+
+    return Math.max(
+      25,
+      Math.min(
+        HIGH_SCHOOL_OVR_CAP,
+        calculatedOverall
+      )
+    );
+  }
+
+  function calculateOverallFromAttributes(attributes, position) {
+    const normalizedPosition = normalizeAttributePosition(position);
+    const weights = POSITION_ATTRIBUTE_WEIGHTS[normalizedPosition] || {};
+
+    let totalValue = 0;
+    let totalWeight = 0;
+
+    PLAYER_ATTRIBUTE_KEYS.forEach(key => {
+      const value = Number(attributes?.[key]) || 50;
+      const weight = weights[key] || 1;
+
+      totalValue += value * weight;
+      totalWeight += weight;
+    });
+
+    const calculatedOverall = totalWeight
+      ? Math.round(totalValue / totalWeight)
+      : 50;
+
+    return Math.max(
+      25,
+      Math.min(HIGH_SCHOOL_OVR_CAP, calculatedOverall)
+    );
+  }
+
+  function enforceHighSchoolOverallCap(player) {
+    if (!player) return player;
+
+    const calculatedOverall = player.attributes
+      ? calculateOverallFromAttributes(
+          player.attributes,
+          player.position
+        )
+      : Number(player.overall) || 50;
+
+    player.overall = Math.min(
+### LINE 2550:   function calculateOverallFromAttributes(attributes, position) {
+
+    return Math.max(
+      25,
+      Math.min(
+        HIGH_SCHOOL_OVR_CAP,
+        calculatedOverall
+      )
+    );
+  }
+
+  function calculateOverallFromAttributes(attributes, position) {
+    const normalizedPosition = normalizeAttributePosition(position);
+    const weights = POSITION_ATTRIBUTE_WEIGHTS[normalizedPosition] || {};
+
+    let totalValue = 0;
+    let totalWeight = 0;
+
+    PLAYER_ATTRIBUTE_KEYS.forEach(key => {
+      const value = Number(attributes?.[key]) || 50;
+      const weight = weights[key] || 1;
+
+      totalValue += value * weight;
+      totalWeight += weight;
+    });
+
+    const calculatedOverall = totalWeight
+      ? Math.round(totalValue / totalWeight)
+      : 50;
+
+    return Math.max(
+      25,
+      Math.min(HIGH_SCHOOL_OVR_CAP, calculatedOverall)
+    );
+  }
+
+  function enforceHighSchoolOverallCap(player) {
+    if (!player) return player;
+
+    const calculatedOverall = player.attributes
+      ? calculateOverallFromAttributes(
+          player.attributes,
+          player.position
+        )
+      : Number(player.overall) || 50;
+
+    player.overall = Math.min(
+      HIGH_SCHOOL_OVR_CAP,
+      calculatedOverall
+    );
+
+    return player;
+  }
+
+  // ── Canonical Player and Season Contracts ────────────────────
+
+  function createEmptySkaterStats() {
+    return {
+      gamesPlayed: 0,
+      goals: 0,
+      assists: 0,
+      points: 0,
+      plusMinus: 0,
+      penaltyMinutes: 0,
+      shots: 0,
+
+      powerPlayGoals: 0,
+      powerPlayPoints: 0,
+      shorthandedGoals: 0,
+      gameWinningGoals: 0,
+
+      minutesPlayed: 0,
+    };
+  }
+
+  function createEmptyGoalieStats() {
+    return {
+      gamesPlayed: 0,
+      gamesStarted: 0,
+
+      wins: 0,
+      losses: 0,
+      overtimeLosses: 0,
+
+      shotsAgainst: 0,
+      saves: 0,
+      goalsAgainst: 0,
+
+      savePercentage: 0,
+      goalsAgainstAverage: 0,
+
+      shutouts: 0,
+      minutesPlayed: 0,
+    };
+  }
+
+  function createEmptyPlayerStats(position) {
+    const normalizedPosition =
+      normalizeAttributePosition(position);
+
+    return normalizedPosition === 'G'
+      ? createEmptyGoalieStats()
+      : createEmptySkaterStats();
+  }
+
+  function createDefaultDevelopmentState(
+    player = {}
+  ) {
+    const age =
+      Number(player.age) || 14;
+
+### LINE 2575:   function enforceHighSchoolOverallCap(player) {
+    const calculatedOverall = totalWeight
+      ? Math.round(totalValue / totalWeight)
+      : 50;
+
+    return Math.max(
+      25,
+      Math.min(HIGH_SCHOOL_OVR_CAP, calculatedOverall)
+    );
+  }
+
+  function enforceHighSchoolOverallCap(player) {
+    if (!player) return player;
+
+    const calculatedOverall = player.attributes
+      ? calculateOverallFromAttributes(
+          player.attributes,
+          player.position
+        )
+      : Number(player.overall) || 50;
+
+    player.overall = Math.min(
+      HIGH_SCHOOL_OVR_CAP,
+      calculatedOverall
+    );
+
+    return player;
+  }
+
+  // ── Canonical Player and Season Contracts ────────────────────
+
+  function createEmptySkaterStats() {
+    return {
+      gamesPlayed: 0,
+      goals: 0,
+      assists: 0,
+      points: 0,
+      plusMinus: 0,
+      penaltyMinutes: 0,
+      shots: 0,
+
+      powerPlayGoals: 0,
+      powerPlayPoints: 0,
+      shorthandedGoals: 0,
+      gameWinningGoals: 0,
+
+      minutesPlayed: 0,
+    };
+  }
+
+  function createEmptyGoalieStats() {
+    return {
+      gamesPlayed: 0,
+      gamesStarted: 0,
+
+      wins: 0,
+      losses: 0,
+      overtimeLosses: 0,
+
+      shotsAgainst: 0,
+      saves: 0,
+      goalsAgainst: 0,
+
+      savePercentage: 0,
+      goalsAgainstAverage: 0,
+
+      shutouts: 0,
+      minutesPlayed: 0,
+    };
+  }
+
+  function createEmptyPlayerStats(position) {
+    const normalizedPosition =
+      normalizeAttributePosition(position);
+
+    return normalizedPosition === 'G'
+      ? createEmptyGoalieStats()
+      : createEmptySkaterStats();
+  }
+
+  function createDefaultDevelopmentState(
+    player = {}
+  ) {
+    const age =
+      Number(player.age) || 14;
+
+    const potential =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(player.potential) ||
+          Number(player.overall) ||
+          60
+        )
+      );
+
+    return {
+      /*
+       * Career-player XP is manually spent later.
+       * NPC growth will use the same development philosophy
+       * without requiring manual XP allocation.
+       */
+      xpAvailable: 0,
+      xpEarnedCareer: 0,
+      xpSpentCareer: 0,
+
+      /*
+       * XP remains one spendable currency.
+       * This ledger records how it was earned so practices,
+       * games, objectives, and career summaries can preserve
+### OVERALL ASSIGN 2578
+      ? Math.round(totalValue / totalWeight)
+      : 50;
+
+    return Math.max(
+      25,
+      Math.min(HIGH_SCHOOL_OVR_CAP, calculatedOverall)
+    );
+  }
+
+  function enforceHighSchoolOverallCap(player) {
+    if (!player) return player;
+
+    const calculatedOverall = player.attributes
+      ? calculateOverallFromAttributes(
+          player.attributes,
+          player.position
+        )
+      : Number(player.overall) || 50;
+
+    player.overall = Math.min(
+      HIGH_SCHOOL_OVR_CAP,
+      calculatedOverall
+    );
+
+    return player;
+  }
+
+  // ── Canonical Player and Season Contracts ────────────────────
+
+  function createEmptySkaterStats() {
+    return {
+      gamesPlayed: 0,
+      goals: 0,
+      assists: 0,
+      points: 0,
+      plusMinus: 0,
+      penaltyMinutes: 0,
+      shots: 0,
+
+      powerPlayGoals: 0,
+      powerPlayPoints: 0,
+      shorthandedGoals: 0,
+      gameWinningGoals: 0,
+
+      minutesPlayed: 0,
+    };
+  }
+### OVERALL ASSIGN 2585
+  }
+
+  function enforceHighSchoolOverallCap(player) {
+    if (!player) return player;
+
+    const calculatedOverall = player.attributes
+      ? calculateOverallFromAttributes(
+          player.attributes,
+          player.position
+        )
+      : Number(player.overall) || 50;
+
+    player.overall = Math.min(
+      HIGH_SCHOOL_OVR_CAP,
+      calculatedOverall
+    );
+
+    return player;
+  }
+
+  // ── Canonical Player and Season Contracts ────────────────────
+
+  function createEmptySkaterStats() {
+    return {
+      gamesPlayed: 0,
+      goals: 0,
+      assists: 0,
+      points: 0,
+      plusMinus: 0,
+      penaltyMinutes: 0,
+      shots: 0,
+
+      powerPlayGoals: 0,
+      powerPlayPoints: 0,
+      shorthandedGoals: 0,
+      gameWinningGoals: 0,
+
+      minutesPlayed: 0,
+    };
+  }
+
+  function createEmptyGoalieStats() {
+    return {
+      gamesPlayed: 0,
+      gamesStarted: 0,
+
+      wins: 0,
+### LINE 5474:     function averagePlayerOverall(
+            ?.unit === 'forward'
+      );
+
+    const defensemen =
+      skaters.filter(
+        player =>
+          player?.lineupAssignment
+            ?.unit === 'defense'
+      );
+
+    function averagePlayerOverall(
+      players = [],
+      fallback = 50
+    ) {
+      if (
+        !Array.isArray(players) ||
+        players.length === 0
+      ) {
+        return fallback;
+      }
+
+      const total =
+        players.reduce(
+          (sum, player) =>
+            sum +
+            (
+              Number(
+                player?.overall
+              ) || fallback
+            ),
+          0
+        );
+
+      return total / players.length;
+    }
+
+    function getPlayerByRosterId(
+      playerId
+    ) {
+      if (!playerId) {
+        return null;
+      }
+
+      return (
+        gameRoster.team.roster.find(
+          player =>
+            String(
+              player?.playerId ||
+              player?.id
+            ) ===
+            String(playerId)
+        ) ||
+        null
+      );
+    }
+
+    function getSpecialTeamsPlayers(
+      units = []
+    ) {
+      const playerIds =
+        new Set();
+
+      units.forEach(unit => {
+        const slots =
+          unit?.slots &&
+          typeof unit.slots ===
+            'object'
+            ? unit.slots
+            : {};
+
+        Object.values(
+          slots
+        ).forEach(playerId => {
+          if (playerId) {
+            playerIds.add(
+              String(playerId)
+            );
+          }
+        });
+      });
+
+      return Array.from(
+        playerIds
+      )
+        .map(
+          playerId =>
+            getPlayerByRosterId(
+              playerId
+            )
+        )
+        .filter(Boolean);
+    }
+
+    const forwardOverall =
+      averagePlayerOverall(
+        forwards
+      );
+
+    const defenseOverall =
+      averagePlayerOverall(
+        defensemen
+      );
+
+    const startingGoalie =
+      gameRoster.startingGoalie;
+
+    const goalieOverall =
+      Number(
+        startingGoalie?.overall
+      ) ||
+### OVERALL ASSIGN 13870
+        Number(
+          player.age ??
+          player.development
+            ?.currentAge
+        ) || 14
+      );
+
+    const isGoalie =
+      normalizeAttributePosition(
+        player.position
+      ) === 'G';
+
+    const currentOverall =
+      Math.max(
+        25,
+        Math.min(
+          99,
+          Number(player.overall) || 50
+        )
+      );
+
+    /*
+     * Stable hidden variation gives otherwise similar
+     * players different aging curves without rerolling
+     * their longevity every season.
+     */
+    const regressionSeed =
+      Math.max(
+        0,
+        Math.min(
+          1,
+          Number(
+            player.development
+              ?.dna?.seed ??
+            player.development
+              ?.developmentSeed ??
+            player.developmentSeed
+          ) || 0.5
+        )
+      );
+
+    const regressionStartAge =
+      isGoalie
+        ? 35
+        : 33;
+
+    const yearsIntoRegression =
+### OVERALL ASSIGN 14512
+        reason: 'regression-had-no-effect',
+
+        distribution: {},
+        budget,
+        plan,
+      };
+    }
+
+    /*
+     * Overall remains derived entirely from the current
+     * attributes. Goalies use their dedicated formula.
+     */
+    player.overall =
+      isGoalie
+        ? calculateGoalieOverallFromAttributes(
+            player.attributes
+          )
+        : calculateOverallFromAttributes(
+            player.attributes,
+            player.position
+          );
+
+    const overallAfter =
+      Number(player.overall) || 0;
+
+    const overallRegression =
+      Math.max(
+        0,
+        overallBefore -
+        overallAfter
+      );
+
+    player.development
+      .totalOverallRegression =
+      Math.max(
+        0,
+        Number(
+          player.development
+            .totalOverallRegression
+        ) || 0
+      ) +
+      overallRegression;
+
+    /*
+     * Track annual attribute decline separately from growth.
+     */
+    if (
+### OVERALL ASSIGN 16971
+        ) || 0
+      ) + 1;
+
+    const isGoalie =
+      normalizeAttributePosition(
+        player.position
+      ) === 'G';
+
+    /*
+     * Overall is always derived from attributes.
+     * It is never upgraded directly.
+     */
+    player.overall =
+      isGoalie
+        ? calculateGoalieOverallFromAttributes(
+            player.attributes
+          )
+        : calculateOverallFromAttributes(
+            player.attributes,
+            player.position
+          );
+
+    enforceHighSchoolOverallCap(
+      player
+    );
+
+    const overallAfter =
+      Number(player.overall) || 0;
+
+    const developmentEntry = {
+      id:
+        `development-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      type:
+        'attribute-upgrade',
+
+      date:
+        _state.season?.currentDate ||
+        _state.player?.currentDate ||
+        null,
+
+      seasonId:
+        _state.season?.id ||
+        null,
+
+### OVERALL ASSIGN 36635
+    if (isGameOfWeek) weight += 0.35;
+    if (isProspectClash) weight += 1.5;
+
+    return Number(weight.toFixed(2));
+  }
+
+  function getScoutingSpotlightPerformanceMomentum(player = {}) {
+    const profile = player.scoutingProfile || {};
+    const exposure = Math.max(0, Number(profile.scoutingExposureScore) || 0);
+    if (exposure <= 0) return 0;
+
+    const stats = getScoutingPlayerStats(player);
+    const overall = Number(player.overall) || 50;
+    const position = normalizeAttributePosition(player.position);
+    let performanceSignal = 0;
+
+    if (position === 'G') {
+      const seasonStats = player.stats || player.seasonStats || {};
+      const savePercentage = Number(
+        seasonStats.savePercentage ?? seasonStats.svPct ?? player.savePercentage
+      ) || 0;
+      if (savePercentage > 0) {
+        performanceSignal = Math.max(-1, Math.min(1, (savePercentage - 0.900) / 0.055));
+      }
+    } else if (stats.gp > 0) {
+      const pointsPerGame = stats.points / Math.max(1, stats.gp);
+      const expectedPpg = Math.max(
+        0.18,
+        Math.min(1.35, 0.30 + ((overall - 55) * 0.025))
+      );
+      performanceSignal = Math.max(
+        -1,
+        Math.min(1, (pointsPerGame - expectedPpg) / 0.65)
+      );
+    }
+
+    /*
+     * Exposure amplifies what scouts are seeing; it never rewards attendance
+     * by itself. Strong play under a brighter spotlight can move a ranking
+     * faster, while poor play can do the opposite.
+     */
+    const exposureFactor = Math.min(1, exposure / 12);
+    return Number((performanceSignal * exposureFactor * 4).toFixed(3));
+  }
+
+  function calculateWeeklyScoutingScore(player = {}) {
+    const overall = Number(player.overall) || 50;
+### OVERALL ASSIGN 37131
+    return [
+      { label: 'Skating', keys: ['speed', 'acceleration', 'agility', 'balance'] },
+      { label: 'Shot', keys: ['wristShotPower', 'wristShotAccuracy', 'slapShotPower', 'slapShotAccuracy'] },
+      { label: 'Puck Skills', keys: ['passing', 'puckControl', 'deking', 'handEye'] },
+      { label: 'Offensive IQ', keys: ['offensiveAwareness', 'poise'] },
+      { label: 'Defensive Game', keys: ['defensiveAwareness', 'stickChecking', 'shotBlocking'] },
+      { label: 'Physical Game', keys: ['bodyChecking', 'strength', 'durability'] },
+    ];
+  }
+
+  function getScoutingTraitEvaluations(player = {}) {
+    const attributes = player.attributes || {};
+    const overall = Math.max(25, Math.min(99, Number(player.overall) || 50));
+    const groups = getScoutingAttributeGroups(player)
+      .map(group => {
+        const values = group.keys
+          .map(key => Number(attributes[key]))
+          .filter(Number.isFinite);
+        if (!values.length) return null;
+        const rating = values.reduce((sum, value) => sum + value, 0) / values.length;
+        return {
+          label: group.label,
+          rating: Number(rating.toFixed(2)),
+          relative: Number((rating - overall).toFixed(2)),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.rating - a.rating);
+
+    return {
+      strengths: groups
+        .filter(item => item.relative >= 2 || item.rating >= overall + 1)
+        .slice(0, 3),
+      weaknesses: [...groups]
+        .sort((a, b) => a.rating - b.rating)
+        .filter(item => item.relative <= -2 || item.rating <= overall - 1)
+        .slice(0, 3),
+      groups,
+    };
+  }
+
+  function buildScoutingReportSummary(player = {}, profile = {}) {
+    const name = [player.firstName, player.lastName].filter(Boolean).join(' ') || 'Prospect';
+    const interest = profile.interestLevel || 'None';
+    const accuracy =
+      player.development?.potentialAccuracy ||
+      player.potentialAccuracy ||
+### OVERALL ASSIGN 38132
+      (Array.isArray(team?.roster) ? team.roster : []).map(player => ({
+        player,
+        teamId: team.teamId,
+      }))
+    );
+
+    const previousSnapshot = livingWorld.awardRaceSnapshots.length
+      ? livingWorld.awardRaceSnapshots[livingWorld.awardRaceSnapshots.length - 1]
+      : null;
+
+    const playerId = player => String(player?.id || player?.playerId || '');
+    const position = player => normalizeAttributePosition(player?.position);
+    const overall = player => Math.max(0, Number(player?.overall) || 0);
+    const reputation = player => Math.max(0, Number(player?.reputationPoints) || ((Number(player?.reputationStars) || 0) * 20));
+
+    const snapshotPlayer = (entry, rank, score, previousRank) => ({
+      rank,
+      previousRank: previousRank || null,
+      rankChange: previousRank ? previousRank - rank : 0,
+      playerId: playerId(entry.player),
+      teamId: entry.teamId || entry.player?.teamId || null,
+      firstName: entry.player?.firstName || '',
+      lastName: entry.player?.lastName || '',
+      position: entry.player?.position || '',
+      overall: overall(entry.player),
+      score: Number(score.toFixed(3)),
+      stats: getLivingWorldPlayerStats(entry.player),
+    });
+
+    const makeRace = (key, label, eligible, scoreFunction) => {
+      const priorRace = previousSnapshot?.races?.find(race => race.key === key) || null;
+      const priorRanks = new Map((priorRace?.contenders || []).map(item => [String(item.playerId), Number(item.rank)]));
+      const contenders = players
+        .filter(entry => eligible(entry.player, getLivingWorldPlayerStats(entry.player)))
+        .map(entry => ({ entry, score: scoreFunction(entry.player, getLivingWorldPlayerStats(entry.player)) }))
+        .sort((a,b) => (b.score - a.score) || (overall(b.entry.player) - overall(a.entry.player)) || playerId(a.entry.player).localeCompare(playerId(b.entry.player)))
+        .slice(0, 5)
+        .map((item,index) => snapshotPlayer(item.entry, index + 1, item.score, priorRanks.get(playerId(item.entry.player))));
+      return { key, label, contenders };
+    };
+
+    const races = [
+      makeRace(
+        'mvp',
+        'Most Valuable Player',
+        (player, stats) => position(player) !== 'G' && stats.gamesPlayed > 0,
+        (player, stats) => stats.points * 5 + stats.goals * 2 + stats.plusMinus * 0.35 + overall(player) * 0.08 + reputation(player) * 0.025
+### OVERALL ASSIGN 39264
+      const attributes =
+        slot.position === 'G'
+          ? createGoalieAttributesFromOverall(
+              overall,
+              archetype
+            )
+          : createAttributesFromOverall(
+              overall,
+              slot.position,
+              archetype
+            );
+
+      const calculatedOverall =
+        slot.position === 'G'
+          ? calculateGoalieOverallFromAttributes(
+              attributes
+            )
+          : calculateOverallFromAttributes(
+              attributes,
+              slot.position
+            );
+
+        return ensureCanonicalPlayerContract({
+
+      id:
+        'player_' +
+        Math.random().toString(36).slice(2, 10),
+
+      firstName,
+      lastName,
+
+      nationality,
+
+      position: slot.position,
+
+      rosterSlot: slot.slot,
+
+      overall: calculatedOverall,
+
+      potential: Math.min(99, potential),
+
+      year: 'Freshman',
+
+      age: 14,
+
+      shoots:
+        Math.random() < 0.65 ? 'L' : 'R',
+### OVERALL ASSIGN 39644
+           * contain the older skater attribute schema.
+           *
+           * Their existing overall becomes the generation target,
+           * preserving their approximate ability while replacing
+           * irrelevant shooting/faceoff ratings with goalie skills.
+           */
+          player.attributes =
+            createGoalieAttributesFromOverall(
+              Number(player.overall) || 60,
+              player.archetype || 'Hybrid Goalie'
+            );
+
+          player.overall =
+            calculateGoalieOverallFromAttributes(
+              player.attributes
+            );
+
+          player.attributeModel = 'goalie-v1';
+        } else if (
+          !isGoalie &&
+          !player.attributes
+        ) {
+          player.attributes =
+            createAttributesFromOverall(
+              Number(player.overall) || 60,
+              player.position,
+              player.archetype
+            );
+
+          player.overall =
+            calculateOverallFromAttributes(
+              player.attributes,
+              player.position
+            );
+
+          player.attributeModel = 'skater-v1';
+        } else if (
+          isGoalie &&
+          hasGoalieAttributes
+        ) {
+          player.overall =
+            calculateGoalieOverallFromAttributes(
+              player.attributes
+            );
+
+          player.attributeModel =
+            player.attributeModel || 'goalie-v1';
+### OVERALL ASSIGN 39661
+          player.attributeModel = 'goalie-v1';
+        } else if (
+          !isGoalie &&
+          !player.attributes
+        ) {
+          player.attributes =
+            createAttributesFromOverall(
+              Number(player.overall) || 60,
+              player.position,
+              player.archetype
+            );
+
+          player.overall =
+            calculateOverallFromAttributes(
+              player.attributes,
+              player.position
+            );
+
+          player.attributeModel = 'skater-v1';
+        } else if (
+          isGoalie &&
+          hasGoalieAttributes
+        ) {
+          player.overall =
+            calculateGoalieOverallFromAttributes(
+              player.attributes
+            );
+
+          player.attributeModel =
+            player.attributeModel || 'goalie-v1';
+        } else {
+          player.attributeModel =
+            player.attributeModel || 'skater-v1';
+        }
+        // Migrate older saved players created before NHL-style potentials existed.
+        if (!player.potentialRole) {
+          player.potentialRole = getPotentialRole(
+            player.position,
+            Math.min(99, Number(player.potential) || Number(player.overall) || 75)
+          );
+        }
+
+        if (!player.potentialAccuracy) {
+          player.potentialAccuracy = generatePotentialAccuracy();
+        }
+
+        /*
+### OVERALL ASSIGN 39672
+
+          player.overall =
+            calculateOverallFromAttributes(
+              player.attributes,
+              player.position
+            );
+
+          player.attributeModel = 'skater-v1';
+        } else if (
+          isGoalie &&
+          hasGoalieAttributes
+        ) {
+          player.overall =
+            calculateGoalieOverallFromAttributes(
+              player.attributes
+            );
+
+          player.attributeModel =
+            player.attributeModel || 'goalie-v1';
+        } else {
+          player.attributeModel =
+            player.attributeModel || 'skater-v1';
+        }
+        // Migrate older saved players created before NHL-style potentials existed.
+        if (!player.potentialRole) {
+          player.potentialRole = getPotentialRole(
+            player.position,
+            Math.min(99, Number(player.potential) || Number(player.overall) || 75)
+          );
+        }
+
+        if (!player.potentialAccuracy) {
+          player.potentialAccuracy = generatePotentialAccuracy();
+        }
+
+        /*
+         * Migrate every existing saved player into the permanent
+         * Player Contract without replacing current attributes,
+         * statistics, identity, roster role, or progression data.
+         */
+        ensureCanonicalPlayerContract(player);
+      });
+      assignUniqueJerseyNumbers(team.roster);
+
+      /*
+       * Run the permanent roster and deployment engine for
+       * every team—not only the career player's team.
+### LINE 43671:   function getCareerTryoutTargetOverall(
+    return {
+      rosterSlot,
+      lineupAssignment,
+      lineupStatus:
+        lineupAssignment
+          ? 'active'
+          : 'unassigned',
+    };
+  }
+
+  function getCareerTryoutTargetOverall(
+    tryoutScore
+  ) {
+    const score = Math.max(
+      0,
+      Math.min(
+        100,
+        Number(tryoutScore) || 0
+      )
+    );
+
+    /*
+     * Freshman starting range:
+     * weakest results begin around 60 OVR,
+     * exceptional results can reach 68 OVR.
+     *
+     * This is only the attribute-generation target.
+     * Final overall must still be calculated from attributes.
+     */
+    if (score >= 97) return 68;
+    if (score >= 93) return 67;
+    if (score >= 88) return 66;
+    if (score >= 82) return 65;
+    if (score >= 75) return 64;
+    if (score >= 68) return 63;
+    if (score >= 60) return 62;
+    if (score >= 50) return 61;
+
+    return 60;
+  }
+
+  function createCareerAttributesFromTryouts(
+    playerData = {}
+  ) {
+    const results =
+      playerData.tryoutResults || {};
+
+    const skatingScore =
+      Number(results.skating?.score) || 0;
+
+    const puckControlScore =
+      Number(results.puckControl?.score) || 0;
+
+    const scrimmageScore =
+      Number(results.scrimmage?.score) || 0;
+
+    const overallTryoutScore =
+      Number(playerData.overallTryoutScore) ||
+      Math.round(
+        (
+          skatingScore +
+          puckControlScore +
+          scrimmageScore
+        ) / 3
+      ) ||
+      0;
+
+    const targetOverall =
+      getCareerTryoutTargetOverall(
+        overallTryoutScore
+      );
+
+    const position =
+      normalizeCareerPosition(
+        playerData.position
+      );
+
+    const archetype =
+      playerData.archetype ||
+      'Balanced';
+
+    /*
+     * Begin with the same attribute-generation foundation
+     * used by generated World Engine players.
+     */
+    const attributes =
+      createAttributesFromOverall(
+        targetOverall,
+        position,
+        archetype
+      );
+
+    function getDrillAdjustment(
+      drillScore
+    ) {
+      const difference =
+        Number(drillScore) -
+        overallTryoutScore;
+
+      return Math.max(
+        -5,
+        Math.min(
+          5,
+          Math.round(difference / 5)
+        )
+      );
+    }
+
+    const skatingAdjustment =
+      getDrillAdjustment(skatingScore);
+### OVERALL ASSIGN 43837
+        'discipline',
+        'stickChecking',
+        'shotBlocking',
+      ],
+      scrimmageAdjustment
+    );
+
+    /*
+     * Normalize the finished attribute set back toward the
+     * intended 60–68 starting band while preserving the
+     * strengths and weaknesses created by each drill.
+     */
+    let calculatedOverall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    let normalizationDifference =
+      targetOverall -
+      calculatedOverall;
+
+    if (normalizationDifference !== 0) {
+      PLAYER_ATTRIBUTE_KEYS.forEach(key => {
+        attributes[key] =
+          clampAttribute(
+            attributes[key] +
+            normalizationDifference
+          );
+      });
+    }
+
+    calculatedOverall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    return {
+      attributes,
+      overall: calculatedOverall,
+      targetOverall,
+
+      tryoutProfile: {
+        overallScore:
+          overallTryoutScore,
+
+### OVERALL ASSIGN 43857
+      calculatedOverall;
+
+    if (normalizationDifference !== 0) {
+      PLAYER_ATTRIBUTE_KEYS.forEach(key => {
+        attributes[key] =
+          clampAttribute(
+            attributes[key] +
+            normalizationDifference
+          );
+      });
+    }
+
+    calculatedOverall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    return {
+      attributes,
+      overall: calculatedOverall,
+      targetOverall,
+
+      tryoutProfile: {
+        overallScore:
+          overallTryoutScore,
+
+        skatingScore,
+        puckControlScore,
+        scrimmageScore,
+
+        skatingAdjustment,
+        puckAdjustment,
+        scrimmageAdjustment,
+      },
+    };
+  }
+
+  function upsertCareerPlayer(playerData = {}) {
+    const careerPlayerId =
+      playerData.playerId ||
+      playerData.id ||
+      'career-player';
+
+    const teamId =
+      playerData.teamId ||
+      playerData.highSchoolTeamId ||
+### OVERALL ASSIGN 43953
+      createCareerAttributesFromTryouts(
+        playerData
+      );
+
+    const attributes =
+      playerData.attributes &&
+      Object.keys(playerData.attributes).length > 0
+        ? {
+            ...playerData.attributes,
+          }
+        : tryoutAbility.attributes;
+
+    const overall =
+      calculateOverallFromAttributes(
+        attributes,
+        position
+      );
+
+    const initialLineup =
+      createInitialCareerLineupAssignment(
+        playerData
+      );
+
+    const careerPlayer = {
+      ...playerData,
+
+      id: careerPlayerId,
+      playerId: careerPlayerId,
+
+      firstName:
+        playerData.firstName || '',
+
+      lastName:
+        playerData.lastName || '',
+
+      teamId:
+        targetTeam.teamId,
+
+      schoolName:
+        targetTeam.schoolName,
+
+      teamName:
+        targetTeam.teamName,
+
+      position,
+
+      attributes,
+
+FILE artifacts/project-ice/public/game.js
+### LINE 11301:     function getCategoryOverall(stats) {
+        return 'pp-stat__bar-fill--high';
+      }
+
+      if (value >= 55) {
+        return 'pp-stat__bar-fill--mid';
+      }
+
+      return 'pp-stat__bar-fill--low';
+    }
+
+    function getCategoryOverall(stats) {
+      if (!Array.isArray(stats) || stats.length === 0) {
+        return 50;
+      }
+
+      return Math.round(
+        stats.reduce(
+          (total, stat) =>
+            total + Number(stat[1] || 0),
+          0
+        ) / stats.length
+      );
+    }
+
+    function buildAttributeCategory({
+      name,
+      icon,
+      stats,
+      open = false,
+    }) {
+      const categoryOverall =
+        getCategoryOverall(stats);
+
+      return `
+        <div class="pp-attr-cat ${
+          open
+            ? 'pp-attr-cat--open'
+            : ''
+        }">
+          <button
+            class="pp-attr-cat__header"
+            type="button"
+          >
+            <span class="pp-attr-cat__icon">
+              ${icon}
+            </span>
+
+            <span class="pp-attr-cat__name">
+              ${name}
+            </span>
+
+            <span class="pp-attr-cat__ovr">
+              ${categoryOverall}
+            </span>
+
+            <span class="pp-attr-cat__chevron">
+              ›
+            </span>
+          </button>
+
+          <div class="pp-attr-cat__body">
+            ${stats.map(([label, value]) => `
+              <div class="pp-stat">
+                <span class="pp-stat__name">
+                  ${label}
+                </span>
+
+                <div class="pp-stat__bar">
+                  <div
+                    class="pp-stat__bar-fill ${
+                      getAttributeBarClass(value)
+                    }"
+                    style="width: ${value}%"
+                  ></div>
+                </div>
+
+                <span class="pp-stat__val">
+                  ${value}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    if (isGoalieProfile) {
+      const athleticismStats = [
+        ['Reflexes', Number(attributes.reflexes) || 50],
+        ['Agility', Number(attributes.agility) || 50],
+        ['Lateral Movement', Number(attributes.lateralMovement) || 50],
+        ['Recovery Speed', Number(attributes.recoverySpeed) || 50],
+      ];
+
+      const positioningStats = [
+        ['Positioning', Number(attributes.positioning) || 50],
+        ['Angles', Number(attributes.angles) || 50],
+        ['Puck Tracking', Number(attributes.puckTracking) || 50],
+        ['Anticipation', Number(attributes.anticipation) || 50],
+      ];
+
+      const saveTechniqueStats = [
+        ['Glove High', Number(attributes.gloveHigh) || 50],
+        ['Glove Low', Number(attributes.gloveLow) || 50],
+        ['Blocker High', Number(attributes.blockerHigh) || 50],
+        ['Blocker Low', Number(attributes.blockerLow) || 50],
+        ['Five Hole', Number(attributes.fiveHole) || 50],
+        ['Stick Control', Number(attributes.stickControl) || 50],
+      ];
+
+### OVERALL ASSIGN 11473
+
+      return;
+    }
+
+    const skatingStats = [
+      ['Speed', Number(attributes.speed) || 50],
+      ['Acceleration', Number(attributes.acceleration) || 50],
+      ['Agility', Number(attributes.agility) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+    const skatingOverall = Math.round(
+      skatingStats.reduce((total, stat) => total + stat[1], 0) /
+      skatingStats.length
+    );
+
+
+    const shootingStats = [
+      ['Wrist Shot Power', Number(attributes.wristShotPower) || 50],
+      ['Wrist Shot Accuracy', Number(attributes.wristShotAccuracy) || 50],
+      ['Slap Shot Power', Number(attributes.slapShotPower) || 50],
+      ['Slap Shot Accuracy', Number(attributes.slapShotAccuracy) || 50],
+    ];
+
+    const shootingOverall = Math.round(
+      shootingStats.reduce((total, stat) => total + stat[1], 0) /
+      shootingStats.length
+    );
+    const playmakingStats = [
+      ['Passing', Number(attributes.passing) || 50],
+      ['Puck Control', Number(attributes.puckControl) || 50],
+      ['Deking', Number(attributes.deking) || 50],
+      ['Hand-Eye', Number(attributes.handEye) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+    ];
+
+    const playmakingOverall = Math.round(
+      playmakingStats.reduce((total, stat) => total + stat[1], 0) /
+      playmakingStats.length
+    );
+    const defenseStats = [
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Stick Checking', Number(attributes.stickChecking) || 50],
+      ['Shot Blocking', Number(attributes.shotBlocking) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+    ];
+### OVERALL ASSIGN 11486
+      skatingStats.reduce((total, stat) => total + stat[1], 0) /
+      skatingStats.length
+    );
+
+
+    const shootingStats = [
+      ['Wrist Shot Power', Number(attributes.wristShotPower) || 50],
+      ['Wrist Shot Accuracy', Number(attributes.wristShotAccuracy) || 50],
+      ['Slap Shot Power', Number(attributes.slapShotPower) || 50],
+      ['Slap Shot Accuracy', Number(attributes.slapShotAccuracy) || 50],
+    ];
+
+    const shootingOverall = Math.round(
+      shootingStats.reduce((total, stat) => total + stat[1], 0) /
+      shootingStats.length
+    );
+    const playmakingStats = [
+      ['Passing', Number(attributes.passing) || 50],
+      ['Puck Control', Number(attributes.puckControl) || 50],
+      ['Deking', Number(attributes.deking) || 50],
+      ['Hand-Eye', Number(attributes.handEye) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+    ];
+
+    const playmakingOverall = Math.round(
+      playmakingStats.reduce((total, stat) => total + stat[1], 0) /
+      playmakingStats.length
+    );
+    const defenseStats = [
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Stick Checking', Number(attributes.stickChecking) || 50],
+      ['Shot Blocking', Number(attributes.shotBlocking) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+    ];
+
+    const defenseOverall = Math.round(
+      defenseStats.reduce((total, stat) => total + stat[1], 0) /
+      defenseStats.length
+    );
+    const physicalStats = [
+      ['Body Checking', Number(attributes.bodyChecking) || 50],
+      ['Strength', Number(attributes.strength) || 50],
+      ['Durability', Number(attributes.durability) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+### OVERALL ASSIGN 11498
+    const shootingOverall = Math.round(
+      shootingStats.reduce((total, stat) => total + stat[1], 0) /
+      shootingStats.length
+    );
+    const playmakingStats = [
+      ['Passing', Number(attributes.passing) || 50],
+      ['Puck Control', Number(attributes.puckControl) || 50],
+      ['Deking', Number(attributes.deking) || 50],
+      ['Hand-Eye', Number(attributes.handEye) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+    ];
+
+    const playmakingOverall = Math.round(
+      playmakingStats.reduce((total, stat) => total + stat[1], 0) /
+      playmakingStats.length
+    );
+    const defenseStats = [
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Stick Checking', Number(attributes.stickChecking) || 50],
+      ['Shot Blocking', Number(attributes.shotBlocking) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+    ];
+
+    const defenseOverall = Math.round(
+      defenseStats.reduce((total, stat) => total + stat[1], 0) /
+      defenseStats.length
+    );
+    const physicalStats = [
+      ['Body Checking', Number(attributes.bodyChecking) || 50],
+      ['Strength', Number(attributes.strength) || 50],
+      ['Durability', Number(attributes.durability) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+    const physicalOverall = Math.round(
+      physicalStats.reduce((total, stat) => total + stat[1], 0) /
+      physicalStats.length
+    );
+    const hockeyIQStats = [
+      ['Vision', Number(attributes.vision) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+      ['Leadership', Number(attributes.leadership) || 50],
+    ];
+
+### OVERALL ASSIGN 11509
+
+    const playmakingOverall = Math.round(
+      playmakingStats.reduce((total, stat) => total + stat[1], 0) /
+      playmakingStats.length
+    );
+    const defenseStats = [
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Stick Checking', Number(attributes.stickChecking) || 50],
+      ['Shot Blocking', Number(attributes.shotBlocking) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+    ];
+
+    const defenseOverall = Math.round(
+      defenseStats.reduce((total, stat) => total + stat[1], 0) /
+      defenseStats.length
+    );
+    const physicalStats = [
+      ['Body Checking', Number(attributes.bodyChecking) || 50],
+      ['Strength', Number(attributes.strength) || 50],
+      ['Durability', Number(attributes.durability) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+    const physicalOverall = Math.round(
+      physicalStats.reduce((total, stat) => total + stat[1], 0) /
+      physicalStats.length
+    );
+    const hockeyIQStats = [
+      ['Vision', Number(attributes.vision) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+      ['Leadership', Number(attributes.leadership) || 50],
+    ];
+
+    const hockeyIQOverall = Math.round(
+      hockeyIQStats.reduce((total, stat) => total + stat[1], 0) /
+      hockeyIQStats.length
+    );
+
+    attributesEl.innerHTML = `
+      <div class="pp-attr-cat pp-attr-cat--open">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">⛸️</span>
+          <span class="pp-attr-cat__name">Skating</span>
+          <span class="pp-attr-cat__ovr">${skatingOverall}</span>
+### OVERALL ASSIGN 11521
+    const defenseOverall = Math.round(
+      defenseStats.reduce((total, stat) => total + stat[1], 0) /
+      defenseStats.length
+    );
+    const physicalStats = [
+      ['Body Checking', Number(attributes.bodyChecking) || 50],
+      ['Strength', Number(attributes.strength) || 50],
+      ['Durability', Number(attributes.durability) || 50],
+      ['Balance', Number(attributes.balance) || 50],
+      ['Endurance', Number(attributes.endurance) || 50],
+    ];
+
+    const physicalOverall = Math.round(
+      physicalStats.reduce((total, stat) => total + stat[1], 0) /
+      physicalStats.length
+    );
+    const hockeyIQStats = [
+      ['Vision', Number(attributes.vision) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+      ['Leadership', Number(attributes.leadership) || 50],
+    ];
+
+    const hockeyIQOverall = Math.round(
+      hockeyIQStats.reduce((total, stat) => total + stat[1], 0) /
+      hockeyIQStats.length
+    );
+
+    attributesEl.innerHTML = `
+      <div class="pp-attr-cat pp-attr-cat--open">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">⛸️</span>
+          <span class="pp-attr-cat__name">Skating</span>
+          <span class="pp-attr-cat__ovr">${skatingOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${skatingStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+### OVERALL ASSIGN 11533
+    const physicalOverall = Math.round(
+      physicalStats.reduce((total, stat) => total + stat[1], 0) /
+      physicalStats.length
+    );
+    const hockeyIQStats = [
+      ['Vision', Number(attributes.vision) || 50],
+      ['Offensive Awareness', Number(attributes.offensiveAwareness) || 50],
+      ['Defensive Awareness', Number(attributes.defensiveAwareness) || 50],
+      ['Discipline', Number(attributes.discipline) || 50],
+      ['Leadership', Number(attributes.leadership) || 50],
+    ];
+
+    const hockeyIQOverall = Math.round(
+      hockeyIQStats.reduce((total, stat) => total + stat[1], 0) /
+      hockeyIQStats.length
+    );
+
+    attributesEl.innerHTML = `
+      <div class="pp-attr-cat pp-attr-cat--open">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">⛸️</span>
+          <span class="pp-attr-cat__name">Skating</span>
+          <span class="pp-attr-cat__ovr">${skatingOverall}</span>
+          <span class="pp-attr-cat__chevron">›</span>
+        </button>
+
+        <div class="pp-attr-cat__body">
+          ${skatingStats.map(([name, value]) => `
+            <div class="pp-stat">
+              <span class="pp-stat__name">${name}</span>
+
+              <div class="pp-stat__bar">
+                <div
+                  class="pp-stat__bar-fill ${getAttributeBarClass(value)}"
+                  style="width: ${value}%"
+                ></div>
+              </div>
+
+              <span class="pp-stat__val">${value}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="pp-attr-cat">
+        <button class="pp-attr-cat__header" type="button">
+          <span class="pp-attr-cat__icon">🏒</span>
+### LINE 15419: function orderNpcRosterByOverall(npcRoster) {
+  }
+
+  
+
+  // ── One-time setup ────────────────────────────────────────
+  if (!hubCalendarReady) {
+    setupHubCalendar();
+    hubCalendarReady = true;
+  }
+}
+function orderNpcRosterByOverall(npcRoster) {
+  const orderedRoster = npcRoster.map(player => ({
+    ...player
+  }));
+
+  const positionSlots = {
+    LW: [
+      'fwd-1-lw',
+      'fwd-2-lw',
+      'fwd-3-lw',
+      'fwd-4-lw'
+    ],
+    C: [
+      'fwd-1-c',
+      'fwd-2-c',
+      'fwd-3-c',
+      'fwd-4-c'
+    ],
+    RW: [
+      'fwd-1-rw',
+      'fwd-2-rw',
+      'fwd-3-rw',
+      'fwd-4-rw'
+    ],
+    LD: [
+      'def-1-ld',
+      'def-2-ld',
+      'def-3-ld'
+    ],
+    RD: [
+      'def-1-rd',
+      'def-2-rd',
+      'def-3-rd'
+    ],
+    G: [
+      'g-starter',
+      'g-backup'
+    ]
+  };
+
+  Object.entries(positionSlots).forEach(
+    ([position, slots]) => {
+      const playersAtPosition = orderedRoster
+        .filter(player => player.position === position)
+        .sort(
+          (a, b) =>
+            (Number(b.overall) || 0) -
+            (Number(a.overall) || 0)
+        );
+
+      playersAtPosition.forEach((player, index) => {
+        player.rosterSlot = slots[index] || player.rosterSlot;
+
+        if (position === 'G') {
+          player.goalieRole =
+            index === 0 ? 'Starter' : 'Backup';
+        } else if (position === 'LD' || position === 'RD') {
+          player.pair = index + 1;
+        } else {
+          player.line = index + 1;
+        }
+      });
+    }
+  );
+
+  return orderedRoster;
+}
+function openTeamTab(teamId = null, origin = 'hub') {
+  const playerTeamId =
+    Game.player.teamId ||
+    Game.player.highSchoolTeamId ||
+    null;
+
+  Game.teamTabSelectedTeamId =
+    teamId || playerTeamId;
+
+  Game.teamTabOrigin = origin;
+
+  openHubTab('team');
+}
+    function renderTeamTab(
+      teamId = null
+    ) {
+      const teams =
+        WorldEngine.state.teams || [];
+
+      const playerTeamId =
+        Game.player.teamId ||
+        Game.player.highSchoolTeamId ||
+        null;
+
+      const selectedTeamId =
+        teamId ||
+        Game.teamTabSelectedTeamId ||
+        playerTeamId;
+
+      const team =
+        teams.find(
+          item =>
+            String(item.teamId) ===
+### LINE 16566: function getOverallTryoutFeedback(score) {
+  if (score >= 80) return 'B−';
+  if (score >= 77) return 'C+';
+  if (score >= 73) return 'C';
+  if (score >= 70) return 'C−';
+  if (score >= 67) return 'D+';
+  if (score >= 63) return 'D';
+  if (score >= 60) return 'D−';
+  return 'F';
+}
+
+function getOverallTryoutFeedback(score) {
+  if (score >= 93) {
+    return 'An exceptional tryout. You consistently stood out in all three evaluations.';
+  }
+
+  if (score >= 85) {
+    return 'A strong overall performance. You showed that you can contribute at this level.';
+  }
+
+  if (score >= 75) {
+    return 'A solid tryout with several encouraging moments. Continued development will be important.';
+  }
+
+  if (score >= 65) {
+    return 'You competed hard, but several parts of your game still need refinement.';
+  }
+
+  return 'The effort was there, but the coaching staff believes you need significant development.';
+}
+let _tryoutSummaryContext = 'history';
+
+function openTryoutSummary(context) {
+  _tryoutSummaryContext = context;
+
+  const results = Game.player.tryoutResults || {};
+
+  const skating = results.skating || {
+    score: 0,
+    grade: '--',
+  };
+
+  const puckControl = results.puckControl || {
+    score: 0,
+    grade: '--',
+  };
+
+  const scrimmage = results.scrimmage || {
+    score: 0,
+    grade: '--',
+  };
+
+  const completedResults = [
+    skating,
+    puckControl,
+    scrimmage,
+  ].filter(result => typeof result.score === 'number' && result.grade !== '--');
+
+  const overallScore = completedResults.length
+    ? Math.round(
+        completedResults.reduce((total, result) => total + result.score, 0)
+        / completedResults.length
+      )
+    : 0;
+
+  const overallGrade = completedResults.length === 3
+    ? getTryoutLetterGrade(overallScore)
+    : '--';
+
+  Game.player.overallTryoutScore = overallScore;
+  Game.player.overallTryoutGrade = overallGrade;
+
+  const skatingEl = document.getElementById('ts-skating-grade');
+  const puckEl = document.getElementById('ts-puck-grade');
+  const scrimmageEl = document.getElementById('ts-scrimmage-grade');
+  const overallEl = document.getElementById('ts-overall-grade');
+  const evaluationEl = document.getElementById('ts-coach-evaluation');
+
+  if (skatingEl) skatingEl.textContent = skating.grade;
+  if (puckEl) puckEl.textContent = puckControl.grade;
+  if (scrimmageEl) scrimmageEl.textContent = scrimmage.grade;
+  if (overallEl) overallEl.textContent = overallGrade;
+
+  if (evaluationEl) {
+    evaluationEl.textContent = completedResults.length === 3
+      ? getOverallTryoutFeedback(overallScore)
+      : 'Complete all three evaluations to receive a final report.';
+  }
+
+  const ctaEl = document.getElementById('ts-cta-hub');
+  if (ctaEl) {
+    ctaEl.hidden = context !== 'first-time';
+  }
+
+  saveCareerPreview();
+  showScreen('tryout-summary');
+}
+
+// Maps EVENT_CATALOG completeScreen keys → their handler functions.
+// Add new entries here as more event types receive completion screens.
+const COMPLETE_SCREENS = {
+  // 'tryout-freshman-intro' → open the Skating drill (Drill 1); DrillEngine populates coach-intro
+  'tryout-freshman-intro': () => SkatingDrill.open(),
+  // 'tryout-summary' → open the tryout summary (used by results "Continue")
+  'tryout-summary':        () => openTryoutSummary('first-time'),
+};
+/*
+ * Reusable Event Results controller.
+ *
+ * Converts a World Engine completion result into the
+ * player-facing Event Results screen.
