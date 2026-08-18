@@ -1,0 +1,36 @@
+name: Apply Factual Prospect Classes Final
+on:
+  push:
+    paths:
+      - '.github/scripts/apply_factual_prospect_classes_final.py'
+      - '.github/workflows/apply-factual-prospect-classes-final.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/apply_factual_prospect_classes_final.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node .github/scripts/audit_real_prospect_draft_classes.js > /tmp/audit.json
+      - run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const audit = JSON.parse(fs.readFileSync('/tmp/audit.json', 'utf8'));
+          const expected = {'2027':87,'2028':28,'2029':29,'2030':47};
+          if (audit.totalRows !== 191) throw new Error(`Expected 191 rows, got ${audit.totalRows}`);
+          if (audit.mismatches.length !== 0) throw new Error(`Mismatches remain: ${JSON.stringify(audit.mismatches)}`);
+          if (JSON.stringify(audit.classCounts) !== JSON.stringify(expected)) throw new Error(`Unexpected counts ${JSON.stringify(audit.classCounts)}`);
+          NODE
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js artifacts/project-ice/public/world.js
+          git commit -m 'Correct and expand factual prospect draft classes' || exit 0
+          git pull --rebase origin main
+          git push origin main
