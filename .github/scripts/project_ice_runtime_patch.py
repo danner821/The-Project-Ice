@@ -193,6 +193,68 @@ if threshold_old in world:
 elif 'prospectMovementHeadlines += 1;' not in world:
     raise SystemExit('prospect movement headline counter anchor not found')
 
+# 5) PLAYER PROFILE RETURN ORIGIN
+# Player cards opened directly from the League tab (League Leaders / Award
+# Races) should return directly to League, never through a blank Team Profile.
+profile_back_old = """      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'full-stats') {
+"""
+profile_back_new = """      btnBackPlayerProfile.addEventListener('click', () => {
+        if (_playerProfileOrigin === 'league') {
+          openHubTab('league');
+          return;
+        }
+
+        if (_playerProfileOrigin === 'full-stats') {
+"""
+
+if profile_back_old in game:
+    game = game.replace(profile_back_old, profile_back_new, 1)
+elif "_playerProfileOrigin === 'league'" not in game:
+    raise SystemExit('League player-profile return anchor not found')
+
+# 6) STANDINGS MOVEMENT NEWS
+# Standings remain fully visible in the League tab, but League News should only
+# surface notable movement. Cap weekly movement stories at two and require
+# either a three-place swing or a move into/out of the top three. First-place
+# changes keep their dedicated leader headline below this block.
+standings_loop_old = """      currentSnapshot.standings.forEach(teamStanding => {
+"""
+standings_loop_new = """      let standingsMovementHeadlines = 0;
+      currentSnapshot.standings.forEach(teamStanding => {
+"""
+
+if standings_loop_old in world:
+    world = world.replace(standings_loop_old, standings_loop_new, 1)
+elif 'let standingsMovementHeadlines = 0;' not in world:
+    raise SystemExit('standings movement loop anchor not found')
+
+standings_threshold_old = """        if (Math.abs(delta) < 2) return;
+        const team = getTeam(teamStanding.teamId);
+"""
+standings_threshold_new = """        if (Math.abs(delta) < 2) return;
+        if (standingsMovementHeadlines >= 2) return;
+
+        const enteredTopThree =
+          Number(teamStanding.rank) <= 3 &&
+          Number(priorStanding.rank) > 3;
+        const leftTopThree =
+          Number(teamStanding.rank) > 3 &&
+          Number(priorStanding.rank) <= 3;
+        const majorMove = Math.abs(delta) >= 3;
+
+        if (!majorMove && !enteredTopThree && !leftTopThree) return;
+
+        standingsMovementHeadlines += 1;
+
+        const team = getTeam(teamStanding.teamId);
+"""
+
+if standings_threshold_old in world:
+    world = world.replace(standings_threshold_old, standings_threshold_new, 1)
+elif 'const enteredTopThree =' not in world:
+    raise SystemExit('standings movement threshold anchor not found')
+
 GAME.write_text(game, encoding='utf-8')
 WORLD.write_text(world, encoding='utf-8')
 
