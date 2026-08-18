@@ -1,0 +1,20 @@
+name: Inspect Persistent Scouting Players
+on:
+  push:
+    paths:
+      - '.github/scripts/inspect_persistent_scouting_players.py'
+      - '.github/workflows/inspect-persistent-scouting-players.yml'
+permissions:
+  contents: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/inspect_persistent_scouting_players.py > .github/persistent_scouting_players.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/persistent_scouting_players.txt
+          git commit -m 'Persist persistent scouting player audit' || exit 0
+          git push
