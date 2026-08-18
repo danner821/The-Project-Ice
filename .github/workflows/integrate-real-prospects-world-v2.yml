@@ -1,0 +1,27 @@
+name: Integrate Real Prospects Into World V2
+on:
+  push:
+    paths:
+      - '.github/scripts/integrate_real_prospects_world_v2.py'
+      - '.github/workflows/integrate-real-prospects-world-v2.yml'
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/integrate_real_prospects_world_v2.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q 'externalProspects' artifacts/project-ice/public/world.js
+      - run: grep -q 'function getAllWorldPlayers' artifacts/project-ice/public/world.js
+      - run: grep -q 'getExternalProspects' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Make real prospects persistent world players' || exit 0
+          git pull --rebase origin main
+          git push origin main
