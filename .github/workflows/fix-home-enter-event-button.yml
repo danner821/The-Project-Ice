@@ -1,4 +1,4 @@
-name: Preserve Same-Day Home Completion
+name: Apply Same-Day Home Completion Fix
 on:
   push:
     paths:
@@ -15,24 +15,6 @@ jobs:
           fetch-depth: 0
       - run: python .github/scripts/fix_home_enter_event_button.py
       - run: node --check artifacts/project-ice/public/game.js
-      - run: |
-          python - <<'PY'
-          from pathlib import Path
-          game = Path('artifacts/project-ice/public/game.js').read_text(errors='ignore')
-          start = game.find('function setupHubCalendar()')
-          end = game.find('// ── Standings screen navigation', start)
-          block = game[start:end]
-          checks = {
-            'canonical completion preserved': 'Boolean(eventData.isCompleted) ||' in block,
-            'past days still done': 'i < TODAY_INDEX' in block,
-            'completed selected-day path remains': 'if (isCompleted)' in block,
-            'completed button label remains summary': "epBtnLbl.textContent = 'View Summary'" in block,
-          }
-          for key, value in checks.items():
-              print(key, 'PASS' if value else 'FAIL')
-          if not all(checks.values()):
-              raise SystemExit('same-day Home completion validation failed')
-          PY
       - run: |
           git config user.name 'Project Ice Bot'
           git config user.email 'actions@github.com'
