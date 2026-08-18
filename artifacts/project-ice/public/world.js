@@ -37062,9 +37062,7 @@ case 'career-defense':
       return { success: false, processed: false, reason: 'invalid-potential-week' };
     }
 
-    const players = (_state?.teams || []).flatMap(team =>
-      (Array.isArray(team?.roster) ? team.roster : [])
-    );
+    const players = getAllWorldPlayers();
 
     const results = players.map(player => evaluatePlayerPotentialWeek(player, normalizedDate));
     const changes = results.filter(result => result?.changed === true);
@@ -37515,9 +37513,7 @@ case 'career-defense':
   }
 
   function processPersistentScoutingReports(dateString) {
-    const players = (_state?.teams || []).flatMap(team =>
-      Array.isArray(team?.roster) ? team.roster : []
-    );
+    const players = getAllWorldPlayers();
     const results = players.map(player => {
       const organizationResult = updateScoutingOrganizationsWatching(player, dateString);
       const reportResult = updatePersistentScoutingReport(player, dateString);
@@ -37567,12 +37563,7 @@ case 'career-defense':
       };
     }
 
-    const players = (_state?.teams || []).flatMap(team =>
-      (Array.isArray(team?.roster) ? team.roster : []).map(player => {
-        ensureCanonicalPlayerContract(player);
-        return player;
-      })
-    );
+    const players = getAllWorldPlayers();
 
     if (players.length === 0) {
       _state.prospectRankings = [];
@@ -37669,8 +37660,27 @@ case 'career-defense':
       firstName: entry.player?.firstName || '',
       lastName: entry.player?.lastName || '',
       position: entry.player?.position || '',
+      draftYear: Number(entry.player?.draftYear) || null,
       overall: Number(entry.player?.overall) || 0,
       potential: Number(entry.player?.development?.potential ?? entry.player?.potential) || 0,
+      potentialRole:
+        entry.player?.development?.potentialRole ||
+        entry.player?.potentialRole ||
+        entry.player?.potentialTier || '',
+      potentialAccuracy:
+        entry.player?.development?.potentialAccuracy ||
+        entry.player?.potentialAccuracy ||
+        entry.player?.scoutingProfile?.evaluationAccuracy || 'Low',
+      currentTeam:
+        entry.player?.currentTeam || entry.player?.realTeamSnapshot || entry.player?.teamName || '',
+      teamName:
+        entry.player?.teamName || entry.player?.currentTeam || entry.player?.realTeamSnapshot || '',
+      league: entry.player?.league || entry.player?.realLeagueSnapshot || '',
+      nationality: entry.player?.nationality || '',
+      realPlayer: entry.player?.realPlayer === true,
+      persistentProspect: entry.player?.persistentProspect === true,
+      portToNhlWorld: entry.player?.portToNhlWorld === true,
+      rankingOnly: entry.player?.rankingOnly === true,
       score: entry.score,
       interestLevel: entry.player?.scoutingProfile?.interestLevel || 'None',
       rankChange: Number(entry.player?.scoutingProfile?.rankChange) || 0,
@@ -40218,6 +40228,12 @@ case 'career-defense':
       ),   // Games, practices, recovery, and future career events
       standings:        [],   // { teamId, wins, losses, points, … }
       prospectRankings: [],   // { rank, playerId, … }
+
+      /* Persistent 2027–2030 real-prospect universe. */
+      externalProspects:
+        typeof REAL_PROSPECTS !== 'undefined' && Array.isArray(REAL_PROSPECTS)
+          ? REAL_PROSPECTS.map(player => structuredClone(player))
+          : [],
 
       livingWorld: {
         version: 1,
@@ -43394,6 +43410,72 @@ case 'career-defense':
       : [];
   }
 
+  function ensureExternalProspectWorld() {
+    const sourceProspects =
+      typeof REAL_PROSPECTS !== 'undefined' && Array.isArray(REAL_PROSPECTS)
+        ? REAL_PROSPECTS
+        : [];
+
+    if (!Array.isArray(_state.externalProspects)) _state.externalProspects = [];
+
+    const existingById = new Map(
+      _state.externalProspects
+        .filter(player => player && (player.id || player.playerId))
+        .map(player => [String(player.id || player.playerId), player])
+    );
+
+    sourceProspects.forEach(sourcePlayer => {
+      const sourceId = String(sourcePlayer?.id || sourcePlayer?.playerId || '');
+      if (!sourceId) return;
+      const existing = existingById.get(sourceId);
+
+      if (!existing) {
+        const created = structuredClone(sourcePlayer);
+        _state.externalProspects.push(created);
+        existingById.set(sourceId, created);
+        return;
+      }
+
+      /* Add new factual/static fields without resetting evolved career state. */
+      [
+        'firstName','lastName','fullName','position','draftYear','birthDate',
+        'nationality','height','weightLbs','shoots','catches',
+        'realTeamSnapshot','realLeagueSnapshot','biographySource',
+        'realPlayer','persistentProspect','portToNhlWorld','rankingOnly','ratingSource'
+      ].forEach(key => {
+        if ((existing[key] === undefined || existing[key] === null || existing[key] === '') &&
+            sourcePlayer[key] !== undefined) {
+          existing[key] = structuredClone(sourcePlayer[key]);
+        }
+      });
+    });
+
+    _state.externalProspects = _state.externalProspects.filter(player =>
+      player &&
+      Number(player.draftYear) >= 2027 &&
+      Number(player.draftYear) <= 2030 &&
+      player.realPlayer === true
+    );
+
+    _state.externalProspects.forEach(player => ensureCanonicalPlayerContract(player));
+    return _state.externalProspects;
+  }
+
+  function getAllWorldPlayers() {
+    const rosterPlayers = (Array.isArray(_state.teams) ? _state.teams : [])
+      .flatMap(team => Array.isArray(team?.roster) ? team.roster : []);
+    const unique = new Map();
+
+    [...rosterPlayers, ...ensureExternalProspectWorld()].forEach(player => {
+      if (!player || typeof player !== 'object') return;
+      ensureCanonicalPlayerContract(player);
+      const id = String(player.id || player.playerId || '');
+      if (id && !unique.has(id)) unique.set(id, player);
+    });
+
+    return Array.from(unique.values());
+  }
+
   function getPlayerById(playerId) {
     if (!playerId) return null;
 
@@ -43421,7 +43503,11 @@ case 'career-defense':
       }
     }
 
-    return null;
+    const externalPlayer = ensureExternalProspectWorld().find(
+      prospect => String(prospect.playerId || prospect.id) === String(playerId)
+    );
+
+    return externalPlayer || null;
   }
   function normalizeCareerPosition(position) {
     const rawPosition =
@@ -44113,6 +44199,8 @@ case 'career-defense':
     getTeamById,
     getTeamRoster,
     getPlayerById,
+    getAllWorldPlayers,
+    getExternalProspects: () => ensureExternalProspectWorld(),
     getCareerTryoutTargetOverall,
     createGoalieAttributesFromOverall,
     calculateGoalieOverallFromAttributes,
