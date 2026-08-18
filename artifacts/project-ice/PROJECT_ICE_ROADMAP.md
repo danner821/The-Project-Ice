@@ -1,7 +1,7 @@
 # Project Ice — Authoritative Roadmap
 
 Updated: 2026-08-18
-Authoritative planning checkpoint: 2026-08-17, expanded by the Phase 2 vision session on 2026-08-18
+Authoritative planning checkpoint: 2026-08-18 Season Lifecycle vision session
 
 This file is the planning source of truth. Do not silently fall back to older roadmap files or prior phase ordering.
 
@@ -11,273 +11,245 @@ Phase 1 — Real Prospects + Scouting Completion
 Status: COMPLETE / CHECKPOINT PASSED
 
 Phase 2 — Home / Career Hub Refresh
-Status: IMPLEMENTED IN GITHUB / AWAITING LIVE REPLIT VISUAL VALIDATION
+Status: COMPLETE / LIVE VALIDATION PASSED
 
-Primary implementation commit:
-- `f614010acf133cfcd1fdb766f74728ae7f8fa282` — Refresh Home career dashboard
+Phase 3 — Season Lifecycle
+Status: ACTIVE
 
-Before declaring Phase 2 complete, validate the refreshed Home screen in the live Replit build and repair any wiring, layout, or state issues found there.
+Current mini-phase:
+- Phase 3.1 — Postseason Foundation
 
 ---
 
 # Phase 1 — Real Prospects + Scouting Completion
-
-Goal: finish the real-prospect world and make the League/Scouting surfaces read from one canonical prospect ecosystem before moving to Home.
-
-## Real prospect database and class rules
-
-- Deep real-prospect pool across the 2027, 2028, 2029 and 2030 NHL draft classes.
-- 150 real prospects is a floor, not a hard cap or quota.
-- Draft classes must remain factual; do not rebalance or relabel real players merely to make class counts look even.
-- Full Prospect Rankings may include 2024–2026 bridge/history players.
-- 2024–2026 bridge/history players never port into the later Project Ice NHL world.
-- Persistent future-world real prospects are 2027–2030.
-- Real players use stable persistent identities.
-- Project Ice game ratings/potential/development values are game-balance evaluations, not official scouting ratings.
-
-## World integration
-
-- Real prospects live in the canonical World Engine rather than only as UI/database rows.
-- Current 2027 freshmen can enter the fictional Project Ice HS league.
-- Future 2028–2030 cohorts remain outside the HS rosters until their proper entry year.
-- HS integration replaces generated roster slots; it does not enlarge team rosters.
-- A real prospect rostered in Project Ice HS remains the same player identity.
-- Their factual real-world team is preserved separately as biography/history context.
-- Their active Project Ice team becomes the HS program while they are rostered there.
-- No duplicate active-world/external copies of the same real player.
-
-## Prospect rankings and UI
-
-- Full Prospect Rankings use the canonical weekly ranking system.
-- Public rank, previous rank, rank movement and NEW status are supported.
-- Prospect rows show useful team/league context rather than five-star reputation clutter.
-- League Top Prospects preview and the full Prospect Rankings screen read from the same prospect world.
-- Prospect rows/cards open the canonical player profile path.
-- HS-integrated real prospects appear only once in rankings.
-
-## Scouting foundation
-
-- Scouts-in-attendance context exists.
-- Prospect profiles expose player-facing scouting information while hidden evaluation/certainty systems can evolve underneath.
-- Rival Watch / Prospect Watch infrastructure belongs to the scouting/living-world layer.
-- Player-facing potential remains visible.
-- Scouting/ranking systems should react to actual world state rather than disconnected fake data.
-
-## Award/ranking integration rules
-
-- Award races must not manufacture contenders before games have been played.
-- Before league GP exists, the League Award Races section should show an honest empty state.
-- Weekly ranking/award movement should be driven by canonical snapshots.
-
-## Phase 1 visual validation completed
-
-Validated in the live Replit build on 2026-08-18:
-
-- Jamie Glance and Kayden Stroeder are present on Summit Academy’s HS roster.
-- Their player profiles open normally.
-- Duplicate prospect-ranking entries caused by HS + external copies were fixed.
-- HS-integrated real prospects now appear once in rankings.
-- Award Races correctly show no contenders before games exist.
-- League Top Prospects preview is populated and visually consistent with the rankings system.
-- Current HS real-prospect pipeline audit preserved 20-player rosters and prevented premature future-class roster insertion.
-
-Phase 1 exit condition: PASSED.
-
----
-
-# Phase 1 Inventory Checkpoint
 Status: COMPLETE
 
-Purpose: stop before Home work, compare the real current codebase against what is actually complete, partial or still missing, and then let the user redefine priorities before Phase 2 begins.
+The persistent 2027–2030 real-prospect world, HS integration rules, canonical rankings, scouting foundation, prospect profile paths and award-race preseason behavior are complete and live-validated.
 
-Inventory conclusions carried forward:
-
-- Core persistence/world architecture is strong and should not be redesigned.
-- Player/development architecture is substantially built and should be tuned/extended, not replaced.
-- Team, lineup, special teams, League stats and standings are mature enough to consume future systems.
-- Schedule/time flow and canonical game simulation are functional foundations, not future greenfield systems.
-- The real-prospect database/world foundation is now built; the remaining scouting work is primarily deeper career-facing scouting consequences and presentation.
-- Weekly living-world machinery exists in the backend but its player-facing storytelling layer remains incomplete.
-- Home had fallen behind the richness of the underlying world and became the next major player-facing priority.
-- Season lifecycle/history and post-HS/pro career remain major long-term structural work.
-- Do not perform cleanup-only refactors of monolithic runtime files unless a feature or regression path requires it.
+Key locked rules remain:
+- 150 real prospects is a floor, not a quota.
+- Draft classes remain factual.
+- Real prospects use persistent identities.
+- HS integration replaces generated roster slots rather than enlarging rosters.
+- Current Project Ice team and factual real-world biography/team snapshot remain separate concepts.
+- Player-facing potential stays visible.
 
 ---
 
 # Phase 2 — Home / Career Hub Refresh
-Status: IMPLEMENTED / LIVE VALIDATION NEXT
+Status: COMPLETE
 
-Goal: make Home the main career dashboard — the screen that immediately answers who the player is, what matters now, what just happened, what is coming next, and where the career currently stands.
+Live validation completed on 2026-08-18.
 
-## Locked Home vision
+The Home dashboard now includes and correctly wires:
+- canonical player identity header
+- dynamic Current Objective
+- weekly calendar / event progression
+- Next Big Moment
+- Last Game
+- Current Form
+- Standings
+- real Team Leaders
+- Career Status / current role / coach trust
+- Development Snapshot
+- League News
 
-### Player identity header
+Validated follow-up repairs include:
+- same-day completed events immediately show DONE
+- Home-origin events return to Home
+- Home-origin games return to Home after postgame Continue
+- unchanged potential evaluations do not create fake upgrade headlines
+- prospect-ranking movement has weekly inertia and selective news coverage
+- standings movement news is selective rather than spammy
+- League Leaders / Award Races player profiles return directly to League
 
-- Keep the same core information fields already established on Home:
-  - player name
-  - position
-  - age
-  - overall
-  - reputation stars/tier
-  - current team
-- Fix the header so it resolves the actual canonical career player rather than showing stale or incorrect identity information.
-- Preserve the compact mobile footprint.
-- Restyle the colors slightly so the header feels more consistent with the rest of Project Ice: darker navy/glass surfaces, restrained blue accents, and less visually disconnected styling.
+Phase 2 exit condition: PASSED.
 
-### Dynamic Current Objective
+---
 
-- Current Objective is no longer a static sentence.
-- It must change with the player’s actual stage and context.
-- Objective families can include:
-  - Make the Team during tryouts.
-  - Earn Your Role before meaningful game samples exist.
-  - Build Coach Trust when trust is low.
-  - Turn Attention Into Momentum when scouts are observing and ranking pressure matters.
-  - Goalie-specific role objectives when appropriate.
-  - Production/season-progress goals once the player is established.
-- Show a compact progress indicator and a meaningful contextual label rather than fake completion values.
-- Future levels of the career should reuse this same system with stage-appropriate objectives instead of requiring a new Home design.
+# Phase 3 — Season Lifecycle
+Status: ACTIVE
 
-### This Week calendar
+Goal: turn each HS year into a complete career chapter with a defined regular-season ending, postseason, awards, summer travel hockey, offseason development, permanent history, and transition into the next school year.
 
-- Preserve the existing weekly calendar because it is a core Home feature.
-- Audit it rather than redesigning it.
-- It must continue to read from the real schedule/current date.
-- Completed, current, and future days must render correctly.
-- Current events should enter the Event System.
-- Future dates should simulate to the selected date through the canonical time-flow path.
-- Completed events should route to the appropriate summary/history path where available.
-- The event detail panel remains attached to the selected day.
+The HS yearly rhythm is locked as:
 
-### Next Big Moment
+Regular Season → Playoff Preparation → Playoffs → Champion → Awards → Travel Tryouts → Summer Travel Tournament → Offseason Development → Season Recap → Next HS Season
 
-- Add a dynamic card that surfaces the most meaningful upcoming career event.
-- Priority examples include scout-attended games, rivalry games, playoffs, championships, Game of the Week, prospect-related events, and other important career moments.
-- If no special event exists, fall back to the next game or next scheduled event.
-- This card should evolve naturally as new career systems are added.
+This lifecycle repeats through freshman, sophomore, junior and senior seasons. The senior-year travel tournament is the final HS gameplay chapter before the later NHL Draft Transition phase.
 
-### Last Game
+## Phase 3.1 — Postseason Foundation
+Status: ACTIVE
 
-- Add a compact Last Game snapshot.
-- It should read from completed canonical game/result state where available.
-- Show result and opponent without inventing a result.
-- Before any game exists, show an honest empty state.
-- Future polish can make this card reopen the canonical game summary if a stable result-to-summary navigation path is available.
+Build the canonical saved postseason structure before presentation layers depend on it.
 
-### Current Form
+Locked playoff format:
+- 8-team HS league.
+- Top 6 qualify.
+- Seeds 7 and 8 miss the playoffs.
+- Seeds 1 and 2 receive byes into the semifinals.
+- Round One: #3 vs #6 and #4 vs #5.
+- Round One is Best of 3.
+- Semifinals are Best of 3.
+- Semifinals reseed: #1 plays the lowest remaining seed; #2 plays the other remaining seed.
+- Championship is Best of 3.
+- Higher seed hosts Games 1 and 3; lower seed hosts Game 2.
+- Games are every other day during postseason play.
+- If the career player's team is eliminated, the world continues simulating the rest of the bracket normally while the player has no further playoff games.
 
-- Add an at-a-glance form/status card.
-- Use actual season statistics rather than randomized labels.
-- Before games, show a season-start state.
-- Once a sample exists, present a compact trend driven by production/performance data.
-- The system may become more sophisticated later as a dedicated form model grows in the living-world layer.
+Timing:
+- Regular-season standings freeze when the final regular-season game is complete.
+- One full week without games follows the final regular-season game.
+- One week after the finale, progression stops for a Project Ice styled Head Into Playoffs checkpoint.
+- Playoff games begin approximately 1.5 weeks after the regular-season finale.
+- Practice/recovery scheduling adapts around playoff games with at least two combined practice/recovery events per seven-day playoff window.
 
-### Standings
+Canonical postseason state must permanently preserve:
+- frozen final regular-season standings
+- six qualifiers and seeds
+- byes
+- every series
+- every postseason game
+- series records
+- round winners
+- reseeded semifinal matchups
+- champion
+- postseason completion date
 
-- Keep the existing Home standings preview.
-- Continue to use the canonical standings renderer and preserve team-row navigation.
-- Do not turn Home into a second full League screen.
+## Phase 3.2 — Playoff Presentation + Statistics
+Status: NEXT AFTER 3.1
 
-### Team Leaders
+- Head Into Playoffs screen.
+- Bracket reveal screen using the actual bracket from the save.
+- During playoffs, League tab displays the playoff bracket prominently at the top.
+- Existing Regular Season / Playoffs stat toggle becomes fully canonical.
+- League leaders and player/team playoff stats populate separately from regular-season stats.
+- Home becomes playoff-aware without becoming a separate playoff dashboard.
+- Regular-season standings remain frozen/final during postseason play.
 
-- Remove the old hard-coded/fake player names and point totals.
-- Read from the player’s actual current team roster and live statistics.
-- Show a truthful empty state before team statistics exist.
-- Highlight the career player when they appear among the leaders.
-- Provide a quick route to the Team tab/full team context.
+## Phase 3.3 — Championship + Awards
+Status: PLANNED
 
-### Career Status / Current Role
+The day after the championship ends:
+- stop progression
+- show Champion screen
+- winning team
+- playoff team leaders
+- Playoff MVP
+- Continue Into Offseason
 
-- Add a compact career-status section that can answer at a glance:
-  - Current Role / line assignment
-  - PP/PK assignment when available
-  - Coach Trust
-  - Current season stat line
-  - Prospect status/rank
-- This should remain player-career context, not GM information.
+One week into the offseason:
+- Award Ceremony event
+- each award gets an individual suspenseful reveal
+- reveal button slowly reveals the winner
+- League MVP is revealed last
+- regular-season awards are based purely on the frozen regular-season snapshot
+- Playoff MVP is postseason-only
 
-### Development Snapshot
+After all reveals:
+- Continue opens permanent League Awards screen
+- all league awards listed, including Playoff MVP
+- Continue proceeds into offseason
 
-- Add a lightweight reminder of player development without duplicating the full Player tab.
-- Show current OVR and relevant progression context.
-- Potential may be surfaced because potential remains player-facing.
-- Future upgrade/XP notifications can plug into this surface when their canonical data contract is stable.
+## Phase 3.4 — Travel Hockey
+Status: PLANNED
 
-### League News
+Travel levels:
+- B
+- A
+- AA
+- AAA
 
-- Keep the existing League News block and its View All flow.
-- Continue to consume the canonical NewsSystem.
-- Home should surface only the most recent/relevant items, not duplicate the entire League tab.
+B is the guaranteed floor; the career player always makes a summer travel team.
 
-### Prospects
+Travel tryouts:
+- similar presentation foundation to freshman tryouts
+- placement depends on current attributes/overall plus current form and actual performance context
+- a lower-OVR player playing exceptionally well can outperform their nominal ability level
+- attributes still matter enough to prevent implausible placement swings
 
-- Remove the Top Prospects card from Home.
-- Prospect rankings remain on the League tab and full Prospect Rankings screen.
-- Home may still mention the career player’s own prospect status/rank inside Career Status when relevant.
+Summer tournament:
+- 8 teams
+- relevant prospects can be distributed across travel teams
+- every round Best of 3
+- games every other day
+- one training session per week during the travel tournament
+- travel schedule events appear in Home and Schedule normally
 
-## Home layout hierarchy
+Travel Hockey Hub:
+- temporary button on Home and League during travel season only
+- one-page travel experience
+- bracket
+- tournament stats
+- clickable travel team pages
+- clickable player pages
+- only the career player's achieved travel level is visible that summer
+- do not simulate/show parallel B/A/AA/AAA worlds to the user
+- levels may reuse the same fictional club identities with the level appended
 
-Target hierarchy:
+Travel data remains separate from HS league/team/player-tab historical presentation.
 
-1. Player Header
-2. Current Objective
-3. This Week calendar
-4. Next Big Moment
-5. Last Game + Current Form
-6. Standings
-7. Team Leaders
-8. Career Status + Development Snapshot
-9. League News
+End of tournament:
+- Champion + Tournament MVP screen
+- Continue returns to normal offseason
+- Travel Hockey Hub buttons disappear
 
-Cards should remain compact enough for portrait iPhone use and visually consistent with the polished Team/League/Player language already established.
+## Phase 3.5 — Offseason + Next Season Transition
+Status: PLANNED
 
-## Phase 2 implementation notes
+After travel hockey:
+- 3 practices/trainings per week through August 31
+- normal offseason calendar progression continues
 
-Implemented in `f614010acf133cfcd1fdb766f74728ae7f8fa282`:
+August 31:
+- hard Head Into Next Season checkpoint
+- recap career player's season
+- recap team's season
+- brief league-season summary
+- include relevant growth, standings, playoff result, champion, awards and scouting/career context
 
-- Refreshed Home header styling while preserving the original identity fields/IDs.
-- Added a canonical career-player resolver for Home.
-- Added dynamic career-stage objective logic and progress presentation.
-- Preserved and re-wired the existing weekly calendar flow.
-- Added Next Big Moment.
-- Added Last Game and Current Form snapshots.
-- Preserved canonical Standings.
-- Replaced fake Team Leaders with live roster/stat-driven leaders and a real empty state.
-- Added Career Status with role, trust, season line, and prospect status.
-- Added Development Snapshot.
-- Preserved canonical League News.
-- Removed Home’s Top Prospects card.
-- Added scoped visual styling instead of redesigning unrelated screens.
+Continue:
+- Next Season cutscene
+- advance school year and age
+- September 1 return to Home
+- next-year HS tryout/preseason flow begins
 
-## Phase 2 validation checklist
+Permanent HS history updates at the transition:
+- league champion
+- runner-up
+- final standings
+- playoff bracket and series results
+- league awards
+- Playoff MVP
+- league leaders
+- career-player regular-season/playoff results
+- team result
+- relevant league records/history
 
-Before Phase 2 is marked complete, verify in Replit:
+Travel hockey is excluded from HS league history and HS career statistics.
 
-- Correct player name, position, age, OVR, reputation and team in the top header.
-- Header visually matches the rest of the game.
-- Dynamic objective is sensible for the current career state.
-- Week calendar still selects days, opens current events, simulates to future dates, and handles completed events.
-- Next Big Moment is sensible for the current schedule.
-- Last Game does not invent data and begins populating after games.
-- Current Form changes only from real statistics.
-- Standings still navigate correctly.
-- Team Leaders show an honest pre-game empty state and real leaders once stats exist.
-- Career Status shows the correct line/role and coach trust.
-- League News remains populated and View All works.
-- Home no longer contains the separate Top Prospects card.
-- Team and Player shortcut buttons route correctly.
-- No regression to Continue Career or save/reload behavior.
+## Statistical namespaces locked for Phase 3
 
-Phase 2 exit condition: the refreshed Home works as a truthful, polished main career dashboard in the live build and remains stable after reload.
+Maintain separate canonical scopes:
+- Regular Season
+- Playoffs
+- Travel
+
+Travel stats never contaminate HS regular-season or playoff career totals.
+
+Regular-season award calculations use a frozen regular-season snapshot so playoff results cannot alter voting/races after the regular season ends.
 
 ---
 
 # Later phases
-Status: NOT RE-LOCKED YET
 
-The prior roadmaps contained later work such as living-world storytelling, deeper scouting consequences, season transition/history, post-high-school pathways, draft/NHL career and release calibration.
+After Season Lifecycle, the intended long-range order is:
+- Draft + NHL Transition
+- NHL World Building
+- Long-Term Career / History
+- Full Code / Game Audit and release calibration
 
-Those remain valid long-term areas, but their exact ordering is intentionally NOT declared authoritative here until the user explicitly locks the next roadmap after Phase 2 validation.
+Do not begin post-HS/NHL transition work until the HS season lifecycle is stable enough to carry a player cleanly through senior-year travel hockey.
 
 ---
 
