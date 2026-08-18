@@ -43536,12 +43536,29 @@ case 'career-defense':
       });
     });
 
-    _state.externalProspects = _state.externalProspects.filter(player =>
-      player &&
-      Number(player.draftYear) >= 2027 &&
-      Number(player.draftYear) <= 2030 &&
-      player.realPlayer === true
+    const curatedSourceIds = new Set(
+      sourceProspects
+        .map(player => String(player?.id || player?.playerId || ''))
+        .filter(Boolean)
     );
+
+    /*
+     * The researched pool is curated and may be rebalanced while Project Ice
+     * is still in development. Remove only external real-prospect records that
+     * no longer exist in the source database. Retained IDs keep all evolved
+     * development/scouting state because the merge above mutates them in place.
+     */
+    _state.externalProspects = _state.externalProspects.filter(player => {
+      const id = String(player?.id || player?.playerId || '');
+      return Boolean(
+        player &&
+        id &&
+        curatedSourceIds.has(id) &&
+        Number(player.draftYear) >= 2027 &&
+        Number(player.draftYear) <= 2030 &&
+        player.realPlayer === true
+      );
+    });
 
     _state.externalProspects.forEach(player => {
       /*
