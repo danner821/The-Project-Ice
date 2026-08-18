@@ -1,8 +1,8 @@
-name: Apply Home Career Hub Refresh
+name: Apply Project Ice Runtime Patch
 on:
   push:
     paths:
-      - '.github/scripts/apply_home_career_hub_refresh.py'
+      - '.github/scripts/project_ice_runtime_patch.py'
       - '.github/workflows/apply-home-career-hub-refresh.yml'
 permissions:
   contents: write
@@ -13,39 +13,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: cp artifacts/project-ice/index.html /tmp/index.before.html
-      - run: cp artifacts/project-ice/public/game.js /tmp/game.before.js
-      - run: cp artifacts/project-ice/public/style.css /tmp/style.before.css
-      - run: python .github/scripts/apply_home_career_hub_refresh.py
+      - run: python .github/scripts/project_ice_runtime_patch.py
       - run: node --check artifacts/project-ice/public/game.js
-      - run: |
-          python - <<'PY'
-          from pathlib import Path
-          index=Path('artifacts/project-ice/index.html').read_text(errors='ignore')
-          game=Path('artifacts/project-ice/public/game.js').read_text(errors='ignore')
-          style=Path('artifacts/project-ice/public/style.css').read_text(errors='ignore')
-          checks = {
-            'home objective': 'hub-current-objective-title' in index,
-            'next big moment': 'home-big-moment-card' in index,
-            'team leaders container': 'hub-team-leaders-list' in index,
-            'career status': 'home-career-card' in index,
-            'prospects removed from home': 'hub-prospects-card' not in index[index.find('id="hub-tab-home"'):index.find('id="hub-tab-schedule"')],
-            'runtime renderer': 'function renderHomeDashboard()' in game,
-            'runtime refresh': 'renderHomeDashboard();' in game,
-            'style marker': 'PROJECT ICE — HOME / CAREER HUB REFRESH 2026-08-18' in style,
-          }
-          for key,val in checks.items(): print(key, 'PASS' if val else 'FAIL')
-          if not all(checks.values()): raise SystemExit('home refresh validation failed')
-          before_game=Path('/tmp/game.before.js').read_text(errors='ignore').splitlines()
-          after_game=game.splitlines()
-          print('GAME_LINE_DELTA', len(after_game)-len(before_game))
-          if abs(len(after_game)-len(before_game)) > 500:
-              raise SystemExit('unexpected game.js delta')
-          PY
+      - run: node --check artifacts/project-ice/public/world.js
       - run: |
           git config user.name 'Project Ice Bot'
           git config user.email 'actions@github.com'
-          git add artifacts/project-ice/index.html artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css
-          git commit -m 'Refresh Home career dashboard' || exit 0
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/world.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Refine postgame routing and scouting news balance'
           git pull --rebase origin main
           git push origin main
