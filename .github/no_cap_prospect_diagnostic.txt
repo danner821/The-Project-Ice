@@ -1,0 +1,10 @@
+PATCH_STATUS=1
+--- OUT ---
+--- ERR ---
+2030 insertion anchor missing
+--- CASH ROW ---
+197:  ['Cash Cieslak', 'F', 'Chicago Mission 14U AAA', '14U AAA', '2012-10-15', 'USA', '', null, 'R', 2030, 32],
+--- COUNT CONTRACT ---
+31:  researchedRealProspectCount: 150,
+499:if (REAL_PROSPECTS.length !== PROJECT_ICE_PROSPECT_RULES.researchedRealProspectCount) {
+500:  throw new Error(`[Project Ice] Expected 150 real prospects, found ${REAL_PROSPECTS.length}.`);
