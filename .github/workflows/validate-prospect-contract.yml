@@ -1,0 +1,17 @@
+name: Validate Prospect Contract
+on:
+  push:
+    paths:
+      - 'artifacts/project-ice/public/prospects.js'
+      - '.github/workflows/validate-prospect-contract.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: grep -q "rankingStartDraftYear: 2024" artifacts/project-ice/public/prospects.js
+      - run: grep -q "nhlPortMinimumDraftYear: 2027" artifacts/project-ice/public/prospects.js
+      - run: grep -q "2027: 'Freshman'" artifacts/project-ice/public/prospects.js
