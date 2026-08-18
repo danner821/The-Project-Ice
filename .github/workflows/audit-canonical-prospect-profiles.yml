@@ -1,0 +1,25 @@
+name: Audit Canonical Prospect Profiles
+on:
+  push:
+    paths:
+      - '.github/scripts/audit_canonical_prospect_profiles.js'
+      - '.github/workflows/audit-canonical-prospect-profiles.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          node .github/scripts/audit_canonical_prospect_profiles.js > .github/canonical_prospect_profile_audit.json 2> .github/canonical_prospect_profile_audit.err
+          STATUS=$?
+          echo "AUDIT_STATUS=$STATUS" > .github/canonical_prospect_profile_audit.status
+          exit 0
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/canonical_prospect_profile_audit.json .github/canonical_prospect_profile_audit.err .github/canonical_prospect_profile_audit.status
+          git commit -m 'Persist canonical prospect profile runtime audit' || exit 0
+          git push
