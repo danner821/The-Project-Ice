@@ -1,0 +1,70 @@
+PREP=0 PATCH=1 CHECK=0 RUN=0 AUDIT=0
+---PATCH---
+missing 2031 removals: ['Aston Salts', 'Cash Cieslak', 'Kellan Fitzgerald-Brown']
+---CHECK---
+---RUN---
+---AUDIT---
+{
+  "totalRows": 191,
+  "completeDobRows": 181,
+  "incompleteDobRows": [
+    {
+      "name": "Clive Mashinter",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Matthew Dodic",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Coen Chretien",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Michael Alati",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Breaker Seidenberg",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Jayden Widen",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Silas Suess",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Matteo Dellino",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Charlie Donovan",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    },
+    {
+      "name": "Chase O'Toole",
+      "birthDate": "2012",
+      "storedDraftYear": 2030
+    }
+  ],
+  "mismatches": [],
+  "outside2027to2030": [],
+  "classCounts": {
+    "2027": 87,
+    "2028": 28,
+    "2029": 29,
+    "2030": 47
+  }
+}
