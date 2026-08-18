@@ -1,0 +1,38 @@
+name: Fix Home Enter Event Button
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_home_enter_event_button.py'
+      - '.github/workflows/fix-home-enter-event-button.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_home_enter_event_button.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          game = Path('artifacts/project-ice/public/game.js').read_text(errors='ignore')
+          checks = {
+            'replaceable onclick': 'epBtn.onclick = () =>' in game,
+            'passes event payload': "EventSystem.openEvent(d.eventId, 'hub', d);" in game,
+            'old stacked listener removed': "epBtn.addEventListener('click', () =>" not in game[game.find('// ── Event panel button'):game.find('// Scroll completed card')],
+          }
+          for key, value in checks.items():
+              print(key, 'PASS' if value else 'FAIL')
+          if not all(checks.values()):
+              raise SystemExit('home enter event validation failed')
+          PY
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Fix Home Enter Event button wiring' || exit 0
+          git pull --rebase origin main
+          git push origin main
