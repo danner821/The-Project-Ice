@@ -1,0 +1,27 @@
+name: Calibrate Prospect Scouting Phase
+on:
+  push:
+    paths:
+      - '.github/scripts/calibrate_prospect_scouting_phase.py'
+      - '.github/workflows/calibrate-prospect-scouting-phase.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/calibrate_prospect_scouting_phase.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q 'getProspectClassReadinessAdjustment' artifacts/project-ice/public/world.js
+      - run: grep -q 'scouting-report-no-new-evidence' artifacts/project-ice/public/world.js
+      - run: grep -q 'No observation = no free increase' artifacts/project-ice/public/world.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js
+          git commit -m 'Calibrate prospect class readiness and scouting evidence' || exit 0
+          git pull --rebase origin main
+          git push origin main
