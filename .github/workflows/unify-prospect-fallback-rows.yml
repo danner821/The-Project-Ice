@@ -1,0 +1,35 @@
+name: Unify Prospect Fallback Rows
+on:
+  push:
+    paths:
+      - '.github/scripts/unify_prospect_fallback_rows.py'
+      - '.github/workflows/unify-prospect-fallback-rows.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: cp artifacts/project-ice/public/game.js /tmp/game.before.js
+      - run: python .github/scripts/unify_prospect_fallback_rows.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          before=Path('/tmp/game.before.js').read_text(errors='ignore').splitlines()
+          after=Path('artifacts/project-ice/public/game.js').read_text(errors='ignore').splitlines()
+          delta=len(after)-len(before)
+          print('GAME_LINE_DELTA',delta)
+          if abs(delta) > 20:
+              raise SystemExit('unexpectedly large game.js line delta')
+          PY
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Unify pre-ranking prospect row presentation' || exit 0
+          git pull --rebase origin main
+          git push origin main
