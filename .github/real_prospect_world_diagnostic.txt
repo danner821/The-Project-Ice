@@ -1,0 +1,4 @@
+PATCH_STATUS=1
+--- OUT ---
+--- ERR ---
+getPlayerById return anchor missing
