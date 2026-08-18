@@ -1,0 +1,34 @@
+name: Diagnose Factual Prospect Classes Final
+on:
+  push:
+    paths:
+      - '.github/workflows/diagnose-factual-prospect-classes-final.yml'
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set +e
+          python .github/scripts/apply_factual_prospect_classes_final.py > /tmp/patch.out 2> /tmp/patch.err
+          PATCH=$?
+          node --check artifacts/project-ice/public/prospects.js > /tmp/check.out 2>&1
+          CHECK=$?
+          node artifacts/project-ice/public/prospects.js > /tmp/run.out 2>&1
+          RUN=$?
+          node .github/scripts/audit_real_prospect_draft_classes.js > /tmp/audit.json 2> /tmp/audit.err
+          AUDIT=$?
+          {
+            echo "PATCH=$PATCH CHECK=$CHECK RUN=$RUN AUDIT=$AUDIT"
+            echo '---PATCH---'; cat /tmp/patch.out; cat /tmp/patch.err
+            echo '---RUN---'; cat /tmp/run.out
+            echo '---AUDIT---'; cat /tmp/audit.json; cat /tmp/audit.err
+          } > .github/factual_prospect_classes_final_diagnostic.txt
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/factual_prospect_classes_final_diagnostic.txt
+          git commit -m 'Persist robust factual prospect class diagnostic' || exit 0
+          git push
