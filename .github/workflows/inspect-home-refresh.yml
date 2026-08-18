@@ -17,7 +17,7 @@ jobs:
       - run: |
           git config user.name 'Project Ice Bot'
           git config user.email 'actions@github.com'
-          git add .github/home_refresh_audit.txt
-          git commit -m 'Persist Home refresh audit' || exit 0
+          git add .github/home_refresh_audit.txt .github/home_refresh_runtime_audit.txt 2>/dev/null || true
+          git commit -m 'Persist Home refresh runtime audit' || exit 0
           git pull --rebase origin main
           git push origin main
