@@ -1,0 +1,27 @@
+name: Restore Accurate Prospect Classes
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-accurate-prospect-classes.yml'
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore last pre-rebalance researched class dataset
+        run: |
+          git show 1a547a62211870fc4c1525ab031e9d50181e742f:artifacts/project-ice/public/prospects.js > artifacts/project-ice/public/prospects.js
+          node --check artifacts/project-ice/public/prospects.js
+          node artifacts/project-ice/public/prospects.js
+      - name: Commit restored factual class assignments
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js
+          git commit -m 'Restore researched prospect draft classes' || exit 0
+          git pull --rebase origin main
+          git push origin main
