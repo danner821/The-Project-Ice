@@ -1,0 +1,28 @@
+name: Apply Factual Prospect Class Corrections
+on:
+  push:
+    paths:
+      - '.github/scripts/apply_factual_prospect_class_corrections.py'
+      - '.github/workflows/apply-factual-prospect-class-corrections.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/apply_factual_prospect_class_corrections.py
+      - run: node --check artifacts/project-ice/public/prospects.js
+      - run: node artifacts/project-ice/public/prospects.js
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: grep -q '2029: 29' artifacts/project-ice/public/prospects.js
+      - run: grep -q '2030: 47' artifacts/project-ice/public/prospects.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/prospects.js artifacts/project-ice/public/world.js
+          git commit -m 'Correct real prospect draft eligibility classes' || exit 0
+          git pull --rebase origin main
+          git push origin main
