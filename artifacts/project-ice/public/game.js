@@ -22482,9 +22482,22 @@ if (btnEventResultsContinue) {
   btnEventResultsContinue.addEventListener(
     'click',
     () => {
-      openHubTab(
-        'schedule'
-      );
+      const returnOrigin =
+        EventSystem.getOrigin();
+
+      /*
+       * Event Results should return to the surface that launched the event.
+       * Home is a weekly view of the canonical Schedule, so refresh that shared
+       * schedule data before returning to Home. This immediately converts the
+       * just-completed card to DONE and prevents re-entering the event.
+       */
+      if (returnOrigin === 'hub') {
+        refreshScheduleEvents();
+        setupHubCalendar();
+        openHubTab('home');
+      } else {
+        openHubTab('schedule');
+      }
 
       try {
         refreshCareerUI();
