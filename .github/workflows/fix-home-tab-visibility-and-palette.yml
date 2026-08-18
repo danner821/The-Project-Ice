@@ -1,0 +1,36 @@
+name: Fix Home Tab Visibility and Palette
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_home_tab_visibility_and_palette.py'
+      - '.github/workflows/fix-home-tab-visibility-and-palette.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_home_tab_visibility_and_palette.py
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          style = Path('artifacts/project-ice/public/style.css').read_text(errors='ignore')
+          checks = {
+            'visibility override': '#hub-screen .hub-tab-panel[aria-hidden="true"]' in style,
+            'palette marker': 'HOME TAB VISIBILITY + PALETTE FIX 2026-08-18' in style,
+          }
+          for key, value in checks.items():
+              print(key, 'PASS' if value else 'FAIL')
+          if not all(checks.values()):
+              raise SystemExit('home tab fix validation failed')
+          PY
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/style.css
+          git commit -m 'Fix Home tab visibility and align palette' || exit 0
+          git pull --rebase origin main
+          git push origin main
