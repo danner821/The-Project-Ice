@@ -6,6 +6,8 @@
   if (typeof WorldEngine === 'undefined') return;
 
   const MIGRATION_VERSION = 2;
+  let lastObservedPostseason = null;
+  let lastObservedVersion = null;
 
   function dateKey(value) {
     const text = String(value || '').slice(0, 10);
@@ -98,21 +100,35 @@
     return true;
   }
 
-  migrate();
+  function observeActiveCareer() {
+    const post = WorldEngine.state?.postseason?.highSchool || null;
+    const version = post?.version ?? null;
 
-  const interval = window.setInterval(() => {
-    const migrated = migrate();
-    const post = WorldEngine.state?.postseason?.highSchool;
+    /*
+     * Career loading replaces WorldEngine.state asynchronously after these
+     * runtime modules boot. Keep observing instead of retiring the watcher
+     * after the bootstrap world looks current. This lets an older IndexedDB
+     * career migrate immediately when it becomes the active world.
+     */
+    if (post !== lastObservedPostseason || version !== lastObservedVersion) {
+      lastObservedPostseason = post;
+      lastObservedVersion = version;
+      migrate();
+      return;
+    }
 
     if (
-      migrated ||
+      post?.initialized &&
       (
-        post?.initialized &&
-        Number(post.version || 0) >= MIGRATION_VERSION &&
-        dateKey(post.checkpointDate)
+        Number(post.version || 0) < MIGRATION_VERSION ||
+        !dateKey(post.checkpointDate) ||
+        typeof post.checkpointAcknowledged !== 'boolean'
       )
     ) {
-      window.clearInterval(interval);
+      migrate();
     }
-  }, 250);
+  }
+
+  observeActiveCareer();
+  window.setInterval(observeActiveCareer, 250);
 })();
