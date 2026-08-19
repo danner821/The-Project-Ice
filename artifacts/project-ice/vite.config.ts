@@ -52,6 +52,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/postseason-ui.js"></script>');
     }
 
+    if (!html.includes('/postseason-polish.js')) {
+      scripts.push('    <script src="/postseason-polish.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
