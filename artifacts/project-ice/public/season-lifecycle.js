@@ -1,226 +1,130 @@
-/* ============================================================
-   PROJECT ICE — season-lifecycle.js
-
-   Phase 3.1 — AI standings, playoffs, and champions.
-
-   This module intentionally lives beside world.js rather than duplicating
-   any hockey simulation logic. It orchestrates the canonical WorldEngine:
-   regular-season games continue to resolve through WorldEngine.advanceToDate,
-   playoff games are added to the same schedule, and the existing game engine
-   remains the only source of on-ice outcomes and player/team statistics.
-   ============================================================ */
-
 'use strict';
 
 /* global WorldEngine */
 
 (() => {
-  if (typeof WorldEngine === 'undefined' || !WorldEngine?.state) {
-    console.warn('[SeasonLifecycle] WorldEngine is unavailable.');
-    return;
-  }
+  if (typeof WorldEngine === 'undefined' || !WorldEngine?.state) return;
 
   const FORMAT = 'six-team-bye-best-of-three';
-  const QUALIFIER_COUNT = 6;
-  const SERIES_WINS_REQUIRED = 2;
-  const MODULE_VERSION = 1;
+  const QUALIFIERS = 6;
+  const WINS_TO_ADVANCE = 2;
+  const originalAdvanceToDate = WorldEngine.advanceToDate?.bind(WorldEngine);
+  if (!originalAdvanceToDate) return;
 
-  const originalAdvanceToDate =
-    typeof WorldEngine.advanceToDate === 'function'
-      ? WorldEngine.advanceToDate.bind(WorldEngine)
-      : null;
-
-  if (!originalAdvanceToDate) {
-    console.warn('[SeasonLifecycle] WorldEngine.advanceToDate is unavailable.');
-    return;
-  }
-
-  function clone(value) {
-    return value == null ? value : structuredClone(value);
-  }
-
-  function dateKey(value) {
+  const state = () => WorldEngine.state;
+  const key = value => {
     const text = String(value || '').slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
-  }
-
-  function addDays(value, days) {
-    const key = dateKey(value);
-    if (!key) return null;
-    const date = new Date(`${key}T12:00:00`);
+  };
+  const addDays = (value, days) => {
+    const dateKey = key(value);
+    if (!dateKey) return null;
+    const date = new Date(`${dateKey}T12:00:00`);
     if (Number.isNaN(date.getTime())) return null;
     date.setDate(date.getDate() + Number(days || 0));
     return date.toISOString().slice(0, 10);
-  }
+  };
+  const currentDate = () => key(
+    state()?.season?.currentDate || state()?.player?.currentDate || state()?.currentDate
+  );
+  const gameId = game => String(game?.id || game?.eventId || game?.gameId || '');
+  const hasFinalScore = game =>
+    game?.homeScore !== null && game?.homeScore !== undefined &&
+    game?.awayScore !== null && game?.awayScore !== undefined &&
+    Number.isFinite(Number(game.homeScore)) && Number.isFinite(Number(game.awayScore));
+  const isFinal = game => Boolean(
+    game?.played === true ||
+    game?.completed === true ||
+    String(game?.status || '').toLowerCase() === 'final' ||
+    hasFinalScore(game)
+  );
+  const team = teamId => (state()?.teams || []).find(item =>
+    String(item?.teamId || '') === String(teamId || '')
+  ) || null;
+  const teamName = teamId => {
+    const item = team(teamId);
+    return item ? `${item.schoolName || ''} ${item.teamName || ''}`.trim() : 'Unknown Team';
+  };
 
-  function currentDate() {
-    const state = WorldEngine.state;
-    return dateKey(
-      state?.season?.currentDate ||
-      state?.player?.currentDate ||
-      state?.currentDate
-    );
-  }
-
-  function teamById(teamId) {
-    return (WorldEngine.state?.teams || []).find(team =>
-      String(team?.teamId || '') === String(teamId || '')
-    ) || null;
-  }
-
-  function teamName(teamId) {
-    const team = teamById(teamId);
-    return team
-      ? `${team.schoolName || ''} ${team.teamName || ''}`.trim()
-      : 'Unknown Team';
-  }
-
-  function getRegularSeasonGames() {
-    return (Array.isArray(WorldEngine.state?.schedule)
-      ? WorldEngine.state.schedule
-      : []
-    ).filter(event =>
-      event?.isPlayoff !== true &&
-      event?.homeTeamId &&
-      event?.awayTeamId &&
-      dateKey(event?.date)
-    );
-  }
-
-  function getHighSchoolRegularSeasonEndDate() {
-    const finaleDates = getRegularSeasonGames()
-      .filter(event => event?.isSeasonFinale === true)
-      .map(event => dateKey(event.date))
-      .filter(Boolean)
-      .sort();
-
-    if (finaleDates.length) {
-      return finaleDates[finaleDates.length - 1];
+  function ensureContainers() {
+    const world = state();
+    if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
+    if (!Object.prototype.hasOwnProperty.call(world.postseason, 'highSchool')) {
+      world.postseason.highSchool = null;
     }
-
-    const gameDates = getRegularSeasonGames()
-      .map(event => dateKey(event.date))
-      .filter(Boolean)
-      .sort();
-
-    return gameDates.length ? gameDates[gameDates.length - 1] : null;
+    if (!world.history || typeof world.history !== 'object') world.history = {};
+    if (!Array.isArray(world.history.champions)) world.history.champions = [];
+    if (!Array.isArray(world.history.titles)) world.history.titles = [];
+    if (world.season && (!world.season.postseason || typeof world.season.postseason !== 'object')) {
+      world.season.postseason = { qualified: false, started: false, completed: false };
+    }
+    return world;
   }
 
-  function isFinalGame(event) {
-    if (!event || typeof event !== 'object') return false;
-
-    const homeScore = Number(event.homeScore);
-    const awayScore = Number(event.awayScore);
-    const hasScore = Number.isFinite(homeScore) && Number.isFinite(awayScore);
-
-    return Boolean(
-      event.played === true ||
-      event.completed === true ||
-      String(event.status || '').toLowerCase() === 'final' ||
-      hasScore
+  function regularGames() {
+    return (state()?.schedule || []).filter(game =>
+      game?.isPlayoff !== true && game?.homeTeamId && game?.awayTeamId && key(game?.date)
     );
+  }
+
+  function getRegularSeasonEndDate() {
+    const finales = regularGames()
+      .filter(game => game?.isSeasonFinale === true)
+      .map(game => key(game.date))
+      .filter(Boolean)
+      .sort();
+    if (finales.length) return finales[finales.length - 1];
+    const dates = regularGames().map(game => key(game.date)).filter(Boolean).sort();
+    return dates.length ? dates[dates.length - 1] : null;
   }
 
   function regularSeasonComplete() {
-    const games = getRegularSeasonGames();
-    return games.length > 0 && games.every(isFinalGame);
+    const games = regularGames();
+    return games.length > 0 && games.every(isFinal);
   }
 
-  function freezeHighSchoolRegularSeasonStandings() {
-    return (WorldEngine.state?.teams || [])
-      .map(team => ({
-        teamId: team.teamId,
-        schoolName: team.schoolName || '',
-        teamName: team.teamName || '',
-        abbreviation: team.abbreviation || '',
-        wins: Number(team.wins) || 0,
-        losses: Number(team.losses) || 0,
-        overtimeLosses: Number(team.overtimeLosses) || 0,
-        points: Number(team.points) || 0,
-        goalsFor: Number(team.goalsFor) || 0,
-        goalsAgainst: Number(team.goalsAgainst) || 0,
+  function standingsSnapshot() {
+    return (state()?.teams || [])
+      .map(item => ({
+        teamId: item.teamId,
+        schoolName: item.schoolName || '',
+        teamName: item.teamName || '',
+        abbreviation: item.abbreviation || '',
+        wins: Number(item.wins) || 0,
+        losses: Number(item.losses) || 0,
+        overtimeLosses: Number(item.overtimeLosses) || 0,
+        points: Number(item.points) || 0,
+        goalsFor: Number(item.goalsFor) || 0,
+        goalsAgainst: Number(item.goalsAgainst) || 0,
       }))
       .sort((a, b) =>
         (b.points - a.points) ||
         (b.wins - a.wins) ||
         ((b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst)) ||
         (b.goalsFor - a.goalsFor) ||
-        String(a.teamId || '').localeCompare(String(b.teamId || ''))
+        String(a.teamId).localeCompare(String(b.teamId))
       )
-      .map((team, index) => ({
-        ...team,
-        seed: index + 1,
-        qualified: index < QUALIFIER_COUNT,
-      }));
+      .map((item, index) => ({ ...item, seed: index + 1, qualified: index < QUALIFIERS }));
   }
 
-  function refreshCanonicalStandings() {
-    const state = WorldEngine.state;
-    const postseason = state?.postseason?.highSchool;
-
-    if (postseason?.initialized && Array.isArray(postseason.frozenStandings)) {
-      state.standings = clone(postseason.frozenStandings);
-      return state.standings;
-    }
-
-    state.standings = freezeHighSchoolRegularSeasonStandings();
-    return state.standings;
+  function refreshStandings() {
+    const postseason = state()?.postseason?.highSchool;
+    state().standings = structuredClone(
+      postseason?.initialized ? postseason.frozenStandings : standingsSnapshot()
+    );
   }
 
-  function ensureContainers() {
-    const state = WorldEngine.state;
-
-    if (!state.postseason || typeof state.postseason !== 'object') {
-      state.postseason = {};
-    }
-    if (!Object.prototype.hasOwnProperty.call(state.postseason, 'highSchool')) {
-      state.postseason.highSchool = null;
-    }
-
-    if (!state.history || typeof state.history !== 'object') {
-      state.history = {};
-    }
-    if (!Array.isArray(state.history.champions)) state.history.champions = [];
-    if (!Array.isArray(state.history.titles)) state.history.titles = [];
-
-    if (state.season && typeof state.season === 'object') {
-      if (!state.season.postseason || typeof state.season.postseason !== 'object') {
-        state.season.postseason = {
-          qualified: false,
-          started: false,
-          completed: false,
-        };
-      }
-    }
-
-    return state;
-  }
-
-  function seedEntry(seedNumber, postseason = WorldEngine.state?.postseason?.highSchool) {
-    return (postseason?.frozenStandings || []).find(entry =>
-      Number(entry?.seed) === Number(seedNumber)
+  function seedForTeam(teamId, postseason = state()?.postseason?.highSchool) {
+    return (postseason?.frozenStandings || []).find(item =>
+      String(item?.teamId || '') === String(teamId || '')
     ) || null;
   }
 
-  function seedForTeam(teamId, postseason = WorldEngine.state?.postseason?.highSchool) {
-    return (postseason?.frozenStandings || []).find(entry =>
-      String(entry?.teamId || '') === String(teamId || '')
-    ) || null;
-  }
-
-  function createPlayoffGame({
-    seriesId,
-    round,
-    gameNumber,
-    date,
-    higherSeed,
-    lowerSeed,
-  }) {
-    const higherHosts = gameNumber === 1 || gameNumber === 3;
-    const home = higherHosts ? higherSeed : lowerSeed;
-    const away = higherHosts ? lowerSeed : higherSeed;
-    const id = `hs-playoff-${seriesId}-g${gameNumber}`;
-
+  function createGame(seriesId, round, number, date, high, low) {
+    const highHome = number === 1 || number === 3;
+    const home = highHome ? high : low;
+    const away = highHome ? low : high;
+    const id = `hs-playoff-${seriesId}-g${number}`;
     return {
       id,
       eventId: id,
@@ -232,606 +136,404 @@
       date,
       homeTeamId: home.teamId,
       awayTeamId: away.teamId,
-      higherSeedTeamId: higherSeed.teamId,
-      lowerSeedTeamId: lowerSeed.teamId,
+      higherSeedTeamId: high.teamId,
+      lowerSeedTeamId: low.teamId,
       isPlayoff: true,
       seasonType: 'playoffs',
       playoffRound: round,
       seriesId,
-      gameNumber,
+      gameNumber: number,
       bestOf: 3,
       played: false,
       completed: false,
-      homeScore: null,
-      awayScore: null,
       status: 'scheduled',
     };
   }
 
-  function createSeries({
-    seriesId,
-    round,
-    higherSeed,
-    lowerSeed,
-    startDate,
-  }) {
-    if (!higherSeed?.teamId || !lowerSeed?.teamId || !startDate) return null;
-
+  function createSeries(seriesId, round, high, low, startDate) {
+    if (!high?.teamId || !low?.teamId || !startDate) return null;
     return {
       seriesId,
       round,
       bestOf: 3,
-      higherSeed: higherSeed.seed,
-      lowerSeed: lowerSeed.seed,
-      higherSeedTeamId: higherSeed.teamId,
-      lowerSeedTeamId: lowerSeed.teamId,
-      wins: {
-        [higherSeed.teamId]: 0,
-        [lowerSeed.teamId]: 0,
-      },
+      higherSeed: high.seed,
+      lowerSeed: low.seed,
+      higherSeedTeamId: high.teamId,
+      lowerSeedTeamId: low.teamId,
+      wins: { [high.teamId]: 0, [low.teamId]: 0 },
       status: 'scheduled',
       winnerTeamId: null,
       loserTeamId: null,
       completedDate: null,
-      games: [1, 2, 3].map((gameNumber, index) =>
-        createPlayoffGame({
-          seriesId,
-          round,
-          gameNumber,
-          date: addDays(startDate, index * 2),
-          higherSeed,
-          lowerSeed,
-        })
+      games: [1, 2, 3].map((number, index) =>
+        createGame(seriesId, round, number, addDays(startDate, index * 2), high, low)
       ),
     };
   }
 
-  function appendGamesToSchedule(games = []) {
-    const state = WorldEngine.state;
-    if (!Array.isArray(state.schedule)) state.schedule = [];
-
-    const existingIds = new Set(state.schedule.map(event =>
-      String(event?.id || event?.eventId || event?.gameId || '')
-    ));
-
+  function appendGames(games) {
+    const world = state();
+    if (!Array.isArray(world.schedule)) world.schedule = [];
+    const ids = new Set(world.schedule.map(gameId));
     let added = 0;
-    games.filter(Boolean).forEach(game => {
-      const id = String(game?.id || game?.eventId || game?.gameId || '');
-      if (!id || existingIds.has(id)) return;
-      state.schedule.push(game);
-      existingIds.add(id);
+    for (const game of games.filter(Boolean)) {
+      if (!gameId(game) || ids.has(gameId(game))) continue;
+      world.schedule.push(game);
+      ids.add(gameId(game));
       added += 1;
-    });
-
-    state.schedule.sort((a, b) =>
-      String(a?.date || '').localeCompare(String(b?.date || '')) ||
-      String(a?.id || a?.eventId || '').localeCompare(String(b?.id || b?.eventId || ''))
+    }
+    world.schedule.sort((a, b) =>
+      String(a?.date || '').localeCompare(String(b?.date || '')) || gameId(a).localeCompare(gameId(b))
     );
-
     return added;
   }
 
-  function initializeHighSchoolPostseason(options = {}) {
-    const state = ensureContainers();
-
-    if (state.postseason.highSchool?.initialized === true && options.force !== true) {
-      return state.postseason.highSchool;
+  function initializePostseason(options = {}) {
+    const world = ensureContainers();
+    if (world.postseason.highSchool?.initialized && options.force !== true) {
+      return world.postseason.highSchool;
     }
 
-    const regularSeasonEndDate =
-      dateKey(options.regularSeasonEndDate) ||
-      getHighSchoolRegularSeasonEndDate();
-
-    if (!regularSeasonEndDate) {
-      return { initialized: false, reason: 'regular-season-end-date-unavailable' };
-    }
-
+    const endDate = key(options.regularSeasonEndDate) || getRegularSeasonEndDate();
+    if (!endDate) return { initialized: false, reason: 'regular-season-end-date-unavailable' };
     if (options.force !== true && !regularSeasonComplete()) {
       return { initialized: false, reason: 'regular-season-not-complete' };
     }
 
-    const frozenStandings = freezeHighSchoolRegularSeasonStandings();
-    const qualifiers = frozenStandings.filter(team => team.qualified).slice(0, QUALIFIER_COUNT);
-
-    if (qualifiers.length !== QUALIFIER_COUNT) {
-      return {
-        initialized: false,
-        reason: 'six-playoff-teams-required',
-        qualifierCount: qualifiers.length,
-      };
+    const frozen = standingsSnapshot();
+    const qualifiers = frozen.filter(item => item.qualified).slice(0, QUALIFIERS);
+    if (qualifiers.length !== QUALIFIERS) {
+      return { initialized: false, reason: 'six-playoff-teams-required' };
     }
 
-    const seed = number => qualifiers.find(team => Number(team.seed) === Number(number));
-    const playoffStartDate = addDays(regularSeasonEndDate, 11);
-    const semifinalStartDate = addDays(regularSeasonEndDate, 17);
-    const championshipStartDate = addDays(regularSeasonEndDate, 23);
-
+    const bySeed = number => qualifiers.find(item => Number(item.seed) === Number(number));
+    const playoffStartDate = addDays(endDate, 11);
+    const semifinalStartDate = addDays(endDate, 17);
+    const championshipStartDate = addDays(endDate, 23);
     const roundOne = [
-      createSeries({
-        seriesId: 'round-one-3v6',
-        round: 'round-one',
-        higherSeed: seed(3),
-        lowerSeed: seed(6),
-        startDate: playoffStartDate,
-      }),
-      createSeries({
-        seriesId: 'round-one-4v5',
-        round: 'round-one',
-        higherSeed: seed(4),
-        lowerSeed: seed(5),
-        startDate: playoffStartDate,
-      }),
+      createSeries('round-one-3v6', 'round-one', bySeed(3), bySeed(6), playoffStartDate),
+      createSeries('round-one-4v5', 'round-one', bySeed(4), bySeed(5), playoffStartDate),
     ].filter(Boolean);
 
-    const careerTeamId =
-      state?.player?.teamId ||
-      state?.player?.highSchoolTeamId ||
-      null;
-    const careerSeed = qualifiers.find(team =>
-      String(team.teamId) === String(careerTeamId || '')
-    ) || null;
+    const careerTeamId = world?.player?.teamId || world?.player?.highSchoolTeamId || null;
+    const careerSeed = qualifiers.find(item => String(item.teamId) === String(careerTeamId || '')) || null;
 
-    const postseason = {
+    world.postseason.highSchool = {
       initialized: true,
-      version: MODULE_VERSION,
+      version: 1,
       format: FORMAT,
       status: 'round-one',
-      regularSeasonEndDate,
+      regularSeasonEndDate: endDate,
       playoffStartDate,
       semifinalStartDate,
       championshipStartDate,
-      frozenStandings,
+      frozenStandings: frozen,
       qualifiers,
       byeSeeds: [1, 2],
       reseedSemifinals: true,
       bracket: {
         format: FORMAT,
-        qualifierCount: QUALIFIER_COUNT,
-        rounds: {
-          roundOne,
-          semifinals: [],
-          championship: [],
-        },
+        qualifierCount: QUALIFIERS,
+        rounds: { roundOne, semifinals: [], championship: [] },
       },
       championTeamId: null,
       completedDate: null,
     };
 
-    state.postseason.highSchool = postseason;
-    state.standings = clone(frozenStandings);
-
-    if (state.season?.postseason) {
-      state.season.postseason.qualified = Boolean(careerSeed);
-      state.season.postseason.seed = careerSeed?.seed || null;
-      state.season.postseason.started = true;
-      state.season.postseason.completed = false;
-      state.season.phase = 'postseason';
+    if (world.season?.postseason) {
+      world.season.postseason.qualified = Boolean(careerSeed);
+      world.season.postseason.seed = careerSeed?.seed || null;
+      world.season.postseason.started = true;
+      world.season.postseason.completed = false;
+      world.season.phase = 'postseason';
     }
 
-    appendGamesToSchedule(roundOne.flatMap(series => series.games));
-
+    appendGames(roundOne.flatMap(series => series.games));
+    refreshStandings();
     if (options.save !== false) WorldEngine.save();
-    return postseason;
+    return world.postseason.highSchool;
   }
 
-  function canonicalScheduleGame(game) {
-    const id = String(game?.id || game?.eventId || game?.gameId || '');
-    if (!id) return game || null;
-
-    return (WorldEngine.state?.schedule || []).find(event =>
-      String(event?.id || event?.eventId || event?.gameId || '') === id
-    ) || game || null;
+  function canonicalGame(game) {
+    return (state()?.schedule || []).find(item => gameId(item) === gameId(game)) || game || null;
   }
 
-  function winnerFromGame(game) {
-    const canonical = canonicalScheduleGame(game);
-    if (!isFinalGame(canonical)) return null;
-
-    const homeScore = Number(canonical?.homeScore);
-    const awayScore = Number(canonical?.awayScore);
-    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore) {
-      return null;
-    }
-
-    return homeScore > awayScore
-      ? canonical.homeTeamId
-      : canonical.awayTeamId;
+  function winner(game) {
+    const item = canonicalGame(game);
+    if (!isFinal(item) || !hasFinalScore(item)) return null;
+    const home = Number(item.homeScore);
+    const away = Number(item.awayScore);
+    if (home === away) return null;
+    return home > away ? item.homeTeamId : item.awayTeamId;
   }
 
-  function cancelUnneededSeriesGames(series) {
-    if (!series?.winnerTeamId) return 0;
-
-    const state = WorldEngine.state;
-    const removableIds = new Set();
-
-    (series.games || []).forEach(game => {
-      const canonical = canonicalScheduleGame(game);
-      if (isFinalGame(canonical)) return;
-
-      game.canceled = true;
-      game.status = 'not-needed';
-      game.completed = true;
-      game.completedAt = series.completedDate || currentDate();
-      removableIds.add(String(game.id || game.eventId || game.gameId || ''));
-    });
-
-    if (!removableIds.size) return 0;
-
-    const before = state.schedule.length;
-    state.schedule = state.schedule.filter(event =>
-      !removableIds.has(String(event?.id || event?.eventId || event?.gameId || ''))
-    );
-
-    return before - state.schedule.length;
-  }
-
-  function reconcileSeries(series) {
-    if (!series || series.status === 'complete') return false;
-
-    const wins = {
-      [series.higherSeedTeamId]: 0,
-      [series.lowerSeedTeamId]: 0,
-    };
-    let latestCompletedDate = null;
-
+  function finishSeries(series) {
+    const wins = { [series.higherSeedTeamId]: 0, [series.lowerSeedTeamId]: 0 };
+    let completedDate = null;
     for (const game of series.games || []) {
-      const canonical = canonicalScheduleGame(game);
-      const winner = winnerFromGame(canonical);
-      if (!winner) continue;
-
-      wins[winner] = (Number(wins[winner]) || 0) + 1;
-      latestCompletedDate = dateKey(canonical?.date) || latestCompletedDate;
+      const canonical = canonicalGame(game);
+      const gameWinner = winner(canonical);
+      if (!gameWinner) continue;
+      wins[gameWinner] = (wins[gameWinner] || 0) + 1;
+      completedDate = key(canonical?.date) || completedDate;
     }
-
     series.wins = wins;
 
-    const winnerTeamId = Object.keys(wins).find(teamId =>
-      Number(wins[teamId]) >= SERIES_WINS_REQUIRED
-    ) || null;
-
-    if (!winnerTeamId) {
-      series.status = Object.values(wins).some(value => Number(value) > 0)
-        ? 'in-progress'
-        : 'scheduled';
+    const seriesWinner = Object.keys(wins).find(teamId => wins[teamId] >= WINS_TO_ADVANCE) || null;
+    if (!seriesWinner) {
+      series.status = Object.values(wins).some(value => value > 0) ? 'in-progress' : 'scheduled';
       return false;
     }
 
     series.status = 'complete';
-    series.winnerTeamId = winnerTeamId;
-    series.loserTeamId = String(winnerTeamId) === String(series.higherSeedTeamId)
+    series.winnerTeamId = seriesWinner;
+    series.loserTeamId = String(seriesWinner) === String(series.higherSeedTeamId)
       ? series.lowerSeedTeamId
       : series.higherSeedTeamId;
-    series.completedDate = latestCompletedDate || currentDate();
-    cancelUnneededSeriesGames(series);
+    series.completedDate = completedDate || currentDate();
+
+    const unneeded = new Set();
+    for (const game of series.games || []) {
+      const canonical = canonicalGame(game);
+      if (isFinal(canonical)) continue;
+      game.canceled = true;
+      game.status = 'not-needed';
+      game.completed = true;
+      game.completedAt = series.completedDate;
+      unneeded.add(gameId(game));
+    }
+    if (unneeded.size) {
+      state().schedule = state().schedule.filter(game => !unneeded.has(gameId(game)));
+    }
     return true;
   }
 
-  function createSemifinals(postseason) {
-    const existing = postseason?.bracket?.rounds?.semifinals || [];
-    if (existing.length) return false;
+  function seedSemifinals(postseason) {
+    const rounds = postseason.bracket.rounds;
+    if (rounds.semifinals.length) return false;
+    if (rounds.roundOne.length !== 2 || rounds.roundOne.some(series => series.status !== 'complete')) return false;
 
-    const roundOne = postseason?.bracket?.rounds?.roundOne || [];
-    if (roundOne.length !== 2 || roundOne.some(series => series.status !== 'complete')) {
-      return false;
-    }
-
-    const advancingTeamIds = [
-      seedEntry(1, postseason)?.teamId,
-      seedEntry(2, postseason)?.teamId,
-      ...roundOne.map(series => series.winnerTeamId),
-    ].filter(Boolean);
-
-    if (advancingTeamIds.length !== 4) return false;
-
-    const advancingSeeds = advancingTeamIds
+    const advancing = [
+      postseason.frozenStandings.find(item => item.seed === 1)?.teamId,
+      postseason.frozenStandings.find(item => item.seed === 2)?.teamId,
+      ...rounds.roundOne.map(series => series.winnerTeamId),
+    ]
+      .filter(Boolean)
       .map(teamId => seedForTeam(teamId, postseason))
       .filter(Boolean)
-      .sort((a, b) => Number(a.seed) - Number(b.seed));
+      .sort((a, b) => a.seed - b.seed);
 
-    if (advancingSeeds.length !== 4) return false;
-
-    const semifinals = [
-      createSeries({
-        seriesId: 'semifinal-a',
-        round: 'semifinals',
-        higherSeed: advancingSeeds[0],
-        lowerSeed: advancingSeeds[3],
-        startDate: postseason.semifinalStartDate,
-      }),
-      createSeries({
-        seriesId: 'semifinal-b',
-        round: 'semifinals',
-        higherSeed: advancingSeeds[1],
-        lowerSeed: advancingSeeds[2],
-        startDate: postseason.semifinalStartDate,
-      }),
+    if (advancing.length !== 4) return false;
+    rounds.semifinals = [
+      createSeries('semifinal-a', 'semifinals', advancing[0], advancing[3], postseason.semifinalStartDate),
+      createSeries('semifinal-b', 'semifinals', advancing[1], advancing[2], postseason.semifinalStartDate),
     ].filter(Boolean);
-
-    if (semifinals.length !== 2) return false;
-
-    postseason.bracket.rounds.semifinals = semifinals;
+    if (rounds.semifinals.length !== 2) return false;
     postseason.status = 'semifinals';
-    appendGamesToSchedule(semifinals.flatMap(series => series.games));
+    appendGames(rounds.semifinals.flatMap(series => series.games));
     return true;
   }
 
-  function createChampionship(postseason) {
-    const existing = postseason?.bracket?.rounds?.championship || [];
-    if (existing.length) return false;
+  function seedChampionship(postseason) {
+    const rounds = postseason.bracket.rounds;
+    if (rounds.championship.length) return false;
+    if (rounds.semifinals.length !== 2 || rounds.semifinals.some(series => series.status !== 'complete')) return false;
 
-    const semifinals = postseason?.bracket?.rounds?.semifinals || [];
-    if (semifinals.length !== 2 || semifinals.some(series => series.status !== 'complete')) {
-      return false;
-    }
-
-    const finalists = semifinals
+    const finalists = rounds.semifinals
       .map(series => seedForTeam(series.winnerTeamId, postseason))
       .filter(Boolean)
-      .sort((a, b) => Number(a.seed) - Number(b.seed));
-
+      .sort((a, b) => a.seed - b.seed);
     if (finalists.length !== 2) return false;
 
-    const championship = createSeries({
-      seriesId: 'championship',
-      round: 'championship',
-      higherSeed: finalists[0],
-      lowerSeed: finalists[1],
-      startDate: postseason.championshipStartDate,
-    });
-
-    if (!championship) return false;
-
-    postseason.bracket.rounds.championship = [championship];
+    const series = createSeries(
+      'championship',
+      'championship',
+      finalists[0],
+      finalists[1],
+      postseason.championshipStartDate
+    );
+    if (!series) return false;
+    rounds.championship = [series];
     postseason.status = 'championship';
-    appendGamesToSchedule(championship.games);
+    appendGames(series.games);
     return true;
   }
 
   function recordChampion(postseason) {
-    if (!postseason || postseason.championTeamId) return false;
+    if (postseason.championTeamId) return false;
+    const series = postseason.bracket.rounds.championship[0];
+    if (!series || series.status !== 'complete' || !series.winnerTeamId) return false;
 
-    const championship = postseason?.bracket?.rounds?.championship?.[0] || null;
-    if (!championship || championship.status !== 'complete' || !championship.winnerTeamId) {
-      return false;
-    }
-
-    const state = ensureContainers();
-    const championTeamId = championship.winnerTeamId;
-    const completedDate = championship.completedDate || currentDate();
-    const seasonId = state?.season?.id || state?.currentSeason || 'high-school-season';
-    const historyId = `${seasonId}:high-school-champion`;
+    const world = ensureContainers();
+    const championTeamId = series.winnerTeamId;
+    const completedDate = series.completedDate || currentDate();
+    const seasonId = world?.season?.id || world?.currentSeason || 'high-school-season';
+    const id = `${seasonId}:high-school-champion`;
 
     postseason.championTeamId = championTeamId;
     postseason.completedDate = completedDate;
     postseason.status = 'complete';
-
-    if (state.season?.postseason) {
-      state.season.postseason.completed = true;
-      state.season.postseason.championTeamId = championTeamId;
-      state.season.phase = 'postseason-complete';
+    if (world.season?.postseason) {
+      world.season.postseason.completed = true;
+      world.season.postseason.championTeamId = championTeamId;
+      world.season.phase = 'postseason-complete';
     }
 
-    if (!state.history.champions.some(entry => String(entry?.id || '') === historyId)) {
-      state.history.champions.push({
-        id: historyId,
-        seasonId,
-        seasonLabel: state?.season?.label || state?.currentSeason || null,
-        level: 'high-school',
-        teamId: championTeamId,
-        teamName: teamName(championTeamId),
-        date: completedDate,
-      });
+    const record = {
+      id,
+      seasonId,
+      seasonLabel: world?.season?.label || world?.currentSeason || null,
+      level: 'high-school',
+      teamId: championTeamId,
+      teamName: teamName(championTeamId),
+      date: completedDate,
+    };
+    if (!world.history.champions.some(item => item?.id === id)) {
+      world.history.champions.push({ ...record });
     }
-
-    if (!state.history.titles.some(entry => String(entry?.id || '') === historyId)) {
-      state.history.titles.push({
-        id: historyId,
-        seasonId,
-        seasonLabel: state?.season?.label || state?.currentSeason || null,
-        level: 'high-school',
-        title: 'League Champion',
-        teamId: championTeamId,
-        teamName: teamName(championTeamId),
-        date: completedDate,
-      });
+    if (!world.history.titles.some(item => item?.id === id)) {
+      world.history.titles.push({ ...record, title: 'League Champion' });
     }
-
-    if (WorldEngine.news?.publish) {
-      WorldEngine.news.publish({
-        date: completedDate,
-        tag: 'CHAMPIONS',
-        headline: `${teamName(championTeamId)} wins the high school league championship.`,
-      });
-    }
-
+    WorldEngine.news?.publish?.({
+      date: completedDate,
+      tag: 'CHAMPIONS',
+      headline: `${teamName(championTeamId)} wins the high school league championship.`,
+    });
     return true;
   }
 
-  function reconcileHighSchoolPostseason(options = {}) {
-    const state = ensureContainers();
+  function reconcile(options = {}) {
+    const world = ensureContainers();
     let changed = false;
+    const endDate = getRegularSeasonEndDate();
+    const now = currentDate();
 
-    if (!state.postseason.highSchool?.initialized) {
-      const endDate = getHighSchoolRegularSeasonEndDate();
-      const now = currentDate();
-      if (endDate && now && now >= endDate && regularSeasonComplete()) {
-        const initialized = initializeHighSchoolPostseason({ save: false });
-        if (initialized?.initialized) changed = true;
-      }
+    if (!world.postseason.highSchool?.initialized && endDate && now && now >= endDate && regularSeasonComplete()) {
+      changed = initializePostseason({ save: false })?.initialized === true;
     }
 
-    const postseason = state.postseason.highSchool;
+    const postseason = world.postseason.highSchool;
     if (!postseason?.initialized) {
-      refreshCanonicalStandings();
+      refreshStandings();
       if (changed && options.save !== false) WorldEngine.save();
       return { changed, postseason: postseason || null };
     }
 
-    const rounds = postseason.bracket?.rounds || {};
-
-    for (const series of rounds.roundOne || []) {
-      if (reconcileSeries(series)) changed = true;
+    for (const series of postseason.bracket.rounds.roundOne || []) {
+      if (series.status !== 'complete' && finishSeries(series)) changed = true;
     }
-
-    if (createSemifinals(postseason)) changed = true;
-
-    for (const series of postseason.bracket?.rounds?.semifinals || []) {
-      if (reconcileSeries(series)) changed = true;
+    if (seedSemifinals(postseason)) changed = true;
+    for (const series of postseason.bracket.rounds.semifinals || []) {
+      if (series.status !== 'complete' && finishSeries(series)) changed = true;
     }
-
-    if (createChampionship(postseason)) changed = true;
-
-    for (const series of postseason.bracket?.rounds?.championship || []) {
-      if (reconcileSeries(series)) changed = true;
+    if (seedChampionship(postseason)) changed = true;
+    for (const series of postseason.bracket.rounds.championship || []) {
+      if (series.status !== 'complete' && finishSeries(series)) changed = true;
     }
-
     if (recordChampion(postseason)) changed = true;
 
-    refreshCanonicalStandings();
-
+    refreshStandings();
     if (changed && options.save !== false) WorldEngine.save();
     return { changed, postseason };
   }
 
-  function nextDateAfter(value) {
-    return addDays(value, 1);
-  }
-
-  function buildSimulationSummary(daysAdvanced, dateProcessingResults, crossedWeeks, weeklyProcessingResults) {
-    const summary = {
+  function summary(daysAdvanced, dateResults, crossedWeeks, weeklyResults) {
+    const output = {
       daysAdvanced,
-      processedDates: dateProcessingResults.length,
+      processedDates: dateResults.length,
       totalEvents: 0,
       completedEvents: 0,
       pendingEvents: 0,
       eventTypes: {},
       crossedWeeks,
-      weeklyProcessingResults,
+      weeklyProcessingResults: weeklyResults,
     };
-
-    dateProcessingResults.forEach(day => {
-      (day?.eventResults || []).forEach(event => {
-        summary.totalEvents += 1;
-        if (event?.resolved) summary.completedEvents += 1;
-        else summary.pendingEvents += 1;
+    for (const day of dateResults) {
+      for (const event of day?.eventResults || []) {
+        output.totalEvents += 1;
+        if (event?.resolved) output.completedEvents += 1;
+        else output.pendingEvents += 1;
         const type = event?.type || 'unknown';
-        summary.eventTypes[type] = (summary.eventTypes[type] || 0) + 1;
-      });
-    });
-
-    return summary;
+        output.eventTypes[type] = (output.eventTypes[type] || 0) + 1;
+      }
+    }
+    return output;
   }
 
-  function advanceToDateWithLifecycle(targetDate, options = {}) {
-    const target = dateKey(targetDate);
+  function advanceWithLifecycle(targetDate, options = {}) {
+    const target = key(targetDate);
     const start = currentDate();
-
     if (!target || !start || target <= start) {
       const result = originalAdvanceToDate(targetDate, options);
-      reconcileHighSchoolPostseason({ save: options.save });
+      reconcile({ save: options.save });
       return result;
     }
 
-    let dateProcessingResults = [];
-    let crossedWeeks = [];
-    let weeklyProcessingResults = [];
+    const dateResults = [];
+    const crossedWeeks = [];
+    const weeklyResults = [];
+    const maximumDays = Math.max(1, Number(options.maximumDays) || 730);
     let daysAdvanced = 0;
-    let lastResult = null;
-    let stopSimulation = false;
+    let last = null;
     let blockingDateResult = null;
 
-    const maximumDays = Math.max(1, Number(options.maximumDays) || 730);
-
     while (currentDate() < target && daysAdvanced < maximumDays) {
-      reconcileHighSchoolPostseason({ save: false });
-
-      const nextDate = nextDateAfter(currentDate());
+      reconcile({ save: false });
+      const nextDate = addDays(currentDate(), 1);
       if (!nextDate) break;
 
-      lastResult = originalAdvanceToDate(nextDate, {
-        ...options,
-        maximumDays: 1,
-        save: false,
-      });
+      last = originalAdvanceToDate(nextDate, { ...options, maximumDays: 1, save: false });
+      dateResults.push(...(last?.dateProcessingResults || []));
+      crossedWeeks.push(...(last?.crossedWeeks || []));
+      weeklyResults.push(...(last?.weeklyProcessingResults || []));
+      daysAdvanced += Math.max(0, Number(last?.daysAdvanced) || 0);
+      reconcile({ save: false });
 
-      const stepDates = Array.isArray(lastResult?.dateProcessingResults)
-        ? lastResult.dateProcessingResults
-        : [];
-      const stepWeeks = Array.isArray(lastResult?.crossedWeeks)
-        ? lastResult.crossedWeeks
-        : [];
-      const stepWeekly = Array.isArray(lastResult?.weeklyProcessingResults)
-        ? lastResult.weeklyProcessingResults
-        : [];
-
-      dateProcessingResults.push(...stepDates);
-      crossedWeeks.push(...stepWeeks);
-      weeklyProcessingResults.push(...stepWeekly);
-      daysAdvanced += Math.max(0, Number(lastResult?.daysAdvanced) || 0);
-
-      reconcileHighSchoolPostseason({ save: false });
-
-      if (lastResult?.stopSimulation === true) {
-        stopSimulation = true;
-        blockingDateResult = lastResult?.blockingDateResult || lastResult;
+      if (last?.stopSimulation === true) {
+        blockingDateResult = last?.blockingDateResult || last;
         break;
       }
-
-      if ((Number(lastResult?.daysAdvanced) || 0) <= 0 && currentDate() < target) {
-        break;
-      }
-    }
-
-    crossedWeeks = [...new Set(crossedWeeks)];
-
-    if (options.save !== false && (daysAdvanced > 0 || stopSimulation)) {
-      WorldEngine.save();
+      if ((Number(last?.daysAdvanced) || 0) <= 0 && currentDate() < target) break;
     }
 
     const reachedTarget = currentDate() === target;
+    const stopSimulation = Boolean(blockingDateResult);
+    const uniqueWeeks = [...new Set(crossedWeeks)];
+    if (options.save !== false && (daysAdvanced > 0 || stopSimulation)) WorldEngine.save();
 
     return {
       success: reachedTarget && !stopSimulation,
       currentDate: currentDate(),
       targetDate: target,
       daysAdvanced,
-      dateProcessingResults,
-      crossedWeeks,
-      weeklyProcessingResults,
-      simulationSummary: buildSimulationSummary(
-        daysAdvanced,
-        dateProcessingResults,
-        crossedWeeks,
-        weeklyProcessingResults
-      ),
+      dateProcessingResults: dateResults,
+      crossedWeeks: uniqueWeeks,
+      weeklyProcessingResults: weeklyResults,
+      simulationSummary: summary(daysAdvanced, dateResults, uniqueWeeks, weeklyResults),
       stopSimulation,
       blockingDateResult,
-      blockingEventResult:
-        blockingDateResult?.blockingEventResult ||
-        lastResult?.blockingEventResult ||
-        null,
+      blockingEventResult: blockingDateResult?.blockingEventResult || last?.blockingEventResult || null,
       reason: stopSimulation
         ? 'player-interaction-required'
         : reachedTarget
           ? 'target-reached'
           : daysAdvanced >= maximumDays
             ? 'maximum-days-reached'
-            : lastResult?.reason || 'advance-failed',
+            : last?.reason || 'advance-failed',
     };
   }
 
-  WorldEngine.getHighSchoolRegularSeasonEndDate = getHighSchoolRegularSeasonEndDate;
-  WorldEngine.freezeHighSchoolRegularSeasonStandings = freezeHighSchoolRegularSeasonStandings;
+  WorldEngine.getHighSchoolRegularSeasonEndDate = getRegularSeasonEndDate;
+  WorldEngine.freezeHighSchoolRegularSeasonStandings = standingsSnapshot;
   WorldEngine.getHighSchoolPostseason = () => {
     ensureContainers();
-    return WorldEngine.state.postseason.highSchool;
+    return state().postseason.highSchool;
   };
-  WorldEngine.initializeHighSchoolPostseason = initializeHighSchoolPostseason;
-  WorldEngine.reconcileHighSchoolPostseason = reconcileHighSchoolPostseason;
-  WorldEngine.advanceToDate = advanceToDateWithLifecycle;
+  WorldEngine.initializeHighSchoolPostseason = initializePostseason;
+  WorldEngine.reconcileHighSchoolPostseason = reconcile;
+  WorldEngine.advanceToDate = advanceWithLifecycle;
 
-  /* Migrate current/older worlds lazily without changing any saved outcomes. */
   ensureContainers();
-  refreshCanonicalStandings();
-  reconcileHighSchoolPostseason({ save: false });
+  refreshStandings();
+  reconcile({ save: false });
 })();
