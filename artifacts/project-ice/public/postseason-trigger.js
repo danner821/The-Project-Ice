@@ -5,6 +5,8 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
+  const CHECKPOINT_OFFSET_DAYS = 8;
+
   const originalAdvanceToDate =
     typeof WorldEngine.advanceToDate === 'function'
       ? WorldEngine.advanceToDate.bind(WorldEngine)
@@ -102,12 +104,49 @@
     return WorldEngine.getHighSchoolRegularSeasonEndDate?.() || null;
   }
 
+  function desiredCheckpointDate() {
+    const endDate = regularSeasonEndDate();
+    return endDate ? addDays(endDate, CHECKPOINT_OFFSET_DAYS) : null;
+  }
+
+  function hasPlayedPlayoffGame() {
+    return (WorldEngine.state?.schedule || []).some(game =>
+      game?.isPlayoff === true && isFinal(game)
+    );
+  }
+
+  function checkpointAlreadyCleared() {
+    const post = WorldEngine.state?.postseason?.highSchool || null;
+    return Boolean(
+      post?.checkpointAcknowledged === true ||
+      hasPlayedPlayoffGame()
+    );
+  }
+
+  function normalizeExistingCheckpoint() {
+    const post = WorldEngine.state?.postseason?.highSchool || null;
+    const checkpoint = desiredCheckpointDate();
+
+    if (
+      !post?.initialized ||
+      !checkpoint ||
+      checkpointAlreadyCleared()
+    ) {
+      return checkpoint;
+    }
+
+    post.checkpointDate = checkpoint;
+    post.checkpointEventVersion = 2;
+    post.checkpointBehavior = 'blocking-career-event';
+    return checkpoint;
+  }
+
   function ensureCheckpointState(options = {}) {
     const now = currentDate();
     const endDate = regularSeasonEndDate();
     if (!now || !endDate) return null;
 
-    const checkpointDate = addDays(endDate, 7);
+    const checkpointDate = addDays(endDate, CHECKPOINT_OFFSET_DAYS);
     if (!checkpointDate || now < checkpointDate) return null;
 
     let post = WorldEngine.state?.postseason?.highSchool || null;
@@ -122,18 +161,17 @@
 
     if (!post?.initialized) return null;
 
-    const hasPlayedPlayoffGame = (WorldEngine.state?.schedule || []).some(game =>
-      game?.isPlayoff === true && isFinal(game)
-    );
-
     post.version = Math.max(2, Number(post.version) || 0);
     post.regularSeasonEndDate = dateKey(post.regularSeasonEndDate) || endDate;
-    post.checkpointDate = dateKey(post.checkpointDate) || checkpointDate;
 
-    if (!hasPlayedPlayoffGame && post.checkpointAcknowledged !== true) {
+    if (!checkpointAlreadyCleared()) {
+      post.checkpointDate = checkpointDate;
+      post.checkpointEventVersion = 2;
+      post.checkpointBehavior = 'blocking-career-event';
       post.checkpointAcknowledged = false;
       post.checkpointAcknowledgedAt = null;
       post.status = 'break';
+
       if (WorldEngine.state?.season?.postseason) {
         WorldEngine.state.season.postseason.started = false;
         WorldEngine.state.season.phase = 'postseason-break';
@@ -148,12 +186,69 @@
   WorldEngine.ensureHighSchoolPostseasonCheckpoint = ensureCheckpointState;
 
   WorldEngine.advanceToDate = function postseasonAwareAdvance(targetDate, options = {}) {
+    const requestedTarget = dateKey(targetDate);
     const before = currentDate();
-    const result = originalAdvanceToDate(targetDate, options);
+    const checkpoint = desiredCheckpointDate();
+
+    normalizeExistingCheckpoint();
+
+    const mustStopAtCheckpoint = Boolean(
+      requestedTarget &&
+      before &&
+      checkpoint &&
+      before < checkpoint &&
+      requestedTarget >= checkpoint &&
+      !checkpointAlreadyCleared()
+    );
+
+    const effectiveTarget = mustStopAtCheckpoint
+      ? checkpoint
+      : targetDate;
+
+    let result = originalAdvanceToDate(effectiveTarget, {
+      ...options,
+      save: false,
+    });
+
+    /*
+     * Older lifecycle code may create a postseason object mid-advance with
+     * the previous Apr 30 checkpoint. If that inner wrapper stops one day
+     * early, normalize the newly created state to May 1 and finish the final
+     * single day before exposing the checkpoint to the UI.
+     */
+    if (
+      mustStopAtCheckpoint &&
+      currentDate() &&
+      currentDate() < checkpoint
+    ) {
+      normalizeExistingCheckpoint();
+      result = originalAdvanceToDate(checkpoint, {
+        ...options,
+        maximumDays: 1,
+        save: false,
+      });
+    }
+
     const after = currentDate();
 
     if (after && after !== before) {
-      ensureCheckpointState({ save: options.save !== false });
+      ensureCheckpointState({ save: false });
+    }
+
+    if (options.save !== false && after !== before) {
+      WorldEngine.save?.();
+    }
+
+    if (mustStopAtCheckpoint && after === checkpoint) {
+      return {
+        ...(result || {}),
+        success: true,
+        currentDate: after,
+        targetDate: requestedTarget,
+        postseasonCheckpoint: true,
+        stopSimulation: false,
+        reason: 'postseason-checkpoint-reached',
+      };
     }
 
     return result;
