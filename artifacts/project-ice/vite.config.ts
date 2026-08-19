@@ -56,6 +56,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/postseason-trigger.js"></script>');
     }
 
+    if (!html.includes('/postseason-late-ack.js')) {
+      scripts.push('    <script src="/postseason-late-ack.js"></script>');
+    }
+
     if (!html.includes('/postseason-ui.js')) {
       scripts.push('    <script src="/postseason-ui.js"></script>');
     }
