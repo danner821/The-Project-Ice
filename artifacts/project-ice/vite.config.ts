@@ -44,6 +44,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
     }
 
+    if (!html.includes('/postseason-trigger.js')) {
+      scripts.push('    <script src="/postseason-trigger.js"></script>');
+    }
+
     if (!html.includes('/postseason-ui.js')) {
       scripts.push('    <script src="/postseason-ui.js"></script>');
     }
