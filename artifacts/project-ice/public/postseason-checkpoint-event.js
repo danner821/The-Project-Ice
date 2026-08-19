@@ -22,10 +22,7 @@
   };
 
   function currentPostseason() {
-    return (
-      WorldEngine.state?.postseason?.highSchool ||
-      null
-    );
+    return WorldEngine.state?.postseason?.highSchool || null;
   }
 
   function regularSeasonEndDate(post = currentPostseason()) {
@@ -62,12 +59,6 @@
     const desired = addDays(endDate, CHECKPOINT_OFFSET_DAYS);
     if (!desired) return false;
 
-    /*
-     * The postseason presentation is a true blocking career event on May 1
-     * for the 2026-27 HS calendar (eight days after the Apr 23 finale).
-     * Do not retroactively move a checkpoint after the postseason has already
-     * been acknowledged or playoff games have been played.
-     */
     if (
       post.checkpointAcknowledged === true ||
       hasPlayedPlayoffGame()
@@ -118,15 +109,29 @@
     };
   }
 
+  const originalAdvance =
+    typeof WorldEngine.advanceToDate === 'function'
+      ? WorldEngine.advanceToDate.bind(WorldEngine)
+      : null;
+
+  if (originalAdvance) {
+    WorldEngine.advanceToDate = (targetDate, options = {}) => {
+      /*
+       * Every entry point—Home, Schedule, or future UI—must establish the
+       * postseason checkpoint before attempting a multi-day jump. This makes
+       * May 1 behave exactly like a blocking career event: a request for May 8
+       * still stops the world on May 1 until the player acknowledges it.
+       */
+      WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
+      normalizeCheckpoint({ save: false });
+      return originalAdvance(targetDate, options);
+    };
+  }
+
   WorldEngine.normalizeHighSchoolPostseasonCheckpoint = normalizeCheckpoint;
 
   normalizeCheckpoint({ save: true });
 
-  /*
-   * Career saves replace WorldEngine.state after startup. Keep the invariant
-   * attached to whichever career becomes active without touching any
-   * completed/acknowledged postseason.
-   */
   window.setInterval(() => {
     normalizeCheckpoint({ save: true });
   }, 500);
