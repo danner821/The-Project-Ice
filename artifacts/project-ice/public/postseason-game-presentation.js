@@ -34,8 +34,7 @@
 
   function currentPlayoffGame() {
     const event = currentEvent();
-    if (!event?.isPlayoff) return null;
-    return event;
+    return event?.isPlayoff === true ? event : null;
   }
 
   function postseason() {
@@ -56,11 +55,23 @@
     ) || null;
   }
 
-  function teamName(teamId) {
-    const team = (WorldEngine.state?.teams || []).find(item =>
-      String(item?.teamId || '') === String(teamId || '')
-    );
-    return team ? `${team.schoolName || ''} ${team.teamName || ''}`.trim() : 'Team';
+  function careerTeamId() {
+    const world = WorldEngine.state || {};
+    const player = world.player || {};
+    const direct = player.teamId || player.highSchoolTeamId || null;
+    const playerId = player.playerId || player.id || 'career-player';
+
+    for (const team of world.teams || []) {
+      const found = (team?.roster || []).some(skater => {
+        const id = skater?.playerId || skater?.id || null;
+        return skater?.isCareerPlayer === true ||
+          String(id || '') === String(playerId || '') ||
+          String(id || '') === 'career-player';
+      });
+      if (found) return team.teamId || direct;
+    }
+
+    return direct;
   }
 
   function teamShortName(teamId) {
@@ -82,9 +93,7 @@
     const leaderId = high > low
       ? series.higherSeedTeamId
       : series.lowerSeedTeamId;
-    const leaderWins = Math.max(high, low);
-    const trailerWins = Math.min(high, low);
-    return `${teamShortName(leaderId)} leads ${leaderWins}-${trailerWins}`;
+    return `${teamShortName(leaderId)} leads ${Math.max(high, low)}-${Math.min(high, low)}`;
   }
 
   function injectStyles() {
@@ -100,7 +109,6 @@
           radial-gradient(circle at 50% 0%, rgba(103,176,255,.15), transparent 34%),
           linear-gradient(180deg, #071424 0%, #06111f 48%, #050d18 100%);
       }
-
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen::before,
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen::before {
         content: '';
@@ -112,65 +120,34 @@
         pointer-events: none;
         z-index: 2;
       }
-
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen .pi-playoff-game-context,
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pi-playoff-game-context {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 7px;
-        margin: 10px auto 0;
-        padding: 7px 11px;
-        width: fit-content;
-        max-width: calc(100% - 36px);
-        border: 1px solid rgba(119,180,255,.22);
-        border-radius: 999px;
-        background: rgba(38,95,165,.12);
-        color: #9dc8ff;
-        font-size: 10px;
-        line-height: 1;
-        font-weight: 850;
-        letter-spacing: .09em;
-        text-transform: uppercase;
-        box-shadow: 0 8px 26px rgba(6,44,91,.18);
+        display:flex;align-items:center;justify-content:center;gap:7px;
+        margin:10px auto 0;padding:7px 11px;width:fit-content;
+        max-width:calc(100% - 36px);border:1px solid rgba(119,180,255,.22);
+        border-radius:999px;background:rgba(38,95,165,.12);color:#9dc8ff;
+        font-size:10px;line-height:1;font-weight:850;letter-spacing:.09em;
+        text-transform:uppercase;box-shadow:0 8px 26px rgba(6,44,91,.18);
       }
-
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen .pi-playoff-game-context__dot,
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pi-playoff-game-context__dot {
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background: #79b7ff;
-        box-shadow: 0 0 8px rgba(121,183,255,.8);
-        flex: 0 0 auto;
+        width:4px;height:4px;border-radius:50%;background:#79b7ff;
+        box-shadow:0 0 8px rgba(121,183,255,.8);flex:0 0 auto;
       }
-
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen .btn--primary,
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen #btn-ev-begin,
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .btn--primary {
-        box-shadow:
-          0 14px 34px rgba(19,91,191,.30),
-          inset 0 0 0 1px rgba(137,194,255,.18);
+        box-shadow:0 14px 34px rgba(19,91,191,.30),inset 0 0 0 1px rgba(137,194,255,.18);
       }
-
-      #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pregame-matchup {
-        position: relative;
-      }
-
-      #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pregame-matchup__header {
-        padding-top: 8px;
-      }
-
+      #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pregame-matchup { position:relative; }
+      #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pregame-matchup__header { padding-top:8px; }
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pregame-matchup__title {
-        text-shadow: 0 0 24px rgba(105,173,255,.18);
+        text-shadow:0 0 24px rgba(105,173,255,.18);
       }
-
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .pregame-matchup__card,
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen [class*='matchup-card'] {
-        border-color: rgba(112,176,255,.22) !important;
-        box-shadow:
-          0 18px 44px rgba(0,0,0,.24),
-          inset 0 0 0 1px rgba(99,163,246,.05);
+        border-color:rgba(112,176,255,.22)!important;
+        box-shadow:0 18px 44px rgba(0,0,0,.24),inset 0 0 0 1px rgba(99,163,246,.05);
       }
     `;
     document.head.appendChild(style);
@@ -181,12 +158,14 @@
     if (!element.dataset.piOriginalText) {
       element.dataset.piOriginalText = element.textContent || '';
     }
+    if (String(element.textContent || '') === String(value)) return;
     element.textContent = value;
   }
 
   function restoreText(root) {
     root?.querySelectorAll('[data-pi-original-text]').forEach(element => {
-      element.textContent = element.dataset.piOriginalText || '';
+      const original = element.dataset.piOriginalText || '';
+      if (element.textContent !== original) element.textContent = original;
       delete element.dataset.piOriginalText;
     });
   }
@@ -205,6 +184,10 @@
     const label = roundLabel(event.playoffRound);
     const number = Number(event.gameNumber) || 1;
     const status = seriesStatus(event);
+    const signature = `${label}|${number}|${status}`;
+    if (strip.dataset.piSignature === signature) return;
+
+    strip.dataset.piSignature = signature;
     strip.innerHTML = `
       <span>${label}</span>
       <span class="pi-playoff-game-context__dot"></span>
@@ -233,7 +216,9 @@
 
   function replaceRegularSeasonDescription(root, event) {
     if (!root) return;
-    const opponentId = String(event.homeTeamId || '') === String(event.higherSeedTeamId || '')
+
+    const careerId = careerTeamId();
+    const opponentId = String(event.homeTeamId || '') === String(careerId || '')
       ? event.awayTeamId
       : event.homeTeamId;
     const opponent = teamShortName(opponentId);
@@ -257,7 +242,6 @@
     if (!root) return;
 
     root.classList.add('pi-playoff-game-screen');
-
     const round = roundLabel(event.playoffRound);
     const number = Number(event.gameNumber) || 1;
 
@@ -275,18 +259,12 @@
     if (!root) return;
 
     root.classList.add('pi-playoff-game-screen');
-
     const round = roundLabel(event.playoffRound);
     const number = Number(event.gameNumber) || 1;
 
-    const title = document.getElementById('pregame-matchup-title');
-    setText(title, `${round} · Game ${number}`);
-
-    const eyebrow = root.querySelector('.pregame-matchup__eyebrow');
-    setText(eyebrow, 'PROJECT ICE · POSTSEASON');
-
-    const header = root.querySelector('.pregame-matchup__header');
-    addContext(root, event, header);
+    setText(document.getElementById('pregame-matchup-title'), `${round} · Game ${number}`);
+    setText(root.querySelector('.pregame-matchup__eyebrow'), 'PROJECT ICE · POSTSEASON');
+    addContext(root, event, root.querySelector('.pregame-matchup__header'));
   }
 
   function clearScreen(root) {
@@ -307,7 +285,6 @@
     if (!eventVisible && !pregameVisible) return;
 
     const playoffGame = currentPlayoffGame();
-
     if (!playoffGame) {
       if (eventVisible) clearScreen(eventScreen);
       if (pregameVisible) clearScreen(pregameScreen);
