@@ -40,6 +40,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/season-lifecycle.js"></script>');
     }
 
+    if (!html.includes('/postseason-ui.js')) {
+      scripts.push('    <script src="/postseason-ui.js"></script>');
+    }
+
     if (scripts.length === 0) {
       return html;
     }
