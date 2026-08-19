@@ -52,21 +52,18 @@
   function migrate() {
     const world = WorldEngine.state;
     const post = world?.postseason?.highSchool;
-
     if (!post?.initialized) return false;
 
     const needsMigration =
       Number(post.version || 0) < MIGRATION_VERSION ||
       !dateKey(post.checkpointDate) ||
       typeof post.checkpointAcknowledged !== 'boolean';
-
     if (!needsMigration) return false;
 
     const endDate =
       dateKey(post.regularSeasonEndDate) ||
       WorldEngine.getHighSchoolRegularSeasonEndDate?.() ||
       null;
-
     if (!endDate) return false;
 
     const playoffAlreadyStarted = hasPlayedPlayoffGame();
@@ -100,19 +97,38 @@
     return true;
   }
 
+  function reconcileLoadedCareer() {
+    WorldEngine.reconcileHighSchoolPostseason?.({ save: true });
+    migrate();
+  }
+
+  const originalSelectCareerSave =
+    typeof WorldEngine.selectCareerSave === 'function'
+      ? WorldEngine.selectCareerSave.bind(WorldEngine)
+      : null;
+
+  if (originalSelectCareerSave) {
+    WorldEngine.selectCareerSave = async (...args) => {
+      const loaded = await originalSelectCareerSave(...args);
+      if (loaded) {
+        reconcileLoadedCareer();
+        window.setTimeout(reconcileLoadedCareer, 0);
+      }
+      return loaded;
+    };
+  }
+
   function observeActiveCareer() {
     const post = WorldEngine.state?.postseason?.highSchool || null;
     const version = post?.version ?? null;
 
-    /*
-     * Career loading replaces WorldEngine.state asynchronously after these
-     * runtime modules boot. Keep observing instead of retiring the watcher
-     * after the bootstrap world looks current. This lets an older IndexedDB
-     * career migrate immediately when it becomes the active world.
-     */
     if (post !== lastObservedPostseason || version !== lastObservedVersion) {
       lastObservedPostseason = post;
       lastObservedVersion = version;
+
+      if (!post?.initialized) {
+        WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
+      }
       migrate();
       return;
     }
