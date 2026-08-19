@@ -27,16 +27,26 @@ if (!basePath) {
   );
 }
 
-const careerPersistencePlugin = {
-  name: 'project-ice-career-persistence',
+const runtimeModulesPlugin = {
+  name: 'project-ice-runtime-modules',
   transformIndexHtml(html: string) {
-    if (html.includes('/career-persistence.js')) {
+    const scripts: string[] = [];
+
+    if (!html.includes('/career-persistence.js')) {
+      scripts.push('    <script src="/career-persistence.js"></script>');
+    }
+
+    if (!html.includes('/season-lifecycle.js')) {
+      scripts.push('    <script src="/season-lifecycle.js"></script>');
+    }
+
+    if (scripts.length === 0) {
       return html;
     }
 
     return html.replace(
       '</body>',
-      '    <script src="/career-persistence.js"></script>\n  </body>',
+      `${scripts.join('\n')}\n  </body>`,
     );
   },
 };
@@ -47,7 +57,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
-    careerPersistencePlugin,
+    runtimeModulesPlugin,
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [
