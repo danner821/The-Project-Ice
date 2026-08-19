@@ -207,6 +207,7 @@
     }
 
     const bySeed = number => qualifiers.find(item => Number(item.seed) === Number(number));
+    const checkpointDate = addDays(endDate, 7);
     const playoffStartDate = addDays(endDate, 11);
     const semifinalStartDate = addDays(endDate, 17);
     const championshipStartDate = addDays(endDate, 23);
@@ -220,10 +221,13 @@
 
     world.postseason.highSchool = {
       initialized: true,
-      version: 1,
+      version: 2,
       format: FORMAT,
-      status: 'round-one',
+      status: 'break',
       regularSeasonEndDate: endDate,
+      checkpointDate,
+      checkpointAcknowledged: false,
+      checkpointAcknowledgedAt: null,
       playoffStartDate,
       semifinalStartDate,
       championshipStartDate,
@@ -243,15 +247,33 @@
     if (world.season?.postseason) {
       world.season.postseason.qualified = Boolean(careerSeed);
       world.season.postseason.seed = careerSeed?.seed || null;
-      world.season.postseason.started = true;
+      world.season.postseason.started = false;
       world.season.postseason.completed = false;
-      world.season.phase = 'postseason';
+      world.season.phase = 'postseason-break';
     }
 
     appendGames(roundOne.flatMap(series => series.games));
     refreshStandings();
     if (options.save !== false) WorldEngine.save();
     return world.postseason.highSchool;
+  }
+
+  function acknowledgeCheckpoint(options = {}) {
+    const world = ensureContainers();
+    const postseason = world.postseason.highSchool;
+    if (!postseason?.initialized) return { success: false, reason: 'postseason-not-initialized' };
+
+    postseason.checkpointAcknowledged = true;
+    postseason.checkpointAcknowledgedAt = currentDate() || postseason.checkpointDate || null;
+    postseason.status = 'round-one';
+
+    if (world.season?.postseason) {
+      world.season.postseason.started = true;
+      world.season.phase = 'postseason';
+    }
+
+    if (options.save !== false) WorldEngine.save();
+    return { success: true, postseason };
   }
 
   function canonicalGame(game) {
@@ -419,6 +441,12 @@
       return { changed, postseason: postseason || null };
     }
 
+    if (!postseason.checkpointAcknowledged) {
+      refreshStandings();
+      if (changed && options.save !== false) WorldEngine.save();
+      return { changed, postseason };
+    }
+
     for (const series of postseason.bracket.rounds.roundOne || []) {
       if (series.status !== 'complete' && finishSeries(series)) changed = true;
     }
@@ -435,6 +463,12 @@
     refreshStandings();
     if (changed && options.save !== false) WorldEngine.save();
     return { changed, postseason };
+  }
+
+  function pendingCheckpoint() {
+    const postseason = state()?.postseason?.highSchool;
+    if (!postseason?.initialized || postseason.checkpointAcknowledged) return null;
+    return key(postseason.checkpointDate);
   }
 
   function summary(daysAdvanced, dateResults, crossedWeeks, weeklyResults) {
@@ -476,11 +510,20 @@
     let daysAdvanced = 0;
     let last = null;
     let blockingDateResult = null;
+    let checkpointReached = false;
 
     while (currentDate() < target && daysAdvanced < maximumDays) {
       reconcile({ save: false });
-      const nextDate = addDays(currentDate(), 1);
+
+      const checkpoint = pendingCheckpoint();
+      if (checkpoint && currentDate() >= checkpoint) {
+        checkpointReached = true;
+        break;
+      }
+
+      let nextDate = addDays(currentDate(), 1);
       if (!nextDate) break;
+      if (checkpoint && nextDate > checkpoint) nextDate = checkpoint;
 
       last = originalAdvanceToDate(nextDate, { ...options, maximumDays: 1, save: false });
       dateResults.push(...(last?.dateProcessingResults || []));
@@ -488,6 +531,12 @@
       weeklyResults.push(...(last?.weeklyProcessingResults || []));
       daysAdvanced += Math.max(0, Number(last?.daysAdvanced) || 0);
       reconcile({ save: false });
+
+      const reachedCheckpoint = pendingCheckpoint();
+      if (reachedCheckpoint && currentDate() >= reachedCheckpoint) {
+        checkpointReached = true;
+        break;
+      }
 
       if (last?.stopSimulation === true) {
         blockingDateResult = last?.blockingDateResult || last;
@@ -499,10 +548,10 @@
     const reachedTarget = currentDate() === target;
     const stopSimulation = Boolean(blockingDateResult);
     const uniqueWeeks = [...new Set(crossedWeeks)];
-    if (options.save !== false && (daysAdvanced > 0 || stopSimulation)) WorldEngine.save();
+    if (options.save !== false && (daysAdvanced > 0 || stopSimulation || checkpointReached)) WorldEngine.save();
 
     return {
-      success: reachedTarget && !stopSimulation,
+      success: (reachedTarget || checkpointReached) && !stopSimulation,
       currentDate: currentDate(),
       targetDate: target,
       daysAdvanced,
@@ -513,13 +562,16 @@
       stopSimulation,
       blockingDateResult,
       blockingEventResult: blockingDateResult?.blockingEventResult || last?.blockingEventResult || null,
+      postseasonCheckpoint: checkpointReached,
       reason: stopSimulation
         ? 'player-interaction-required'
-        : reachedTarget
-          ? 'target-reached'
-          : daysAdvanced >= maximumDays
-            ? 'maximum-days-reached'
-            : last?.reason || 'advance-failed',
+        : checkpointReached
+          ? 'postseason-checkpoint-reached'
+          : reachedTarget
+            ? 'target-reached'
+            : daysAdvanced >= maximumDays
+              ? 'maximum-days-reached'
+              : last?.reason || 'advance-failed',
     };
   }
 
@@ -530,6 +582,7 @@
     return state().postseason.highSchool;
   };
   WorldEngine.initializeHighSchoolPostseason = initializePostseason;
+  WorldEngine.acknowledgeHighSchoolPostseasonCheckpoint = acknowledgeCheckpoint;
   WorldEngine.reconcileHighSchoolPostseason = reconcile;
   WorldEngine.advanceToDate = advanceWithLifecycle;
 
