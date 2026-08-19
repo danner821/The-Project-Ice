@@ -48,6 +48,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/postseason-cadence.js"></script>');
     }
 
+    if (!html.includes('/schedule-open-day-fix.js')) {
+      scripts.push('    <script src="/schedule-open-day-fix.js"></script>');
+    }
+
     if (!html.includes('/postseason-trigger.js')) {
       scripts.push('    <script src="/postseason-trigger.js"></script>');
     }
