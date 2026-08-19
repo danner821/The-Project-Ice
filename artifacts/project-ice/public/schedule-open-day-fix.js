@@ -73,14 +73,57 @@
     actionButton.dataset.openDayTarget = '';
   }
 
+  function clampToPendingPostseasonCheckpoint(target) {
+    if (!target) return target;
+
+    /*
+     * A long Schedule-tab jump must never leap over the hard postseason
+     * checkpoint. Reconcile first so an Apr 29 end-of-season save has its
+     * postseason/checkpoint created before we decide how far it may advance.
+     *
+     * WorldEngine.advanceToDate also owns this rule. This UI guard makes the
+     * Schedule shortcut obey the same contract even if another runtime layer
+     * later wraps the engine or the selected target is several days ahead.
+     */
+    try {
+      WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
+    } catch (error) {
+      console.warn('[Schedule] Could not reconcile postseason before date jump:', error);
+    }
+
+    const post =
+      WorldEngine.getHighSchoolPostseason?.() ||
+      WorldEngine.state?.postseason?.highSchool ||
+      null;
+
+    const checkpoint = dateKey(post?.checkpointDate);
+    if (
+      post?.initialized === true &&
+      post?.checkpointAcknowledged !== true &&
+      checkpoint &&
+      target > checkpoint
+    ) {
+      return checkpoint;
+    }
+
+    return target;
+  }
+
   actionButton.addEventListener('click', event => {
-    const target = dateKey(actionButton.dataset.openDayTarget);
+    const requestedTarget = dateKey(actionButton.dataset.openDayTarget);
     const today = currentDate();
 
-    if (!target || !today || target <= today || activeEventOn(target)) return;
+    if (
+      !requestedTarget ||
+      !today ||
+      requestedTarget <= today ||
+      activeEventOn(requestedTarget)
+    ) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
+
+    const target = clampToPendingPostseasonCheckpoint(requestedTarget);
 
     if (typeof simulateToDate === 'function') {
       simulateToDate(target, 'schedule');
