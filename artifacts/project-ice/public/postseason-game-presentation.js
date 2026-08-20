@@ -8,6 +8,7 @@
   const STYLE_ID = 'pi-postseason-game-presentation-styles';
   const EVENT_SCREEN_ID = 'event-screen';
   const PREGAME_SCREEN_ID = 'pregame-matchup-screen';
+  let activePlayoffGame = null;
 
   const roundLabel = round => {
     const value = String(round || '').toLowerCase();
@@ -209,11 +210,11 @@
     EventSystem.openEvent = function(eventId, origin = 'hub', eventData = null) {
       const eventRoot = document.getElementById(EVENT_SCREEN_ID);
       clearDecoration(eventRoot);
+      activePlayoffGame = isPlayoffGame(eventData) ? eventData : null;
 
       const result = originalOpenEvent(eventId, origin, eventData);
-      const current = EventSystem.getCurrentDef?.() || eventData;
-      if (isPlayoffGame(current)) {
-        window.requestAnimationFrame(() => decorateEventScreen(current));
+      if (activePlayoffGame) {
+        window.requestAnimationFrame(() => decorateEventScreen(activePlayoffGame));
       }
       return result;
     };
@@ -226,8 +227,11 @@
       clearDecoration(pregameRoot);
 
       const result = originalOpenPregameMatchup(eventDefinition);
-      if (result !== false && isPlayoffGame(eventDefinition)) {
-        window.requestAnimationFrame(() => decoratePregameScreen(eventDefinition));
+      const playoffGame = isPlayoffGame(eventDefinition)
+        ? eventDefinition
+        : activePlayoffGame;
+      if (result !== false && playoffGame) {
+        window.requestAnimationFrame(() => decoratePregameScreen(playoffGame));
       }
       return result;
     };
