@@ -1,7 +1,7 @@
 # Project Ice — Authoritative Roadmap
 
-Updated: 2026-08-18
-Authoritative planning checkpoint: 2026-08-18 Season Lifecycle vision session
+Updated: 2026-08-20
+Authoritative planning checkpoint: 2026-08-20 Phase 3.2 kickoff
 
 This file is the planning source of truth. Do not silently fall back to older roadmap files or prior phase ordering.
 
@@ -17,7 +17,7 @@ Phase 3 — Season Lifecycle
 Status: ACTIVE
 
 Current mini-phase:
-- Phase 3.1 — Postseason Foundation
+- Phase 3.2 — Playoff Presentation + Statistics
 
 ---
 
@@ -79,9 +79,9 @@ Regular Season → Playoff Preparation → Playoffs → Champion → Awards → 
 This lifecycle repeats through freshman, sophomore, junior and senior seasons. The senior-year travel tournament is the final HS gameplay chapter before the later NHL Draft Transition phase.
 
 ## Phase 3.1 — Postseason Foundation
-Status: ACTIVE
+Status: COMPLETE / LIVE VALIDATION PASSED
 
-Build the canonical saved postseason structure before presentation layers depend on it.
+Canonical postseason foundation is implemented and live-validated.
 
 Locked playoff format:
 - 8-team HS league.
@@ -104,7 +104,7 @@ Timing:
 - Playoff games begin approximately 1.5 weeks after the regular-season finale.
 - Practice/recovery scheduling adapts around playoff games with at least two combined practice/recovery events per seven-day playoff window.
 
-Canonical postseason state must permanently preserve:
+Canonical postseason state permanently preserves:
 - frozen final regular-season standings
 - six qualifiers and seeds
 - byes
@@ -116,9 +116,23 @@ Canonical postseason state must permanently preserve:
 - champion
 - postseason completion date
 
-## Phase 3.2 — Playoff Presentation + Statistics
-Status: NEXT AFTER 3.1
+Live validation passed for:
+- May 1 hard postseason checkpoint behavior
+- bracket reveal and user-team highlighting
+- Round One progression and #1/#2 byes
+- semifinal reseeding
+- best-of-three series progression including Game 3 deciders
+- career-player playoff Play Game / Sim Game flow
+- adaptive practice/recovery cadence
+- championship creation and world continuation after career-team elimination
+- champion persistence into history/news
 
+## Phase 3.2 — Playoff Presentation + Statistics
+Status: ACTIVE
+
+Build the persistent player-facing playoff layer on top of the validated canonical postseason state.
+
+Locked requirements:
 - Head Into Playoffs screen.
 - Bracket reveal screen using the actual bracket from the save.
 - During playoffs, League tab displays the playoff bracket prominently at the top.
@@ -126,6 +140,14 @@ Status: NEXT AFTER 3.1
 - League leaders and player/team playoff stats populate separately from regular-season stats.
 - Home becomes playoff-aware without becoming a separate playoff dashboard.
 - Regular-season standings remain frozen/final during postseason play.
+- Playoff game event and pregame screens retain distinct Project Ice postseason presentation while using the same canonical game engine.
+
+Implementation order inside 3.2:
+1. Persistent live League-tab bracket and postseason context.
+2. Canonical playoff stat namespace audit/foundation.
+3. League Leaders / Full Stats / player profile / team profile playoff wiring.
+4. Home playoff-awareness and frozen-standings presentation audit.
+5. End-to-end live validation from bracket entry through completed postseason.
 
 ## Phase 3.3 — Championship + Awards
 Status: PLANNED
