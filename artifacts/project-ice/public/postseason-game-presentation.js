@@ -37,11 +37,15 @@
     ].find(series => String(series?.seriesId || '') === String(event?.seriesId || '')) || null;
   }
 
-  function teamShortName(teamId) {
-    const team = (WorldEngine.state?.teams || []).find(item =>
+  function teamRecord(teamId) {
+    return (WorldEngine.state?.teams || []).find(item =>
       String(item?.teamId || '') === String(teamId || '')
-    );
-    return team?.teamName || team?.schoolName || 'Team';
+    ) || null;
+  }
+
+  function teamShortName(teamId) {
+    const team = teamRecord(teamId);
+    return team?.teamName || team?.schoolName || team?.name || 'Team';
   }
 
   function careerTeamId() {
@@ -74,6 +78,18 @@
     return `${teamShortName(leaderId)} leads ${Math.max(high, low)}-${Math.min(high, low)}`;
   }
 
+  function formatDate(value) {
+    const key = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return String(value || 'TBD');
+    const date = new Date(`${key}T12:00:00`);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
     const style = document.createElement('style');
@@ -104,6 +120,22 @@
         width:4px;height:4px;border-radius:50%;background:#79b7ff;
         box-shadow:0 0 8px rgba(121,183,255,.8);flex:0 0 auto;
       }
+      .pi-playoff-event-details {
+        margin:22px 0 24px;padding:0 18px;border:1px solid rgba(112,176,255,.18);
+        border-radius:18px;background:rgba(20,47,78,.28);overflow:hidden;
+        box-shadow:0 16px 38px rgba(0,0,0,.18),inset 0 0 0 1px rgba(104,171,255,.03);
+      }
+      .pi-playoff-event-detail {
+        display:flex;align-items:center;justify-content:space-between;gap:18px;
+        min-height:58px;border-bottom:1px solid rgba(132,166,205,.12);
+      }
+      .pi-playoff-event-detail:last-child { border-bottom:0; }
+      .pi-playoff-event-detail__label {
+        color:#7f9fc4;font-size:10px;font-weight:850;letter-spacing:.15em;text-transform:uppercase;
+      }
+      .pi-playoff-event-detail__value {
+        color:#edf5ff;font-size:14px;font-weight:750;text-align:right;
+      }
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen .btn--primary,
       #${EVENT_SCREEN_ID}.pi-playoff-game-screen #btn-ev-begin,
       #${PREGAME_SCREEN_ID}.pi-playoff-game-screen .btn--primary {
@@ -125,7 +157,7 @@
   function clearDecoration(root) {
     if (!root) return;
     root.classList.remove('pi-playoff-game-screen');
-    root.querySelectorAll('.pi-playoff-game-context').forEach(node => node.remove());
+    root.querySelectorAll('.pi-playoff-game-context,.pi-playoff-event-details').forEach(node => node.remove());
   }
 
   function addContext(root, event, anchor) {
@@ -144,12 +176,81 @@
   }
 
   function replaceLeafText(root, exactText, replacement) {
-    if (!root) return;
+    if (!root) return false;
     for (const element of root.querySelectorAll('*')) {
       if (element.children.length === 0 && String(element.textContent || '').trim() === exactText) {
         element.textContent = replacement;
+        return true;
       }
     }
+    return false;
+  }
+
+  function replaceFirstMatchingLeaf(root, patterns, replacement) {
+    if (!root) return false;
+    for (const element of root.querySelectorAll('*')) {
+      if (element.children.length > 0) continue;
+      const text = String(element.textContent || '').trim();
+      if (patterns.some(pattern => pattern.test(text))) {
+        element.textContent = replacement;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function eventOpponent(event) {
+    const careerId = careerTeamId();
+    return String(event.homeTeamId || '') === String(careerId || '')
+      ? event.awayTeamId
+      : event.homeTeamId;
+  }
+
+  function eventVenue(event) {
+    return event.venue || event.location || event.arena || event.rink || 'TBD';
+  }
+
+  function eventObjective(event) {
+    const status = seriesStatus(event);
+    const gameNumber = Number(event.gameNumber) || 1;
+    if (gameNumber === 1) return 'Set the tone and take control of the series.';
+    if (/tied/i.test(status)) return 'Break the tie and seize the series advantage.';
+    if (/leads/i.test(status) && status.startsWith(teamShortName(careerTeamId()))) {
+      return 'Finish the job and close out the series.';
+    }
+    return 'Respond under pressure and keep the season alive.';
+  }
+
+  function addEventDetails(root, event, anchor) {
+    if (!root || !anchor) return;
+    root.querySelectorAll('.pi-playoff-event-details').forEach(node => node.remove());
+
+    const opponentId = eventOpponent(event);
+    const details = document.createElement('div');
+    details.className = 'pi-playoff-event-details';
+    details.innerHTML = `
+      <div class="pi-playoff-event-detail">
+        <span class="pi-playoff-event-detail__label">Round</span>
+        <span class="pi-playoff-event-detail__value">${roundLabel(event.playoffRound)} · Game ${Number(event.gameNumber) || 1}</span>
+      </div>
+      <div class="pi-playoff-event-detail">
+        <span class="pi-playoff-event-detail__label">Opponent</span>
+        <span class="pi-playoff-event-detail__value">${teamShortName(opponentId)}</span>
+      </div>
+      <div class="pi-playoff-event-detail">
+        <span class="pi-playoff-event-detail__label">Venue</span>
+        <span class="pi-playoff-event-detail__value">${eventVenue(event)}</span>
+      </div>
+      <div class="pi-playoff-event-detail">
+        <span class="pi-playoff-event-detail__label">Date</span>
+        <span class="pi-playoff-event-detail__value">${formatDate(event.date)}</span>
+      </div>
+      <div class="pi-playoff-event-detail">
+        <span class="pi-playoff-event-detail__label">Series</span>
+        <span class="pi-playoff-event-detail__value">${seriesStatus(event)}</span>
+      </div>
+    `;
+    anchor.insertAdjacentElement('beforebegin', details);
   }
 
   function decorateEventScreen(event) {
@@ -162,25 +263,31 @@
 
     const round = roundLabel(event.playoffRound);
     const number = Number(event.gameNumber) || 1;
-    replaceLeafText(root, 'Regular Season', `${round} · Game ${number}`);
-
-    const careerId = careerTeamId();
-    const opponentId = String(event.homeTeamId || '') === String(careerId || '')
-      ? event.awayTeamId
-      : event.homeTeamId;
+    const opponentId = eventOpponent(event);
     const opponent = teamShortName(opponentId);
 
-    for (const element of root.querySelectorAll('p,div,span')) {
-      if (element.children.length > 0) continue;
-      if (/^A regular-season (home|away) game against/i.test(String(element.textContent || '').trim())) {
-        element.textContent = `High school ${round.toLowerCase()} — Game ${number} of a best-of-three series against the ${opponent}.`;
-      }
+    const title = [...root.querySelectorAll('h1,h2,h3')].find(element =>
+      /playoff game|game vs|game at|home game|away game/i.test(String(element.textContent || ''))
+    );
+    if (title) {
+      title.textContent = `${round} · Game ${number}`;
+      addContext(root, event, title);
     }
 
-    const title = [...root.querySelectorAll('h1,h2,h3')].find(element =>
-      /game vs|game at|home game|away game/i.test(String(element.textContent || ''))
+    replaceLeafText(root, 'Regular Season', `${round} · Game ${number}`);
+    replaceFirstMatchingLeaf(
+      root,
+      [/^Prepare for the event\.?$/i, /^Game Day$/i],
+      eventObjective(event),
     );
-    if (title) addContext(root, event, title);
+    replaceFirstMatchingLeaf(
+      root,
+      [/^Review the event details before continuing\.?$/i, /^A regular-season (home|away) game against/i],
+      `Game ${number} of a best-of-three ${round.toLowerCase()} series against ${opponent}. ${seriesStatus(event)}.`,
+    );
+
+    const beginButton = root.querySelector('#btn-ev-begin,button.btn--primary,.btn--primary');
+    if (beginButton) addEventDetails(root, event, beginButton);
   }
 
   function decoratePregameScreen(event) {
