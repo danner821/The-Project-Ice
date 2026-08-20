@@ -213,12 +213,25 @@
   function eventObjective(event) {
     const status = seriesStatus(event);
     const gameNumber = Number(event.gameNumber) || 1;
+    const round = String(event.playoffRound || '').toLowerCase();
+
     if (gameNumber === 1) return 'Set the tone and take control of the series.';
+
+    if (gameNumber === 3 && /tied 1-1/i.test(status)) {
+      if (round === 'championship') return 'Win the deciding game and claim the championship.';
+      if (round === 'semifinals') return 'Win the deciding game and punch your ticket to the championship.';
+      return 'Win the deciding game and advance.';
+    }
+
     if (/tied/i.test(status)) return 'Break the tie and seize the series advantage.';
     if (/leads/i.test(status) && status.startsWith(teamShortName(careerTeamId()))) {
-      return 'Finish the job and close out the series.';
+      return round === 'championship'
+        ? 'Finish the job and win the championship.'
+        : 'Finish the job and close out the series.';
     }
-    return 'Respond under pressure and keep the season alive.';
+    return round === 'championship'
+      ? 'Respond under pressure and keep the championship dream alive.'
+      : 'Respond under pressure and keep the season alive.';
   }
 
   function addEventDetails(root, event, anchor) {
