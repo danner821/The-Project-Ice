@@ -80,6 +80,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/postseason-event-polish.js"></script>');
     }
 
+    if (!html.includes('/pregame-sim-reset.js')) {
+      scripts.push('    <script src="/pregame-sim-reset.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
