@@ -34,7 +34,20 @@
 
   function currentPlayoffGame() {
     const event = currentEvent();
-    return event?.isPlayoff === true ? event : null;
+    const type = String(event?.type || event?.eventType || '').toLowerCase();
+
+    /*
+     * Postseason practices and recovery events also carry isPlayoff=true so
+     * the calendar can keep them grouped with the playoff phase. This module
+     * is presentation-only for actual hockey games and must never take over
+     * the shared Event screen for those career events.
+     */
+    return (
+      event?.isPlayoff === true &&
+      type === 'game'
+    )
+      ? event
+      : null;
   }
 
   function postseason() {
