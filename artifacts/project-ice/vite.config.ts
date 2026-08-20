@@ -68,11 +68,9 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/postseason-polish.js"></script>');
     }
 
-    /*
-     * Postseason game presentation is temporarily disabled while its shared
-     * Event-screen lifecycle is rebuilt. The file remains in the repo, but it
-     * must not load until it can no longer interfere with practices/recovery.
-     */
+    if (!html.includes('/postseason-game-presentation.js')) {
+      scripts.push('    <script src="/postseason-game-presentation.js"></script>');
+    }
 
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
