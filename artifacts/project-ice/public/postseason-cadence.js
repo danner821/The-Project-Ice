@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 2;
+  const MODULE_VERSION = 3;
   const WINDOW_DAYS = 7;
   const MIN_EVENTS_PER_WINDOW = 2;
 
@@ -102,15 +102,29 @@
 
   function applyEventPresentation(event, type) {
     const practice = type === 'practice';
+
     event.type = type;
     event.eventType = type;
+    event.eventKey = practice ? 'practice-systems' : 'recovery';
     event.label = practice ? 'Playoff Practice' : 'Recovery Session';
     event.shortLabel = practice ? 'Practice' : 'Recovery';
     event.icon = practice ? '🏒' : '😴';
-    event.location = practice ? 'Team Rink' : 'Recovery Room';
+    event.location = practice ? 'Team Rink' : 'Training Facility';
     event.objective = practice
       ? 'Stay sharp and prepare for the next playoff test.'
       : 'Reset physically and mentally between postseason games.';
+    event.description = practice
+      ? 'A focused postseason team session built around systems, execution, and preparation.'
+      : 'A postseason recovery day focused on resetting before the next test.';
+    event.focus = practice ? 'systems' : null;
+
+    /*
+     * Match the canonical high-school event contract from world.js.
+     * Practice is an interactive career event and must stop a multi-day sim
+     * before the calendar can continue. Recovery remains a normal quick event
+     * that can still be entered directly from Home/Schedule.
+     */
+    event.requiresPlayerInteraction = practice;
     event.cadenceVersion = MODULE_VERSION;
     return event;
   }
@@ -137,11 +151,6 @@
     const gameDates = activeCareerGameDates(schedule, teamId);
     let changed = false;
 
-    /*
-     * A future playoff game may be created after preparation events were
-     * already projected. Never allow a practice/recovery event to occupy a
-     * newly claimed career-game date.
-     */
     const filtered = schedule.filter(event => {
       if (event?.postseasonCareerEvent !== true) return true;
       const date = key(event.date);
@@ -156,17 +165,16 @@
 
     const currentSchedule = Array.isArray(world.schedule) ? world.schedule : [];
 
-    /*
-     * Once a matchup becomes known, nearby preparation events should adapt.
-     * For example, the day after a newly created semifinal becomes Recovery
-     * and the day before it becomes Practice without creating a new event.
-     */
     for (const event of currentSchedule) {
       if (event?.postseasonCareerEvent !== true || event?.completed === true) continue;
       const date = key(event.date);
       if (!date) continue;
       const desiredType = chooseEventType(currentSchedule, teamId, date);
-      if (event.type !== desiredType || Number(event.cadenceVersion) !== MODULE_VERSION) {
+      if (
+        event.type !== desiredType ||
+        Number(event.cadenceVersion) !== MODULE_VERSION ||
+        (desiredType === 'practice' && event.requiresPlayerInteraction !== true)
+      ) {
         applyEventPresentation(event, desiredType);
         changed = true;
       }
@@ -247,14 +255,26 @@
       windowIndex += 1;
     }
 
-    post.cadence = {
-      ...(post.cadence || {}),
+    const nextCadence = {
       version: MODULE_VERSION,
       minimumCareerEventsPerSevenDays: MIN_EVENTS_PER_WINDOW,
       gamesEveryOtherDay: true,
       adaptiveAroundKnownCareerGames: true,
-      syncedAt: new Date().toISOString(),
     };
+
+    const previousCadence = post.cadence || {};
+    if (
+      Number(previousCadence.version) !== nextCadence.version ||
+      Number(previousCadence.minimumCareerEventsPerSevenDays) !== MIN_EVENTS_PER_WINDOW ||
+      previousCadence.gamesEveryOtherDay !== true ||
+      previousCadence.adaptiveAroundKnownCareerGames !== true
+    ) {
+      post.cadence = {
+        ...previousCadence,
+        ...nextCadence,
+      };
+      changed = true;
+    }
 
     if (changed && options.save !== false) {
       WorldEngine.save?.();
@@ -279,5 +299,4 @@
   WorldEngine.syncHighSchoolPostseasonCadence = syncCadence;
 
   syncCadence({ save: true });
-  window.setInterval(() => syncCadence({ save: true }), 1000);
 })();
