@@ -72,6 +72,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/postseason-game-presentation.js"></script>');
     }
 
+    if (!html.includes('/postseason-game-canonical-bridge.js')) {
+      scripts.push('    <script src="/postseason-game-canonical-bridge.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
