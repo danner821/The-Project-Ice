@@ -41,10 +41,32 @@
     ) || null;
   }
 
+  function setHidden(button, hidden) {
+    if (button.hidden !== hidden) button.hidden = hidden;
+  }
+
+  function setDisabled(button, disabled) {
+    if (button.disabled !== disabled) button.disabled = disabled;
+  }
+
+  function setData(button, key, value) {
+    const next = String(value || '');
+    if (String(button.dataset[key] || '') !== next) {
+      button.dataset[key] = next;
+    }
+  }
+
   function setButtonLabel(button, text) {
     const label = button.querySelector('.btn__label');
-    if (label) label.textContent = text;
-    else button.textContent = text;
+    if (label) {
+      if (String(label.textContent || '') !== String(text)) {
+        label.textContent = text;
+      }
+      return;
+    }
+    if (String(button.textContent || '') !== String(text)) {
+      button.textContent = text;
+    }
   }
 
   function syncSelectedDayControls() {
@@ -56,35 +78,30 @@
     const future = selected > today;
 
     if (!event) {
-      detailsButton.hidden = true;
-      detailsButton.disabled = true;
-      detailsButton.setAttribute('aria-hidden', 'true');
+      setHidden(detailsButton, true);
+      setDisabled(detailsButton, true);
+      if (detailsButton.getAttribute('aria-hidden') !== 'true') {
+        detailsButton.setAttribute('aria-hidden', 'true');
+      }
 
-      actionButton.hidden = false;
-      actionButton.disabled = !future;
-      actionButton.dataset.openDayTarget = future ? selected : '';
+      setHidden(actionButton, false);
+      setDisabled(actionButton, !future);
+      setData(actionButton, 'openDayTarget', future ? selected : '');
       setButtonLabel(actionButton, future ? 'Simulate to Date' : 'No Event');
       return;
     }
 
-    detailsButton.hidden = false;
-    detailsButton.disabled = false;
-    detailsButton.removeAttribute('aria-hidden');
-    actionButton.dataset.openDayTarget = '';
+    setHidden(detailsButton, false);
+    setDisabled(detailsButton, false);
+    if (detailsButton.hasAttribute('aria-hidden')) {
+      detailsButton.removeAttribute('aria-hidden');
+    }
+    setData(actionButton, 'openDayTarget', '');
   }
 
   function clampToPendingPostseasonCheckpoint(target) {
     if (!target) return target;
 
-    /*
-     * A long Schedule-tab jump must never leap over the hard postseason
-     * checkpoint. Reconcile first so an Apr 29 end-of-season save has its
-     * postseason/checkpoint created before we decide how far it may advance.
-     *
-     * WorldEngine.advanceToDate also owns this rule. This UI guard makes the
-     * Schedule shortcut obey the same contract even if another runtime layer
-     * later wraps the engine or the selected target is several days ahead.
-     */
     try {
       WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
     } catch (error) {
@@ -131,19 +148,23 @@
     }
   }, true);
 
-  /*
-   * The Schedule calendar rerenders its selected-day panel frequently. Keep
-   * the controls synchronized after calendar clicks and those DOM updates.
-   */
   document.addEventListener('click', event => {
     if (event.target.closest('[data-date]')) {
       window.setTimeout(syncSelectedDayControls, 0);
     }
   }, true);
 
-  const observer = new MutationObserver(() => {
-    window.requestAnimationFrame(syncSelectedDayControls);
-  });
+  let syncQueued = false;
+  const queueSync = () => {
+    if (syncQueued) return;
+    syncQueued = true;
+    window.requestAnimationFrame(() => {
+      syncQueued = false;
+      syncSelectedDayControls();
+    });
+  };
+
+  const observer = new MutationObserver(queueSync);
 
   const scheduleRoot =
     document.getElementById('hub-panel-schedule') ||
