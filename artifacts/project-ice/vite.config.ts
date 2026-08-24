@@ -84,6 +84,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/pregame-sim-reset.js"></script>');
     }
 
+    if (!html.includes('/postseason-stats.js')) {
+      scripts.push('    <script src="/postseason-stats.js"></script>');
+    }
+
     if (!html.includes('/league-postseason.js')) {
       scripts.push('    <script src="/league-postseason.js"></script>');
     }
