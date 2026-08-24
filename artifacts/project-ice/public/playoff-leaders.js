@@ -72,9 +72,10 @@
     );
 
     goalies.sort((a, b) =>
-      Number(b.stats.wins) - Number(a.stats.wins) ||
       Number(b.stats.savePercentage) - Number(a.stats.savePercentage) ||
-      Number(a.stats.goalsAgainstAverage) - Number(b.stats.goalsAgainstAverage)
+      Number(b.stats.wins) - Number(a.stats.wins) ||
+      Number(a.stats.goalsAgainstAverage) - Number(b.stats.goalsAgainstAverage) ||
+      String(playerName(a.player)).localeCompare(playerName(b.player))
     );
 
     return {
