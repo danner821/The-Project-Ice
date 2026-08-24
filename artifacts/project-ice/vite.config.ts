@@ -96,6 +96,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/playoff-leaders.js"></script>');
     }
 
+    if (!html.includes('/full-stats-scopes.js')) {
+      scripts.push('    <script src="/full-stats-scopes.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
