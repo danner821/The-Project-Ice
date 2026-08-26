@@ -90,6 +90,16 @@
     MIRROR_KEYS.forEach(key => { snapshot.player[key] = snapshot.topLevel[key]; });
   }
 
+  function headerIndex(label) {
+    const headers = Array.from(document.querySelectorAll('#full-stats-table-head th'));
+    return headers.findIndex(header =>
+      String(header.textContent || '')
+        .replace(/[▲▼△▽]/g, '')
+        .trim()
+        .toUpperCase() === label
+    );
+  }
+
   function alignPlayoffScoringTiebreaks() {
     if (currentScope() !== 'playoffs') return;
     if (String(Game?.fullStatsView || 'skaters') !== 'skaters') return;
@@ -103,13 +113,20 @@
     const rows = Array.from(body.querySelectorAll('tr'));
     if (rows.length < 2) return;
 
+    const pointsIndex = headerIndex('PTS');
+    const goalsIndex = headerIndex('G');
+    const assistsIndex = headerIndex('A');
+    const playerIndex = headerIndex('PLAYER');
+
+    if ([pointsIndex, goalsIndex, assistsIndex, playerIndex].some(index => index < 0)) return;
+
     const value = (row, index) => Number(row.children?.[index]?.textContent?.trim()) || 0;
-    const name = row => String(row.children?.[0]?.textContent || '').trim();
+    const name = row => String(row.children?.[playerIndex]?.textContent || '').trim();
 
     rows.sort((a, b) =>
-      value(b, 6) - value(a, 6) ||
-      value(b, 4) - value(a, 4) ||
-      value(b, 5) - value(a, 5) ||
+      value(b, pointsIndex) - value(a, pointsIndex) ||
+      value(b, goalsIndex) - value(a, goalsIndex) ||
+      value(b, assistsIndex) - value(a, assistsIndex) ||
       name(a).localeCompare(name(b))
     );
 
