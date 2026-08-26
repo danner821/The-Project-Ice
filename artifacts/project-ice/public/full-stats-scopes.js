@@ -90,6 +90,32 @@
     MIRROR_KEYS.forEach(key => { snapshot.player[key] = snapshot.topLevel[key]; });
   }
 
+  function alignPlayoffScoringTiebreaks() {
+    if (currentScope() !== 'playoffs') return;
+    if (String(Game?.fullStatsView || 'skaters') !== 'skaters') return;
+
+    const sort = Game?.fullStatsSort?.skaters;
+    if (!sort || sort.key !== 'points' || sort.direction !== 'desc') return;
+
+    const body = document.getElementById('full-stats-table-body');
+    if (!body) return;
+
+    const rows = Array.from(body.querySelectorAll('tr'));
+    if (rows.length < 2) return;
+
+    const value = (row, index) => Number(row.children?.[index]?.textContent?.trim()) || 0;
+    const name = row => String(row.children?.[0]?.textContent || '').trim();
+
+    rows.sort((a, b) =>
+      value(b, 6) - value(a, 6) ||
+      value(b, 4) - value(a, 4) ||
+      value(b, 5) - value(a, 5) ||
+      name(a).localeCompare(name(b))
+    );
+
+    rows.forEach(row => body.appendChild(row));
+  }
+
   const originalRender = renderFullStatsScreen;
 
   window.renderFullStatsScreen = function(...args) {
@@ -110,6 +136,7 @@
         context.textContent = `${base} · ${scope === 'playoffs' ? 'Playoffs' : 'Regular Season'}`;
       }
 
+      alignPlayoffScoringTiebreaks();
       return result;
     } finally {
       snapshots.forEach(restorePlayer);
