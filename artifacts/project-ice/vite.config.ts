@@ -104,6 +104,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/team-leader-scopes.js"></script>');
     }
 
+    if (!html.includes('/player-stat-scopes.js')) {
+      scripts.push('    <script src="/player-stat-scopes.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
