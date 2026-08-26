@@ -16,7 +16,7 @@ if (!rawPort) {
 const port = Number(rawPort);
 
 if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
+  throw new Error(`Invalid port value: "${rawPort}"`);
 }
 
 const basePath = process.env.BASE_PATH;
@@ -98,6 +98,10 @@ const runtimeModulesPlugin = {
 
     if (!html.includes('/full-stats-scopes.js')) {
       scripts.push('    <script src="/full-stats-scopes.js"></script>');
+    }
+
+    if (!html.includes('/team-leader-scopes.js')) {
+      scripts.push('    <script src="/team-leader-scopes.js"></script>');
     }
 
     if (!html.includes('/dev-postseason-shortcut.js')) {
