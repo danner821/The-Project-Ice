@@ -148,6 +148,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/awards-offseason-exit.js"></script>');
     }
 
+    if (!html.includes('/travel-hockey-foundation.js')) {
+      scripts.push('    <script src="/travel-hockey-foundation.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
