@@ -27,8 +27,6 @@
       ${ROOT_SELECTOR} .pi-po-row--career{position:relative;background:linear-gradient(90deg,rgba(52,126,236,.32),rgba(52,126,236,.11));box-shadow:inset 4px 0 0 #65a7ff}
       ${ROOT_SELECTOR} .pi-po-row--career::after{content:'';position:absolute;inset:0;pointer-events:none;border:1px solid rgba(101,167,255,.16)}
       ${ROOT_SELECTOR} .pi-po-your-team{display:inline-block;margin-left:6px;color:#94c4ff;font-size:8px;letter-spacing:.11em;vertical-align:1px}
-
-      /* Connector geometry is rendered by SVG against real card centers. */
       ${ROOT_SELECTOR} .pi-po-connector{position:relative;min-height:300px;background:none!important}
       ${ROOT_SELECTOR} .pi-po-connector::before,${ROOT_SELECTOR} .pi-po-connector::after{display:none!important}
       ${ROOT_SELECTOR} .pi-po-connector-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
@@ -36,7 +34,6 @@
       ${ROOT_SELECTOR} .pi-po-connector-svg circle{fill:#78b4ff;opacity:.42}
       ${ROOT_SELECTOR} .pi-po-reseed{z-index:3;padding:5px 7px;border-radius:7px;border:1px solid rgba(114,145,187,.22);background:#111a27;color:#8fa0b8;box-shadow:0 5px 14px rgba(0,0,0,.28);font-size:8px;letter-spacing:.12em}
       ${ROOT_SELECTOR} .pi-po-status{margin-top:4px;padding:13px 14px;border-color:rgba(88,154,247,.18);background:linear-gradient(180deg,rgba(49,113,205,.11),rgba(30,71,133,.08));line-height:1.5}
-
       @media(max-width:430px){
         ${ROOT_SELECTOR} .pi-po-bracket-grid{min-width:810px;grid-template-columns:220px 72px 220px 72px 220px}
         ${ROOT_SELECTOR} .pi-po-col,${ROOT_SELECTOR} .pi-po-connector{min-height:286px}
@@ -158,8 +155,15 @@
     });
   }
 
-  const observer = new MutationObserver(queueDraw);
-  observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+  /*
+   * The old build watched document.body for every class/hidden mutation.
+   * On mobile that meant unrelated screen changes could repeatedly measure the
+   * entire bracket. Redraw only on actual interaction/viewport changes now.
+   */
+  document.addEventListener('click', () => {
+    queueDraw();
+    window.setTimeout(queueDraw, 40);
+  }, { passive: true });
   window.addEventListener('resize', queueDraw, { passive: true });
   window.addEventListener('orientationchange', queueDraw, { passive: true });
 
