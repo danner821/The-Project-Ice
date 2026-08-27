@@ -89,34 +89,7 @@
     globalThis.openPlayerProfile(player, 'hub');
   }
 
-  function acknowledgeAndContinue() {
-    const postseason = post();
-    if (postseason && postseason.awardsCeremonyAcknowledged !== true) {
-      postseason.awardsCeremonyAcknowledged = true;
-      postseason.awardsCeremonyAcknowledgedAt =
-        String(
-          WorldEngine.state?.season?.currentDate ||
-          WorldEngine.state?.player?.currentDate ||
-          ''
-        ).slice(0, 10);
-    }
-    if (WorldEngine.state?.season) WorldEngine.state.season.phase = 'offseason';
-
-    const calendarEvent = WorldEngine.ensureLeagueAwardsCeremonyEvent?.({ save: false });
-    if (calendarEvent) {
-      calendarEvent.completed = true;
-      calendarEvent.played = true;
-      calendarEvent.status = 'completed';
-      calendarEvent.requiresPlayerInteraction = false;
-      calendarEvent.completedAt = postseason?.awardsCeremonyAcknowledgedAt || calendarEvent.date;
-    }
-
-    WorldEngine.save?.();
-    document.getElementById(SCREEN_ID)?.remove();
-    window.refreshCareerUI?.();
-  }
-
-  function openScreen(options = {}) {
+  function openScreen() {
     const winners = currentAwards();
     if (!winners.length) return false;
 
@@ -125,11 +98,9 @@
 
     const root = document.createElement('section');
     root.id = SCREEN_ID;
-    const fromCeremony = options.fromCeremony === true || post()?.awardsCeremonyAcknowledged !== true;
-
     root.innerHTML = `
       <div class="pi-lah-shell">
-        ${fromCeremony ? '' : '<button type="button" class="pi-lah-back" id="pi-lah-back" aria-label="Back to League">‹</button>'}
+        <button type="button" class="pi-lah-back" id="pi-lah-back" aria-label="Back to League">‹</button>
         <div class="pi-lah-title-wrap">
           <span class="pi-lah-kicker">Project Ice · League History</span>
           <h1 class="pi-lah-title">${esc(seasonLabel())} League Awards</h1>
@@ -147,7 +118,7 @@
               <span class="pi-lah-scope">${item?.scope === 'playoffs' ? 'Playoffs' : 'Regular Season'}</span>
             </div>`).join('')}
         </div>
-        <button type="button" class="pi-lah-continue" id="pi-lah-continue">${fromCeremony ? 'Continue Into Offseason' : 'Back to League'}</button>
+        <button type="button" class="pi-lah-continue" id="pi-lah-continue">Back to League</button>
       </div>`;
 
     root.addEventListener('click', event => {
@@ -156,13 +127,8 @@
         openWinner(row.dataset.playerId);
         return;
       }
-      if (event.target?.closest?.('#pi-lah-back')) {
+      if (event.target?.closest?.('#pi-lah-back, #pi-lah-continue')) {
         root.remove();
-        return;
-      }
-      if (event.target?.closest?.('#pi-lah-continue')) {
-        if (fromCeremony) acknowledgeAndContinue();
-        else root.remove();
       }
     });
 
@@ -201,16 +167,6 @@
     }
     return true;
   }
-
-  document.addEventListener('click', event => {
-    if (!event.target?.closest?.('#pi-awards-finish')) return;
-    if (!currentAwards().length) return;
-
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    document.getElementById('pi-awards-ceremony')?.remove();
-    openScreen({ fromCeremony: true });
-  }, true);
 
   document.addEventListener('click', event => {
     const leagueButton = event.target?.closest?.('[data-tab="league"], [data-hub-tab="league"], #hub-tab-league, #btn-tab-league');
