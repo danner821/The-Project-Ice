@@ -19,7 +19,7 @@
 
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-awards-eve-v2';
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-awards-eve-v3';
 
   const originalListCareerSaves =
     typeof WorldEngine.listCareerSaves === 'function'
@@ -143,14 +143,13 @@
     if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
     const existing = world.postseason.highSchool || {};
 
-    if (existing?.championTeamId && existing?.completedDate) return existing;
-
     const regularEnd = dateKey(existing?.regularSeasonEndDate) || regularSeasonEndDate(world);
-    const completedDate = addDays(regularEnd, 28) || '2027-05-20';
+    const completedDate = dateKey(existing?.completedDate) || addDays(regularEnd, 28) || '2027-05-20';
     const frozen = Array.isArray(existing?.frozenStandings) && existing.frozenStandings.length
       ? existing.frozenStandings
       : standingRows(world);
     const championTeamId = existing?.championTeamId || chooseChampion(world, frozen);
+    const existingRounds = existing?.bracket?.rounds || {};
 
     const postseason = {
       ...existing,
@@ -160,13 +159,14 @@
       phase: 'postseason-complete',
       regularSeasonEndDate: regularEnd,
       frozenStandings: frozen,
-      bracket: existing?.bracket || {
-        format: 'six-team-bye-best-of-three',
-        qualifierCount: 6,
+      bracket: {
+        ...(existing?.bracket || {}),
+        format: existing?.bracket?.format || 'six-team-bye-best-of-three',
+        qualifierCount: Number(existing?.bracket?.qualifierCount) || 6,
         rounds: {
-          roundOne: [],
-          semifinals: [],
-          championship: [],
+          roundOne: Array.isArray(existingRounds.roundOne) ? existingRounds.roundOne : [],
+          semifinals: Array.isArray(existingRounds.semifinals) ? existingRounds.semifinals : [],
+          championship: Array.isArray(existingRounds.championship) ? existingRounds.championship : [],
         },
       },
       completedDate,
