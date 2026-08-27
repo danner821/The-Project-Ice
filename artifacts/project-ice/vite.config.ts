@@ -112,6 +112,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/player-stat-scopes.js"></script>');
     }
 
+    if (!html.includes('/player-profile-postseason.js')) {
+      scripts.push('    <script src="/player-profile-postseason.js"></script>');
+    }
+
     if (!html.includes('/home-postseason-awareness.js')) {
       scripts.push('    <script src="/home-postseason-awareness.js"></script>');
     }
