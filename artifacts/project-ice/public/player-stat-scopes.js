@@ -196,12 +196,6 @@
     const rows = Array.from(body.querySelectorAll('tr'));
     if (!rows.length) return;
 
-    /*
-     * The current season is the final body row. The core season-history array
-     * currently receives combined regular + playoff totals, so always replace
-     * the active row from the canonical scoped API for BOTH selector states.
-     * Older archived seasons remain untouched.
-     */
     const currentRow = rows[rows.length - 1];
 
     Object.entries(values).forEach(([label, value]) => {
@@ -209,11 +203,6 @@
       if (index !== undefined) setCell(currentRow, index, value ?? 0);
     });
 
-    /*
-     * For the current single-season HS career, the scoped active-season line is
-     * also the scoped career total. Once postseason history is archived at
-     * season transition, the shared history renderer can sum prior scopes.
-     */
     const footerRow = foot?.querySelector('tr');
     if (footerRow) {
       Object.entries(values).forEach(([label, value]) => {
@@ -259,9 +248,20 @@
     });
   }
 
-  document.getElementById('pp-statistics-filter')?.addEventListener('change', () => {
-    requestAnimationFrame(rerenderCareerPlayerStats);
-  });
+  const careerFilter = document.getElementById('pp-statistics-filter');
+  if (careerFilter && careerFilter.dataset.piScopedOwner !== 'true') {
+    careerFilter.dataset.piScopedOwner = 'true';
+
+    /*
+     * The core Player-tab listener redraws the mixed career-history table on
+     * every dropdown change. Own this event in the capture phase so that old
+     * handler cannot repaint over the canonical scoped table afterward.
+     */
+    careerFilter.addEventListener('change', event => {
+      event.stopImmediatePropagation();
+      rerenderCareerPlayerStats();
+    }, true);
+  }
 
   const originalOpenHubTab = typeof openHubTab === 'function' ? openHubTab : null;
   if (originalOpenHubTab) {
