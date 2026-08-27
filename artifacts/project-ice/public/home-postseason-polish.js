@@ -15,6 +15,20 @@
       .replace(/\bLynx is next\./, 'Lynx are next.');
   }
 
+  function restoreOpenDayButton(button, label) {
+    if (!button.classList.contains('is-open-day-disabled')) return;
+
+    button.disabled = false;
+    button.removeAttribute('aria-disabled');
+    button.classList.remove('is-open-day-disabled');
+    delete button.dataset.piOriginalDisabled;
+
+    if (label.dataset.piOriginalLabel) {
+      label.textContent = label.dataset.piOriginalLabel;
+      delete label.dataset.piOriginalLabel;
+    }
+  }
+
   function polishOpenDayAction() {
     const name = document.getElementById('hub-ep-name');
     const objective = document.getElementById('hub-ep-objective');
@@ -24,26 +38,29 @@
 
     const isOpenDay = normalize(name.textContent) === 'open day';
     const noActivity = normalize(objective.textContent).includes('no scheduled activities');
-    const shouldDisable = isOpenDay && noActivity;
+    const coreLabel = normalize(label.textContent);
 
-    if (shouldDisable) {
-      if (button.dataset.piOriginalDisabled === undefined) {
-        button.dataset.piOriginalDisabled = button.disabled ? 'true' : 'false';
-      }
-      button.disabled = true;
-      button.setAttribute('aria-disabled', 'true');
-      button.classList.add('is-open-day-disabled');
-      label.textContent = 'No Action Needed';
+    /*
+     * Future Open Days are valid simulation targets. The core Home calendar
+     * communicates that by rendering "Simulate to Selected Day". Never disable
+     * those. Only suppress the meaningless current-day "Enter Event" action.
+     */
+    const isFutureSimulationTarget = coreLabel === 'simulate to selected day';
+    const shouldDisable = isOpenDay && noActivity && !isFutureSimulationTarget;
+
+    if (!shouldDisable) {
+      restoreOpenDayButton(button, label);
       return;
     }
 
-    if (button.classList.contains('is-open-day-disabled')) {
-      const originalDisabled = button.dataset.piOriginalDisabled === 'true';
-      button.disabled = originalDisabled;
-      button.removeAttribute('aria-disabled');
-      button.classList.remove('is-open-day-disabled');
-      delete button.dataset.piOriginalDisabled;
+    if (!button.classList.contains('is-open-day-disabled')) {
+      label.dataset.piOriginalLabel = label.textContent || 'Enter Event';
     }
+
+    button.disabled = true;
+    button.setAttribute('aria-disabled', 'true');
+    button.classList.add('is-open-day-disabled');
+    label.textContent = 'No Action Needed';
   }
 
   function apply() {
