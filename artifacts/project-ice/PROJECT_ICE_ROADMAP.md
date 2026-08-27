@@ -1,7 +1,7 @@
 # Project Ice — Authoritative Roadmap
 
-Updated: 2026-08-20
-Authoritative planning checkpoint: 2026-08-20 Phase 3.2 kickoff
+Updated: 2026-08-27
+Authoritative planning checkpoint: 2026-08-27 Phase 3.3 closeout
 
 This file is the planning source of truth. Do not silently fall back to older roadmap files or prior phase ordering.
 
@@ -17,7 +17,14 @@ Phase 3 — Season Lifecycle
 Status: ACTIVE
 
 Current mini-phase:
-- Phase 3.2 — Playoff Presentation + Statistics
+- Phase 3.3 — Championship + Awards
+
+Current Phase 3.3 state:
+- Champion checkpoint: LIVE VALIDATED
+- Award Ceremony calendar event: LIVE VALIDATED
+- suspenseful award reveals with player bio/stat context: LIVE VALIDATED
+- close-race variance for subjective awards: LIVE VALIDATED
+- permanent League Awards/history screen: IMPLEMENTED / AWAITING LIVE VALIDATION
 
 ---
 
@@ -128,29 +135,26 @@ Live validation passed for:
 - champion persistence into history/news
 
 ## Phase 3.2 — Playoff Presentation + Statistics
-Status: ACTIVE
+Status: COMPLETE / LIVE VALIDATION PASSED
 
-Build the persistent player-facing playoff layer on top of the validated canonical postseason state.
+The persistent player-facing playoff layer is implemented and live-validated.
 
-Locked requirements:
+Validated requirements:
 - Head Into Playoffs screen.
 - Bracket reveal screen using the actual bracket from the save.
-- During playoffs, League tab displays the playoff bracket prominently at the top.
-- Existing Regular Season / Playoffs stat toggle becomes fully canonical.
-- League leaders and player/team playoff stats populate separately from regular-season stats.
-- Home becomes playoff-aware without becoming a separate playoff dashboard.
-- Regular-season standings remain frozen/final during postseason play.
-- Playoff game event and pregame screens retain distinct Project Ice postseason presentation while using the same canonical game engine.
+- League tab displays a live clickable playoff bracket.
+- Regular Season / Playoffs stat scopes are canonical.
+- League Leaders, Full Stats, Team Leaders, opponent Team Profiles, career Player tab and NPC Player Profiles all use the same scoped stat source.
+- Player/team rows in playoff presentation navigate to reusable profiles.
+- Home is playoff-aware without becoming a second playoff dashboard.
+- Regular-season standings stay frozen and are explicitly labeled final during the postseason.
+- Playoff game event and pregame screens retain distinct Project Ice postseason presentation while using the canonical game engine.
+- career-team elimination and world continuation remain synchronized across Home/League/history/news.
 
-Implementation order inside 3.2:
-1. Persistent live League-tab bracket and postseason context.
-2. Canonical playoff stat namespace audit/foundation.
-3. League Leaders / Full Stats / player profile / team profile playoff wiring.
-4. Home playoff-awareness and frozen-standings presentation audit.
-5. End-to-end live validation from bracket entry through completed postseason.
+Phase 3.2 exit condition: PASSED.
 
 ## Phase 3.3 — Championship + Awards
-Status: PLANNED
+Status: ACTIVE
 
 The day after the championship ends:
 - stop progression
@@ -161,17 +165,33 @@ The day after the championship ends:
 - Continue Into Offseason
 
 One week into the offseason:
-- Award Ceremony event
+- Award Ceremony appears as a canonical Home/Schedule event
 - each award gets an individual suspenseful reveal
-- reveal button slowly reveals the winner
+- winner reveal includes player age/class/position/team and award-relevant statistics
 - League MVP is revealed last
-- regular-season awards are based purely on the frozen regular-season snapshot
+- regular-season awards use the frozen Regular Season stat scope
 - Playoff MVP is postseason-only
+- objective statistical awards remain deterministic
+- subjective awards use a persisted close-race weighted candidate model so the ranking leader is favored but not guaranteed when the top candidates are genuinely close
 
 After all reveals:
-- Continue opens permanent League Awards screen
-- all league awards listed, including Playoff MVP
+- Continue opens a permanent League Awards screen
+- all league awards are listed, including Playoff MVP
+- award winner rows can open the reusable player profile
+- the completed awards remain accessible from the League tab as permanent season history
 - Continue proceeds into offseason
+
+Live validation passed for:
+- Champion checkpoint and champion presentation
+- playoff leaders and Playoff MVP on Champion screen
+- Award Ceremony appearing and persisting in Home/Schedule
+- richer award reveal cards
+- subjective close-race variance logic
+- ceremony progression and award persistence
+- performance cleanup replacing the body-wide bracket MutationObserver with targeted redraws
+
+Remaining 3.3 exit checkpoint:
+- live validate permanent League Awards screen and ceremony → League Awards → offseason handoff
 
 ## Phase 3.4 — Travel Hockey
 Status: PLANNED
