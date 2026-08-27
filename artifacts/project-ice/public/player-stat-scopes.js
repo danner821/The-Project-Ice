@@ -31,6 +31,24 @@
     document.head.appendChild(style);
   }
 
+  function playerId(player) {
+    return String(player?.playerId || player?.id || '');
+  }
+
+  function canonicalPlayer(player) {
+    const id = playerId(player);
+    if (!id) return player || null;
+    return WorldEngine.getPlayerById?.(id) || player || null;
+  }
+
+  function scopedStats(player, scope) {
+    const canonical = canonicalPlayer(player);
+    if (!canonical) return null;
+
+    const id = playerId(canonical);
+    return WorldEngine.getPlayerStatsByScope?.(id || canonical, scope) || null;
+  }
+
   function snapshotPlayer(player) {
     const topLevel = {};
     MIRROR_KEYS.forEach(key => { topLevel[key] = player[key]; });
@@ -44,7 +62,7 @@
   }
 
   function applyScopedStats(player, scope) {
-    const stats = WorldEngine.getPlayerStatsByScope?.(player, scope);
+    const stats = scopedStats(player, scope);
     if (!stats) return;
     player.seasonStats = { ...stats };
     MIRROR_KEYS.forEach(key => {
@@ -108,7 +126,10 @@
     const cells = Array.from(head?.querySelectorAll('th') || []);
     const map = new Map();
     cells.forEach((cell, index) => {
-      const key = String(cell.textContent || '').trim().toUpperCase().replace(/[^A-Z0-9+/%-]/g, '');
+      const key = String(cell.textContent || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9+/%-]/g, '');
       if (key) map.set(key, index);
     });
     return map;
@@ -128,32 +149,13 @@
     return Number(value || 0).toFixed(2);
   }
 
-  function applyPlayoffTableOverlay(player, options, scope) {
-    if (scope !== 'playoffs') return;
+  function scopedValues(player, scope) {
+    const stats = scopedStats(player, scope);
+    if (!stats) return null;
 
-    const stats = WorldEngine.getPlayerStatsByScope?.(player, 'playoffs');
-    if (!stats) return;
+    const goalie = String(canonicalPlayer(player)?.position || player?.position || '').toUpperCase() === 'G';
 
-    const headId = options?.headId || 'pp-statistics-head';
-    const bodyId = options?.bodyId || 'pp-statistics-body';
-    const footId = options?.footId || 'pp-statistics-foot';
-    const headers = headerMap(headId);
-    const body = document.getElementById(bodyId);
-    const foot = document.getElementById(footId);
-    if (!body) return;
-
-    const rows = Array.from(body.querySelectorAll('tr'));
-    if (!rows.length) return;
-
-    /*
-     * The shared history renderer emits seasons chronologically and the current
-     * season is the final body row. Keep historical rows intact, but replace
-     * the active season's numeric cells with the canonical postseason scope.
-     */
-    const currentRow = rows[rows.length - 1];
-    const goalie = String(player?.position || '').toUpperCase() === 'G';
-
-    const values = goalie
+    return goalie
       ? {
           GP: stats.gamesPlayed,
           GS: stats.gamesStarted,
@@ -177,6 +179,30 @@
           SOG: stats.shots,
           SHOTS: stats.shots,
         };
+  }
+
+  function applyScopeTableOverlay(player, options, scope) {
+    const values = scopedValues(player, scope);
+    if (!values) return;
+
+    const headId = options?.headId || 'pp-statistics-head';
+    const bodyId = options?.bodyId || 'pp-statistics-body';
+    const footId = options?.footId || 'pp-statistics-foot';
+    const headers = headerMap(headId);
+    const body = document.getElementById(bodyId);
+    const foot = document.getElementById(footId);
+    if (!body) return;
+
+    const rows = Array.from(body.querySelectorAll('tr'));
+    if (!rows.length) return;
+
+    /*
+     * The current season is the final body row. The core season-history array
+     * currently receives combined regular + playoff totals, so always replace
+     * the active row from the canonical scoped API for BOTH selector states.
+     * Older archived seasons remain untouched.
+     */
+    const currentRow = rows[rows.length - 1];
 
     Object.entries(values).forEach(([label, value]) => {
       const index = headers.get(label);
@@ -184,9 +210,9 @@
     });
 
     /*
-     * Until archived postseason seasons are introduced, the current canonical
-     * playoff scope is the complete playoff-career total. Mirror it into the
-     * footer so the visible totals agree with the active-season row.
+     * For the current single-season HS career, the scoped active-season line is
+     * also the scoped career total. Once postseason history is archived at
+     * season transition, the shared history renderer can sum prior scopes.
      */
     const footerRow = foot?.querySelector('tr');
     if (footerRow) {
@@ -214,7 +240,7 @@
     try {
       applyScopedStats(player, scope);
       const result = originalSharedRender(player, options);
-      applyPlayoffTableOverlay(player, options, scope);
+      applyScopeTableOverlay(player, options, scope);
       if (isStandalone) ensureProfileControl();
       return result;
     } finally {
@@ -223,7 +249,8 @@
   };
 
   function rerenderCareerPlayerStats() {
-    const player = WorldEngine.getPlayerById?.(Game?.player?.id || Game?.player?.playerId || 'career-player') || Game?.player;
+    const id = Game?.player?.id || Game?.player?.playerId || 'career-player';
+    const player = WorldEngine.getPlayerById?.(id) || Game?.player;
     if (!player) return;
     globalThis.renderProjectIcePlayerStatistics(player, {
       headId: 'pp-statistics-head',
