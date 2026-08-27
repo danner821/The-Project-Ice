@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine, openHubTab */
+/* global WorldEngine, openHubTab, openTeamProfile */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -77,7 +77,7 @@
     const winner = known && String(seriesWinner(series) || '') === String(teamId || '');
 
     return `
-      <div class="pi-lpo-team${career ? ' pi-lpo-team--career' : ''}${winner ? ' pi-lpo-team--winner' : ''}">
+      <div class="pi-lpo-team${known ? ' pi-lpo-team--clickable' : ''}${career ? ' pi-lpo-team--career' : ''}${winner ? ' pi-lpo-team--winner' : ''}"${known ? ` data-team-id="${String(teamId)}" role="button" tabindex="0" aria-label="Open ${teamName(teamId)} team profile"` : ''}>
         <span class="pi-lpo-seed">${seed ? `#${seed}` : '—'}</span>
         <span class="pi-lpo-team-name">${known ? teamName(teamId) : fallbackLabel}${career ? '<em>YOU</em>' : ''}</span>
         <span class="pi-lpo-wins">${known ? wins : '—'}${winner ? '<b>✓</b>' : ''}</span>
@@ -138,7 +138,7 @@
       #${ROOT_ID}{margin:0 0 18px;border:1px solid rgba(101,164,255,.18);border-radius:22px;background:linear-gradient(180deg,rgba(27,52,86,.58),rgba(10,22,38,.82));box-shadow:0 18px 42px rgba(0,0,0,.22);overflow:hidden;color:#f5f8ff}
       .pi-lpo-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:17px 17px 13px;border-bottom:1px solid rgba(255,255,255,.07)}
       .pi-lpo-eyebrow{margin:0 0 5px;color:#82b6ff;font-size:9px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.pi-lpo-head h3{margin:0;font-size:20px;letter-spacing:-.025em}.pi-lpo-badge{flex:0 0 auto;border-radius:999px;padding:6px 9px;border:1px solid rgba(116,180,255,.18);background:rgba(55,121,205,.11);color:#9dc8ff;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
-      .pi-lpo-sub{padding:10px 17px 0;color:#8fa0b5;font-size:11px;line-height:1.45}.pi-lpo-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:14px 17px 15px}.pi-lpo-grid{min-width:690px;display:grid;grid-template-columns:205px 38px 205px 38px 205px;align-items:center}.pi-lpo-col{display:grid;gap:12px}.pi-lpo-col-title{margin-bottom:1px;color:#7589a4;font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}.pi-lpo-series{overflow:hidden;border-radius:14px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.035);box-shadow:0 8px 22px rgba(0,0,0,.14)}.pi-lpo-series--pending{opacity:.72}.pi-lpo-team{display:grid;grid-template-columns:29px minmax(0,1fr) 30px;align-items:center;gap:7px;min-height:43px;padding:0 10px}.pi-lpo-team+.pi-lpo-team{border-top:1px solid rgba(255,255,255,.06)}.pi-lpo-seed{color:#75aef8;font-size:10px;font-weight:900}.pi-lpo-team-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:760}.pi-lpo-team-name em{margin-left:5px;color:#86baff;font-size:8px;font-style:normal;font-weight:900;letter-spacing:.08em}.pi-lpo-wins{display:flex;align-items:center;justify-content:flex-end;gap:4px;color:#cad4e2;font-size:12px;font-weight:900}.pi-lpo-wins b{color:#78d4a6}.pi-lpo-team--career{background:linear-gradient(90deg,rgba(41,112,211,.27),rgba(41,112,211,.07));box-shadow:inset 3px 0 0 #5fa0ff}.pi-lpo-team--winner .pi-lpo-team-name{color:#fff}.pi-lpo-link{height:100%;min-height:104px;position:relative}.pi-lpo-link::before{content:'';position:absolute;left:4px;right:4px;top:50%;height:1px;background:rgba(116,153,205,.28)}.pi-lpo-reseed{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;padding:4px 5px;border-radius:6px;background:#111d2c;border:1px solid rgba(255,255,255,.06);color:#63758d;font-size:7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.pi-lpo-champion{margin:0 17px 14px;padding:11px 12px;border-radius:14px;border:1px solid rgba(111,205,157,.18);background:rgba(43,134,87,.10);color:#a8e6c7;font-size:11px;line-height:1.45}.pi-lpo-status{margin:0 17px 17px;padding:11px 12px;border-radius:14px;border:1px solid rgba(101,164,255,.12);background:rgba(48,103,176,.08);color:#a9c9f7;font-size:11px;line-height:1.45}
+      .pi-lpo-sub{padding:10px 17px 0;color:#8fa0b5;font-size:11px;line-height:1.45}.pi-lpo-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:14px 17px 15px}.pi-lpo-grid{min-width:690px;display:grid;grid-template-columns:205px 38px 205px 38px 205px;align-items:center}.pi-lpo-col{display:grid;gap:12px}.pi-lpo-col-title{margin-bottom:1px;color:#7589a4;font-size:9px;font-weight:900;letter-spacing:.15em;text-transform:uppercase}.pi-lpo-series{overflow:hidden;border-radius:14px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.035);box-shadow:0 8px 22px rgba(0,0,0,.14)}.pi-lpo-series--pending{opacity:.72}.pi-lpo-team{display:grid;grid-template-columns:29px minmax(0,1fr) 30px;align-items:center;gap:7px;min-height:43px;padding:0 10px}.pi-lpo-team+.pi-lpo-team{border-top:1px solid rgba(255,255,255,.06)}.pi-lpo-team--clickable{cursor:pointer;transition:background .15s ease,filter .15s ease}.pi-lpo-team--clickable:active{filter:brightness(1.2)}.pi-lpo-team--clickable:focus-visible{outline:2px solid rgba(95,160,255,.7);outline-offset:-2px}.pi-lpo-seed{color:#75aef8;font-size:10px;font-weight:900}.pi-lpo-team-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:760}.pi-lpo-team-name em{margin-left:5px;color:#86baff;font-size:8px;font-style:normal;font-weight:900;letter-spacing:.08em}.pi-lpo-wins{display:flex;align-items:center;justify-content:flex-end;gap:4px;color:#cad4e2;font-size:12px;font-weight:900}.pi-lpo-wins b{color:#78d4a6}.pi-lpo-team--career{background:linear-gradient(90deg,rgba(41,112,211,.27),rgba(41,112,211,.07));box-shadow:inset 3px 0 0 #5fa0ff}.pi-lpo-team--winner .pi-lpo-team-name{color:#fff}.pi-lpo-link{height:100%;min-height:104px;position:relative}.pi-lpo-link::before{content:'';position:absolute;left:4px;right:4px;top:50%;height:1px;background:rgba(116,153,205,.28)}.pi-lpo-reseed{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;padding:4px 5px;border-radius:6px;background:#111d2c;border:1px solid rgba(255,255,255,.06);color:#63758d;font-size:7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.pi-lpo-champion{margin:0 17px 14px;padding:11px 12px;border-radius:14px;border:1px solid rgba(111,205,157,.18);background:rgba(43,134,87,.10);color:#a8e6c7;font-size:11px;line-height:1.45}.pi-lpo-status{margin:0 17px 17px;padding:11px 12px;border-radius:14px;border:1px solid rgba(101,164,255,.12);background:rgba(48,103,176,.08);color:#a9c9f7;font-size:11px;line-height:1.45}
     `;
     document.head.appendChild(style);
   }
@@ -164,6 +164,31 @@
 
   function insertionHost(panel) {
     return panel?.querySelector('.hub-tab-content,.hub-panel__content,.hub-panel-content,.league-content') || panel;
+  }
+
+  function openBracketTeam(teamId) {
+    if (!teamId) return;
+    if (typeof globalThis.openTeamProfile === 'function') {
+      globalThis.openTeamProfile(teamId, 'hub');
+    }
+  }
+
+  function bindNavigation(root) {
+    if (!root || root.dataset.piTeamNavigationBound === 'true') return;
+    root.dataset.piTeamNavigationBound = 'true';
+    const activate = target => {
+      const row = target?.closest?.('.pi-lpo-team[data-team-id]');
+      if (!row) return;
+      openBracketTeam(row.dataset.teamId);
+    };
+    root.addEventListener('click', event => activate(event.target));
+    root.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const row = event.target?.closest?.('.pi-lpo-team[data-team-id]');
+      if (!row) return;
+      event.preventDefault();
+      activate(row);
+    });
   }
 
   function renderLeaguePostseason() {
@@ -213,6 +238,8 @@
       </div>
       ${post?.championTeamId ? `<div class="pi-lpo-champion"><strong>Champion:</strong> ${teamName(post.championTeamId)}</div>` : ''}
       <div class="pi-lpo-status">${careerStatus(post)}</div>`;
+
+    bindNavigation(root);
 
     if (root.parentElement !== host) {
       const firstSection = [...host.children].find(child =>
