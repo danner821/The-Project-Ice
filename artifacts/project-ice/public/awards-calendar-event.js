@@ -14,6 +14,14 @@
       null;
   }
 
+  function currentDate() {
+    return dateKey(
+      WorldEngine.state?.season?.currentDate ||
+      WorldEngine.state?.player?.currentDate ||
+      WorldEngine.state?.currentDate
+    );
+  }
+
   function getEvent() {
     return (WorldEngine.state?.schedule || []).find(event =>
       String(event?.eventId || event?.id || '') === EVENT_ID
@@ -114,17 +122,26 @@
     WorldEngine.save?.();
   }
 
+  function scheduleRoot() {
+    const action = document.getElementById('schedule-selected-day-action');
+    return action?.closest('.hub-tab-panel, .screen, section') ||
+      document.getElementById('hub-tab-schedule') ||
+      document.getElementById('schedule-screen') ||
+      null;
+  }
+
   function bridgeScheduleCalendar(event) {
     if (!event || event.completed === true) return;
-    const cell = document.querySelector(`.schedule-day[data-date="${event.date}"], [data-date="${event.date}"].schedule-day`);
+    const root = scheduleRoot();
+    const cell = root?.querySelector(`[data-date="${event.date}"]`) ||
+      document.querySelector(`[data-date="${event.date}"]`);
     if (!cell) return;
-
-    const already = cell.querySelector(`[data-pi-awards-event="${EVENT_ID}"]`);
-    if (already) return;
+    if (cell.querySelector(`[data-pi-awards-event="${EVENT_ID}"]`)) return;
 
     const marker = document.createElement('div');
     marker.dataset.piAwardsEvent = EVENT_ID;
-    marker.style.cssText = 'margin-top:6px;padding:5px 7px;border-radius:8px;border:1px solid rgba(108,170,255,.45);background:rgba(30,75,145,.42);color:#dceaff;font-size:10px;font-weight:800;line-height:1.1;text-align:center;';
+    marker.setAttribute('aria-label', 'League Awards Ceremony');
+    marker.style.cssText = 'margin-top:6px;padding:5px 4px;border-radius:8px;border:1px solid rgba(108,170,255,.45);background:rgba(30,75,145,.42);color:#dceaff;font-size:9px;font-weight:800;line-height:1.05;text-align:center;overflow:hidden;';
     marker.innerHTML = '<div style="font-size:13px;margin-bottom:2px">🏆</div><div>Awards</div>';
     cell.appendChild(marker);
   }
@@ -135,7 +152,7 @@
     const card = cards.find(item => dateKey(item?.eventData?.date) === event.date);
     if (!card) return;
 
-    const eventData = {
+    card.eventData = {
       ...(card.eventData || {}),
       date: event.date,
       icon: '🏆',
@@ -147,11 +164,11 @@
       leagueAwardsCeremony: true,
       isCompleted: false,
     };
-    card.eventData = eventData;
 
-    card.querySelector('.hub-cal-card__icon')?.replaceChildren(document.createTextNode('🏆'));
+    const icon = card.querySelector('.hub-cal-card__icon');
+    if (icon && icon.textContent !== '🏆') icon.textContent = '🏆';
     const title = card.querySelector('.hub-cal-card__title');
-    if (title) title.textContent = 'Awards Ceremony';
+    if (title && title.textContent !== 'Awards Ceremony') title.textContent = 'Awards Ceremony';
   }
 
   function bridgeUpcoming(event) {
@@ -169,19 +186,62 @@
       : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     item.innerHTML = `<div class="schedule-upcoming-item__date">${label}</div><div class="schedule-upcoming-item__content"><span class="schedule-upcoming-item__type"><span aria-hidden="true">🏆</span> Event</span><strong class="schedule-upcoming-item__title">League Awards Ceremony</strong></div>`;
     item.addEventListener('click', () => {
-      const target = document.querySelector(`.schedule-day[data-date="${event.date}"], [data-date="${event.date}"].schedule-day`);
+      const root = scheduleRoot();
+      const target = root?.querySelector(`[data-date="${event.date}"]`) ||
+        document.querySelector(`[data-date="${event.date}"]`);
       target?.click?.();
       target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     });
-    list.prepend(item);
+    list.appendChild(item);
   }
 
+  function syncSelectedCeremonyDay(event) {
+    const root = scheduleRoot();
+    const selected = root?.querySelector('.schedule-day--selected, [data-date].is-selected, [data-date][aria-selected="true"]');
+    if (dateKey(selected?.dataset?.date) !== event?.date) return;
+
+    const details = document.getElementById('schedule-selected-day-details');
+    if (details) {
+      details.dataset.eventId = EVENT_ID;
+      details.hidden = false;
+      details.disabled = false;
+      details.removeAttribute('aria-hidden');
+    }
+  }
+
+  let presentationFrame = null;
   function bridgePresentation() {
-    const event = ensureEvent({ save: false });
-    if (!event) return;
-    bridgeScheduleCalendar(event);
-    bridgeHomeWeek(event);
-    bridgeUpcoming(event);
+    if (presentationFrame !== null) return;
+    presentationFrame = requestAnimationFrame(() => {
+      presentationFrame = null;
+      const event = ensureEvent({ save: false });
+      if (!event) return;
+      bridgeScheduleCalendar(event);
+      bridgeHomeWeek(event);
+      bridgeUpcoming(event);
+      syncSelectedCeremonyDay(event);
+    });
+  }
+
+  function attachScopedObservers() {
+    const home = document.getElementById('hub-cal-strip');
+    const schedule = scheduleRoot();
+
+    if (home && !home.dataset.piAwardsObserver) {
+      home.dataset.piAwardsObserver = '1';
+      new MutationObserver(bridgePresentation).observe(home, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    if (schedule && !schedule.dataset.piAwardsObserver) {
+      schedule.dataset.piAwardsObserver = '1';
+      new MutationObserver(bridgePresentation).observe(schedule, {
+        childList: true,
+        subtree: true,
+      });
+    }
   }
 
   if (typeof EventSystem !== 'undefined' && typeof EventSystem.openEvent === 'function') {
@@ -204,39 +264,41 @@
       ensureEvent({ save: false });
       const result = originalAdvance(...args);
       ensureEvent({ save: false });
-      requestAnimationFrame(bridgePresentation);
-      return result;
-    };
-  }
-
-  if (typeof window.refreshCareerUI === 'function') {
-    const originalRefreshCareerUI = window.refreshCareerUI.bind(window);
-    window.refreshCareerUI = function(...args) {
-      const result = originalRefreshCareerUI(...args);
-      requestAnimationFrame(bridgePresentation);
+      attachScopedObservers();
+      bridgePresentation();
       return result;
     };
   }
 
   document.addEventListener('click', event => {
     if (event.target?.closest?.('#pi-champion-continue')) {
-      window.requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
         ensureEvent({ save: true });
-        window.refreshCareerUI?.();
-        requestAnimationFrame(bridgePresentation);
+        attachScopedObservers();
+        bridgePresentation();
       });
       return;
     }
 
     if (event.target?.closest?.('#pi-awards-finish')) {
-      window.requestAnimationFrame(completeEvent);
+      requestAnimationFrame(completeEvent);
+      return;
     }
-  });
+
+    const ceremony = ensureEvent({ save: false });
+    if (ceremony && event.target?.closest?.(`[data-date="${ceremony.date}"]`)) {
+      requestAnimationFrame(() => syncSelectedCeremonyDay(ceremony));
+    }
+
+    attachScopedObservers();
+    bridgePresentation();
+  }, { passive: true });
 
   WorldEngine.ensureLeagueAwardsCeremonyEvent = ensureEvent;
   WorldEngine.getLeagueAwardsCeremonyEvent = getEvent;
   WorldEngine.bridgeLeagueAwardsCeremonyPresentation = bridgePresentation;
 
   ensureEvent({ save: false });
-  requestAnimationFrame(bridgePresentation);
+  attachScopedObservers();
+  bridgePresentation();
 })();
