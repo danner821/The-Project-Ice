@@ -55,8 +55,11 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      #${CARD_ID}{margin:24px 0 0;padding:18px;border:1px solid rgba(102,166,255,.20);border-radius:21px;background:linear-gradient(180deg,rgba(24,49,84,.72),rgba(9,24,43,.86));box-shadow:0 16px 36px rgba(0,0,0,.15);color:#f5f8ff}
-      .pi-lah-card-head{display:flex;justify-content:space-between;gap:14px;align-items:center}.pi-lah-kicker{display:block;margin-bottom:4px;color:#7fb3fa;font-size:9px;font-weight:900;letter-spacing:.17em;text-transform:uppercase}.pi-lah-card-head h3{margin:0;font-size:20px;letter-spacing:-.025em}.pi-lah-card-sub{margin:9px 0 0;color:#8297b2;font-size:11px;line-height:1.45}.pi-lah-open{flex:0 0 auto;padding:9px 12px;border:1px solid rgba(105,171,255,.28);border-radius:999px;background:rgba(48,107,188,.12);color:#a9ceff;font:inherit;font-size:10px;font-weight:900}
+      #${CARD_ID}{margin:0 0 18px;color:#f5f8ff}
+      .pi-lah-card-action{width:100%;display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 15px;border:1px solid rgba(101,164,255,.14);border-radius:17px;background:rgba(18,39,66,.48);color:inherit;text-align:left;font:inherit;box-shadow:none}
+      .pi-lah-card-action:active{background:rgba(30,59,96,.58)}
+      .pi-lah-card-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:rgba(72,132,214,.10);font-size:17px}
+      .pi-lah-card-copy{min-width:0}.pi-lah-kicker{display:block;margin-bottom:3px;color:#7696bd;font-size:8px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.pi-lah-card-title{display:block;font-size:15px;font-weight:900;letter-spacing:-.015em}.pi-lah-card-sub{display:block;margin-top:3px;color:#71859f;font-size:10px;line-height:1.35}.pi-lah-chevron{color:#6f8fb8;font-size:24px;line-height:1;font-weight:500}
       #${SCREEN_ID}{position:fixed;inset:0;z-index:100001;overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 26px) 20px calc(env(safe-area-inset-bottom,0px) + 34px);background:radial-gradient(circle at 50% 5%,rgba(67,126,219,.28),transparent 31%),linear-gradient(180deg,#07172a,#04101e);color:#f5f8ff}.pi-lah-shell{max-width:650px;margin:0 auto}.pi-lah-back{width:42px;height:42px;display:grid;place-items:center;border:1px solid rgba(120,164,218,.24);border-radius:14px;background:rgba(17,39,68,.72);color:#fff;font-size:25px}.pi-lah-title-wrap{text-align:center;margin:18px 0 22px}.pi-lah-title-wrap .pi-lah-kicker{margin-bottom:6px}.pi-lah-title{margin:0;font-size:34px;letter-spacing:-.04em}.pi-lah-sub{margin:7px 0 0;color:#8297b2;font-size:12px}.pi-lah-champion{margin-bottom:17px;padding:16px 17px;border:1px solid rgba(113,195,156,.17);border-radius:18px;background:rgba(35,121,76,.10)}.pi-lah-champion span{display:block;color:#73b795;font-size:9px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.pi-lah-champion strong{display:block;margin-top:6px;font-size:19px}
       .pi-lah-list{display:grid;gap:10px}.pi-lah-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 16px;border:1px solid rgba(255,255,255,.075);border-radius:16px;background:rgba(12,29,50,.76)}.pi-lah-row[data-player-id]{cursor:pointer}.pi-lah-award{display:block;color:#7f94ae;font-size:9px;font-weight:900;letter-spacing:.11em;text-transform:uppercase}.pi-lah-winner{display:block;margin-top:5px;font-size:15px;font-weight:900}.pi-lah-meta{display:block;margin-top:3px;color:#617691;font-size:10px}.pi-lah-scope{color:#8cb8f3;font-size:9px;font-weight:900;text-align:right;text-transform:uppercase}.pi-lah-continue{width:100%;margin-top:20px;padding:17px 18px;border:1px solid rgba(110,174,255,.30);border-radius:17px;background:linear-gradient(135deg,#2b67ce,#183d88);color:#fff;font:inherit;font-size:15px;font-weight:900}
     `;
@@ -153,17 +156,24 @@
     const root = existing || document.createElement('section');
     root.id = CARD_ID;
     root.innerHTML = `
-      <div class="pi-lah-card-head">
-        <div><span class="pi-lah-kicker">Season History</span><h3>League Awards</h3></div>
-        <button type="button" class="pi-lah-open">View Awards</button>
-      </div>
-      <p class="pi-lah-card-sub">${esc(seasonLabel())} honors are final and permanently recorded.</p>`;
-    root.querySelector('.pi-lah-open')?.addEventListener('click', () => openScreen());
+      <button type="button" class="pi-lah-card-action" aria-label="View ${esc(seasonLabel())} League Awards">
+        <span class="pi-lah-card-icon">🏆</span>
+        <span class="pi-lah-card-copy">
+          <span class="pi-lah-kicker">Season History</span>
+          <span class="pi-lah-card-title">League Awards</span>
+          <span class="pi-lah-card-sub">${esc(seasonLabel())} honors are permanently recorded</span>
+        </span>
+        <span class="pi-lah-chevron">›</span>
+      </button>`;
+    root.querySelector('.pi-lah-card-action')?.addEventListener('click', () => openScreen());
 
-    if (!root.isConnected) {
-      const leaders = document.getElementById('pi-playoff-leaders-card');
-      if (leaders?.parentElement === host) leaders.insertAdjacentElement('afterend', root);
-      else host.prepend(root);
+    const postseasonCard = document.getElementById('pi-league-postseason-card');
+    if (postseasonCard?.parentElement === host) {
+      postseasonCard.insertAdjacentElement('afterend', root);
+    } else if (!root.isConnected) {
+      const standings = [...host.children].find(child => /league standings/i.test(String(child.textContent || '')));
+      if (standings) standings.insertAdjacentElement('beforebegin', root);
+      else host.appendChild(root);
     }
     return true;
   }
