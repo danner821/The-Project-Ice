@@ -19,7 +19,7 @@
 
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-awards-eve-v1';
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-awards-eve-v2';
 
   const originalListCareerSaves =
     typeof WorldEngine.listCareerSaves === 'function'
@@ -83,32 +83,148 @@
     }
   }
 
+  function careerTeamId(world) {
+    const player = world?.player || {};
+    const direct = player.teamId || player.highSchoolTeamId || null;
+    const playerId = player.playerId || player.id || 'career-player';
+
+    for (const team of world?.teams || []) {
+      const found = (team?.roster || []).some(skater => {
+        const id = skater?.playerId || skater?.id || null;
+        return skater?.isCareerPlayer === true ||
+          String(id || '') === 'career-player' ||
+          String(id || '') === String(playerId || '');
+      });
+      if (found) return team.teamId || direct;
+    }
+    return direct;
+  }
+
+  function regularSeasonEndDate(world) {
+    const dates = (world?.schedule || [])
+      .filter(event => {
+        if (String(event?.type || '').toLowerCase() !== 'game') return false;
+        return event?.isPlayoff !== true && !String(event?.eventId || event?.id || '').includes('postseason');
+      })
+      .map(event => dateKey(event?.date))
+      .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
+      .sort();
+
+    return dates[dates.length - 1] || '2027-04-22';
+  }
+
+  function standingRows(world) {
+    const source = Array.isArray(world?.standings) ? world.standings : [];
+    return source
+      .map(row => ({ ...row }))
+      .sort((a, b) =>
+        Number(b?.points || b?.pts || 0) - Number(a?.points || a?.pts || 0) ||
+        Number(b?.wins || b?.w || 0) - Number(a?.wins || a?.w || 0) ||
+        String(a?.teamId || '').localeCompare(String(b?.teamId || ''))
+      )
+      .map((row, index) => ({ ...row, seed: Number(row?.seed || index + 1) }));
+  }
+
+  function chooseChampion(world, frozen) {
+    return frozen?.[0]?.teamId || careerTeamId(world) || world?.teams?.[0]?.teamId || null;
+  }
+
+  function choosePlayoffMvpId(world, championTeamId) {
+    const team = (world?.teams || []).find(item =>
+      String(item?.teamId || '') === String(championTeamId || '')
+    );
+    const roster = [...(team?.roster || [])];
+    roster.sort((a, b) => Number(b?.overall || 0) - Number(a?.overall || 0));
+    const player = roster[0] || null;
+    return player?.playerId || player?.id || null;
+  }
+
+  function ensureSyntheticCompletedPostseason(world) {
+    if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
+    const existing = world.postseason.highSchool || {};
+
+    if (existing?.championTeamId && existing?.completedDate) return existing;
+
+    const regularEnd = dateKey(existing?.regularSeasonEndDate) || regularSeasonEndDate(world);
+    const completedDate = addDays(regularEnd, 28) || '2027-05-20';
+    const frozen = Array.isArray(existing?.frozenStandings) && existing.frozenStandings.length
+      ? existing.frozenStandings
+      : standingRows(world);
+    const championTeamId = existing?.championTeamId || chooseChampion(world, frozen);
+
+    const postseason = {
+      ...existing,
+      initialized: true,
+      checkpointAcknowledged: true,
+      status: 'complete',
+      phase: 'postseason-complete',
+      regularSeasonEndDate: regularEnd,
+      frozenStandings: frozen,
+      completedDate,
+      championTeamId,
+      playoffMvpPlayerId: existing?.playoffMvpPlayerId || choosePlayoffMvpId(world, championTeamId),
+      syntheticDevCheckpoint: true,
+    };
+
+    world.postseason.highSchool = postseason;
+    return postseason;
+  }
+
+  function ensureCeremonyScheduleRecord(world, ceremonyDate) {
+    if (!Array.isArray(world.schedule)) world.schedule = [];
+    let event = world.schedule.find(item =>
+      String(item?.eventId || item?.id || '') === AWARDS_EVENT_ID
+    );
+    if (!event) {
+      event = { id: AWARDS_EVENT_ID, eventId: AWARDS_EVENT_ID };
+      world.schedule.push(event);
+    }
+    Object.assign(event, {
+      eventKey: 'league-awards-ceremony',
+      type: 'meeting',
+      eventType: 'awards',
+      date: ceremonyDate,
+      label: 'League Awards Ceremony',
+      shortLabel: 'Awards Ceremony',
+      icon: '🏆',
+      location: 'League Awards Hall',
+      objective: 'Attend the league awards ceremony and see who takes home the season honors.',
+      description: 'The league gathers to reveal its season award winners and Playoff MVP.',
+      offseasonEvent: true,
+      leagueAwardsCeremony: true,
+      completed: false,
+      played: false,
+      status: 'scheduled',
+      requiresPlayerInteraction: true,
+    });
+    delete event.completedAt;
+    delete event.result;
+  }
+
   function prepareAwardsEveBaseline(sourceWorld) {
     const world = structuredClone(sourceWorld);
-    const postseason = world?.postseason?.highSchool;
-
-    if (!postseason?.championTeamId || !postseason?.completedDate) {
-      throw new Error('The source career has not completed a high school postseason yet.');
-    }
+    const postseason = ensureSyntheticCompletedPostseason(world);
 
     const championCheckpointDate =
       dateKey(postseason.championCheckpointAcknowledgedAt) ||
       addDays(postseason.completedDate, 1);
-
     const ceremonyDate =
       dateKey(postseason.awardsCeremonyDate) ||
       addDays(championCheckpointDate, 7);
-
     const targetDate = addDays(ceremonyDate, -1);
-    if (!targetDate) throw new Error('Could not determine the Awards Eve checkpoint date.');
+
+    if (!championCheckpointDate || !ceremonyDate || !targetDate) {
+      throw new Error('Could not determine the Awards Eve checkpoint date.');
+    }
 
     postseason.championCheckpointAcknowledged = true;
     postseason.championCheckpointAcknowledgedAt = championCheckpointDate;
-    postseason.offseasonStartedDate = postseason.offseasonStartedDate || championCheckpointDate;
+    postseason.offseasonStartedDate = championCheckpointDate;
     postseason.awardsCeremonyDate = ceremonyDate;
     postseason.awardsCeremonyAcknowledged = false;
-    delete postseason.awardsCeremonyAcknowledgedAt;
     postseason.awardsRevealIndex = 0;
+    delete postseason.awardsCeremonyAcknowledgedAt;
+    delete postseason.leagueAwards;
 
     if (!world.season || typeof world.season !== 'object') world.season = {};
     world.season.currentDate = targetDate;
@@ -126,29 +242,11 @@
           player?.isCareerPlayer === true ||
           String(id || '') === String(careerPlayerId || '') ||
           String(id || '') === 'career-player'
-        ) {
-          player.currentDate = targetDate;
-        }
+        ) player.currentDate = targetDate;
       }
     }
 
-    if (!Array.isArray(world.schedule)) world.schedule = [];
-    const ceremonyEvent = world.schedule.find(event =>
-      String(event?.eventId || event?.id || '') === AWARDS_EVENT_ID
-    );
-
-    if (ceremonyEvent) {
-      Object.assign(ceremonyEvent, {
-        date: ceremonyDate,
-        completed: false,
-        played: false,
-        status: 'scheduled',
-        requiresPlayerInteraction: true,
-      });
-      delete ceremonyEvent.completedAt;
-      delete ceremonyEvent.result;
-    }
-
+    ensureCeremonyScheduleRecord(world, ceremonyDate);
     return { world, targetDate, ceremonyDate };
   }
 
@@ -166,9 +264,7 @@
     if (existing?.world) return existing;
 
     const source = await readRecord(database, `career:${realDannerSave.id}`);
-    if (!source?.world) {
-      throw new Error('Danner Stephenson IndexedDB world record was not found.');
-    }
+    if (!source?.world) throw new Error('Danner Stephenson IndexedDB world record was not found.');
 
     const prepared = prepareAwardsEveBaseline(source.world);
     const baseline = {
@@ -180,21 +276,17 @@
       createdAt: new Date().toISOString(),
       world: prepared.world,
     };
-
     await writeRecord(database, baseline);
     return baseline;
   }
 
   async function rebuildSandboxFromBaseline() {
     const realDannerSave = await findRealDannerSave();
-    if (!realDannerSave?.id) {
-      throw new Error('Could not find the real Danner Stephenson career save.');
-    }
+    if (!realDannerSave?.id) throw new Error('Could not find the real Danner Stephenson career save.');
 
     const database = await openDatabase();
     let checkpointDate = null;
     let ceremonyDate = null;
-
     try {
       const baseline = await ensureImmutableBaseline(database, realDannerSave);
       const prepared = prepareAwardsEveBaseline(baseline.world);
