@@ -136,6 +136,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/awards-calendar-event.js"></script>');
     }
 
+    if (!html.includes('/league-awards-history.js')) {
+      scripts.push('    <script src="/league-awards-history.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
