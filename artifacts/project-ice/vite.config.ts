@@ -132,6 +132,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/awards-ceremony.js"></script>');
     }
 
+    if (!html.includes('/awards-calendar-event.js')) {
+      scripts.push('    <script src="/awards-calendar-event.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
