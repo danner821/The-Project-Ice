@@ -1,23 +1,202 @@
 'use strict';
 
-/* global WorldEngine, Game, openHubTab */
+/* global WorldEngine, Game */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
-  if (typeof globalThis.renderProjectIcePlayerStatistics !== 'function') return;
 
-  const STYLE_ID = 'pi-player-stat-scope-styles';
   const PROFILE_CONTROL_ID = 'pi-player-profile-stat-scope';
-  const MIRROR_KEYS = [
-    'gamesPlayed','goals','assists','points','plusMinus','penaltyMinutes','shots',
-    'powerPlayGoals','powerPlayPoints','shorthandedGoals','gameWinningGoals','minutesPlayed',
-    'gamesStarted','wins','losses','overtimeLosses','shotsAgainst','saves','goalsAgainst',
-    'savePercentage','goalsAgainstAverage','shutouts'
-  ];
-
+  const STYLE_ID = 'pi-player-stat-scope-styles';
   let profileScope = 'regular-season';
   let lastProfilePlayer = null;
   let lastProfileOptions = null;
+
+  function normalize(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function playerId(player) {
+    return String(player?.playerId || player?.id || '');
+  }
+
+  function getAllPlayers() {
+    return WorldEngine.getAllWorldPlayers?.() || [];
+  }
+
+  function sameName(a, b) {
+    return (
+      normalize(a?.firstName) === normalize(b?.firstName) &&
+      normalize(a?.lastName) === normalize(b?.lastName)
+    );
+  }
+
+  function resolveCanonicalPlayer(player) {
+    const ids = [player?.id, player?.playerId].filter(Boolean);
+    for (const id of ids) {
+      const found = WorldEngine.getPlayerById?.(id);
+      if (found) return found;
+    }
+
+    const players = getAllPlayers();
+    const flagged = players.find(candidate =>
+      candidate?.isCareerPlayer === true ||
+      candidate?.careerPlayer === true ||
+      candidate?.isUserPlayer === true
+    );
+    if (flagged && sameName(flagged, player || Game?.player)) return flagged;
+
+    const source = player || Game?.player || {};
+    const teamId = String(source?.teamId || '');
+    const exact = players.find(candidate =>
+      sameName(candidate, source) &&
+      (!teamId || String(candidate?.teamId || '') === teamId)
+    );
+    if (exact) return exact;
+
+    return players.find(candidate => sameName(candidate, source)) || player || null;
+  }
+
+  function resolveCareerPlayer() {
+    return resolveCanonicalPlayer(Game?.player || null);
+  }
+
+  function scopeFromCareerFilter() {
+    return document.getElementById('pp-statistics-filter')?.value === 'playoffs'
+      ? 'playoffs'
+      : 'regular-season';
+  }
+
+  function getScopedStats(player, scope) {
+    const canonical = resolveCanonicalPlayer(player);
+    if (!canonical) return null;
+    WorldEngine.rebuildHighSchoolPostseasonStats?.();
+    return WorldEngine.getPlayerStatsByScope?.(canonical, scope) || null;
+  }
+
+  function headerMap(headId) {
+    const cells = Array.from(document.getElementById(headId)?.querySelectorAll('th') || []);
+    const map = new Map();
+    cells.forEach((cell, index) => {
+      const key = String(cell.textContent || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9+/%-]/g, '');
+      if (key) map.set(key, index);
+    });
+    return map;
+  }
+
+  function setCell(row, index, value) {
+    if (!row || index === undefined) return;
+    const cell = row.children?.[index];
+    if (cell) cell.textContent = String(value);
+  }
+
+  function valuesFor(player, stats) {
+    if (!stats) return null;
+    const goalie = String(player?.position || '').toUpperCase() === 'G';
+    if (goalie) {
+      return {
+        GP: stats.gamesPlayed || 0,
+        GS: stats.gamesStarted || 0,
+        W: stats.wins || 0,
+        L: stats.losses || 0,
+        OTL: stats.overtimeLosses || 0,
+        GA: stats.goalsAgainst || 0,
+        GAA: Number(stats.goalsAgainstAverage || 0).toFixed(2),
+        'SV%': Number(stats.savePercentage || 0).toFixed(3).replace(/^0/, ''),
+        SO: stats.shutouts || 0,
+      };
+    }
+
+    return {
+      GP: stats.gamesPlayed || 0,
+      G: stats.goals || 0,
+      A: stats.assists || 0,
+      PTS: stats.points || 0,
+      '+/-': stats.plusMinus || 0,
+      PIM: stats.penaltyMinutes || 0,
+      SOG: stats.shots || 0,
+      SHOTS: stats.shots || 0,
+    };
+  }
+
+  function overlayTable({ player, scope, headId, bodyId, footId }) {
+    const canonical = resolveCanonicalPlayer(player);
+    if (!canonical) return false;
+
+    const stats = getScopedStats(canonical, scope);
+    const values = valuesFor(canonical, stats);
+    if (!values) return false;
+
+    const headers = headerMap(headId);
+    const body = document.getElementById(bodyId);
+    const rows = Array.from(body?.querySelectorAll('tr') || []);
+    if (!rows.length) return false;
+
+    const currentRow = rows[rows.length - 1];
+    Object.entries(values).forEach(([label, value]) => {
+      setCell(currentRow, headers.get(label), value);
+    });
+
+    const footerRow = document.getElementById(footId)?.querySelector('tr');
+    if (footerRow) {
+      Object.entries(values).forEach(([label, value]) => {
+        setCell(footerRow, headers.get(label), value);
+      });
+    }
+
+    currentRow.dataset.piStatScope = scope;
+    if (footerRow) footerRow.dataset.piStatScope = scope;
+    return true;
+  }
+
+  function applyCareerScope() {
+    return overlayTable({
+      player: resolveCareerPlayer(),
+      scope: scopeFromCareerFilter(),
+      headId: 'pp-statistics-head',
+      bodyId: 'pp-statistics-body',
+      footId: 'pp-statistics-foot',
+    });
+  }
+
+  function applyCareerScopeAfterCore() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyCareerScope();
+      });
+    });
+  }
+
+  /*
+   * Important: the Player tab calls its local renderer directly, bypassing the
+   * globally exposed shared renderer. Do not compete with that renderer.
+   * Instead, allow the core table to finish, then overlay the active-season row
+   * from the canonical scoped stats API. A delegated listener also survives any
+   * future replacement of the select element.
+   */
+  document.addEventListener('change', event => {
+    if (event.target?.id === 'pp-statistics-filter') {
+      applyCareerScopeAfterCore();
+    }
+  });
+
+  document.addEventListener('click', event => {
+    const target = event.target?.closest?.('[data-tab], [data-hub-tab], [data-tab-target], .hub-tab');
+    const label = normalize(
+      target?.dataset?.tab ||
+      target?.dataset?.hubTab ||
+      target?.dataset?.tabTarget ||
+      target?.textContent
+    );
+    if (label === 'player' || label.includes('player')) {
+      applyCareerScopeAfterCore();
+    }
+  });
+
+  /* Standalone player profiles still use the globally exposed shared renderer. */
+  const sharedRender = globalThis.renderProjectIcePlayerStatistics;
 
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
@@ -31,59 +210,8 @@
     document.head.appendChild(style);
   }
 
-  function playerId(player) {
-    return String(player?.playerId || player?.id || '');
-  }
-
-  function canonicalPlayer(player) {
-    const id = playerId(player);
-    if (!id) return player || null;
-    return WorldEngine.getPlayerById?.(id) || player || null;
-  }
-
-  function scopedStats(player, scope) {
-    const canonical = canonicalPlayer(player);
-    if (!canonical) return null;
-
-    const id = playerId(canonical);
-    return WorldEngine.getPlayerStatsByScope?.(id || canonical, scope) || null;
-  }
-
-  function snapshotPlayer(player) {
-    const topLevel = {};
-    MIRROR_KEYS.forEach(key => { topLevel[key] = player[key]; });
-    return {
-      player,
-      seasonStats: player.seasonStats && typeof player.seasonStats === 'object'
-        ? { ...player.seasonStats }
-        : player.seasonStats,
-      topLevel,
-    };
-  }
-
-  function applyScopedStats(player, scope) {
-    const stats = scopedStats(player, scope);
-    if (!stats) return;
-    player.seasonStats = { ...stats };
-    MIRROR_KEYS.forEach(key => {
-      if (Object.prototype.hasOwnProperty.call(stats, key)) player[key] = stats[key];
-    });
-  }
-
-  function restorePlayer(snapshot) {
-    snapshot.player.seasonStats = snapshot.seasonStats;
-    MIRROR_KEYS.forEach(key => { snapshot.player[key] = snapshot.topLevel[key]; });
-  }
-
-  function careerScope() {
-    const select = document.getElementById('pp-statistics-filter');
-    return select?.value === 'playoffs' ? 'playoffs' : 'regular-season';
-  }
-
   function syncProfileButtons() {
-    const control = document.getElementById(PROFILE_CONTROL_ID);
-    if (!control) return;
-    control.querySelectorAll('button[data-scope]').forEach(button => {
+    document.querySelectorAll(`#${PROFILE_CONTROL_ID} button[data-scope]`).forEach(button => {
       const active = button.dataset.scope === profileScope;
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -101,8 +229,6 @@
     if (!control) {
       control = document.createElement('div');
       control.id = PROFILE_CONTROL_ID;
-      control.setAttribute('role', 'group');
-      control.setAttribute('aria-label', 'Player statistics season phase');
       control.innerHTML = `
         <button type="button" data-scope="regular-season">Regular Season</button>
         <button type="button" data-scope="playoffs">Playoffs</button>
@@ -113,166 +239,41 @@
         if (!button) return;
         profileScope = button.dataset.scope === 'playoffs' ? 'playoffs' : 'regular-season';
         syncProfileButtons();
-        if (lastProfilePlayer && lastProfileOptions) {
-          globalThis.renderProjectIcePlayerStatistics(lastProfilePlayer, lastProfileOptions);
+        if (lastProfilePlayer && typeof sharedRender === 'function') {
+          sharedRender(lastProfilePlayer, lastProfileOptions || {});
+          requestAnimationFrame(() => overlayTable({
+            player: lastProfilePlayer,
+            scope: profileScope,
+            headId: 'player-profile-statistics-head',
+            bodyId: 'player-profile-statistics-body',
+            footId: 'player-profile-statistics-foot',
+          }));
         }
       });
     }
     syncProfileButtons();
   }
 
-  function headerMap(headId) {
-    const head = document.getElementById(headId);
-    const cells = Array.from(head?.querySelectorAll('th') || []);
-    const map = new Map();
-    cells.forEach((cell, index) => {
-      const key = String(cell.textContent || '')
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9+/%-]/g, '');
-      if (key) map.set(key, index);
-    });
-    return map;
-  }
-
-  function setCell(row, index, value) {
-    if (!row || !Number.isInteger(index) || index < 0) return;
-    const cell = row.children?.[index];
-    if (cell) cell.textContent = String(value);
-  }
-
-  function formatSavePct(value) {
-    return Number(value || 0).toFixed(3).replace(/^0/, '');
-  }
-
-  function formatGaa(value) {
-    return Number(value || 0).toFixed(2);
-  }
-
-  function scopedValues(player, scope) {
-    const stats = scopedStats(player, scope);
-    if (!stats) return null;
-
-    const goalie = String(canonicalPlayer(player)?.position || player?.position || '').toUpperCase() === 'G';
-
-    return goalie
-      ? {
-          GP: stats.gamesPlayed,
-          GS: stats.gamesStarted,
-          W: stats.wins,
-          L: stats.losses,
-          OTL: stats.overtimeLosses,
-          GA: stats.goalsAgainst,
-          GAA: formatGaa(stats.goalsAgainstAverage),
-          'SV%': formatSavePct(stats.savePercentage),
-          SV: stats.saves,
-          SA: stats.shotsAgainst,
-          SO: stats.shutouts,
-        }
-      : {
-          GP: stats.gamesPlayed,
-          G: stats.goals,
-          A: stats.assists,
-          PTS: stats.points,
-          '+/-': stats.plusMinus,
-          PIM: stats.penaltyMinutes,
-          SOG: stats.shots,
-          SHOTS: stats.shots,
-        };
-  }
-
-  function applyScopeTableOverlay(player, options, scope) {
-    const values = scopedValues(player, scope);
-    if (!values) return;
-
-    const headId = options?.headId || 'pp-statistics-head';
-    const bodyId = options?.bodyId || 'pp-statistics-body';
-    const footId = options?.footId || 'pp-statistics-foot';
-    const headers = headerMap(headId);
-    const body = document.getElementById(bodyId);
-    const foot = document.getElementById(footId);
-    if (!body) return;
-
-    const rows = Array.from(body.querySelectorAll('tr'));
-    if (!rows.length) return;
-
-    const currentRow = rows[rows.length - 1];
-
-    Object.entries(values).forEach(([label, value]) => {
-      const index = headers.get(label);
-      if (index !== undefined) setCell(currentRow, index, value ?? 0);
-    });
-
-    const footerRow = foot?.querySelector('tr');
-    if (footerRow) {
-      Object.entries(values).forEach(([label, value]) => {
-        const index = headers.get(label);
-        if (index !== undefined) setCell(footerRow, index, value ?? 0);
-      });
-    }
-  }
-
-  const originalSharedRender = globalThis.renderProjectIcePlayerStatistics;
-
-  globalThis.renderProjectIcePlayerStatistics = function(player = {}, options = {}) {
-    const isStandalone = String(options?.headId || '') === 'player-profile-statistics-head';
-    const scope = isStandalone ? profileScope : careerScope();
-
-    if (isStandalone) {
-      lastProfilePlayer = player;
-      lastProfileOptions = options;
-    }
-
-    WorldEngine.rebuildHighSchoolPostseasonStats?.();
-    const snapshot = snapshotPlayer(player);
-
-    try {
-      applyScopedStats(player, scope);
-      const result = originalSharedRender(player, options);
-      applyScopeTableOverlay(player, options, scope);
-      if (isStandalone) ensureProfileControl();
-      return result;
-    } finally {
-      restorePlayer(snapshot);
-    }
-  };
-
-  function rerenderCareerPlayerStats() {
-    const id = Game?.player?.id || Game?.player?.playerId || 'career-player';
-    const player = WorldEngine.getPlayerById?.(id) || Game?.player;
-    if (!player) return;
-    globalThis.renderProjectIcePlayerStatistics(player, {
-      headId: 'pp-statistics-head',
-      bodyId: 'pp-statistics-body',
-      footId: 'pp-statistics-foot',
-    });
-  }
-
-  const careerFilter = document.getElementById('pp-statistics-filter');
-  if (careerFilter && careerFilter.dataset.piScopedOwner !== 'true') {
-    careerFilter.dataset.piScopedOwner = 'true';
-
-    /*
-     * The core Player-tab listener redraws the mixed career-history table on
-     * every dropdown change. Own this event in the capture phase so that old
-     * handler cannot repaint over the canonical scoped table afterward.
-     */
-    careerFilter.addEventListener('change', event => {
-      event.stopImmediatePropagation();
-      rerenderCareerPlayerStats();
-    }, true);
-  }
-
-  const originalOpenHubTab = typeof openHubTab === 'function' ? openHubTab : null;
-  if (originalOpenHubTab) {
-    window.openHubTab = function(tabName, ...args) {
-      const result = originalOpenHubTab(tabName, ...args);
-      if (String(tabName || '').toLowerCase() === 'player') {
-        requestAnimationFrame(rerenderCareerPlayerStats);
+  if (typeof sharedRender === 'function') {
+    globalThis.renderProjectIcePlayerStatistics = function(player = {}, options = {}) {
+      const result = sharedRender(player, options);
+      const standalone = String(options?.headId || '') === 'player-profile-statistics-head';
+      if (standalone) {
+        lastProfilePlayer = player;
+        lastProfileOptions = options;
+        ensureProfileControl();
+        requestAnimationFrame(() => overlayTable({
+          player,
+          scope: profileScope,
+          headId: 'player-profile-statistics-head',
+          bodyId: 'player-profile-statistics-body',
+          footId: 'player-profile-statistics-foot',
+        }));
       }
       return result;
     };
   }
 
-  WorldEngine.renderScopedCareerPlayerStatistics = rerenderCareerPlayerStats;
+  WorldEngine.applyCareerPlayerStatScope = applyCareerScope;
+  applyCareerScopeAfterCore();
 })();
