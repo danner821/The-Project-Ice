@@ -26,9 +26,7 @@
     if (
       !post?.championCheckpointAcknowledged ||
       !/^\d{4}-\d{2}-\d{2}$/.test(ceremonyDate)
-    ) {
-      return null;
-    }
+    ) return null;
 
     const world = WorldEngine.state;
     if (!Array.isArray(world.schedule)) world.schedule = [];
@@ -57,19 +55,26 @@
       };
       world.schedule.push(event);
     } else {
-      event.date = ceremonyDate;
-      event.eventKey = 'league-awards-ceremony';
-      event.type = 'meeting';
-      event.eventType = 'awards';
-      event.label = 'League Awards Ceremony';
-      event.shortLabel = 'Awards Ceremony';
-      event.icon = '🏆';
-      event.location = 'League Awards Hall';
-      event.objective = 'Attend the league awards ceremony and see who takes home the season honors.';
-      event.description = 'The Midwest Youth Hockey League gathers to reveal its regular-season award winners and Playoff MVP.';
-      event.requiresPlayerInteraction = true;
-      event.offseasonEvent = true;
-      event.leagueAwardsCeremony = true;
+      Object.assign(event, {
+        date: ceremonyDate,
+        eventKey: 'league-awards-ceremony',
+        type: 'meeting',
+        eventType: 'awards',
+        label: 'League Awards Ceremony',
+        shortLabel: 'Awards Ceremony',
+        icon: '🏆',
+        location: 'League Awards Hall',
+        objective: 'Attend the league awards ceremony and see who takes home the season honors.',
+        description: 'The Midwest Youth Hockey League gathers to reveal its regular-season award winners and Playoff MVP.',
+        offseasonEvent: true,
+        leagueAwardsCeremony: true,
+      });
+      if (post?.awardsCeremonyAcknowledged !== true) {
+        event.requiresPlayerInteraction = true;
+        event.completed = false;
+        event.played = false;
+        event.status = 'scheduled';
+      }
     }
 
     if (post?.awardsCeremonyAcknowledged === true) {
@@ -109,6 +114,76 @@
     WorldEngine.save?.();
   }
 
+  function bridgeScheduleCalendar(event) {
+    if (!event || event.completed === true) return;
+    const cell = document.querySelector(`.schedule-day[data-date="${event.date}"], [data-date="${event.date}"].schedule-day`);
+    if (!cell) return;
+
+    const already = cell.querySelector(`[data-pi-awards-event="${EVENT_ID}"]`);
+    if (already) return;
+
+    const marker = document.createElement('div');
+    marker.dataset.piAwardsEvent = EVENT_ID;
+    marker.style.cssText = 'margin-top:6px;padding:5px 7px;border-radius:8px;border:1px solid rgba(108,170,255,.45);background:rgba(30,75,145,.42);color:#dceaff;font-size:10px;font-weight:800;line-height:1.1;text-align:center;';
+    marker.innerHTML = '<div style="font-size:13px;margin-bottom:2px">🏆</div><div>Awards</div>';
+    cell.appendChild(marker);
+  }
+
+  function bridgeHomeWeek(event) {
+    if (!event || event.completed === true) return;
+    const cards = [...document.querySelectorAll('#hub-cal-strip .hub-cal-card')];
+    const card = cards.find(item => dateKey(item?.eventData?.date) === event.date);
+    if (!card) return;
+
+    const eventData = {
+      ...(card.eventData || {}),
+      date: event.date,
+      icon: '🏆',
+      event: 'Awards Ceremony',
+      label: 'League Awards Ceremony',
+      location: event.location,
+      objective: event.objective,
+      eventId: EVENT_ID,
+      leagueAwardsCeremony: true,
+      isCompleted: false,
+    };
+    card.eventData = eventData;
+
+    card.querySelector('.hub-cal-card__icon')?.replaceChildren(document.createTextNode('🏆'));
+    const title = card.querySelector('.hub-cal-card__title');
+    if (title) title.textContent = 'Awards Ceremony';
+  }
+
+  function bridgeUpcoming(event) {
+    if (!event || event.completed === true) return;
+    const list = document.getElementById('schedule-upcoming-list');
+    if (!list || list.querySelector(`[data-event-id="${EVENT_ID}"]`)) return;
+
+    const item = document.createElement('div');
+    item.className = 'schedule-upcoming-item';
+    item.dataset.eventId = EVENT_ID;
+    item.dataset.eventDate = event.date;
+    const date = new Date(`${event.date}T12:00:00`);
+    const label = Number.isNaN(date.getTime())
+      ? event.date
+      : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    item.innerHTML = `<div class="schedule-upcoming-item__date">${label}</div><div class="schedule-upcoming-item__content"><span class="schedule-upcoming-item__type"><span aria-hidden="true">🏆</span> Event</span><strong class="schedule-upcoming-item__title">League Awards Ceremony</strong></div>`;
+    item.addEventListener('click', () => {
+      const target = document.querySelector(`.schedule-day[data-date="${event.date}"], [data-date="${event.date}"].schedule-day`);
+      target?.click?.();
+      target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    });
+    list.prepend(item);
+  }
+
+  function bridgePresentation() {
+    const event = ensureEvent({ save: false });
+    if (!event) return;
+    bridgeScheduleCalendar(event);
+    bridgeHomeWeek(event);
+    bridgeUpcoming(event);
+  }
+
   if (typeof EventSystem !== 'undefined' && typeof EventSystem.openEvent === 'function') {
     const originalOpenEvent = EventSystem.openEvent.bind(EventSystem);
     EventSystem.openEvent = function(eventId, origin = 'hub', eventData = null) {
@@ -129,6 +204,16 @@
       ensureEvent({ save: false });
       const result = originalAdvance(...args);
       ensureEvent({ save: false });
+      requestAnimationFrame(bridgePresentation);
+      return result;
+    };
+  }
+
+  if (typeof window.refreshCareerUI === 'function') {
+    const originalRefreshCareerUI = window.refreshCareerUI.bind(window);
+    window.refreshCareerUI = function(...args) {
+      const result = originalRefreshCareerUI(...args);
+      requestAnimationFrame(bridgePresentation);
       return result;
     };
   }
@@ -136,10 +221,9 @@
   document.addEventListener('click', event => {
     if (event.target?.closest?.('#pi-champion-continue')) {
       window.requestAnimationFrame(() => {
-        const created = ensureEvent({ save: true });
-        if (created && typeof window.refreshCareerUI === 'function') {
-          window.refreshCareerUI();
-        }
+        ensureEvent({ save: true });
+        window.refreshCareerUI?.();
+        requestAnimationFrame(bridgePresentation);
       });
       return;
     }
@@ -151,6 +235,8 @@
 
   WorldEngine.ensureLeagueAwardsCeremonyEvent = ensureEvent;
   WorldEngine.getLeagueAwardsCeremonyEvent = getEvent;
+  WorldEngine.bridgeLeagueAwardsCeremonyPresentation = bridgePresentation;
 
   ensureEvent({ save: false });
+  requestAnimationFrame(bridgePresentation);
 })();
