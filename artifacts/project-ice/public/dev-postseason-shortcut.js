@@ -6,7 +6,7 @@
   if (typeof WorldEngine === 'undefined') return;
 
   const TARGET_PLAYER_NAME = 'Danner Stephenson';
-  const TARGET_DATE = '2027-04-29';
+  const AWARDS_EVENT_ID = 'hs-league-awards-ceremony';
 
   const DB_NAME = 'projectice_database';
   const DB_VERSION = 1;
@@ -17,20 +17,25 @@
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
   const SAVE_KEY = 'projectice_save';
 
-  /*
-   * The dev sandbox must never be the user's real career record.
-   * It gets its own normal career record so every existing autosave path can
-   * run unchanged, while the baseline lives under a non-career key so it can
-   * never appear in Continue Career.
-   */
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-postseason-apr29-v1';
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-awards-eve-v1';
 
   const originalListCareerSaves =
     typeof WorldEngine.listCareerSaves === 'function'
       ? WorldEngine.listCareerSaves.bind(WorldEngine)
       : null;
+
+  const dateKey = value => String(value || '').slice(0, 10);
+
+  function addDays(value, days) {
+    const key = dateKey(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
+    const date = new Date(`${key}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() + Number(days || 0));
+    return date.toISOString().slice(0, 10);
+  }
 
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -74,46 +79,45 @@
         JSON.stringify(parsed.filter(item => String(item?.id || '') !== DEV_CAREER_ID))
       );
     } catch (_) {
-      /* A malformed index will be rebuilt by WorldEngine normally. */
+      /* WorldEngine can rebuild a malformed visible index normally. */
     }
   }
 
-  function prepareApril29Baseline(sourceWorld) {
+  function prepareAwardsEveBaseline(sourceWorld) {
     const world = structuredClone(sourceWorld);
+    const postseason = world?.postseason?.highSchool;
 
-    /* Remove only postseason/test-layer data. Regular-season results remain. */
-    if (Array.isArray(world.schedule)) {
-      world.schedule = world.schedule.filter(event => event?.isPlayoff !== true);
+    if (!postseason?.championTeamId || !postseason?.completedDate) {
+      throw new Error('The source career has not completed a high school postseason yet.');
     }
 
-    if (!world.postseason || typeof world.postseason !== 'object') {
-      world.postseason = {};
-    }
-    world.postseason.highSchool = null;
+    const championCheckpointDate =
+      dateKey(postseason.championCheckpointAcknowledgedAt) ||
+      addDays(postseason.completedDate, 1);
 
-    if (!world.season || typeof world.season !== 'object') {
-      world.season = {};
-    }
+    const ceremonyDate =
+      dateKey(postseason.awardsCeremonyDate) ||
+      addDays(championCheckpointDate, 7);
 
-    world.season.currentDate = TARGET_DATE;
-    world.season.phase = 'regular-season-complete';
-    world.season.postseason = {
-      qualified: false,
-      started: false,
-      completed: false,
-    };
+    const targetDate = addDays(ceremonyDate, -1);
+    if (!targetDate) throw new Error('Could not determine the Awards Eve checkpoint date.');
 
-    if (!world.player || typeof world.player !== 'object') {
-      world.player = {};
-    }
-    world.player.currentDate = TARGET_DATE;
-    world.currentDate = TARGET_DATE;
+    postseason.championCheckpointAcknowledged = true;
+    postseason.championCheckpointAcknowledgedAt = championCheckpointDate;
+    postseason.offseasonStartedDate = postseason.offseasonStartedDate || championCheckpointDate;
+    postseason.awardsCeremonyDate = ceremonyDate;
+    postseason.awardsCeremonyAcknowledged = false;
+    delete postseason.awardsCeremonyAcknowledgedAt;
+    postseason.awardsRevealIndex = 0;
 
-    /*
-     * Keep the canonical roster copy of the career player on the same date.
-     * Do not touch attributes, stats, awards, development, roster placement,
-     * team records, standings, news, or any regular-season history.
-     */
+    if (!world.season || typeof world.season !== 'object') world.season = {};
+    world.season.currentDate = targetDate;
+    world.season.phase = 'offseason-awards-pending';
+
+    if (!world.player || typeof world.player !== 'object') world.player = {};
+    world.player.currentDate = targetDate;
+    world.currentDate = targetDate;
+
     const careerPlayerId = world.player.playerId || world.player.id || 'career-player';
     for (const team of world.teams || []) {
       for (const player of team?.roster || []) {
@@ -123,12 +127,29 @@
           String(id || '') === String(careerPlayerId || '') ||
           String(id || '') === 'career-player'
         ) {
-          player.currentDate = TARGET_DATE;
+          player.currentDate = targetDate;
         }
       }
     }
 
-    return world;
+    if (!Array.isArray(world.schedule)) world.schedule = [];
+    const ceremonyEvent = world.schedule.find(event =>
+      String(event?.eventId || event?.id || '') === AWARDS_EVENT_ID
+    );
+
+    if (ceremonyEvent) {
+      Object.assign(ceremonyEvent, {
+        date: ceremonyDate,
+        completed: false,
+        played: false,
+        status: 'scheduled',
+        requiresPlayerInteraction: true,
+      });
+      delete ceremonyEvent.completedAt;
+      delete ceremonyEvent.result;
+    }
+
+    return { world, targetDate, ceremonyDate };
   }
 
   async function findRealDannerSave() {
@@ -149,13 +170,15 @@
       throw new Error('Danner Stephenson IndexedDB world record was not found.');
     }
 
+    const prepared = prepareAwardsEveBaseline(source.world);
     const baseline = {
       id: DEV_BASELINE_RECORD_ID,
       sourceCareerId: realDannerSave.id,
       sourcePlayerName: TARGET_PLAYER_NAME,
-      checkpointDate: TARGET_DATE,
+      checkpointDate: prepared.targetDate,
+      awardsCeremonyDate: prepared.ceremonyDate,
       createdAt: new Date().toISOString(),
-      world: prepareApril29Baseline(source.world),
+      world: prepared.world,
     };
 
     await writeRecord(database, baseline);
@@ -169,42 +192,51 @@
     }
 
     const database = await openDatabase();
+    let checkpointDate = null;
+    let ceremonyDate = null;
+
     try {
       const baseline = await ensureImmutableBaseline(database, realDannerSave);
-      const sandboxWorld = prepareApril29Baseline(baseline.world);
+      const prepared = prepareAwardsEveBaseline(baseline.world);
+      checkpointDate = prepared.targetDate;
+      ceremonyDate = prepared.ceremonyDate;
 
       await writeRecord(database, {
         id: DEV_WORLD_RECORD_ID,
         savedAt: new Date().toISOString(),
         devSandbox: true,
         sourceCareerId: realDannerSave.id,
-        world: sandboxWorld,
+        checkpointDate,
+        awardsCeremonyDate: ceremonyDate,
+        world: prepared.world,
       });
     } finally {
       database.close();
     }
 
-    /* Switch active persistence only after the isolated record exists. */
     localStorage.setItem(ACTIVE_CAREER_ID_KEY, DEV_CAREER_ID);
     localStorage.removeItem(PENDING_CAREER_ID_KEY);
     removeDevMetadataFromVisibleIndex();
 
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
-    if (!loaded) {
-      throw new Error('Could not load the isolated postseason dev career.');
+    if (!loaded) throw new Error('Could not load the isolated Awards Eve dev career.');
+
+    if (WorldEngine.state?.season) {
+      WorldEngine.state.season.currentDate = checkpointDate;
+      WorldEngine.state.season.phase = 'offseason-awards-pending';
     }
+    if (WorldEngine.state?.player) WorldEngine.state.player.currentDate = checkpointDate;
+    if (WorldEngine.state) WorldEngine.state.currentDate = checkpointDate;
 
-    /* The lifecycle load hooks may initialize the bracket, but the date stays Apr 29. */
-    if (WorldEngine.state?.season) WorldEngine.state.season.currentDate = TARGET_DATE;
-    if (WorldEngine.state?.player) WorldEngine.state.player.currentDate = TARGET_DATE;
-    if (WorldEngine.state) WorldEngine.state.currentDate = TARGET_DATE;
-
+    WorldEngine.ensureLeagueAwardsCeremonyEvent?.({ save: false });
     await WorldEngine.save?.();
     removeDevMetadataFromVisibleIndex();
 
     return {
       sourceCareerId: realDannerSave.id,
       sandboxCareerId: DEV_CAREER_ID,
+      checkpointDate,
+      ceremonyDate,
     };
   }
 
@@ -226,14 +258,12 @@
       console.warn('[Project Ice] Dev shortcut Hub refresh failed:', error);
     }
 
-    console.info('[Project Ice] Isolated postseason dev checkpoint loaded.', {
+    console.info('[Project Ice] Isolated Awards Eve dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
-      date: TARGET_DATE,
       ...result,
     });
   }
 
-  /* Keep the hidden sandbox out of Continue Career even after index recovery. */
   if (originalListCareerSaves) {
     WorldEngine.listCareerSaves = async (...args) => {
       const saves = await originalListCareerSaves(...args);
@@ -258,8 +288,8 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       loadDannerCheckpoint().catch(error => {
-        console.error('[Project Ice] Dev postseason shortcut failed:', error);
-        alert(`Dev postseason shortcut failed: ${error?.message || 'unknown error'}`);
+        console.error('[Project Ice] Dev Awards Eve shortcut failed:', error);
+        alert(`Dev Awards Eve shortcut failed: ${error?.message || 'unknown error'}`);
       });
     }, true);
   }
