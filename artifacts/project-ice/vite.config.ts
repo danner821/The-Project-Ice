@@ -108,6 +108,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/player-stat-scopes.js"></script>');
     }
 
+    if (!html.includes('/home-postseason-awareness.js')) {
+      scripts.push('    <script src="/home-postseason-awareness.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
@@ -146,7 +150,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, 'src'),
+      '@': path.resolve(import.meta.dirname),
       '@assets': path.resolve(
         import.meta.dirname,
         '..',
