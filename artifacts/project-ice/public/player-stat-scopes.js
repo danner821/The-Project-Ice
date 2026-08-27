@@ -103,6 +103,100 @@
     syncProfileButtons();
   }
 
+  function headerMap(headId) {
+    const head = document.getElementById(headId);
+    const cells = Array.from(head?.querySelectorAll('th') || []);
+    const map = new Map();
+    cells.forEach((cell, index) => {
+      const key = String(cell.textContent || '').trim().toUpperCase().replace(/[^A-Z0-9+/%-]/g, '');
+      if (key) map.set(key, index);
+    });
+    return map;
+  }
+
+  function setCell(row, index, value) {
+    if (!row || !Number.isInteger(index) || index < 0) return;
+    const cell = row.children?.[index];
+    if (cell) cell.textContent = String(value);
+  }
+
+  function formatSavePct(value) {
+    return Number(value || 0).toFixed(3).replace(/^0/, '');
+  }
+
+  function formatGaa(value) {
+    return Number(value || 0).toFixed(2);
+  }
+
+  function applyPlayoffTableOverlay(player, options, scope) {
+    if (scope !== 'playoffs') return;
+
+    const stats = WorldEngine.getPlayerStatsByScope?.(player, 'playoffs');
+    if (!stats) return;
+
+    const headId = options?.headId || 'pp-statistics-head';
+    const bodyId = options?.bodyId || 'pp-statistics-body';
+    const footId = options?.footId || 'pp-statistics-foot';
+    const headers = headerMap(headId);
+    const body = document.getElementById(bodyId);
+    const foot = document.getElementById(footId);
+    if (!body) return;
+
+    const rows = Array.from(body.querySelectorAll('tr'));
+    if (!rows.length) return;
+
+    /*
+     * The shared history renderer emits seasons chronologically and the current
+     * season is the final body row. Keep historical rows intact, but replace
+     * the active season's numeric cells with the canonical postseason scope.
+     */
+    const currentRow = rows[rows.length - 1];
+    const goalie = String(player?.position || '').toUpperCase() === 'G';
+
+    const values = goalie
+      ? {
+          GP: stats.gamesPlayed,
+          GS: stats.gamesStarted,
+          W: stats.wins,
+          L: stats.losses,
+          OTL: stats.overtimeLosses,
+          GA: stats.goalsAgainst,
+          GAA: formatGaa(stats.goalsAgainstAverage),
+          'SV%': formatSavePct(stats.savePercentage),
+          SV: stats.saves,
+          SA: stats.shotsAgainst,
+          SO: stats.shutouts,
+        }
+      : {
+          GP: stats.gamesPlayed,
+          G: stats.goals,
+          A: stats.assists,
+          PTS: stats.points,
+          '+/-': stats.plusMinus,
+          PIM: stats.penaltyMinutes,
+          SOG: stats.shots,
+          SHOTS: stats.shots,
+        };
+
+    Object.entries(values).forEach(([label, value]) => {
+      const index = headers.get(label);
+      if (index !== undefined) setCell(currentRow, index, value ?? 0);
+    });
+
+    /*
+     * Until archived postseason seasons are introduced, the current canonical
+     * playoff scope is the complete playoff-career total. Mirror it into the
+     * footer so the visible totals agree with the active-season row.
+     */
+    const footerRow = foot?.querySelector('tr');
+    if (footerRow) {
+      Object.entries(values).forEach(([label, value]) => {
+        const index = headers.get(label);
+        if (index !== undefined) setCell(footerRow, index, value ?? 0);
+      });
+    }
+  }
+
   const originalSharedRender = globalThis.renderProjectIcePlayerStatistics;
 
   globalThis.renderProjectIcePlayerStatistics = function(player = {}, options = {}) {
@@ -120,6 +214,7 @@
     try {
       applyScopedStats(player, scope);
       const result = originalSharedRender(player, options);
+      applyPlayoffTableOverlay(player, options, scope);
       if (isStandalone) ensureProfileControl();
       return result;
     } finally {
