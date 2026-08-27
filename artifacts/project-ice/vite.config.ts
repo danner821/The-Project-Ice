@@ -124,6 +124,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/home-postseason-polish.js"></script>');
     }
 
+    if (!html.includes('/championship-checkpoint.js')) {
+      scripts.push('    <script src="/championship-checkpoint.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
