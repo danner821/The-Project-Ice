@@ -160,6 +160,15 @@
       phase: 'postseason-complete',
       regularSeasonEndDate: regularEnd,
       frozenStandings: frozen,
+      bracket: existing?.bracket || {
+        format: 'six-team-bye-best-of-three',
+        qualifierCount: 6,
+        rounds: {
+          roundOne: [],
+          semifinals: [],
+          championship: [],
+        },
+      },
       completedDate,
       championTeamId,
       playoffMvpPlayerId: existing?.playoffMvpPlayerId || choosePlayoffMvpId(world, championTeamId),
