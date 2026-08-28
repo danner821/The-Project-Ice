@@ -71,6 +71,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-hockey-runtime-v3.js')) scripts.push('    <script src="/travel-hockey-runtime-v3.js"></script>');
     if (!html.includes('/travel-hockey-v3-stabilizer.js')) scripts.push('    <script src="/travel-hockey-v3-stabilizer.js"></script>');
     if (!html.includes('/travel-hockey-runtime-v4.js')) scripts.push('    <script src="/travel-hockey-runtime-v4.js"></script>');
+    if (!html.includes('/travel-hockey-continue-fix.js')) scripts.push('    <script src="/travel-hockey-continue-fix.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
     if (scripts.length === 0) return html;
@@ -88,7 +89,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
-    runtimeModulesPlugin,
+    runtimeModulesPlugin(),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [
