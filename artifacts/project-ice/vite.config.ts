@@ -32,145 +32,43 @@ const runtimeModulesPlugin = {
   transformIndexHtml(html: string) {
     const scripts: string[] = [];
 
-    if (!html.includes('/career-persistence.js')) {
-      scripts.push('    <script src="/career-persistence.js"></script>');
-    }
+    if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
+    if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
+    if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
+    if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js"></script>');
+    if (!html.includes('/schedule-open-day-fix.js')) scripts.push('    <script src="/schedule-open-day-fix.js"></script>');
+    if (!html.includes('/postseason-trigger.js')) scripts.push('    <script src="/postseason-trigger.js"></script>');
+    if (!html.includes('/postseason-checkpoint-event.js')) scripts.push('    <script src="/postseason-checkpoint-event.js"></script>');
+    if (!html.includes('/postseason-ui.js')) scripts.push('    <script src="/postseason-ui.js"></script>');
+    if (!html.includes('/postseason-polish.js')) scripts.push('    <script src="/postseason-polish.js"></script>');
+    if (!html.includes('/postseason-game-presentation.js')) scripts.push('    <script src="/postseason-game-presentation.js"></script>');
+    if (!html.includes('/postseason-game-canonical-bridge.js')) scripts.push('    <script src="/postseason-game-canonical-bridge.js"></script>');
+    if (!html.includes('/postseason-event-polish.js')) scripts.push('    <script src="/postseason-event-polish.js"></script>');
+    if (!html.includes('/pregame-sim-reset.js')) scripts.push('    <script src="/pregame-sim-reset.js"></script>');
+    if (!html.includes('/postseason-stats.js')) scripts.push('    <script src="/postseason-stats.js"></script>');
+    if (!html.includes('/league-postseason.js')) scripts.push('    <script src="/league-postseason.js"></script>');
+    if (!html.includes('/playoff-leaders.js')) scripts.push('    <script src="/playoff-leaders.js"></script>');
+    if (!html.includes('/full-stats-scopes.js')) scripts.push('    <script src="/full-stats-scopes.js"></script>');
+    if (!html.includes('/team-leader-scopes.js')) scripts.push('    <script src="/team-leader-scopes.js"></script>');
+    if (!html.includes('/team-profile-stat-scopes.js')) scripts.push('    <script src="/team-profile-stat-scopes.js"></script>');
+    if (!html.includes('/player-stat-scopes.js')) scripts.push('    <script src="/player-stat-scopes.js"></script>');
+    if (!html.includes('/player-stat-scope-refresh.js')) scripts.push('    <script src="/player-stat-scope-refresh.js"></script>');
+    if (!html.includes('/player-profile-postseason.js')) scripts.push('    <script src="/player-profile-postseason.js"></script>');
+    if (!html.includes('/home-postseason-awareness.js')) scripts.push('    <script src="/home-postseason-awareness.js"></script>');
+    if (!html.includes('/home-postseason-polish.js')) scripts.push('    <script src="/home-postseason-polish.js"></script>');
+    if (!html.includes('/championship-checkpoint.js')) scripts.push('    <script src="/championship-checkpoint.js"></script>');
+    if (!html.includes('/awards-ceremony.js')) scripts.push('    <script src="/awards-ceremony.js"></script>');
+    if (!html.includes('/awards-calendar-event.js')) scripts.push('    <script src="/awards-calendar-event.js"></script>');
+    if (!html.includes('/league-awards-history.js')) scripts.push('    <script src="/league-awards-history.js"></script>');
+    if (!html.includes('/awards-offseason-exit.js')) scripts.push('    <script src="/awards-offseason-exit.js"></script>');
+    if (!html.includes('/travel-hockey-foundation.js')) scripts.push('    <script src="/travel-hockey-foundation.js"></script>');
+    if (!html.includes('/travel-hockey-tryouts.js')) scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
+    if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
+    if (!html.includes('/travel-hockey-world.js')) scripts.push('    <script src="/travel-hockey-world.js"></script>');
+    if (!html.includes('/travel-hockey-polish.js')) scripts.push('    <script src="/travel-hockey-polish.js"></script>');
+    if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
-    if (!html.includes('/season-lifecycle.js')) {
-      scripts.push('    <script src="/season-lifecycle.js"></script>');
-    }
-
-    if (!html.includes('/season-lifecycle-migrations.js')) {
-      scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
-    }
-
-    if (!html.includes('/postseason-cadence.js')) {
-      scripts.push('    <script src="/postseason-cadence.js"></script>');
-    }
-
-    if (!html.includes('/schedule-open-day-fix.js')) {
-      scripts.push('    <script src="/schedule-open-day-fix.js"></script>');
-    }
-
-    if (!html.includes('/postseason-trigger.js')) {
-      scripts.push('    <script src="/postseason-trigger.js"></script>');
-    }
-
-    if (!html.includes('/postseason-checkpoint-event.js')) {
-      scripts.push('    <script src="/postseason-checkpoint-event.js"></script>');
-    }
-
-    if (!html.includes('/postseason-ui.js')) {
-      scripts.push('    <script src="/postseason-ui.js"></script>');
-    }
-
-    if (!html.includes('/postseason-polish.js')) {
-      scripts.push('    <script src="/postseason-polish.js"></script>');
-    }
-
-    if (!html.includes('/postseason-game-presentation.js')) {
-      scripts.push('    <script src="/postseason-game-presentation.js"></script>');
-    }
-
-    if (!html.includes('/postseason-game-canonical-bridge.js')) {
-      scripts.push('    <script src="/postseason-game-canonical-bridge.js"></script>');
-    }
-
-    if (!html.includes('/postseason-event-polish.js')) {
-      scripts.push('    <script src="/postseason-event-polish.js"></script>');
-    }
-
-    if (!html.includes('/pregame-sim-reset.js')) {
-      scripts.push('    <script src="/pregame-sim-reset.js"></script>');
-    }
-
-    if (!html.includes('/postseason-stats.js')) {
-      scripts.push('    <script src="/postseason-stats.js"></script>');
-    }
-
-    if (!html.includes('/league-postseason.js')) {
-      scripts.push('    <script src="/league-postseason.js"></script>');
-    }
-
-    if (!html.includes('/playoff-leaders.js')) {
-      scripts.push('    <script src="/playoff-leaders.js"></script>');
-    }
-
-    if (!html.includes('/full-stats-scopes.js')) {
-      scripts.push('    <script src="/full-stats-scopes.js"></script>');
-    }
-
-    if (!html.includes('/team-leader-scopes.js')) {
-      scripts.push('    <script src="/team-leader-scopes.js"></script>');
-    }
-
-    if (!html.includes('/team-profile-stat-scopes.js')) {
-      scripts.push('    <script src="/team-profile-stat-scopes.js"></script>');
-    }
-
-    if (!html.includes('/player-stat-scopes.js')) {
-      scripts.push('    <script src="/player-stat-scopes.js"></script>');
-    }
-
-    if (!html.includes('/player-stat-scope-refresh.js')) {
-      scripts.push('    <script src="/player-stat-scope-refresh.js"></script>');
-    }
-
-    if (!html.includes('/player-profile-postseason.js')) {
-      scripts.push('    <script src="/player-profile-postseason.js"></script>');
-    }
-
-    if (!html.includes('/home-postseason-awareness.js')) {
-      scripts.push('    <script src="/home-postseason-awareness.js"></script>');
-    }
-
-    if (!html.includes('/home-postseason-polish.js')) {
-      scripts.push('    <script src="/home-postseason-polish.js"></script>');
-    }
-
-    if (!html.includes('/championship-checkpoint.js')) {
-      scripts.push('    <script src="/championship-checkpoint.js"></script>');
-    }
-
-    if (!html.includes('/awards-ceremony.js')) {
-      scripts.push('    <script src="/awards-ceremony.js"></script>');
-    }
-
-    if (!html.includes('/awards-calendar-event.js')) {
-      scripts.push('    <script src="/awards-calendar-event.js"></script>');
-    }
-
-    if (!html.includes('/league-awards-history.js')) {
-      scripts.push('    <script src="/league-awards-history.js"></script>');
-    }
-
-    if (!html.includes('/awards-offseason-exit.js')) {
-      scripts.push('    <script src="/awards-offseason-exit.js"></script>');
-    }
-
-    if (!html.includes('/travel-hockey-foundation.js')) {
-      scripts.push('    <script src="/travel-hockey-foundation.js"></script>');
-    }
-
-    if (!html.includes('/travel-hockey-tryouts.js')) {
-      scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
-    }
-
-    if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) {
-      scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
-    }
-
-    if (!html.includes('/travel-hockey-world.js')) {
-      scripts.push('    <script src="/travel-hockey-world.js"></script>');
-    }
-
-    if (!html.includes('/dev-postseason-shortcut.js')) {
-      scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
-    }
-
-    if (scripts.length === 0) {
-      return html;
-    }
+    if (scripts.length === 0) return html;
 
     return html.replace(
       '</body>',
@@ -222,9 +120,7 @@ export default defineConfig({
     strictPort: true,
     host: '0.0.0.0',
     allowedHosts: true,
-    fs: {
-      strict: true,
-    },
+    fs: { strict: true },
   },
   preview: {
     port,
