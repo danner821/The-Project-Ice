@@ -231,7 +231,9 @@
   async function loadCheckpoint() {
     const result = await rebuildSandbox();
     try {
-      localStorage.removeItem(SAVE_KEY);
+      // Do not delete the lightweight real-career preview here. The dev sandbox
+      // is isolated in IndexedDB and removing the preview makes the title screen
+      // incorrectly believe that Continue Career and the dev shortcut are unavailable.
       recoverCareerPreviewFromWorld?.();
       loadCareerPreview?.();
     } catch (error) { console.warn('[Project Ice] Dev preview refresh failed:', error); }
@@ -251,27 +253,49 @@
     };
   }
 
-  function wireShortcut() {
+  function enforceShortcutState() {
     const button = document.getElementById('btn-dev-hub');
     const hint = document.getElementById('dev-shortcut-hint');
-    if (!button || button.dataset.travelTryoutCheckpointWired === 'true') return;
-    button.dataset.travelTryoutCheckpointWired = 'true';
+    if (!button) return null;
+
     button.disabled = false;
     button.removeAttribute('disabled');
+    button.setAttribute('aria-disabled', 'false');
+    button.style.pointerEvents = 'auto';
     const label = button.querySelector('.btn__label');
     if (label) label.textContent = 'Skip to Travel Tryouts Eve';
     if (hint) hint.classList.remove('is-visible');
-    button.addEventListener('click', event => {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      loadCheckpoint().catch(error => {
-        console.error('[Project Ice] Dev Travel Tryouts Eve shortcut failed:', error);
-        alert(`Dev Travel Tryouts Eve shortcut failed: ${error?.message || 'unknown error'}`);
+    return button;
+  }
+
+  function wireShortcut() {
+    const button = enforceShortcutState();
+    if (!button) return;
+
+    if (button.dataset.travelTryoutCheckpointWired !== 'true') {
+      button.dataset.travelTryoutCheckpointWired = 'true';
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        loadCheckpoint().catch(error => {
+          console.error('[Project Ice] Dev Travel Tryouts Eve shortcut failed:', error);
+          alert(`Dev Travel Tryouts Eve shortcut failed: ${error?.message || 'unknown error'}`);
+        });
+      }, true);
+    }
+
+    if (button.dataset.piTravelShortcutObserver !== 'true') {
+      button.dataset.piTravelShortcutObserver = 'true';
+      new MutationObserver(() => enforceShortcutState()).observe(button, {
+        attributes: true,
+        attributeFilter: ['disabled', 'class', 'aria-disabled', 'style'],
+        childList: true,
+        subtree: true,
       });
-    }, true);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
   else wireShortcut();
-  window.setTimeout(wireShortcut, 250);
+  [0, 50, 250, 750, 1500].forEach(delay => window.setTimeout(wireShortcut, delay));
 })();
