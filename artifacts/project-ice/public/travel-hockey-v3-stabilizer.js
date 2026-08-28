@@ -25,16 +25,23 @@
     const state = travel();
     const result = state?.tryoutResult;
     const level = state?.placementLevel || result?.placementLevel;
-    if (!state || !result || !level || state.travelTeamSelectionVersion === 2) return false;
+    if (!state || !result || !level) return false;
 
     const options = state?.teamOptionsByLevel?.[level];
-    if (!Array.isArray(options) || !options.length) {
-      state.travelTeamSelectionVersion = 2;
-      return false;
+    if (!Array.isArray(options) || !options.length) return false;
+
+    let selected = null;
+
+    if (state.travelTeamSelectionVersion === 3) {
+      selected = options.find(option =>
+        String(option?.teamId || '') === String(state.placementTeamId || result.placementTeamId || '')
+      ) || null;
     }
 
-    const selected = options[randomIndex(options.length)];
-    if (!selected) return false;
+    if (!selected) {
+      selected = options[randomIndex(options.length)] || options[0];
+      state.travelTeamSelectionVersion = 3;
+    }
 
     state.placementTeamId = selected.teamId;
     state.placementTeamName = selected.name;
@@ -44,15 +51,20 @@
     result.placementTeamId = selected.teamId;
     result.placementTeamName = selected.name;
     result.placementTeamCity = selected.city;
-    state.travelTeamSelectionVersion = 2;
 
-    /* A newly completed dev tryout must build a fresh summer world around
-       this placement rather than reuse any previously constructed team world. */
-    delete state.worldVersion;
-    delete state.teams;
-    delete state.tournament;
+    if (state.worldVersion && Array.isArray(state.teams)) {
+      const careerTeam = state.teams.find(team =>
+        (team.roster || []).some(player => player?.isCareerPlayer === true)
+      );
+      if (careerTeam && String(careerTeam.teamId) !== String(selected.teamId)) {
+        delete state.worldVersion;
+        delete state.teams;
+        delete state.tournament;
+      }
+    }
 
     WorldEngine.save?.();
+    WorldEngine.syncTravelTryoutResultTeam?.();
     return true;
   }
 
