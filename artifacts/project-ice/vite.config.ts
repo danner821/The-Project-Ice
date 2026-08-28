@@ -32,6 +32,7 @@ const runtimeModulesPlugin = {
   transformIndexHtml(html: string) {
     const scripts: string[] = [];
 
+    if (!html.includes('/disable-game-zoom.js')) scripts.push('    <script src="/disable-game-zoom.js"></script>');
     if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
     if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
     if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
