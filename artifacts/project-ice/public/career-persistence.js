@@ -15,6 +15,8 @@
 (() => {
   const SAVE_KEY = 'projectice_save';
   const LEGACY_WORLD_KEY = 'projectice_world';
+  const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
+  const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DB_NAME = 'projectice_database';
   const DB_VERSION = 1;
   const STORE_NAME = 'worlds';
@@ -54,6 +56,20 @@
     } finally {
       database.close();
     }
+  }
+
+  function visibleCareerSaves() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CAREER_SAVE_INDEX_KEY) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(item => item && String(item.id || '') !== DEV_CAREER_ID);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function hasCanonicalCareerSave() {
+    return visibleCareerSaves().length > 0;
   }
 
   function findCareerPlayer(world) {
@@ -120,12 +136,6 @@
 
     return {
       previewVersion: PREVIEW_SCHEMA_VERSION,
-
-      /*
-       * Keep the legacy version field during the migration window so
-       * existing readers remain compatible while new persistence code
-       * can reason about the preview contract explicitly.
-       */
       version: '0.0.3',
       savedAt: new Date().toISOString(),
       player: {
@@ -151,8 +161,10 @@
 
   function enableContinueButton() {
     const button = document.getElementById('btn-continue');
-
     if (!button) return;
+
+    const hasCareer = Boolean(localStorage.getItem(SAVE_KEY)) || hasCanonicalCareerSave();
+    if (!hasCareer) return;
 
     button.disabled = false;
     button.removeAttribute('disabled');
@@ -169,15 +181,32 @@
 
   function keepContinueButtonEnabled() {
     enableContinueButton();
-
     [0, 50, 250, 750, 1500].forEach(delay => {
       window.setTimeout(enableContinueButton, delay);
     });
   }
 
+  function observeContinueButton() {
+    const button = document.getElementById('btn-continue');
+    if (!button || button.dataset.piCanonicalCareerObserver === 'true') return;
+    button.dataset.piCanonicalCareerObserver = 'true';
+
+    new MutationObserver(() => {
+      if (Boolean(localStorage.getItem(SAVE_KEY)) || hasCanonicalCareerSave()) {
+        enableContinueButton();
+      }
+    }).observe(button, {
+      attributes: true,
+      attributeFilter: ['disabled', 'class', 'aria-disabled', 'style'],
+      childList: true,
+      subtree: true,
+    });
+  }
+
   async function repairCareerPreview() {
-    if (localStorage.getItem(SAVE_KEY)) {
+    if (localStorage.getItem(SAVE_KEY) || hasCanonicalCareerSave()) {
       keepContinueButtonEnabled();
+      observeContinueButton();
       return;
     }
 
@@ -203,6 +232,7 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify(preview));
 
       keepContinueButtonEnabled();
+      observeContinueButton();
 
       console.info(
         '[Project Ice] Recovered Continue Career preview from IndexedDB.',
@@ -219,11 +249,18 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      repairCareerPreview();
-    });
-  } else {
+  function boot() {
     repairCareerPreview();
+    observeContinueButton();
+    window.setTimeout(() => {
+      keepContinueButtonEnabled();
+      observeContinueButton();
+    }, 250);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
   }
 })();
