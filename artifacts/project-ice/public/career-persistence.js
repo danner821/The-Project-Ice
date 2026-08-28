@@ -34,23 +34,23 @@
     });
   }
 
-  async function readWorldRecord() {
+  async function readAllWorldRecords() {
     const database = await openDatabase();
 
     try {
       return await new Promise((resolve, reject) => {
         if (!database.objectStoreNames.contains(STORE_NAME)) {
-          resolve(null);
+          resolve([]);
           return;
         }
 
         const transaction = database.transaction(STORE_NAME, 'readonly');
         const store = transaction.objectStore(STORE_NAME);
-        const request = store.get(RECORD_ID);
+        const request = store.getAll();
 
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
         request.onerror = () => reject(
-          request.error || new Error('Could not read Project Ice world record.')
+          request.error || new Error('Could not read Project Ice world records.')
         );
       });
     } finally {
@@ -70,6 +70,17 @@
 
   function hasCanonicalCareerSave() {
     return visibleCareerSaves().length > 0;
+  }
+
+  function isRealCareerRecord(record) {
+    const id = String(record?.id || '');
+    return (
+      id.startsWith('career:') &&
+      id !== `career:${DEV_CAREER_ID}` &&
+      record?.devSandbox !== true &&
+      record?.world &&
+      typeof record.world === 'object'
+    );
   }
 
   function findCareerPlayer(world) {
@@ -166,56 +177,53 @@
     const hasCareer = Boolean(localStorage.getItem(SAVE_KEY)) || hasCanonicalCareerSave();
     if (!hasCareer) return;
 
-    button.disabled = false;
-    button.removeAttribute('disabled');
-    button.setAttribute('aria-disabled', 'false');
-    button.style.pointerEvents = 'auto';
-    button.classList.remove('btn--secondary');
-    button.classList.add('btn--primary');
-    button.innerHTML = `
-      <span class="btn__icon">📁</span>
-      <span class="btn__label">Continue Career</span>
-      <span class="btn__arrow">›</span>
-    `;
+    if (button.disabled) button.disabled = false;
+    if (button.hasAttribute('disabled')) button.removeAttribute('disabled');
+    if (button.getAttribute('aria-disabled') !== 'false') {
+      button.setAttribute('aria-disabled', 'false');
+    }
+    if (button.style.pointerEvents !== 'auto') button.style.pointerEvents = 'auto';
+    if (button.classList.contains('btn--secondary')) button.classList.remove('btn--secondary');
+    if (!button.classList.contains('btn--primary')) button.classList.add('btn--primary');
+
+    const noSaveTag = button.querySelector('.btn__tag');
+    if (noSaveTag) noSaveTag.remove();
+
+    const label = button.querySelector('.btn__label');
+    if (label && label.textContent !== 'Continue Career') label.textContent = 'Continue Career';
+
+    if (!button.querySelector('.btn__arrow')) {
+      const arrow = document.createElement('span');
+      arrow.className = 'btn__arrow';
+      arrow.textContent = '›';
+      button.appendChild(arrow);
+    }
   }
 
   function keepContinueButtonEnabled() {
-    enableContinueButton();
     [0, 50, 250, 750, 1500].forEach(delay => {
       window.setTimeout(enableContinueButton, delay);
-    });
-  }
-
-  function observeContinueButton() {
-    const button = document.getElementById('btn-continue');
-    if (!button || button.dataset.piCanonicalCareerObserver === 'true') return;
-    button.dataset.piCanonicalCareerObserver = 'true';
-
-    new MutationObserver(() => {
-      if (Boolean(localStorage.getItem(SAVE_KEY)) || hasCanonicalCareerSave()) {
-        enableContinueButton();
-      }
-    }).observe(button, {
-      attributes: true,
-      attributeFilter: ['disabled', 'class', 'aria-disabled', 'style'],
-      childList: true,
-      subtree: true,
     });
   }
 
   async function repairCareerPreview() {
     if (localStorage.getItem(SAVE_KEY) || hasCanonicalCareerSave()) {
       keepContinueButtonEnabled();
-      observeContinueButton();
       return;
     }
 
     try {
-      const record = await readWorldRecord();
+      const records = await readAllWorldRecords();
+      const realCareerRecords = records
+        .filter(isRealCareerRecord)
+        .sort((a, b) => String(b?.savedAt || '').localeCompare(String(a?.savedAt || '')));
+
+      const fallbackRecord = records.find(record => String(record?.id || '') === RECORD_ID && record?.world);
+      const record = realCareerRecords[0] || fallbackRecord || null;
       const world = record?.world || null;
 
       if (!world) {
-        console.warn('[Project Ice] No IndexedDB world exists for career recovery.');
+        console.warn('[Project Ice] No canonical IndexedDB career world exists for recovery.');
         return;
       }
 
@@ -232,11 +240,11 @@
       localStorage.setItem(SAVE_KEY, JSON.stringify(preview));
 
       keepContinueButtonEnabled();
-      observeContinueButton();
 
       console.info(
         '[Project Ice] Recovered Continue Career preview from IndexedDB.',
         {
+          recordId: record?.id || null,
           previewVersion: preview.previewVersion,
           playerId: preview.player.playerId,
           name: `${preview.player.firstName} ${preview.player.lastName}`.trim(),
@@ -251,11 +259,7 @@
 
   function boot() {
     repairCareerPreview();
-    observeContinueButton();
-    window.setTimeout(() => {
-      keepContinueButtonEnabled();
-      observeContinueButton();
-    }, 250);
+    keepContinueButtonEnabled();
   }
 
   if (document.readyState === 'loading') {
