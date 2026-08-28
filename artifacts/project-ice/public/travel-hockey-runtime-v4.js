@@ -15,18 +15,53 @@
     return (travel()?.teams || []).find(team => String(team?.teamId || '') === String(id || '')) || null;
   }
 
-  function levelPrestige(level) {
-    return ({ B: 1, A: 2, AA: 3, AAA: 4 })[String(level || '').toUpperCase()] || 2;
+  function randomIndex(length) {
+    if (!length) return 0;
+    try {
+      if (globalThis.crypto?.getRandomValues) {
+        const value = new Uint32Array(1);
+        globalThis.crypto.getRandomValues(value);
+        return value[0] % length;
+      }
+    } catch (_) {}
+    return Math.floor(Math.random() * length);
   }
 
-  function initials(name) {
-    return String(name || '')
-      .split(/\s+/)
-      .filter(Boolean)
-      .map(part => part[0])
-      .join('')
-      .slice(0, 4)
-      .toUpperCase() || 'TRV';
+  function assignFreshPlacementTeam() {
+    const state = travel();
+    const result = state?.tryoutResult;
+    const level = result?.placementLevel || state?.placementLevel;
+    const options = state?.teamOptionsByLevel?.[level];
+    if (!state || !result || !level || !Array.isArray(options) || !options.length) return false;
+
+    // The tryout tier is earned from the evaluation. The club within that tier
+    // is a fresh draw for this tryout run and then becomes canonical.
+    const currentId = String(result.placementTeamId || state.placementTeamId || '');
+    const pool = options.length > 1
+      ? options.filter(team => String(team?.teamId || '') !== currentId)
+      : options;
+    const selected = pool[randomIndex(pool.length)] || options[0];
+    if (!selected) return false;
+
+    state.placementLevel = level;
+    state.placementTeamId = selected.teamId;
+    state.placementTeamName = selected.name;
+    state.playerTeamId = selected.teamId;
+    state.playerTeamName = selected.name;
+    state.placementTeam = { ...selected };
+    result.placementTeamId = selected.teamId;
+    result.placementTeamName = selected.name;
+    result.placementTeamCity = selected.city;
+
+    // Any summer world that may have reacted to the just-finished tryout must
+    // be rebuilt around this one canonical assignment.
+    delete state.worldVersion;
+    delete state.teams;
+    delete state.tournament;
+    WorldEngine.ensureTravelHockeyWorld?.({ save: false });
+    WorldEngine.save?.();
+    syncTryoutResultTeam();
+    return true;
   }
 
   function syncTryoutResultTeam() {
@@ -46,14 +81,28 @@
 
     const nameNode = teamCard.querySelector('strong');
     const cityNode = teamCard.querySelector('small');
-    if (nameNode && nameNode.textContent !== name) nameNode.textContent = name;
-    if (cityNode && cityNode.textContent !== city) cityNode.textContent = city;
-    else if (!cityNode && city) {
+    if (nameNode) nameNode.textContent = name;
+    if (cityNode) cityNode.textContent = city;
+    else if (city) {
       const small = document.createElement('small');
       small.textContent = city;
       teamCard.appendChild(small);
     }
     return true;
+  }
+
+  function levelPrestige(level) {
+    return ({ B: 1, A: 2, AA: 3, AAA: 4 })[String(level || '').toUpperCase()] || 2;
+  }
+
+  function initials(name) {
+    return String(name || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(part => part[0])
+      .join('')
+      .slice(0, 4)
+      .toUpperCase() || 'TRV';
   }
 
   function makeAdapter(team) {
@@ -103,8 +152,7 @@
 
   function openCanonicalTravelTeamProfile(teamId) {
     const team = teamById(teamId);
-    if (!team) return false;
-    if (typeof globalThis.openTeamProfile !== 'function') return false;
+    if (!team || typeof globalThis.openTeamProfile !== 'function') return false;
 
     cleanupAdapter();
     if (!Array.isArray(WorldEngine.state.teams)) WorldEngine.state.teams = [];
@@ -126,7 +174,6 @@
       if (levelNode) levelNode.textContent = `${travel()?.placementLevel || adapter.level} Travel Hockey`;
       document.getElementById('pi-team-profile-leaders-scope')?.remove();
     });
-
     return true;
   }
 
@@ -136,6 +183,17 @@
     requestAnimationFrame(() => WorldEngine.openTravelHockeyHub?.());
   }
 
+  // The original tryout code finishes and renders the placement result on the
+  // target button handler. By the time the click bubbles here, state is ready;
+  // assign the club once without MutationObservers or capture-phase races.
+  document.addEventListener('click', event => {
+    const next = event.target?.closest?.('.pi-travel-next');
+    if (!next || String(next.textContent || '').trim() !== 'See Placement') return;
+    queueMicrotask(assignFreshPlacementTeam);
+  });
+
+  // Travel Field/bracket navigation must beat the older custom profile handler,
+  // so this one narrow handler stays in capture phase and only matches team links.
   document.addEventListener('click', event => {
     const teamNode = event.target?.closest?.(
       '#pi-travel-hockey-hub-v3 .thv3-team[data-team], #pi-travel-hockey-hub-v3 .thv3-your[data-team], #pi-travel-hockey-hub-v3 .thv3-series-row [data-team]'
