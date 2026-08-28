@@ -156,6 +156,10 @@ const runtimeModulesPlugin = {
       scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
     }
 
+    if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) {
+      scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
+    }
+
     if (!html.includes('/dev-postseason-shortcut.js')) {
       scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     }
