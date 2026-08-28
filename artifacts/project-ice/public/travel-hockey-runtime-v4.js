@@ -36,15 +36,19 @@
     const teamCard = root?.querySelector('.pi-travel-team');
     if (!state || !result || !teamCard) return false;
 
-    const name = result.placementTeamName || state.placementTeamName || state.playerTeamName;
-    const city = result.placementTeamCity || state.placementTeam?.city || '';
+    const name = state.placementTeamName || state.playerTeamName || result.placementTeamName;
+    const city = state.placementTeam?.city || result.placementTeamCity || '';
     if (!name) return false;
+
+    result.placementTeamId = state.placementTeamId || state.playerTeamId || result.placementTeamId;
+    result.placementTeamName = name;
+    result.placementTeamCity = city;
 
     const nameNode = teamCard.querySelector('strong');
     const cityNode = teamCard.querySelector('small');
-    if (nameNode) nameNode.textContent = name;
-    if (cityNode) cityNode.textContent = city;
-    else if (city) {
+    if (nameNode && nameNode.textContent !== name) nameNode.textContent = name;
+    if (cityNode && cityNode.textContent !== city) cityNode.textContent = city;
+    else if (!cityNode && city) {
       const small = document.createElement('small');
       small.textContent = city;
       teamCard.appendChild(small);
@@ -127,12 +131,9 @@
   }
 
   function returnToTravelHub() {
-    const reopen = () => {
-      cleanupAdapter();
-      if (typeof globalThis.showScreen === 'function') globalThis.showScreen('hub');
-      requestAnimationFrame(() => WorldEngine.openTravelHockeyHub?.());
-    };
-    reopen();
+    cleanupAdapter();
+    if (typeof globalThis.showScreen === 'function') globalThis.showScreen('hub');
+    requestAnimationFrame(() => WorldEngine.openTravelHockeyHub?.());
   }
 
   document.addEventListener('click', event => {
@@ -152,19 +153,8 @@
       event.stopPropagation();
       event.stopImmediatePropagation();
       returnToTravelHub();
-      return;
-    }
-
-    if (event.target?.closest?.('#pi-travel-tryouts-screen')) {
-      window.setTimeout(syncTryoutResultTeam, 0);
-      window.setTimeout(syncTryoutResultTeam, 100);
     }
   }, true);
-
-  const observer = new MutationObserver(() => {
-    if (document.getElementById('pi-travel-tryouts-screen')) syncTryoutResultTeam();
-  });
-  observer.observe(document.body, { subtree: true, childList: true });
 
   document.addEventListener('click', event => {
     if (activeAdapterId && event.target?.closest?.('.hub-nav__item,[data-tab]')) cleanupAdapter();
