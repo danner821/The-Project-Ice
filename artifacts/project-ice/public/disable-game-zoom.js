@@ -9,19 +9,15 @@
     );
   }
 
+  // `touch-action: manipulation` removes browser double-tap zoom without
+  // cancelling ordinary tap/click events. The viewport lock handles pinch zoom.
   document.documentElement.style.touchAction = 'manipulation';
-  document.body.style.touchAction = 'manipulation';
+  if (document.body) document.body.style.touchAction = 'manipulation';
 
-  const block = event => event.preventDefault();
-  document.addEventListener('gesturestart', block, { passive: false });
-  document.addEventListener('gesturechange', block, { passive: false });
-  document.addEventListener('gestureend', block, { passive: false });
-  document.addEventListener('dblclick', block, { passive: false });
-
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', event => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) event.preventDefault();
-    lastTouchEnd = now;
-  }, { passive: false });
+  // Safari still exposes proprietary gesture events in some contexts. Block
+  // only those zoom gestures; never prevent normal touchend/click events.
+  const blockGesture = event => event.preventDefault();
+  document.addEventListener('gesturestart', blockGesture, { passive: false });
+  document.addEventListener('gesturechange', blockGesture, { passive: false });
+  document.addEventListener('gestureend', blockGesture, { passive: false });
 })();
