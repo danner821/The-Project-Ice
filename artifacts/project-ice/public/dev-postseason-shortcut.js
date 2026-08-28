@@ -52,6 +52,15 @@
     });
   }
 
+  function readAllRecords(db) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const request = tx.objectStore(STORE_NAME).getAll();
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   function writeRecord(db, record) {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -175,13 +184,54 @@
     return { world, targetDate, tryoutDate, ceremonyDate };
   }
 
+  function playerNameFromWorld(world) {
+    const player = world?.player || {};
+    const directName = `${player.firstName || ''} ${player.lastName || ''}`.trim();
+    if (directName) return directName;
+
+    for (const team of world?.teams || []) {
+      for (const rosterPlayer of team?.roster || []) {
+        if (rosterPlayer?.isCareerPlayer !== true) continue;
+        return `${rosterPlayer.firstName || ''} ${rosterPlayer.lastName || ''}`.trim();
+      }
+    }
+
+    return '';
+  }
+
   async function findRealDannerSave() {
-    if (!originalListCareerSaves) return null;
-    const saves = await originalListCareerSaves();
-    return (Array.isArray(saves) ? saves : []).find(save =>
-      String(save?.id || '') !== DEV_CAREER_ID &&
-      String(save?.playerName || '').trim().toLowerCase() === TARGET_PLAYER_NAME.toLowerCase()
-    ) || null;
+    if (originalListCareerSaves) {
+      const saves = await originalListCareerSaves();
+      const matched = (Array.isArray(saves) ? saves : []).find(save =>
+        String(save?.id || '') !== DEV_CAREER_ID &&
+        String(save?.playerName || '').trim().toLowerCase() === TARGET_PLAYER_NAME.toLowerCase()
+      );
+      if (matched) return matched;
+    }
+
+    const db = await openDatabase();
+    try {
+      const records = await readAllRecords(db);
+      const matchedRecord = records
+        .filter(record => {
+          const id = String(record?.id || '');
+          return (
+            id.startsWith('career:') &&
+            id !== DEV_WORLD_RECORD_ID &&
+            record?.devSandbox !== true &&
+            record?.world
+          );
+        })
+        .find(record => playerNameFromWorld(record.world).toLowerCase() === TARGET_PLAYER_NAME.toLowerCase());
+
+      if (!matchedRecord) return null;
+      return {
+        id: String(matchedRecord.id).slice('career:'.length),
+        playerName: TARGET_PLAYER_NAME,
+      };
+    } finally {
+      db.close();
+    }
   }
 
   async function ensureBaseline(db, save) {
@@ -231,9 +281,6 @@
   async function loadCheckpoint() {
     const result = await rebuildSandbox();
     try {
-      // Do not delete the lightweight real-career preview here. The dev sandbox
-      // is isolated in IndexedDB and removing the preview makes the title screen
-      // incorrectly believe that Continue Career and the dev shortcut are unavailable.
       recoverCareerPreviewFromWorld?.();
       loadCareerPreview?.();
     } catch (error) { console.warn('[Project Ice] Dev preview refresh failed:', error); }
@@ -258,13 +305,16 @@
     const hint = document.getElementById('dev-shortcut-hint');
     if (!button) return null;
 
-    button.disabled = false;
-    button.removeAttribute('disabled');
-    button.setAttribute('aria-disabled', 'false');
-    button.style.pointerEvents = 'auto';
+    if (button.disabled) button.disabled = false;
+    if (button.hasAttribute('disabled')) button.removeAttribute('disabled');
+    if (button.getAttribute('aria-disabled') !== 'false') button.setAttribute('aria-disabled', 'false');
+    if (button.style.pointerEvents !== 'auto') button.style.pointerEvents = 'auto';
+
     const label = button.querySelector('.btn__label');
-    if (label) label.textContent = 'Skip to Travel Tryouts Eve';
-    if (hint) hint.classList.remove('is-visible');
+    if (label && label.textContent !== 'Skip to Travel Tryouts Eve') {
+      label.textContent = 'Skip to Travel Tryouts Eve';
+    }
+    if (hint?.classList.contains('is-visible')) hint.classList.remove('is-visible');
     return button;
   }
 
@@ -283,19 +333,15 @@
         });
       }, true);
     }
-
-    if (button.dataset.piTravelShortcutObserver !== 'true') {
-      button.dataset.piTravelShortcutObserver = 'true';
-      new MutationObserver(() => enforceShortcutState()).observe(button, {
-        attributes: true,
-        attributeFilter: ['disabled', 'class', 'aria-disabled', 'style'],
-        childList: true,
-        subtree: true,
-      });
-    }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
-  else wireShortcut();
-  [0, 50, 250, 750, 1500].forEach(delay => window.setTimeout(wireShortcut, delay));
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
+  } else {
+    wireShortcut();
+  }
+
+  [0, 50, 250, 750, 1500].forEach(delay => {
+    window.setTimeout(wireShortcut, delay);
+  });
 })();
