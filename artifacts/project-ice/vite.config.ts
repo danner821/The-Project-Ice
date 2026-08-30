@@ -62,15 +62,19 @@ const runtimeModulesPlugin = {
     if (!html.includes('/awards-calendar-event.js')) scripts.push('    <script src="/awards-calendar-event.js"></script>');
     if (!html.includes('/league-awards-history.js')) scripts.push('    <script src="/league-awards-history.js"></script>');
     if (!html.includes('/awards-offseason-exit.js')) scripts.push('    <script src="/awards-offseason-exit.js"></script>');
+
+    /*
+     * Phase 3.4 active runtime stack.
+     *
+     * Keep exactly one owner for each responsibility while Travel Hockey is
+     * being stabilized. Older polish/v3/v4/stabilizer files remain in GitHub
+     * history but are deliberately not loaded because they all mutate the same
+     * Travel DOM/state and were racing one another on iPhone.
+     */
     if (!html.includes('/travel-hockey-foundation.js')) scripts.push('    <script src="/travel-hockey-foundation.js"></script>');
     if (!html.includes('/travel-hockey-tryouts.js')) scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
     if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
     if (!html.includes('/travel-hockey-world.js')) scripts.push('    <script src="/travel-hockey-world.js"></script>');
-    if (!html.includes('/travel-hockey-polish.js')) scripts.push('    <script src="/travel-hockey-polish.js"></script>');
-    if (!html.includes('/travel-hockey-polish-runtime-fix.js')) scripts.push('    <script src="/travel-hockey-polish-runtime-fix.js"></script>');
-    if (!html.includes('/travel-hockey-runtime-v3.js')) scripts.push('    <script src="/travel-hockey-runtime-v3.js"></script>');
-    if (!html.includes('/travel-hockey-v3-stabilizer.js')) scripts.push('    <script src="/travel-hockey-v3-stabilizer.js"></script>');
-    if (!html.includes('/travel-hockey-runtime-v4.js')) scripts.push('    <script src="/travel-hockey-runtime-v4.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
     if (scripts.length === 0) return html;
