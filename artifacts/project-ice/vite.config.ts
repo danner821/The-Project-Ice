@@ -76,6 +76,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
     if (!html.includes('/travel-hockey-world.js')) scripts.push('    <script src="/travel-hockey-world.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
+    if (!html.includes('/dev-save-cleanup.js')) scripts.push('    <script src="/dev-save-cleanup.js"></script>');
 
     if (scripts.length === 0) return html;
 
