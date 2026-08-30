@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine, recoverCareerPreviewFromWorld, loadCareerPreview, openHubTab, refreshCareerUI */
+/* global WorldEngine, Game, openHubTab, refreshCareerUI */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -12,7 +12,6 @@
   const ACTIVE_CAREER_ID_KEY = 'projectice_active_career_id_v1';
   const PENDING_CAREER_ID_KEY = 'projectice_pending_career_id_v1';
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
-  const SAVE_KEY = 'projectice_save';
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
   const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-travel-tryouts-eve-v1';
@@ -20,6 +19,7 @@
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
     ? WorldEngine.listCareerSaves.bind(WorldEngine)
     : null;
+
   const dateKey = value => String(value || '').slice(0, 10);
 
   function addDays(value, days) {
@@ -36,7 +36,9 @@
       const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = event => {
         const db = event.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error || new Error('Could not open Project Ice IndexedDB.'));
@@ -66,8 +68,43 @@
     try {
       const parsed = JSON.parse(localStorage.getItem(CAREER_SAVE_INDEX_KEY) || '[]');
       if (!Array.isArray(parsed)) return;
-      localStorage.setItem(CAREER_SAVE_INDEX_KEY, JSON.stringify(parsed.filter(item => String(item?.id || '') !== DEV_CAREER_ID)));
+      const cleaned = parsed.filter(item => String(item?.id || '') !== DEV_CAREER_ID);
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(CAREER_SAVE_INDEX_KEY, JSON.stringify(cleaned));
+      }
     } catch (_) {}
+  }
+
+  function dedupeVisibleSaves(saves) {
+    const seenIds = new Set();
+    const seenFingerprints = new Set();
+    const result = [];
+
+    for (const save of Array.isArray(saves) ? saves : []) {
+      const id = String(save?.id || '');
+      if (!id || id === DEV_CAREER_ID || seenIds.has(id)) continue;
+      seenIds.add(id);
+
+      /*
+       * During the recent dev-shortcut regression several separate career ids
+       * could point at the exact same visible Danner snapshot. Hide only exact
+       * visible duplicates; careers that differ by even one day remain separate.
+       * No IndexedDB world is deleted here.
+       */
+      const fingerprint = [
+        String(save?.playerName || '').trim().toLowerCase(),
+        dateKey(save?.currentDate),
+        String(save?.teamName || '').trim().toLowerCase(),
+        String(save?.position || '').trim().toLowerCase(),
+        String(save?.overall ?? ''),
+      ].join('|');
+
+      if (fingerprint !== '||||' && seenFingerprints.has(fingerprint)) continue;
+      if (fingerprint !== '||||') seenFingerprints.add(fingerprint);
+      result.push(save);
+    }
+
+    return result;
   }
 
   function regularSeasonEndDate(world) {
@@ -82,6 +119,7 @@
   function prepareTravelTryoutsEve(sourceWorld) {
     const world = structuredClone(sourceWorld);
     if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
+
     const existing = world.postseason.highSchool || {};
     const regularEnd = dateKey(existing.regularSeasonEndDate) || regularSeasonEndDate(world);
     const completedDate = dateKey(existing.completedDate) || addDays(regularEnd, 28) || '2027-05-20';
@@ -89,7 +127,10 @@
     const ceremonyDate = dateKey(existing.awardsCeremonyDate) || addDays(championDate, 7);
     const tryoutDate = addDays(ceremonyDate, 7);
     const targetDate = addDays(tryoutDate, -1);
-    if (!championDate || !ceremonyDate || !tryoutDate || !targetDate) throw new Error('Could not determine Travel Tryouts Eve date.');
+
+    if (!championDate || !ceremonyDate || !tryoutDate || !targetDate) {
+      throw new Error('Could not determine Travel Tryouts Eve date.');
+    }
 
     const rounds = existing?.bracket?.rounds || {};
     world.postseason.highSchool = {
@@ -124,7 +165,7 @@
       status: 'tryouts-pending',
       awardsCeremonyDate: ceremonyDate,
       tryoutDate,
-      levels: ['B','A','AA','AAA'],
+      levels: ['B', 'A', 'AA', 'AAA'],
       guaranteedMinimumLevel: 'B',
       placementLevel: null,
       placementTeamId: null,
@@ -135,7 +176,9 @@
     };
 
     if (!Array.isArray(world.schedule)) world.schedule = [];
-    world.schedule = world.schedule.filter(event => String(event?.eventId || event?.id || '') !== 'travel-hockey-tryouts');
+    world.schedule = world.schedule.filter(event =>
+      String(event?.eventId || event?.id || '') !== 'travel-hockey-tryouts'
+    );
     world.schedule.push({
       id: 'travel-hockey-tryouts',
       eventId: 'travel-hockey-tryouts',
@@ -166,9 +209,15 @@
 
     const careerPlayerId = world.player.playerId || world.player.id || 'career-player';
     for (const team of world.teams || []) {
-      for (const p of team?.roster || []) {
-        const id = p?.playerId || p?.id || null;
-        if (p?.isCareerPlayer === true || String(id || '') === String(careerPlayerId) || String(id || '') === 'career-player') p.currentDate = targetDate;
+      for (const player of team?.roster || []) {
+        const id = player?.playerId || player?.id || null;
+        if (
+          player?.isCareerPlayer === true ||
+          String(id || '') === String(careerPlayerId) ||
+          String(id || '') === 'career-player'
+        ) {
+          player.currentDate = targetDate;
+        }
       }
     }
 
@@ -177,37 +226,50 @@
 
   async function findRealDannerSave() {
     if (!originalListCareerSaves) return null;
-    const saves = await originalListCareerSaves();
-    return (Array.isArray(saves) ? saves : []).find(save =>
-      String(save?.id || '') !== DEV_CAREER_ID &&
+    const saves = dedupeVisibleSaves(await originalListCareerSaves());
+    return saves.find(save =>
       String(save?.playerName || '').trim().toLowerCase() === TARGET_PLAYER_NAME.toLowerCase()
     ) || null;
   }
 
-  async function ensureBaseline(db, save) {
+  async function getOrCreateBaseline(db) {
     const existing = await readRecord(db, DEV_BASELINE_RECORD_ID);
     if (existing?.world) return existing;
-    const source = await readRecord(db, `career:${save.id}`);
+
+    const realSave = await findRealDannerSave();
+    if (!realSave?.id) throw new Error('Could not find the real Danner Stephenson career save.');
+
+    const source = await readRecord(db, `career:${realSave.id}`);
     if (!source?.world) throw new Error('Danner Stephenson IndexedDB world record was not found.');
+
     const prepared = prepareTravelTryoutsEve(source.world);
-    const baseline = { id: DEV_BASELINE_RECORD_ID, sourceCareerId: save.id, createdAt: new Date().toISOString(), world: prepared.world };
+    const baseline = {
+      id: DEV_BASELINE_RECORD_ID,
+      sourceCareerId: realSave.id,
+      createdAt: new Date().toISOString(),
+      world: prepared.world,
+    };
     await writeRecord(db, baseline);
     return baseline;
   }
 
   async function rebuildSandbox() {
-    const realSave = await findRealDannerSave();
-    if (!realSave?.id) throw new Error('Could not find the real Danner Stephenson career save.');
     const db = await openDatabase();
     let prepared;
+
     try {
-      const baseline = await ensureBaseline(db, realSave);
+      /*
+       * Fast path: after the first successful build, every dev run clones the
+       * isolated baseline directly. It no longer scans or rewrites real saves.
+       */
+      const baseline = await getOrCreateBaseline(db);
       prepared = prepareTravelTryoutsEve(baseline.world);
+
       await writeRecord(db, {
         id: DEV_WORLD_RECORD_ID,
         savedAt: new Date().toISOString(),
         devSandbox: true,
-        sourceCareerId: realSave.id,
+        sourceCareerId: baseline.sourceCareerId || null,
         checkpointDate: prepared.targetDate,
         travelTryoutDate: prepared.tryoutDate,
         world: prepared.world,
@@ -219,35 +281,52 @@
     localStorage.setItem(ACTIVE_CAREER_ID_KEY, DEV_CAREER_ID);
     localStorage.removeItem(PENDING_CAREER_ID_KEY);
     removeDevMetadataFromVisibleIndex();
+
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
     if (!loaded) throw new Error('Could not load isolated Travel Tryouts Eve dev career.');
 
     WorldEngine.ensureTravelHockeyFoundation?.({ save: false });
-    await WorldEngine.save?.();
     removeDevMetadataFromVisibleIndex();
     return prepared;
   }
 
   async function loadCheckpoint() {
     const result = await rebuildSandbox();
+
+    /*
+     * Never touch projectice_save here. The dev sandbox must not rewrite the
+     * real career preview or create/recover visible careers.
+     */
     try {
-      localStorage.removeItem(SAVE_KEY);
-      recoverCareerPreviewFromWorld?.();
-      loadCareerPreview?.();
-    } catch (error) { console.warn('[Project Ice] Dev preview refresh failed:', error); }
-    try {
+      if (typeof Game !== 'undefined' && WorldEngine.state?.player) {
+        Game.player = {
+          ...Game.player,
+          ...WorldEngine.state.player,
+          stage: 'hub',
+          tryoutsComplete: true,
+          currentDate: result.targetDate,
+        };
+      }
+
       openHubTab?.('home');
       refreshCareerUI?.();
       WorldEngine.bridgeTravelHockeyPresentation?.();
-    } catch (error) { console.warn('[Project Ice] Dev Hub refresh failed:', error); }
-    console.info('[Project Ice] Travel Tryouts Eve dev checkpoint loaded.', { playerName: TARGET_PLAYER_NAME, checkpointDate: result.targetDate, tryoutDate: result.tryoutDate });
+    } catch (error) {
+      console.warn('[Project Ice] Dev Hub refresh failed:', error);
+    }
+
+    console.info('[Project Ice] Travel Tryouts Eve dev checkpoint loaded.', {
+      playerName: TARGET_PLAYER_NAME,
+      checkpointDate: result.targetDate,
+      tryoutDate: result.tryoutDate,
+    });
   }
 
   if (originalListCareerSaves) {
     WorldEngine.listCareerSaves = async (...args) => {
       const saves = await originalListCareerSaves(...args);
       removeDevMetadataFromVisibleIndex();
-      return (Array.isArray(saves) ? saves : []).filter(save => String(save?.id || '') !== DEV_CAREER_ID);
+      return dedupeVisibleSaves(saves);
     };
   }
 
@@ -255,23 +334,37 @@
     const button = document.getElementById('btn-dev-hub');
     const hint = document.getElementById('dev-shortcut-hint');
     if (!button || button.dataset.travelTryoutCheckpointWired === 'true') return;
+
     button.dataset.travelTryoutCheckpointWired = 'true';
     button.disabled = false;
     button.removeAttribute('disabled');
+
     const label = button.querySelector('.btn__label');
     if (label) label.textContent = 'Skip to Travel Tryouts Eve';
     if (hint) hint.classList.remove('is-visible');
+
     button.addEventListener('click', event => {
       event.preventDefault();
       event.stopImmediatePropagation();
-      loadCheckpoint().catch(error => {
-        console.error('[Project Ice] Dev Travel Tryouts Eve shortcut failed:', error);
-        alert(`Dev Travel Tryouts Eve shortcut failed: ${error?.message || 'unknown error'}`);
-      });
+      button.disabled = true;
+
+      loadCheckpoint()
+        .catch(error => {
+          console.error('[Project Ice] Dev Travel Tryouts Eve shortcut failed:', error);
+          alert(`Dev Travel Tryouts Eve shortcut failed: ${error?.message || 'unknown error'}`);
+        })
+        .finally(() => {
+          button.disabled = false;
+        });
     }, true);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
-  else wireShortcut();
+  removeDevMetadataFromVisibleIndex();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
+  } else {
+    wireShortcut();
+  }
   window.setTimeout(wireShortcut, 250);
 })();
