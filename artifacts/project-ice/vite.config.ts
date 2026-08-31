@@ -79,6 +79,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-hockey-roster-world.js')) scripts.push('    <script src="/travel-hockey-roster-world.js"></script>');
     if (!html.includes('/travel-hockey-season-ui.js')) scripts.push('    <script src="/travel-hockey-season-ui.js"></script>');
     if (!html.includes('/travel-hockey-profile-fixes.js')) scripts.push('    <script src="/travel-hockey-profile-fixes.js"></script>');
+    if (!html.includes('/travel-hockey-profile-repair-v2.js')) scripts.push('    <script src="/travel-hockey-profile-repair-v2.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
     if (scripts.length === 0) return html;
