@@ -66,11 +66,8 @@ const runtimeModulesPlugin = {
 
     /*
      * Phase 3.4 active runtime stack.
-     *
-     * Keep exactly one owner for each responsibility while Travel Hockey is
-     * being stabilized. Older polish/v3/v4/stabilizer files remain in GitHub
-     * history but are deliberately not loaded because they all mutate the same
-     * Travel DOM/state and were racing one another on iPhone.
+     * One owner per Travel Hockey responsibility. In particular, only the
+     * canonical profile repair runtime may modify Travel Team Profile DOM.
      */
     if (!html.includes('/travel-hockey-foundation.js')) scripts.push('    <script src="/travel-hockey-foundation.js"></script>');
     if (!html.includes('/travel-hockey-tryouts.js')) scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
@@ -78,7 +75,6 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-hockey-world.js')) scripts.push('    <script src="/travel-hockey-world.js"></script>');
     if (!html.includes('/travel-hockey-roster-world.js')) scripts.push('    <script src="/travel-hockey-roster-world.js"></script>');
     if (!html.includes('/travel-hockey-season-ui.js')) scripts.push('    <script src="/travel-hockey-season-ui.js"></script>');
-    if (!html.includes('/travel-hockey-profile-fixes.js')) scripts.push('    <script src="/travel-hockey-profile-fixes.js"></script>');
     if (!html.includes('/travel-hockey-profile-repair-v2.js')) scripts.push('    <script src="/travel-hockey-profile-repair-v2.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
