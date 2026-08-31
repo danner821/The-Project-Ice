@@ -62,6 +62,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/awards-calendar-event.js')) scripts.push('    <script src="/awards-calendar-event.js"></script>');
     if (!html.includes('/league-awards-history.js')) scripts.push('    <script src="/league-awards-history.js"></script>');
     if (!html.includes('/awards-offseason-exit.js')) scripts.push('    <script src="/awards-offseason-exit.js"></script>');
+    if (!html.includes('/dev-career-cleanup.js')) scripts.push('    <script src="/dev-career-cleanup.js"></script>');
 
     /*
      * Phase 3.4 active runtime stack.
@@ -75,8 +76,8 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-hockey-tryouts.js')) scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
     if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
     if (!html.includes('/travel-hockey-world.js')) scripts.push('    <script src="/travel-hockey-world.js"></script>');
+    if (!html.includes('/travel-hockey-season-ui.js')) scripts.push('    <script src="/travel-hockey-season-ui.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
-    if (!html.includes('/dev-save-cleanup.js')) scripts.push('    <script src="/dev-save-cleanup.js"></script>');
 
     if (scripts.length === 0) return html;
 
