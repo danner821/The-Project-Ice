@@ -10,7 +10,8 @@
   let selectedScope = 'regular-season';
 
   const playerName = player =>
-    `${player?.firstName || ''} ${player?.lastName || ''}`.trim() || 'Unknown Player';
+    `${player?.firstName || ''} ${player?.lastName || ''}`.trim() ||
+    player?.name || player?.playerName || 'Unknown Player';
 
   function postseasonAvailable() {
     const hs = WorldEngine.state?.postseason?.highSchool;
@@ -20,6 +21,18 @@
   function profileVisible() {
     const screen = document.getElementById('team-profile-screen');
     return Boolean(screen && !screen.classList.contains('screen--hidden'));
+  }
+
+  function profileRoot() {
+    return document.getElementById('team-profile-modern-content');
+  }
+
+  function travelProfileTeam() {
+    const root = profileRoot();
+    const teamId = String(root?.dataset?.travelTeamId || '');
+    if (!teamId) return null;
+    const travel = WorldEngine.getTravelHockeyState?.() || WorldEngine.state?.travelHockey || null;
+    return (travel?.teams || []).find(team => String(team?.teamId || '') === teamId) || null;
   }
 
   function injectStyles() {
@@ -36,7 +49,10 @@
   }
 
   function resolveProfileTeam() {
-    const root = document.getElementById('team-profile-modern-content');
+    const travelTeam = travelProfileTeam();
+    if (travelTeam) return travelTeam;
+
+    const root = profileRoot();
     if (!root) return null;
 
     const playerNode = root.querySelector('[data-player-id]');
@@ -68,7 +84,19 @@
     }) || null;
   }
 
-  function scopedEntries(team, goalie) {
+  function travelStats(player) {
+    const stats = player?.travelStats || {};
+    return {
+      gamesPlayed: Number(stats.gp || stats.gamesPlayed || 0),
+      goals: Number(stats.g || stats.goals || 0),
+      assists: Number(stats.a || stats.assists || 0),
+      points: Number(stats.pts || stats.points || 0),
+      wins: Number(stats.wins || stats.w || 0),
+      savePercentage: Number(stats.savePercentage || stats.svPct || 0),
+    };
+  }
+
+  function scopedEntries(team, goalie, isTravel) {
     const roster = Array.isArray(team?.roster) ? team.roster : [];
     return roster
       .filter(player => goalie
@@ -76,7 +104,9 @@
         : String(player?.position || '').toUpperCase() !== 'G')
       .map(player => ({
         player,
-        stats: WorldEngine.getPlayerStatsByScope?.(player, selectedScope) || null,
+        stats: isTravel
+          ? travelStats(player)
+          : (WorldEngine.getPlayerStatsByScope?.(player, selectedScope) || null),
       }))
       .filter(entry => entry.stats && Number(entry.stats.gamesPlayed || 0) > 0);
   }
@@ -100,11 +130,12 @@
     if (!profileVisible()) return false;
     const team = resolveProfileTeam();
     if (!team) return false;
+    const isTravel = Boolean(travelProfileTeam());
 
-    WorldEngine.rebuildHighSchoolPostseasonStats?.();
+    if (!isTravel) WorldEngine.rebuildHighSchoolPostseasonStats?.();
 
-    const skaters = scopedEntries(team, false);
-    const goalies = scopedEntries(team, true);
+    const skaters = scopedEntries(team, false, isTravel);
+    const goalies = scopedEntries(team, true, isTravel);
     const goals = best(skaters, 'goals', 'points');
     const assists = best(skaters, 'assists', 'points');
     const points = [...skaters].sort((a, b) =>
@@ -135,6 +166,10 @@
       element.classList.toggle('pi-team-leader-empty', text === 'No stats yet');
     });
 
+    const section = document.querySelector('#team-profile-modern-content .team-leaders');
+    const label = section?.querySelector('.team-section-label');
+    if (label) label.textContent = isTravel ? 'Travel Leaders' : 'Team Leaders';
+
     return true;
   }
 
@@ -156,6 +191,15 @@
 
     injectStyles();
     let control = document.getElementById(CONTROL_ID);
+
+    // Travel Hockey has one summer-tournament stat scope. Never show HS
+    // Regular Season / Playoffs controls on a Travel team profile.
+    if (travelProfileTeam()) {
+      control?.remove();
+      selectedScope = 'regular-season';
+      updateLeaderValues();
+      return true;
+    }
 
     if (!postseasonAvailable()) {
       control?.remove();
