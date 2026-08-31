@@ -12,14 +12,6 @@
   const idOf = player => String(player?.playerId || player?.id || '');
   const sourceIdOf = player => String(player?.sourcePlayerId || player?.playerId || player?.id || '');
   const nameOf = player => String(player?.name || player?.playerName || [player?.firstName, player?.lastName].filter(Boolean).join(' ').trim() || 'Player');
-  const pos = player => {
-    const raw = String(player?.position || player?.pos || '').toUpperCase();
-    if (raw === 'G' || raw.includes('GOAL')) return 'G';
-    if (raw === 'D' || raw.includes('DEF')) return 'D';
-    if (raw === 'LW' || raw.includes('LEFT')) return 'LW';
-    if (raw === 'RW' || raw.includes('RIGHT')) return 'RW';
-    return 'C';
-  };
 
   function injectStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -42,12 +34,22 @@
 
   function prospectRank(player) {
     if (!player || player.generatedTravelPlayer === true) return null;
-    const ids = new Set([String(player.sourcePlayerId || ''), String(player.playerId || ''), String(player.id || '')].filter(Boolean));
     const rows = rankRows();
+    const ids = new Set([String(player.sourcePlayerId || ''), String(player.playerId || ''), String(player.id || '')].filter(Boolean));
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];
       const rowId = String(row?.playerId || row?.id || row?.prospectId || '');
       if (rowId && ids.has(rowId)) return Number(row?.rank ?? row?.prospectRank ?? row?.ranking ?? index + 1);
+    }
+
+    // Travel roster prospects sometimes carry a canonical prospect identity by
+    // name while their roster copy has a Travel-specific playerId. Only allow a
+    // name fallback for players explicitly marked as real prospects so generated
+    // players can never inherit a rank by coincidence.
+    if (player.isRealProspect === true || player.realProspect === true || player.prospectId) {
+      const name = nameOf(player).toLowerCase();
+      const index = rows.findIndex(row => nameOf(row).toLowerCase() === name);
+      if (index >= 0) return Number(rows[index]?.rank ?? rows[index]?.prospectRank ?? rows[index]?.ranking ?? index + 1);
     }
     return null;
   }
@@ -68,33 +70,28 @@
     }
   }
 
-  function setTravelLeaders(root, team) {
-    const leadersSection = root?.querySelector('.team-leaders');
-    if (!leadersSection || !team) return;
+  function realCareerTeamId() {
+    const player = WorldEngine.state?.player || {};
+    const ids = new Set([String(player.playerId || ''), String(player.id || ''), 'career-player'].filter(Boolean));
+    const team = (WorldEngine.state?.teams || []).find(item =>
+      !item.travelProfileAdapter &&
+      (item.roster || []).some(rosterPlayer =>
+        rosterPlayer?.isCareerPlayer === true || ids.has(String(rosterPlayer?.playerId || rosterPlayer?.id || ''))
+      )
+    );
+    return team?.teamId || null;
+  }
 
-    const label = leadersSection.querySelector('.team-section-label');
-    if (label) label.textContent = 'Travel Leaders';
-    leadersSection.querySelectorAll('#pi-team-profile-leaders-scope,.team-leader-scope,.team-leader-scope-control,[id*="leaders-scope"]').forEach(node => node.remove());
-
-    const players = (team.roster || []).filter(player => Number(player?.travelStats?.gp || 0) > 0);
-    const top = key => [...players].sort((a,b) => Number(b.travelStats?.[key] || 0) - Number(a.travelStats?.[key] || 0))[0] || null;
-    const goalies = players.filter(player => pos(player) === 'G');
-    const goalieWins = [...goalies].sort((a,b) => Number(b.travelStats?.wins || b.travelStats?.w || 0) - Number(a.travelStats?.wins || a.travelStats?.w || 0))[0] || null;
-    const savePct = [...goalies].sort((a,b) => Number(b.travelStats?.savePercentage || 0) - Number(a.travelStats?.savePercentage || 0))[0] || null;
-
-    const set = (suffix, value) => {
-      const element = leadersSection.querySelector(`[id$="${suffix}"]`);
-      if (element) element.textContent = value;
-    };
-
-    const goals = top('g');
-    const assists = top('a');
-    const points = top('pts');
-    set('team-leader-goals', goals ? `${nameOf(goals)} · ${Number(goals.travelStats.g || 0)}` : 'No stats yet');
-    set('team-leader-assists', assists ? `${nameOf(assists)} · ${Number(assists.travelStats.a || 0)}` : 'No stats yet');
-    set('team-leader-points', points ? `${nameOf(points)} · ${Number(points.travelStats.pts || 0)}` : 'No stats yet');
-    set('team-leader-wins', goalieWins ? `${nameOf(goalieWins)} · ${Number(goalieWins.travelStats.wins || goalieWins.travelStats.w || 0)}` : 'No stats yet');
-    set('team-leader-save-percentage', savePct ? `${nameOf(savePct)} · ${Number(savePct.travelStats.savePercentage || 0).toFixed(3)}` : 'No stats yet');
+  function restoreHighSchoolTeamTab() {
+    if (Array.isArray(WorldEngine.state?.teams)) {
+      WorldEngine.state.teams = WorldEngine.state.teams.filter(team => team?.travelProfileAdapter !== true);
+    }
+    const id = restoreTeamId || realCareerTeamId();
+    if (!id) return;
+    try {
+      if (typeof Game !== 'undefined') Game.teamTabSelectedTeamId = id;
+      globalThis.renderTeamTab?.(id);
+    } catch (_) {}
   }
 
   function patchOpenedProfile(team) {
@@ -102,43 +99,46 @@
     const root = document.getElementById('team-profile-modern-content');
     if (!team || !screen || !root || screen.classList.contains('screen--hidden')) return;
 
+    root.dataset.travelTeamId = String(team.teamId || '');
+    root.dataset.travelProfile = 'true';
+
     document.getElementById('pi-travel-clean-lineup')?.remove();
     document.getElementById('pi-travel-clean-leaders')?.remove();
     document.getElementById('pi-travel-profile-roster')?.remove();
-    document.getElementById('pi-team-profile-leaders-scope')?.remove();
 
-    const lineup = root.querySelector('.team-roster');
-    if (lineup) lineup.style.display = '';
-    const leaders = root.querySelector('.team-leaders');
-    if (leaders) leaders.style.display = '';
+    // Preserve the exact native Team Profile styling, but ensure the cloned
+    // profile's color strip is driven by the selected Travel club.
+    const primary = team.primaryColor || '#2f6fd6';
+    const secondary = team.secondaryColor || '#8fc1ff';
+    root.querySelectorAll('.team-profile-style-hero__color-primary').forEach(node => { node.style.background = primary; });
+    root.querySelectorAll('.team-profile-style-hero__color-secondary').forEach(node => { node.style.background = secondary; });
 
-    setTravelLeaders(root, team);
     decorateProspects(root, team);
-  }
-
-  function realCareerTeamId() {
-    const player = WorldEngine.state?.player || {};
-    const ids = new Set([String(player.playerId || ''), String(player.id || ''), 'career-player'].filter(Boolean));
-    const team = (WorldEngine.state?.teams || []).find(item => !item.travelProfileAdapter && (item.roster || []).some(rosterPlayer => rosterPlayer?.isCareerPlayer === true || ids.has(String(rosterPlayer?.playerId || rosterPlayer?.id || ''))));
-    return team?.teamId || null;
+    WorldEngine.renderScopedTeamProfileLeaders?.();
   }
 
   function install() {
     injectStyle();
-    if (typeof WorldEngine.openTravelTeamProfile !== 'function' || WorldEngine.__travelProfileRepairV3Wrapped) return false;
+    if (typeof WorldEngine.openTravelTeamProfile !== 'function' || WorldEngine.__travelProfileRepairV4Wrapped) return false;
 
     const original = WorldEngine.openTravelTeamProfile.bind(WorldEngine);
-    WorldEngine.__travelProfileRepairV3Wrapped = true;
+    WorldEngine.__travelProfileRepairV4Wrapped = true;
     WorldEngine.openTravelTeamProfile = function(teamId) {
       const state = WorldEngine.rebuildTravelHockeyRosters?.() || travel();
       activeTravelTeam = (state?.teams || []).find(team => String(team.teamId) === String(teamId)) || null;
-      try { restoreTeamId = typeof Game !== 'undefined' ? Game.teamTabSelectedTeamId : null; } catch (_) { restoreTeamId = null; }
+      restoreTeamId = realCareerTeamId();
 
       const result = original(teamId);
       requestAnimationFrame(() => {
         patchOpenedProfile(activeTravelTeam);
-        const id = restoreTeamId || realCareerTeamId();
-        try { if (typeof Game !== 'undefined' && id) Game.teamTabSelectedTeamId = id; } catch (_) {}
+        // openTeamProfile clones the rendered Team tab synchronously. Once that
+        // clone exists, the temporary Travel adapter is no longer needed in the
+        // canonical HS team collection and must not be allowed to own the Team tab.
+        restoreHighSchoolTeamTab();
+        // Other profile-scope scripts render on double-rAF after open. Re-apply
+        // deterministic Travel-only decoration after those scheduled renders.
+        setTimeout(() => patchOpenedProfile(activeTravelTeam), 60);
+        setTimeout(() => patchOpenedProfile(activeTravelTeam), 180);
       });
       return result;
     };
@@ -162,8 +162,13 @@
       }
     }
 
+    if (event.target?.closest?.('.hub-nav__item,.hub-nav__tab,[data-tab]')) {
+      restoreHighSchoolTeamTab();
+    }
+
     if (event.target?.closest?.('#btn-back-team-profile')) {
       activeTravelTeam = null;
+      restoreHighSchoolTeamTab();
       restoreTeamId = null;
     }
   }, true);
