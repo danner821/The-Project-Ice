@@ -1,0 +1,42 @@
+name: Stabilize Phase 3.4 Architecture
+on:
+  push:
+    paths:
+      - '.github/scripts/stabilize_phase34_architecture.py'
+      - '.github/workflows/stabilize-phase34-architecture.yml'
+permissions:
+  contents: write
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Phase 3.4 stabilization
+        run: python .github/scripts/stabilize_phase34_architecture.py
+      - name: Validate active JavaScript
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/season-lifecycle.js
+          node --check artifacts/project-ice/public/postseason-trigger.js
+          node --check artifacts/project-ice/public/postseason-stats.js
+          node --check artifacts/project-ice/public/travel-hockey-foundation.js
+          node --check artifacts/project-ice/public/travel-hockey-world.js
+          node --check artifacts/project-ice/public/travel-hockey-roster-world.js
+          node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          node --check artifacts/project-ice/public/travel-hockey-profile-repair-v2.js
+          node --check artifacts/project-ice/public/dev-postseason-shortcut.js
+      - name: Validate prospect integrity
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Run full architecture audit
+        run: python .github/scripts/full_project_ice_audit.py || true
+      - name: Commit stabilized runtime
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add -A artifacts/project-ice .github/full_project_ice_audit.md
+          git commit -m 'Stabilize Phase 3.4 schedule and runtime ownership' || exit 0
+          git pull --rebase origin main
+          git push origin main
