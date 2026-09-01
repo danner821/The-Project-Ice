@@ -5201,7 +5201,22 @@ function renderProspectsScreen() {
     Game.visibleProspects = canonicalRows.slice(0, 100);
 
     const careerCanonicalRow = canonicalRows.find(player => player.isUser);
-    Game.player.prospectRank = careerCanonicalRow?.currentRank || null;
+    const canonicalCareerPlayer =
+      typeof WorldEngine?.getPlayerById === 'function'
+        ? WorldEngine.getPlayerById(
+            Game.player?.playerId ||
+            Game.player?.id ||
+            'career-player'
+          )
+        : null;
+    const preservedCareerRank =
+      Number(canonicalCareerPlayer?.scoutingProfile?.publicRank) ||
+      Number(Game.player?.prospectRank) ||
+      null;
+
+    Game.player.prospectRank =
+      careerCanonicalRow?.currentRank ||
+      preservedCareerRank;
 
     container.innerHTML = Game.visibleProspects
       .map(player => {

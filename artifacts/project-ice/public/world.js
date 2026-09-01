@@ -37476,7 +37476,7 @@ case 'career-defense':
     const careerId = String(careerPlayer.id || careerPlayer.playerId || 'career-player');
     const careerPosition = normalizeAttributePosition(careerPlayer.position);
 
-    const candidates = getAllWorldPlayers()
+    const candidates = getScoutingProspectUniverse()
       .filter(player => {
         const playerId = String(player?.id || player?.playerId || '');
         const rank = Math.max(0, Number(player?.scoutingProfile?.publicRank) || 0);
@@ -37563,7 +37563,7 @@ case 'career-defense':
   }
 
   function processPersistentScoutingReports(dateString) {
-    const players = getAllWorldPlayers();
+    const players = getScoutingProspectUniverse();
     const results = players.map(player => {
       const organizationResult = updateScoutingOrganizationsWatching(player, dateString);
       const reportResult = updatePersistentScoutingReport(player, dateString);
@@ -37614,6 +37614,51 @@ case 'career-defense':
     return draftYear >= 2027;
   }
 
+  function getScoutingProspectUniverse() {
+    const canonicalRosterPlayers =
+      (Array.isArray(_state.teams) ? _state.teams : [])
+        .filter(team => team?.travelProfileAdapter !== true)
+        .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
+        .filter(player =>
+          player &&
+          player.generatedTravelPlayer !== true &&
+          player.travelProfileAdapter !== true
+        );
+
+    const externalPlayers = ensureExternalProspectWorld();
+    const careerPlayer = getCareerPlayerFromWorldState() || _state.player || null;
+    const unique = new Map();
+
+    const addPlayer = player => {
+      if (!player || typeof player !== 'object') return;
+      if (player.generatedTravelPlayer === true) return;
+
+      ensureCanonicalPlayerContract(player);
+
+      const canonicalId = String(
+        player.sourcePlayerId ||
+        player.playerId ||
+        player.id ||
+        ''
+      );
+
+      if (!canonicalId || unique.has(canonicalId)) return;
+      unique.set(canonicalId, player);
+    };
+
+    canonicalRosterPlayers.forEach(addPlayer);
+    externalPlayers.forEach(addPlayer);
+    addPlayer(careerPlayer);
+
+    return Array.from(unique.values());
+  }
+
+  function getProspectRankings() {
+    return Array.isArray(_state.prospectRankings)
+      ? _state.prospectRankings
+      : [];
+  }
+
   function processScoutingWeek(dateString) {
     const normalizedDate = normalizeLivingWorldDateKey(dateString);
     const weekStart = getWeekStartDate(normalizedDate);
@@ -37641,7 +37686,7 @@ case 'career-defense':
       };
     }
 
-    const players = getAllWorldPlayers();
+    const players = getScoutingProspectUniverse();
 
     if (players.length === 0) {
       _state.prospectRankings = [];
@@ -43613,7 +43658,7 @@ case 'career-defense':
   function ensureHighSchoolProspectPipelineState() {
     if (!_state.highSchoolProspectPipeline || typeof _state.highSchoolProspectPipeline !== 'object') {
       _state.highSchoolProspectPipeline = {
-        version: 1,
+        version: 2,
         cohortSize: HIGH_SCHOOL_REAL_PROSPECTS_PER_CLASS,
         cohorts: {},
       };
@@ -43623,7 +43668,29 @@ case 'career-defense':
       _state.highSchoolProspectPipeline.cohorts = {};
     }
 
+    _state.highSchoolProspectPipeline.version = Math.max(
+      2,
+      Number(_state.highSchoolProspectPipeline.version) || 0
+    );
+    _state.highSchoolProspectPipeline.cohortSize = HIGH_SCHOOL_REAL_PROSPECTS_PER_CLASS;
+
     [2027, 2028, 2029, 2030].forEach(draftYear => {
+      const existing = _state.highSchoolProspectPipeline.cohorts[draftYear];
+      const hasLockedMembership = Boolean(
+        existing &&
+        Array.isArray(existing.playerIds) &&
+        existing.playerIds.length > 0
+      );
+
+      if (hasLockedMembership) {
+        existing.draftYear = Number(existing.draftYear) || draftYear;
+        existing.entrySeason = existing.entrySeason || HIGH_SCHOOL_REAL_PROSPECT_ENTRY_SEASON[draftYear];
+        existing.entryClass = existing.entryClass || 'Freshman';
+        existing.locked = true;
+        existing.playerIds = [...new Set(existing.playerIds.map(String).filter(Boolean))];
+        return;
+      }
+
       const selected = getHighSchoolProspectCohort(draftYear);
       const entrySeason = HIGH_SCHOOL_REAL_PROSPECT_ENTRY_SEASON[draftYear];
 
@@ -43632,6 +43699,7 @@ case 'career-defense':
         entrySeason,
         entryClass: 'Freshman',
         playerIds: selected.map(player => String(player.id || player.playerId)),
+        locked: true,
       };
     });
 
@@ -43757,7 +43825,9 @@ case 'career-defense':
         return;
       }
 
-      const sourcePlayer = externalById.get(id) || sourceById.get(id);
+      const externalPlayer = externalById.get(id) || null;
+      const sourceTemplate = sourceById.get(id) || null;
+      const sourcePlayer = externalPlayer || (sourceTemplate ? structuredClone(sourceTemplate) : null);
       if (!sourcePlayer) return;
 
       /*
@@ -44637,6 +44707,8 @@ case 'career-defense':
     getTeamRoster,
     getPlayerById,
     getAllWorldPlayers,
+    getScoutingProspectUniverse,
+    getProspectRankings,
     getExternalProspects: () => ensureExternalProspectWorld(),
     getHighSchoolProspectPipeline: () => ensureHighSchoolProspectPipelineState(),
     getHighSchoolProspectCohort,
