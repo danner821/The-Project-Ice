@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const CHECKPOINT_OFFSET_DAYS = 8;
+  const CHECKPOINT_OFFSET_DAYS = 7;
 
   const originalAdvanceToDate =
     typeof WorldEngine.advanceToDate === 'function'

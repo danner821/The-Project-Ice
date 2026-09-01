@@ -2966,43 +2966,108 @@ function ensureCareerScheduleEventsOnLoad() {
       );
     };
 
-  WorldEngine.state.schedule =
-    rebuiltSchedule.map(
-      newEvent => {
-        const existingEvent =
-          findExistingEvent(
-            newEvent
-          );
+  /*
+   * CRITICAL PERSISTENCE RULE:
+   * Never replace an existing saved schedule with the regenerated base
+   * high-school schedule. Postseason, awards, offseason, Travel Hockey and
+   * future career systems append canonical events that do not exist in the
+   * freshman base generator. Replacing the array here silently erased those
+   * events while leaving player/team stats intact.
+   *
+   * Instead, use the regenerated schedule only as a source of missing base
+   * events and refreshed definitions. Every existing saved event survives.
+   */
+  const existingIds =
+    new Set(
+      existingSchedule
+        .flatMap(event => [
+          event?.eventId,
+          event?.gameId,
+          event?.id,
+        ])
+        .filter(Boolean)
+        .map(String)
+    );
 
-        if (!existingEvent) {
-          return newEvent;
+  const mergedSchedule =
+    existingSchedule.map(
+      existingEvent => {
+        const regenerated =
+          rebuiltSchedule.find(
+            newEvent =>
+              findExistingEvent(newEvent) ===
+              existingEvent
+          ) ||
+          null;
+
+        if (!regenerated) {
+          return existingEvent;
         }
 
-        /*
-         * Keep the regenerated event definition, but preserve
-         * all saved progress/results from the old record.
-         */
         return {
-          ...newEvent,
+          ...regenerated,
           ...existingEvent,
-
-          /*
-           * Preserve canonical identity fields from the new
-           * schedule when the old save did not contain them.
-           */
           eventId:
             existingEvent.eventId ||
-            newEvent.eventId,
-
+            regenerated.eventId,
           gameId:
             existingEvent.gameId ||
-            newEvent.gameId,
-
+            regenerated.gameId,
           id:
             existingEvent.id ||
-            newEvent.id,
+            regenerated.id,
         };
       }
+    );
+
+  rebuiltSchedule.forEach(
+    newEvent => {
+      const ids = [
+        newEvent?.eventId,
+        newEvent?.gameId,
+        newEvent?.id,
+      ]
+        .filter(Boolean)
+        .map(String);
+
+      const alreadyPresent =
+        ids.some(id =>
+          existingIds.has(id)
+        ) ||
+        Boolean(
+          findExistingEvent(
+            newEvent
+          )
+        );
+
+      if (!alreadyPresent) {
+        mergedSchedule.push(
+          newEvent
+        );
+      }
+    }
+  );
+
+  WorldEngine.state.schedule =
+    mergedSchedule.sort(
+      (a, b) =>
+        String(a?.date || '')
+          .localeCompare(
+            String(b?.date || '')
+          ) ||
+        String(
+          a?.eventId ||
+          a?.gameId ||
+          a?.id ||
+          ''
+        ).localeCompare(
+          String(
+            b?.eventId ||
+            b?.gameId ||
+            b?.id ||
+            ''
+          )
+        )
     );
 
   WorldEngine.save();
@@ -3390,71 +3455,20 @@ if (btnBackCareerSaves) {
 // Loads the saved career and jumps straight to Career Hub without running
 // any cinematic sequences or altering career stage / tryout state.
 btnDevHub.addEventListener('click', () => {
-  const savedCareer = localStorage.getItem(SAVE_KEY);
-  if (!savedCareer) return;
-
-  try {
-    const parsed = JSON.parse(savedCareer);
-    if (!parsed.player) return;
-
-    Game.player = {
-      ...Game.player,
-      ...parsed.player,
-    };
-
-    const devDate =
-      '2026-09-17';
-
-    /*
-     * DEV SHORTCUT
-     *
-     * Jump directly to the intended testing date.
-     *
-     * Do not rewind the canonical world to season start and
-     * re-simulate already processed history. Rewinding only the
-     * clock while retaining completed games/events creates an
-     * internally inconsistent world and can stop early on a
-     * player-controlled event such as Training.
-     */
-    WorldEngine.setCurrentDate(
-      devDate,
-      {
-        save: false,
-      }
-    );
-
-    Game.player.currentDate =
-      devDate;
-
-    const canonicalPlayer =
-      syncCareerPlayerWithWorld();
-
-    if (!canonicalPlayer) {
-      console.error(
-        '[DEV] Career player could not be synchronized with the World Engine.'
-      );
-
-      return;
-    }
-
-    WorldEngine.state.schedule =
-      WorldEngine.createHighSchoolCareerSchedule(
-        WorldEngine.state.teams
-      );
-
-    scheduleViewYear = 2026;
-    scheduleViewMonth = 8;
-
-    window.PROJECT_ICE_DEV_SESSION = true;
-
-    
-
-    refreshScheduleEvents();
-    refreshCareerUI();
-    showScreen('hub');
-  } catch (err) {
-    console.error('[DEV] Skip to Hub failed:', err);
-  }
+  /*
+   * Safety fallback only.
+   *
+   * The actual Phase 3.4 dev shortcut is owned by
+   * dev-postseason-shortcut.js and runs inside an isolated IndexedDB career.
+   * This legacy handler previously changed the active career date and rebuilt
+   * WorldEngine.state.schedule, which could destroy postseason/Travel events
+   * if the isolated shortcut failed to intercept the click.
+   *
+   * Never mutate a real career from this fallback path.
+   */
+  console.warn(
+    '[DEV] Isolated Travel Tryouts Eve shortcut is not available; no career data was changed.'
+  );
 });
 
 if (btnLiveGameDiagnostic) {
