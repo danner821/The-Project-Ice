@@ -1,0 +1,26 @@
+name: Fix Prospect Rank Source Root
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_prospect_rank_source_root.py'
+      - '.github/workflows/fix-prospect-rank-source-root.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_prospect_rank_source_root.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q 'WorldEngine.getProspectRankings' artifacts/project-ice/public/game.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Unify prospect UI and badges on canonical rank board' || exit 0
+          git pull --rebase origin main
+          git push origin main
