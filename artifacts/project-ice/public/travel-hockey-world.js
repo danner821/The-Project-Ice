@@ -171,8 +171,14 @@
       };
     });
 
-    teams.forEach((team, index) => {
-      team.roster = buildRoster(team, index, level, used);
+    /*
+     * Roster ownership intentionally lives in travel-hockey-roster-world.js.
+     * This foundation establishes only the eight-team Travel shell and the
+     * player's earned club. Keeping one roster writer prevents transient or
+     * persistent conflicts between two independently generated roster sets.
+     */
+    teams.forEach(team => {
+      team.roster = [];
     });
 
     let careerTeam = teams.find(team => team.clubId === selectedId || team.teamId === selectedId) || null;
@@ -181,11 +187,7 @@
       careerTeam = teams.find(team => name && team.name.startsWith(name.replace(/\s+(B|A|AA|AAA)$/i, ''))) || teams[0];
     }
 
-    const careerSnapshot = snapshotPlayer(player());
-    careerSnapshot.isCareerPlayer = true;
-    const replaceIndex = careerTeam.roster.findIndex(p => p.position !== 'G');
-    careerTeam.roster.splice(Math.max(0, replaceIndex), 1, careerSnapshot);
-
+    /* Career-player insertion is also owned by roster-world. */
     state.worldVersion = 1;
     state.status = state.status === 'placement-complete' ? 'travel-world-ready' : state.status;
     state.teams = teams;
@@ -226,7 +228,9 @@
   }
 
   function openHub() {
-    const state = ensureWorld({ save: true });
+    const state =
+      WorldEngine.ensureTravelHockeyWorld?.({ save: true }) ||
+      ensureWorld({ save: true });
     if (!state) return false;
     injectStyles();
     document.getElementById(SCREEN_ID)?.remove();

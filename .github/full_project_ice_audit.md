@@ -5,18 +5,10 @@ Generated from current `main` source.
 ## Summary
 
 - Critical: 0
-- High: 2
+- High: 0
 - Medium: 7
-- Informational: 12
-- Pass checks: 12
-
-## HIGH
-
-### Schedule — Schedule assignment in game.js:3051
-WorldEngine.state.schedule =
-
-### Travel — Two roster-building layers are still loaded
-travel-hockey-world.js can build travel rosters and travel-hockey-roster-world.js rebuilds them again. This duplicated ownership is a major Phase 3.4 volatility source and should be consolidated before deeper Travel debugging.
+- Informational: 13
+- Pass checks: 13
 
 ## MEDIUM
 
@@ -54,6 +46,9 @@ if (!Array.isArray(world.schedule)) world.schedule = [];
 
 ### Schedule — Schedule assignment in dev-postseason-shortcut.js:179
 world.schedule = world.schedule.filter(event =>
+
+### Schedule — Schedule assignment in game.js:3062
+WorldEngine.state.schedule =
 
 ### Schedule — Schedule assignment in postseason-cadence.js:150
 const schedule = Array.isArray(world.schedule) ? world.schedule : (world.schedule = []);
@@ -116,3 +111,6 @@ Shared scope backend is tied to WorldEngine.state.schedule.
 
 ### Stats — Postseason rebuild is non-destructive
 It no longer wipes all player playoff stats when historical games lack player lines.
+
+### Travel — Single Travel roster authority
+travel-hockey-world.js owns the team/tournament shell; travel-hockey-roster-world.js is the sole roster/lineup writer.

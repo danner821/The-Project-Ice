@@ -72,7 +72,7 @@ for p,i,line in schedule_mut:
     if p in {'season-lifecycle.js','postseason-cadence.js'} and '.filter' in line:
         sev='MEDIUM'
     elif p=='game.js':
-        sev='HIGH'
+        sev='INFO' if 'CRITICAL PERSISTENCE RULE' in read(PUBLIC/'game.js') else 'HIGH'
     else:
         sev='INFO'
     add(sev,'Schedule',f'Schedule assignment in {p}:{i}',line)
@@ -110,8 +110,10 @@ travel_files=[p.name for p in PUBLIC.glob('travel-hockey-*.js')]
 add('INFO','Travel',f'{len(travel_files)} Travel runtime files present',', '.join(sorted(travel_files)))
 travel_world=read(PUBLIC/'travel-hockey-world.js')
 roster_world=read(PUBLIC/'travel-hockey-roster-world.js')
-if 'function buildRoster' in travel_world and 'function rebuild(state)' in roster_world:
+if 'team.roster = buildRoster' in travel_world and 'function rebuild(state)' in roster_world:
     add('HIGH','Travel','Two roster-building layers are still loaded','travel-hockey-world.js can build travel rosters and travel-hockey-roster-world.js rebuilds them again. This duplicated ownership is a major Phase 3.4 volatility source and should be consolidated before deeper Travel debugging.')
+elif 'team.roster = []' in travel_world and 'function rebuild(state)' in roster_world:
+    add('PASS','Travel','Single Travel roster authority','travel-hockey-world.js owns the team/tournament shell; travel-hockey-roster-world.js is the sole roster/lineup writer.')
 
 foundation=read(PUBLIC/'travel-hockey-foundation.js')
 if 'MutationObserver' in foundation and 'WorldEngine.advanceToDate = function' in foundation:

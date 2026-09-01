@@ -2872,7 +2872,18 @@ function ensureCareerScheduleEventsOnLoad() {
   const latestGameDate = existingSchedule.filter(e => String(e?.type || '').toLowerCase() === 'game').reduce((m,e) => String(e?.date || '') > m ? String(e.date) : m, '');
   const latestCareerDate = existingSchedule.filter(e => ['practice','recovery','training'].includes(String(e?.type || '').toLowerCase())).reduce((m,e) => String(e?.date || '') > m ? String(e.date) : m, '');
 
-  if (hasCareerEvents && (!latestGameDate || latestCareerDate >= latestGameDate)) {
+  /*
+   * If games are completely missing, do NOT treat the schedule as current.
+   * That exact corrupted shape can contain later Practice/Recovery/Travel
+   * events while every league game has been erased. The additive merge below
+   * is specifically safe to restore the missing base games without deleting
+   * postseason/offseason events.
+   */
+  if (
+    hasCareerEvents &&
+    latestGameDate &&
+    latestCareerDate >= latestGameDate
+  ) {
     return false;
   }
 
