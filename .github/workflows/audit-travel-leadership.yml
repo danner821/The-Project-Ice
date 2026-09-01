@@ -1,0 +1,12 @@
+name: Audit Travel Leadership
+on:
+  push:
+    paths:
+      - '.github/scripts/audit_travel_leadership.py'
+      - '.github/workflows/audit-travel-leadership.yml'
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/audit_travel_leadership.py
