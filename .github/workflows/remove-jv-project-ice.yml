@@ -1,0 +1,38 @@
+name: Remove JV From Project Ice
+on:
+  push:
+    paths:
+      - '.github/scripts/remove_jv_from_project_ice.py'
+      - '.github/workflows/remove-jv-project-ice.yml'
+permissions:
+  contents: write
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Varsity-only migration
+        run: python .github/scripts/remove_jv_from_project_ice.py
+      - name: Validate runtime JavaScript
+        run: |
+          for f in artifacts/project-ice/public/*.js; do node --check "$f"; done
+      - name: Verify no player-facing Junior Varsity remains
+        run: |
+          if grep -Rni --exclude='remove-jv-migration.js' --exclude-dir='.git' 'Junior Varsity' artifacts/project-ice; then
+            echo 'Player-facing Junior Varsity reference remains.'
+            exit 1
+          fi
+      - name: Re-run core integrity audits
+        run: |
+          node .github/scripts/audit_prospect_integrity_stabilization.js
+          python .github/scripts/full_project_ice_audit.py || true
+      - name: Commit Varsity-only runtime
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add -A artifacts/project-ice .github/full_project_ice_audit.md
+          git commit -m 'Remove JV and make high school hockey Varsity-only' || exit 0
+          git pull --rebase origin main
+          git push origin main
