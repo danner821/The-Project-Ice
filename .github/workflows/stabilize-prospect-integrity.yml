@@ -1,0 +1,27 @@
+name: Stabilize Prospect Integrity
+on:
+  push:
+    paths:
+      - '.github/scripts/stabilize_prospect_integrity.py'
+      - '.github/scripts/audit_prospect_integrity_stabilization.js'
+      - '.github/workflows/stabilize-prospect-integrity.yml'
+permissions:
+  contents: write
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/stabilize_prospect_integrity.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
+          git commit -m 'Stabilize canonical prospect universe and saved cohorts' || exit 0
+          git pull --rebase origin main
+          git push origin main
