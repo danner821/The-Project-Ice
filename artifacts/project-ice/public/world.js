@@ -37653,6 +37653,54 @@ case 'career-defense':
     return Array.from(unique.values());
   }
 
+  function getProspectRankForPlayer(playerOrId) {
+    const player =
+      playerOrId && typeof playerOrId === 'object'
+        ? playerOrId
+        : null;
+
+    const ids = new Set(
+      (player
+        ? [player.sourcePlayerId, player.playerId, player.id, player.prospectId]
+        : [playerOrId]
+      )
+        .filter(Boolean)
+        .map(value => String(value))
+    );
+
+    if (player?.isCareerPlayer === true) {
+      [
+        _state?.player?.playerId,
+        _state?.player?.id,
+        'career-player',
+      ]
+        .filter(Boolean)
+        .forEach(value => ids.add(String(value)));
+    }
+
+    if (ids.size === 0) return null;
+
+    const rankings = Array.isArray(_state.prospectRankings)
+      ? _state.prospectRankings
+      : [];
+
+    const row = rankings.find(entry => {
+      const rowIds = [
+        entry?.sourcePlayerId,
+        entry?.playerId,
+        entry?.id,
+        entry?.prospectId,
+      ]
+        .filter(Boolean)
+        .map(value => String(value));
+
+      return rowIds.some(id => ids.has(id));
+    });
+
+    const rank = Number(row?.rank || 0);
+    return Number.isFinite(rank) && rank > 0 ? rank : null;
+  }
+
   function getProspectRankings() {
     return Array.isArray(_state.prospectRankings)
       ? _state.prospectRankings
@@ -44709,6 +44757,7 @@ case 'career-defense':
     getAllWorldPlayers,
     getScoutingProspectUniverse,
     getProspectRankings,
+    getProspectRankForPlayer,
     getExternalProspects: () => ensureExternalProspectWorld(),
     getHighSchoolProspectPipeline: () => ensureHighSchoolProspectPipelineState(),
     getHighSchoolProspectCohort,
