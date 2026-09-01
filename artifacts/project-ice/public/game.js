@@ -4956,6 +4956,9 @@ function renderTeamProfile(teamId) {
         leadershipBadge = '<span class="tp-roster-leadership-badge">A</span>';
       }
 
+      const prospectBadge =
+        getCanonicalProspectBadgeHtml(rosterPlayer);
+
       nameEl.classList.remove('tp-roster-row__name--empty');
       nameEl.innerHTML = `
         <span class="tp-roster-player-name-wrap">
@@ -4969,6 +4972,8 @@ function renderTeamProfile(teamId) {
 
           ${leadershipBadge}
         </span>
+
+        ${prospectBadge}
 
         <span class="tp-roster-player-ovr">
           ${rosterPlayer.overall} OVR
@@ -5055,7 +5060,18 @@ function renderTeamProfile(teamId) {
             </button>
           </span>
 
-          <span class="tp-roster-player-ovr">
+          ${getCanonicalProspectBadgeHtml({
+          ...Game.player,
+          playerId:
+            WorldEngine.state?.player?.playerId ||
+            WorldEngine.state?.player?.id ||
+            Game.player?.playerId ||
+            Game.player?.id ||
+            'career-player',
+          isCareerPlayer: true,
+        })}
+
+        <span class="tp-roster-player-ovr">
             ${playerOverall} OVR
           </span>
         `;
@@ -15783,7 +15799,89 @@ function openTeamTab(teamId = null, origin = 'hub') {
 
   openHubTab('team');
 }
-    function renderTeamTab(
+    
+/*
+ * Canonical Top-100 prospect badge helper.
+ *
+ * This is intentionally read-only. It never generates or rewrites rankings;
+ * it only resolves the current saved scouting board. Travel copies resolve
+ * through sourcePlayerId so the badge always follows the canonical player.
+ */
+function getCanonicalTop100ProspectRank(player) {
+  if (!player) return null;
+
+  const direct = Number(
+    player.prospectRank ??
+    player.publicRank ??
+    player.rank ??
+    0
+  );
+
+  if (Number.isFinite(direct) && direct >= 1 && direct <= 100) {
+    return direct;
+  }
+
+  let rankings = [];
+  try {
+    rankings = WorldEngine.getProspectRankings?.() || [];
+  } catch (_) {
+    rankings = [];
+  }
+
+  if (!Array.isArray(rankings) || rankings.length === 0) return null;
+
+  const ids = new Set(
+    [
+      player.sourcePlayerId,
+      player.playerId,
+      player.id,
+      player.prospectId,
+    ]
+      .filter(Boolean)
+      .map(value => String(value))
+  );
+
+  if (player.isCareerPlayer === true) {
+    [
+      WorldEngine.state?.player?.playerId,
+      WorldEngine.state?.player?.id,
+      Game.player?.playerId,
+      Game.player?.id,
+      'career-player',
+    ]
+      .filter(Boolean)
+      .forEach(value => ids.add(String(value)));
+  }
+
+  const row = rankings.find(entry => {
+    const rowId = String(
+      entry?.playerId ||
+      entry?.id ||
+      entry?.prospectId ||
+      ''
+    );
+    return rowId && ids.has(rowId);
+  });
+
+  const rank = Number(
+    row?.rank ??
+    row?.prospectRank ??
+    row?.publicRank ??
+    0
+  );
+
+  return Number.isFinite(rank) && rank >= 1 && rank <= 100
+    ? rank
+    : null;
+}
+
+function getCanonicalProspectBadgeHtml(player, compact = false) {
+  const rank = getCanonicalTop100ProspectRank(player);
+  if (!rank) return '';
+  return `<span class="pi-prospect-rank-badge${compact ? ' pi-prospect-rank-badge--compact' : ''}">Prospect #${rank}</span>`;
+}
+
+function renderTeamTab(
       teamId = null
     ) {
       const teams =
@@ -15999,6 +16097,7 @@ function openTeamTab(teamId = null, origin = 'hub') {
           <span class="lineup-player__name">
   ${fullName}
   ${leadershipBadge}
+  ${getCanonicalProspectBadgeHtml(player, true)}
 </span>
           <span class="lineup-player__overall">${overall} OVR</span>
         </button>

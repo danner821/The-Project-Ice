@@ -14868,3 +14868,25 @@ body.full-news-open {
   border-bottom: 0;
   border-radius: 0;
 }
+
+
+/* ── Canonical Top-100 prospect rank badges ── */
+.pi-prospect-rank-badge {
+  display: block;
+  width: fit-content;
+  margin-top: 2px;
+  color: rgba(181, 194, 216, 0.62);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pi-prospect-rank-badge--compact {
+  display: inline-block;
+  margin: 0 0 0 5px;
+  font-size: 8px;
+  vertical-align: middle;
+}
