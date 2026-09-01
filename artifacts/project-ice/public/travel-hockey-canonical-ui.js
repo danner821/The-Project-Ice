@@ -38,6 +38,25 @@
     return best;
   }
 
+  function highSchoolTeamId() {
+    const rosterPlayer = rosterCareer();
+    const candidates = [
+      rosterPlayer?.teamId,
+      Game?.player?.highSchoolTeamId,
+      Game?.player?.teamId,
+      WorldEngine.state?.player?.highSchoolTeamId,
+      WorldEngine.state?.player?.teamId,
+    ].filter(Boolean);
+
+    for (const candidate of candidates) {
+      const team = (WorldEngine.state?.teams || []).find(item =>
+        !item?.travelProfileAdapter && String(item?.teamId || '') === String(candidate)
+      );
+      if (team) return team.teamId;
+    }
+    return null;
+  }
+
   function syncCareer() {
     if (!travel()) return WorldEngine.state?.player || null;
     const source = rosterCareer();
@@ -265,12 +284,23 @@
     const team = byTeam(state,id);
     if (!team || typeof globalThis.openTeamProfile !== 'function') return false;
     cleanupAdapter();
+    const hsTeamId = highSchoolTeamId();
+    const previousTeamTabId = (typeof Game !== 'undefined' && Game?.teamTabSelectedTeamId) || hsTeamId || null;
     const profileTeam = adapter(team);
     if (!Array.isArray(WorldEngine.state.teams)) WorldEngine.state.teams = [];
     WorldEngine.state.teams.push(profileTeam);
     adapterId = profileTeam.teamId;
     document.getElementById(HUB)?.remove();
     globalThis.openTeamProfile(profileTeam.teamId,'hub');
+
+    // renderTeamProfile builds the Travel profile synchronously from the Team tab
+    // renderer, which temporarily selects the adapter as the Team-tab team. Put
+    // the persistent Team-tab selection back immediately; the cloned profile is
+    // already built and remains independent.
+    if (typeof Game !== 'undefined' && Game) {
+      Game.teamTabSelectedTeamId = previousTeamTabId || hsTeamId || null;
+    }
+
     requestAnimationFrame(() => {
       const eyebrow = document.querySelector('#team-profile-screen .tp-header .eyebrow');
       if (eyebrow) eyebrow.textContent = 'Travel Team Profile';
@@ -381,6 +411,18 @@
         randomizePlacement();
         queue();
       },0);
+    }
+  }, true);
+
+  // Team navigation must never inherit the temporary Travel profile selection.
+  // Do this in capture phase so the core hub handler sees the restored HS team ID.
+  document.addEventListener('click', event => {
+    const teamNav = event.target?.closest?.('.hub-nav__item[data-tab="team"], [data-tab="team"]');
+    if (!teamNav) return;
+    const hsTeamId = highSchoolTeamId();
+    cleanupAdapter();
+    if (typeof Game !== 'undefined' && Game && hsTeamId) {
+      Game.teamTabSelectedTeamId = hsTeamId;
     }
   }, true);
 
