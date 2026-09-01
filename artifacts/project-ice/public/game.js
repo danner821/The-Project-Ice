@@ -4848,7 +4848,7 @@ function renderTeamProfile(teamId) {
 
     if (modernLevelEl) {
       modernLevelEl.textContent =
-        'Junior Varsity';
+        'Varsity';
     }
 
     if (modernIdentityEl) {
@@ -4881,8 +4881,8 @@ function renderTeamProfile(teamId) {
     const isPlayerTeam = Game.player.teamId === team.teamId;
 
     teamLevelEl.textContent = isPlayerTeam
-      ? Game.player.teamLevel || 'Junior Varsity'
-      : 'Junior Varsity';
+      ? Game.player.teamLevel || 'Varsity'
+      : 'Varsity';
   }
   const prestigeEl = document.getElementById('tp-prestige');
   if (prestigeEl) prestigeEl.textContent = prestigeStars(team.prestige);
@@ -13199,7 +13199,7 @@ function updateHubScreen() {
         .toUpperCase();
 
     const levelLabels = {
-      'JUNIOR VARSITY': 'JV',
+      'VARSITY': 'JV',
       'VARSITY': 'V',
       'FRESHMAN': 'FR',
       'SOPHOMORE': 'SO',
@@ -13273,7 +13273,7 @@ function updateHubScreen() {
                   .toUpperCase();
 
               const levelLabels = {
-                'JUNIOR VARSITY': 'JV',
+                'VARSITY': 'JV',
                 'VARSITY': 'V',
                 'FRESHMAN': 'FR',
                 'SOPHOMORE': 'SO',
@@ -15861,7 +15861,7 @@ function openTeamTab(teamId = null, origin = 'hub') {
 
   if (recordEl) {
     recordEl.textContent =
-      Game.player?.teamLevel || 'Junior Varsity';
+      Game.player?.teamLevel || 'Varsity';
   }
   const seasonRecordEl =
     document.getElementById('team-page-season-record');
@@ -23095,13 +23095,13 @@ function calculateTryoutPlacement() {
     Game.player.teamName = assignedTeam.teamName;
   }
 
-  // Varsity is intentionally difficult for a freshman to reach.
-  let level = 'Junior Varsity';
+  // All high-school players compete at Varsity; tryout performance determines role and deployment.
+  let level = 'Varsity';
 
   if (score >= 95) {
-    level = Math.random() < 0.75 ? 'Varsity' : 'Junior Varsity';
+    level = Math.random() < 0.75 ? 'Varsity' : 'Varsity';
   } else if (score >= 90) {
-    level = Math.random() < 0.25 ? 'Varsity' : 'Junior Varsity';
+    level = Math.random() < 0.25 ? 'Varsity' : 'Varsity';
   }
 
   let startingLine;

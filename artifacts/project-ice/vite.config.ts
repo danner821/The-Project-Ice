@@ -63,6 +63,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/league-awards-history.js')) scripts.push('    <script src="/league-awards-history.js"></script>');
     if (!html.includes('/awards-offseason-exit.js')) scripts.push('    <script src="/awards-offseason-exit.js"></script>');
     if (!html.includes('/dev-save-cleanup.js')) scripts.push('    <script src="/dev-save-cleanup.js"></script>');
+    if (!html.includes('/remove-jv-migration.js')) scripts.push('    <script src="/remove-jv-migration.js"></script>');
 
     /*
      * Phase 3.4 active runtime stack.
