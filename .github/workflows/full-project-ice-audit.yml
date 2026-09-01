@@ -1,0 +1,37 @@
+name: Full Project Ice Architecture Audit
+on:
+  push:
+    paths:
+      - '.github/scripts/full_project_ice_audit.py'
+      - '.github/workflows/full-project-ice-audit.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run full architecture audit
+        run: python .github/scripts/full_project_ice_audit.py
+      - name: Validate core JavaScript
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/season-lifecycle.js
+          node --check artifacts/project-ice/public/postseason-stats.js
+          node --check artifacts/project-ice/public/travel-hockey-foundation.js
+          node --check artifacts/project-ice/public/travel-hockey-world.js
+          node --check artifacts/project-ice/public/travel-hockey-roster-world.js
+          node --check artifacts/project-ice/public/dev-postseason-shortcut.js
+      - name: Re-run prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Persist audit report
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add .github/full_project_ice_audit.md
+          git commit -m 'Record full Project Ice architecture audit' || exit 0
+          git pull --rebase origin main
+          git push origin main
