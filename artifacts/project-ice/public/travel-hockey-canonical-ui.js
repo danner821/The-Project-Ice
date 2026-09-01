@@ -16,7 +16,7 @@
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/\"/g, '&quot;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
   const travel = () => WorldEngine.getTravelHockeyState?.() || WorldEngine.state?.travelHockey || null;
@@ -218,11 +218,11 @@
       ['Semifinals', state.tournament?.rounds?.semifinals || []],
       ['Championship', state.tournament?.rounds?.championship || []],
     ];
-    return groups.map(([label,series]) => `<div class=\"pi-ts-sec\"><div class=\"pi-ts-head\"><h3>${label}</h3><span>Best of 3</span></div>${series.length ? series.map((item,index) => {
+    return groups.map(([label,series]) => `<div class="pi-ts-sec"><div class="pi-ts-head"><h3>${label}</h3><span>Best of 3</span></div>${series.length ? series.map((item,index) => {
       const a = byTeam(state,item.teamAId);
       const b = byTeam(state,item.teamBId);
-      return `<div class=\"pi-ts-series\"><small>Series ${index + 1}</small><div class=\"pi-ts-row\"><button data-team=\"${esc(a?.teamId || '')}\">${esc(a?.name || 'TBD')}</button><span>${Number(item.teamAWins || 0)}</span></div><div class=\"pi-ts-row\"><button data-team=\"${esc(b?.teamId || '')}\">${esc(b?.name || 'TBD')}</button><span>${Number(item.teamBWins || 0)}</span></div></div>`;
-    }).join('') : '<div class=\"pi-ts-empty\">This round will populate when the previous round is decided.</div>'}</div>`).join('');
+      return `<div class="pi-ts-series"><small>Series ${index + 1}</small><div class="pi-ts-row"><button data-team="${esc(a?.teamId || '')}">${esc(a?.name || 'TBD')}</button><span>${Number(item.teamAWins || 0)}</span></div><div class="pi-ts-row"><button data-team="${esc(b?.teamId || '')}">${esc(b?.name || 'TBD')}</button><span>${Number(item.teamBWins || 0)}</span></div></div>`;
+    }).join('') : '<div class="pi-ts-empty">This round will populate when the previous round is decided.</div>'}</div>`).join('');
   }
 
   function leaders(state) {
@@ -231,8 +231,8 @@
       .filter(item => Number(item.player.travelStats?.gp || 0) > 0)
       .sort((a,b) => Number(b.player.travelStats?.pts || 0) - Number(a.player.travelStats?.pts || 0))
       .slice(0,5);
-    if (!rows.length) return '<div class=\"pi-ts-empty\">Travel leaders will populate as tournament games are played.</div>';
-    return rows.map((item,index) => `<div class=\"pi-ts-leader\" data-player=\"${esc(item.player.playerId || item.player.sourcePlayerId || '')}\" data-team=\"${esc(item.team.teamId)}\"><span>${index + 1}</span><span>${esc(item.player.name)}<small>${esc(item.team.shortName || item.team.name)}</small></span><span class=\"v\">${Number(item.player.travelStats?.pts || 0)} PTS</span></div>`).join('');
+    if (!rows.length) return '<div class="pi-ts-empty">Travel leaders will populate as tournament games are played.</div>';
+    return rows.map((item,index) => `<div class="pi-ts-leader" data-player="${esc(item.player.playerId || item.player.sourcePlayerId || '')}" data-team="${esc(item.team.teamId)}"><span>${index + 1}</span><span>${esc(item.player.name)}<small>${esc(item.team.shortName || item.team.name)}</small></span><span class="v">${Number(item.player.travelStats?.pts || 0)} PTS</span></div>`).join('');
   }
 
   function cleanupAdapter() {
@@ -246,12 +246,12 @@
     const state = travel();
     const stats = team.travelStats || {};
     const level = state?.placementLevel || team.level || 'A';
-    const club = team.shortName || String(team.name || '').replace(/\\s+(B|A|AA|AAA)$/i, '');
+    const club = team.shortName || String(team.name || '').replace(/\s+(B|A|AA|AAA)$/i, '');
     return {
       ...team,
       schoolName: club,
       teamName: `${level} Travel Hockey`,
-      abbreviation: team.abbreviation || club.split(/\\s+/).map(part => part[0]).join('').slice(0,4).toUpperCase(),
+      abbreviation: team.abbreviation || club.split(/\s+/).map(part => part[0]).join('').slice(0,4).toUpperCase(),
       primaryColor: team.primaryColor || '#2f6fd6',
       secondaryColor: team.secondaryColor || '#8fc1ff',
       wins: Number(stats.w || 0),
@@ -329,7 +329,7 @@
     const mine = byTeam(state,state.playerTeamId) || state.teams[0];
     const root = document.createElement('section');
     root.id = HUB;
-    root.innerHTML = `<div class=\"pi-ts-shell\"><button class=\"pi-ts-back\">‹</button><div class=\"pi-ts-kicker\">Summer Travel Hockey · ${esc(state.placementLevel)}</div><h1 class=\"pi-ts-title\">Travel Hockey Hub</h1><p class=\"pi-ts-sub\">Your summer tournament world. Team profiles, bracket progress, and Travel statistics all live here.</p><div class=\"pi-ts-your\" data-team=\"${esc(mine.teamId)}\"><small>Your Team</small><h2>${esc(mine.name)}</h2><p>${esc(mine.city)} · ${record(mine)} tournament record</p></div><div class=\"pi-ts-sec\"><div class=\"pi-ts-head\"><h3>Travel Field</h3><span>8 Teams</span></div><div class=\"pi-ts-grid\">${state.teams.map(team => `<div class=\"pi-ts-team${team.teamId === state.playerTeamId ? ' you' : ''}\" data-team=\"${esc(team.teamId)}\"><strong>${esc(team.name)}</strong><span>${esc(team.city)}${team.teamId === state.playerTeamId ? ' · YOU' : ''}</span><em>${record(team)} · ${Number(team.travelStats?.gp || 0) ? `${Number(team.travelStats.gf || 0)} GF · ${Number(team.travelStats.ga || 0)} GA` : 'Tournament not started'}</em></div>`).join('')}</div></div>${bracket(state)}<div class=\"pi-ts-sec\"><div class=\"pi-ts-head\"><h3>Travel Stat Leaders</h3><span>PTS</span></div>${leaders(state)}</div></div>`;
+    root.innerHTML = `<div class="pi-ts-shell"><button class="pi-ts-back">‹</button><div class="pi-ts-kicker">Summer Travel Hockey · ${esc(state.placementLevel)}</div><h1 class="pi-ts-title">Travel Hockey Hub</h1><p class="pi-ts-sub">Your summer tournament world. Team profiles, bracket progress, and Travel statistics all live here.</p><div class="pi-ts-your" data-team="${esc(mine.teamId)}"><small>Your Team</small><h2>${esc(mine.name)}</h2><p>${esc(mine.city)} · ${record(mine)} tournament record</p></div><div class="pi-ts-sec"><div class="pi-ts-head"><h3>Travel Field</h3><span>8 Teams</span></div><div class="pi-ts-grid">${state.teams.map(team => `<div class="pi-ts-team${team.teamId === state.playerTeamId ? ' you' : ''}" data-team="${esc(team.teamId)}"><strong>${esc(team.name)}</strong><span>${esc(team.city)}${team.teamId === state.playerTeamId ? ' · YOU' : ''}</span><em>${record(team)} · ${Number(team.travelStats?.gp || 0) ? `${Number(team.travelStats.gf || 0)} GF · ${Number(team.travelStats.ga || 0)} GA` : 'Tournament not started'}</em></div>`).join('')}</div></div>${bracket(state)}<div class="pi-ts-sec"><div class="pi-ts-head"><h3>Travel Stat Leaders</h3><span>PTS</span></div>${leaders(state)}</div></div>`;
 
     root.querySelector('.pi-ts-back')?.addEventListener('click', () => root.remove());
     root.querySelectorAll('[data-team]').forEach(node => node.addEventListener('click', event => {
@@ -418,7 +418,7 @@
   // Use the actual hub navigation contract from index.html (`data-hub-tab`).
   // This capture-phase boundary runs before the core hub handler renders Team.
   document.addEventListener('click', event => {
-    const teamNav = event.target?.closest?.('.hub-nav__tab[data-hub-tab=\"team\"], [data-hub-tab=\"team\"]');
+    const teamNav = event.target?.closest?.('.hub-nav__tab[data-hub-tab="team"], [data-hub-tab="team"]');
     if (!teamNav) return;
     const hsTeamId = highSchoolTeamId();
     cleanupAdapter();
