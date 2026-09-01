@@ -15810,25 +15810,28 @@ function openTeamTab(teamId = null, origin = 'hub') {
 function getCanonicalTop100ProspectRank(player) {
   if (!player) return null;
 
-  const direct = Number(
-    player.prospectRank ??
-    player.publicRank ??
-    player.rank ??
-    0
-  );
+  /*
+   * scoutingProfile.publicRank is the canonical saved ranking field.
+   * The weekly scouting engine writes publicRank there, not on the player
+   * root. Read that contract first so every canonical roster surface consumes
+   * the same rank that powers the Prospects screen.
+   */
+  const rankFromPlayer = candidate => {
+    if (!candidate || typeof candidate !== 'object') return null;
+    const rank = Number(
+      candidate.scoutingProfile?.publicRank ??
+      candidate.prospectRank ??
+      candidate.publicRank ??
+      candidate.rank ??
+      0
+    );
+    return Number.isFinite(rank) && rank >= 1 && rank <= 100
+      ? rank
+      : null;
+  };
 
-  if (Number.isFinite(direct) && direct >= 1 && direct <= 100) {
-    return direct;
-  }
-
-  let rankings = [];
-  try {
-    rankings = WorldEngine.getProspectRankings?.() || [];
-  } catch (_) {
-    rankings = [];
-  }
-
-  if (!Array.isArray(rankings) || rankings.length === 0) return null;
+  const directRank = rankFromPlayer(player);
+  if (directRank) return directRank;
 
   const ids = new Set(
     [
@@ -15853,14 +15856,40 @@ function getCanonicalTop100ProspectRank(player) {
       .forEach(value => ids.add(String(value)));
   }
 
+  /*
+   * Travel uses copied roster records. Resolve those copies back to the
+   * canonical world player before consulting the flattened ranking board.
+   */
+  for (const id of ids) {
+    let canonical = null;
+    try {
+      canonical = WorldEngine.getPlayerById?.(id) || null;
+    } catch (_) {
+      canonical = null;
+    }
+    const canonicalRank = rankFromPlayer(canonical);
+    if (canonicalRank) return canonicalRank;
+  }
+
+  let rankings = [];
+  try {
+    rankings = WorldEngine.getProspectRankings?.() || [];
+  } catch (_) {
+    rankings = [];
+  }
+
+  if (!Array.isArray(rankings) || rankings.length === 0) return null;
+
   const row = rankings.find(entry => {
-    const rowId = String(
-      entry?.playerId ||
-      entry?.id ||
-      entry?.prospectId ||
-      ''
-    );
-    return rowId && ids.has(rowId);
+    const rowIds = [
+      entry?.sourcePlayerId,
+      entry?.playerId,
+      entry?.id,
+      entry?.prospectId,
+    ]
+      .filter(Boolean)
+      .map(value => String(value));
+    return rowIds.some(id => ids.has(id));
   });
 
   const rank = Number(
