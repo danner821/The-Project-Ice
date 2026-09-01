@@ -1,0 +1,31 @@
+name: Canonicalize Prospect Badge Ownership
+on:
+  push:
+    paths:
+      - '.github/scripts/canonicalize_prospect_badge_ownership.py'
+      - '.github/workflows/canonicalize-prospect-badge-ownership.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/canonicalize_prospect_badge_ownership.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node --check artifacts/project-ice/public/travel-hockey-profile-repair-v2.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          grep -q 'getProspectRankForPlayer' artifacts/project-ice/public/world.js
+          ! grep -q 'function rankRows()' artifacts/project-ice/public/travel-hockey-profile-repair-v2.js
+          ! grep -q 'function prospectRank(player)' artifacts/project-ice/public/travel-hockey-profile-repair-v2.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js artifacts/project-ice/public/travel-hockey-profile-repair-v2.js
+          git commit -m 'Make WorldEngine the sole prospect badge rank owner' || exit 0
+          git pull --rebase origin main
+          git push origin main
