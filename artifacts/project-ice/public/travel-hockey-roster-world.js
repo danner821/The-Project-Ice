@@ -39,7 +39,27 @@
   const seeded=(list,seed)=>[...list].sort((a,b)=>hash(`${seed}:${pid(a)||pname(a)}`)-hash(`${seed}:${pid(b)||pname(b)}`));
   const baseFor=l=>({B:58,A:64,AA:70,AAA:76})[String(l||'A').toUpperCase()]||64;
   const blankStats=()=>({gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,savePercentage:0});
-  function normalize(p,extra={}){return{...p,playerId:pid(p)||`prospect:${hash(pname(p))}`,sourcePlayerId:p?.sourcePlayerId||pid(p)||null,name:pname(p),position:naturalPos(p),overall:ovr(p),ovr:ovr(p),travelStats:p?.travelStats||blankStats(),...extra};}
+
+  /*
+   * Leadership is team-context data, not player identity data.
+   * HS roster copies can carry C/A metadata, which must never leak into a
+   * temporary Travel roster. Strip every known leadership marker while
+   * preserving the player's actual attributes, stats and identity.
+   */
+  function stripInheritedLeadership(player){
+    const p={...player};
+    [
+      'captain','isCaptain','alternate','isAlternate','alternateCaptain',
+      'isAlternateCaptain','captaincy','captainRole','leadershipRole',
+      'captainLetter','leadershipLetter','letter','teamCaptain','teamAlternate'
+    ].forEach(key=>{ if(key in p) delete p[key]; });
+    return p;
+  }
+
+  function normalize(p,extra={}){
+    const clean=stripInheritedLeadership(p||{});
+    return{...clean,playerId:pid(clean)||`prospect:${hash(pname(clean))}`,sourcePlayerId:clean?.sourcePlayerId||pid(clean)||null,name:pname(clean),position:naturalPos(clean),overall:ovr(clean),ovr:ovr(clean),travelStats:clean?.travelStats||blankStats(),...extra};
+  }
   function generated(team,slot,level,delta){const seed=hash(`${team.teamId}:${slot}:${level}:travel-v${VERSION}`),first=FIRST[seed%FIRST.length],last=LAST[Math.floor(seed/31)%LAST.length],positions=['LW','C','RW','LW','C','RW','LW','C','RW','LW','C','RW','LD','RD','LD','RD','LD','RD','G','G'],overall=Math.max(45,Math.min(88,baseFor(level)+delta+((seed%9)-4)));return{playerId:`travel-gen:${team.teamId}:${slot}:v${VERSION}`,name:`${first} ${last}`,firstName:first,lastName:last,position:positions[slot]||'C',overall,ovr:overall,generatedTravelPlayer:true,travelStats:blankStats()};}
   const worldPool=()=>{const a=WorldEngine.getAllWorldPlayers?.()||(WorldEngine.state?.teams||[]).flatMap(t=>t.roster||[]);return Array.isArray(a)?a:[];};
   function rankedProspects(level){
@@ -57,9 +77,14 @@
   }
   function otherPool(level){const target=baseFor(level),career=pid(WorldEngine.state?.player||{});return worldPool().filter(p=>p&&pid(p)&&pid(p)!==career&&!p.isCareerPlayer&&Math.abs(ovr(p)-target)<=8).map(p=>normalize(p));}
   const clubId=t=>t.clubId||t.organizationId||String(t.teamId||'').replace(/^travel-/,'').replace(/-(b|a|aa|aaa)$/i,'');
-  function meta(team){const m=CLUB_META[clubId(team)]||{};Object.assign(team,{coachName:m.coachName||'Travel Hockey Staff',coachStyle:m.coachStyle||'Balanced development',coach:{name:m.coachName||'Travel Hockey Staff',style:m.coachStyle||'Balanced development'},arenaName:m.arenaName||`${team.city||'Regional'} Ice Center`,arenaCapacity:m.arenaCapacity||800,arena:{name:m.arenaName||`${team.city||'Regional'} Ice Center`,capacity:m.arenaCapacity||800},prestige:m.prestige||3,identity:m.identity||'Competitive summer travel hockey',primaryColor:m.primaryColor||'#2f6fd6',secondaryColor:m.secondaryColor||'#8fc1ff',teamStrengthDelta:m.strength||0});return team;}
+  function meta(team){const m=CLUB_META[clubId(team)]||{};Object.assign(team,{coachName:m.coachName||'Travel Hockey Staff',coachStyle:m.coachStyle||'Balanced development',coach:{name:m.coachName||'Travel Hockey Staff',style:m.coachStyle||'Balanced development'},arenaName:m.arenaName||`${team.city||'Regional'} Ice Center`,arenaCapacity:m.arenaCapacity||800,arena:{name:m.arenaName||`${team.city||'Regional'} Ice Center`,capacity:m.arenaCapacity||800},prestige:m.prestige||3,identity:m.identity||'Competitive summer travel hockey',primaryColor:m.primaryColor||'#2f6fd6',secondaryColor:m.secondaryColor||'#8fc1ff',teamStrengthDelta:m.strength||0,captainId:null,alternateCaptainIds:[],captains:[],leadership:{}});return team;}
   function take(pool,want){let i=pool.findIndex(p=>pos(p)===want);if(i<0)i=0;return i>=0?pool.splice(i,1)[0]:null;}
   function lineup(team){
+    team.roster=(team.roster||[]).map(stripInheritedLeadership);
+    team.captainId=null;
+    team.alternateCaptainIds=[];
+    team.captains=[];
+    team.leadership={};
     for(const p of team.roster||[]){delete p.rosterSlot;delete p.slot;}
 
     const byOverall=(a,b)=>ovr(b)-ovr(a);
