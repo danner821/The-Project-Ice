@@ -1,0 +1,33 @@
+name: Fix Canonical Prospect Badge Resolution
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_canonical_prospect_badge_resolution.py'
+      - '.github/workflows/fix-canonical-prospect-badge-resolution.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_canonical_prospect_badge_resolution.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('artifacts/project-ice/public/game.js').read_text(encoding='utf-8')
+          assert 'candidate.scoutingProfile?.publicRank' in s
+          assert 'WorldEngine.getPlayerById?.(id)' in s
+          print('PROSPECT_BADGE_CONTRACT_AUDIT=PASS')
+          PY
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git commit -m 'Resolve prospect badges from canonical scouting rank' || exit 0
+          git pull --rebase origin main
+          git push origin main
