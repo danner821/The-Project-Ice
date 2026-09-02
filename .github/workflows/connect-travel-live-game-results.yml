@@ -1,0 +1,53 @@
+name: Connect Travel Live Game Results
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/patches/connect-travel-live-game-results.patch'
+      - '.github/workflows/connect-travel-live-game-results.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Travel live-game results bridge
+        run: git apply --check .github/patches/connect-travel-live-game-results.patch && git apply .github/patches/connect-travel-live-game-results.patch
+      - name: Syntax checks
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/public/travel-hockey-roster-world.js
+          node --check artifacts/project-ice/public/travel-hockey-tournament-engine.js
+      - name: Travel bridge contract checks
+        run: |
+          grep -q "applyCompletedGameResult" artifacts/project-ice/public/game.js
+          grep -q "applyTravelTournamentGameResult" artifacts/project-ice/public/game.js
+          grep -q "applyTravelTournamentGameResult" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "travel-game-result-applied" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "_state.travelHockey" artifacts/project-ice/public/world.js
+          grep -q "fallbackAttributes" artifacts/project-ice/public/travel-hockey-roster-world.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime bridge
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          git add artifacts/project-ice/public/world.js
+          git add artifacts/project-ice/public/travel-hockey-roster-world.js
+          git add artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Connect Travel games to live result pipeline'
+            git pull --rebase origin main
+            git push origin main
+          fi
