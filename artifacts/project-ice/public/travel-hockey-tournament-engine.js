@@ -38,7 +38,7 @@
     const goalieAvg = goalies.length ? goalies.reduce((s,p)=>s+ovr(p),0)/goalies.length : skaterAvg;
     return skaterAvg * 0.82 + goalieAvg * 0.18 + Number(team?.teamStrengthDelta || 0);
   };
-  const blankPlayerStats = () => ({gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,savePercentage:0});
+  const blankPlayerStats = () => ({gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,losses:0,shotsAgainst:0,saves:0,goalsAgainst:0,savePercentage:0});
   const ensureStats = team => {
     team.travelStats = team.travelStats || {gp:0,w:0,l:0,gf:0,ga:0};
     for (const p of team.roster || []) p.travelStats = { ...blankPlayerStats(), ...(p.travelStats || {}) };
@@ -55,7 +55,6 @@
     const skaters = (team.roster || []).filter(p => !isGoalie(p));
     if (!skaters.length) return;
     for (const p of skaters) p.travelStats.gp = Number(p.travelStats.gp || 0) + 1;
-    for (const p of (team.roster || []).filter(isGoalie)) p.travelStats.gp = Number(p.travelStats.gp || 0) + 1;
 
     for (let g=0; g<goals; g+=1) {
       const scorer = weightedPick(skaters, random, p => ['C','LW','RW'].includes(String(p.position).toUpperCase()) ? 8 : 0);
@@ -102,12 +101,26 @@
     const shotsA = Math.max(aGoals, 24 + Math.floor(random()*17));
     const shotsB = Math.max(bGoals, 24 + Math.floor(random()*17));
     if (starterA) {
-      starterA.travelStats.savePercentage = Math.max(0, Math.min(0.999, (shotsB-bGoals)/shotsB));
+      starterA.travelStats.gp = Number(starterA.travelStats.gp || 0) + 1;
+      starterA.travelStats.shotsAgainst = Number(starterA.travelStats.shotsAgainst || 0) + shotsB;
+      starterA.travelStats.saves = Number(starterA.travelStats.saves || 0) + Math.max(0, shotsB - bGoals);
+      starterA.travelStats.goalsAgainst = Number(starterA.travelStats.goalsAgainst || 0) + bGoals;
+      starterA.travelStats.savePercentage = starterA.travelStats.shotsAgainst > 0
+        ? starterA.travelStats.saves / starterA.travelStats.shotsAgainst
+        : 0;
       if (winnerA) starterA.travelStats.wins += 1;
+      else starterA.travelStats.losses = Number(starterA.travelStats.losses || 0) + 1;
     }
     if (starterB) {
-      starterB.travelStats.savePercentage = Math.max(0, Math.min(0.999, (shotsA-aGoals)/shotsA));
+      starterB.travelStats.gp = Number(starterB.travelStats.gp || 0) + 1;
+      starterB.travelStats.shotsAgainst = Number(starterB.travelStats.shotsAgainst || 0) + shotsA;
+      starterB.travelStats.saves = Number(starterB.travelStats.saves || 0) + Math.max(0, shotsA - aGoals);
+      starterB.travelStats.goalsAgainst = Number(starterB.travelStats.goalsAgainst || 0) + aGoals;
+      starterB.travelStats.savePercentage = starterB.travelStats.shotsAgainst > 0
+        ? starterB.travelStats.saves / starterB.travelStats.shotsAgainst
+        : 0;
       if (!winnerA) starterB.travelStats.wins += 1;
+      else starterB.travelStats.losses = Number(starterB.travelStats.losses || 0) + 1;
     }
 
     a.travelStats.gp += 1; b.travelStats.gp += 1;
@@ -162,6 +175,97 @@
     }
   }
 
+
+  function careerSeries(state) {
+    const roundKey = state?.tournament?.activeRound || null;
+    if (!roundKey || roundKey === 'complete') return null;
+    const series = state?.tournament?.rounds?.[roundKey] || [];
+    const playerTeamId = String(state?.playerTeamId || '');
+    const match = series.find(item =>
+      String(item?.teamAId || '') === playerTeamId ||
+      String(item?.teamBId || '') === playerTeamId
+    ) || null;
+    return match ? { roundKey, series: match } : null;
+  }
+
+  function syncCareerTravelSchedule(state = travel()) {
+    if (!state?.tournament || !Array.isArray(WorldEngine.state?.schedule)) return false;
+    const schedule = WorldEngine.state.schedule;
+    const active = careerSeries(state);
+
+    // Keep completed Travel games as history, but never leave stale future games
+    // from an eliminated/finished series in the canonical career schedule.
+    const activeSeriesId = active?.series?.seriesId || null;
+    WorldEngine.state.schedule = schedule.filter(event => {
+      if (event?.travelTournament !== true) return true;
+      if (event?.isCompleted === true || event?.completed === true || event?.played === true) return true;
+      return activeSeriesId && String(event?.travelSeriesId || '') === String(activeSeriesId);
+    });
+
+    if (!active || state.tournament.status === 'complete') return true;
+
+    const { roundKey, series } = active;
+    if (!series.startDate) series.startDate = state.tournament.currentGameDate;
+    const teamA = teamById(state, series.teamAId);
+    const teamB = teamById(state, series.teamBId);
+    if (!teamA || !teamB) return false;
+
+    const completedGames = Array.isArray(series.games) ? series.games : [];
+    const completedByNumber = new Map(completedGames.map(game => [Number(game.gameNumber || 0), game]));
+    const roundLabel = ROUND_LABEL[roundKey] || 'Travel Tournament';
+
+    for (let gameNumber = 1; gameNumber <= 3; gameNumber += 1) {
+      const completedGame = completedByNumber.get(gameNumber) || null;
+      const seriesAlreadyWon = Number(series.teamAWins || 0) >= 2 || Number(series.teamBWins || 0) >= 2;
+      if (!completedGame && seriesAlreadyWon && gameNumber > Number(series.gamesPlayed || 0)) continue;
+
+      const eventId = `travel-career-${series.seriesId}-g${gameNumber}`;
+      const existing = WorldEngine.state.schedule.find(event => String(event?.eventId || event?.id || '') === eventId) || null;
+      const date = completedGame?.date || addDays(series.startDate, (gameNumber - 1) * 2);
+      const homeTeamId = gameNumber % 2 === 1 ? series.teamAId : series.teamBId;
+      const awayTeamId = gameNumber % 2 === 1 ? series.teamBId : series.teamAId;
+      const home = teamById(state, homeTeamId);
+      const away = teamById(state, awayTeamId);
+      const done = Boolean(completedGame);
+      const event = {
+        ...(existing || {}),
+        id:eventId,
+        eventId,
+        gameId:eventId,
+        type:'travel-game',
+        travelTournament:true,
+        travelRound:roundKey,
+        travelSeriesId:series.seriesId,
+        travelGameNumber:gameNumber,
+        date,
+        icon:'🏒',
+        label:`${away?.name || 'Away'} at ${home?.name || 'Home'}`,
+        shortLabel:`${away?.shortName || away?.name || 'Away'} at ${home?.shortName || home?.name || 'Home'}`,
+        location:'Summer Travel Tournament',
+        objective:`${roundLabel} · Best-of-3 · Game ${gameNumber}${gameNumber === 3 ? ' · If Necessary' : ''}`,
+        homeTeamId,
+        awayTeamId,
+        careerTeamId:state.playerTeamId,
+        isCareerEvent:true,
+        isCompleted:done,
+        completed:done,
+        played:done,
+        status:done ? 'final' : 'scheduled',
+      };
+      if (completedGame) {
+        event.homeScore = String(homeTeamId) === String(completedGame.teamAId) ? completedGame.teamAScore : completedGame.teamBScore;
+        event.awayScore = String(awayTeamId) === String(completedGame.teamAId) ? completedGame.teamAScore : completedGame.teamBScore;
+        event.winnerTeamId = completedGame.winnerTeamId;
+        event.completedAt = completedGame.date;
+      }
+      if (existing) Object.assign(existing, event);
+      else WorldEngine.state.schedule.push(event);
+    }
+
+    WorldEngine.state.schedule.sort((a,b) => String(a?.date || '').localeCompare(String(b?.date || '')));
+    return true;
+  }
+
   function ensureTournamentProgression(options = {}) {
     const state = travel();
     if (!state?.teams?.length || !state?.tournament) return null;
@@ -173,6 +277,7 @@
     if (!t.status || t.status === 'not-started') t.status = 'ready';
     const current = dateKey(WorldEngine.state?.season?.currentDate || WorldEngine.state?.player?.currentDate || WorldEngine.state?.currentDate);
     if (!t.currentGameDate) t.currentGameDate = addDays(current, 1);
+    syncCareerTravelSchedule(state);
     if (options.save === true) WorldEngine.save?.();
     return state;
   }
@@ -208,6 +313,7 @@
     const finished = round.series.length > 0 && round.series.every(s => s.status === 'complete');
     if (finished) buildNextRound(state, round.key);
     if (state.tournament.status !== 'complete') state.tournament.currentGameDate = addDays(date, 2);
+    syncCareerTravelSchedule(state);
     WorldEngine.save?.();
     return {success:true,round:round.key,date,results,tournamentStatus:state.tournament.status};
   }
@@ -224,6 +330,7 @@
   }
 
   WorldEngine.ensureTravelTournamentProgression = ensureTournamentProgression;
+  WorldEngine.syncCareerTravelSchedule = syncCareerTravelSchedule;
   WorldEngine.simulateNextTravelTournamentDay = simulateNextTournamentDay;
   WorldEngine.renderTravelTournamentProgressionControl = renderControl;
 

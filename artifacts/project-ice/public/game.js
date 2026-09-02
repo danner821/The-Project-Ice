@@ -11039,6 +11039,11 @@ const selectedEvent =
   ) ||
   null;
 
+if (selectedEvent?.type === 'travel-game' || selectedEvent?.travelTournament === true) {
+  WorldEngine.openTravelHockeyHub?.();
+  return;
+}
+
 /*
  * Games should enter their normal pregame event screen first.
  * The game is not simulated until the player presses
@@ -11076,6 +11081,11 @@ document
       );
 
     if (!selectedEvent) return;
+
+    if (selectedEvent.type === 'travel-game' || selectedEvent.travelTournament === true) {
+      WorldEngine.openTravelHockeyHub?.();
+      return;
+    }
 
     /*
      * Completed career events reopen their permanently saved
@@ -11194,7 +11204,7 @@ function renderScheduleKeyEvents() {
         .trim()
         .toLowerCase();
 
-    if (type === 'game') {
+    if (type === 'game' || type === 'travel-game') {
       return 'Game';
     }
 
@@ -11301,8 +11311,8 @@ function renderScheduleKeyEvents() {
         getEventTypeLabel(event);
 
       const upcomingIcon =
-        String(event.type || '').toLowerCase() === 'game'
-          ? getScheduleGameIcon(event)
+        ['game','travel-game'].includes(String(event.type || '').toLowerCase())
+          ? (event.icon || getScheduleGameIcon(event))
           : event.icon || '';
 
       return `
@@ -16972,6 +16982,12 @@ function setupHubCalendar() {
               'No scheduled activities.',
             eventId:
               scheduledEvent.eventId || 'open-day',
+            type:
+              scheduledEvent.type,
+            travelTournament:
+              scheduledEvent.travelTournament === true,
+            summaryScreen:
+              scheduledEvent.summaryScreen,
             isCompleted:
               Boolean(scheduledEvent.isCompleted),
           }
@@ -17064,6 +17080,11 @@ function setupHubCalendar() {
 
       const isFuture = selectedIndex > TODAY_INDEX;
       const isCompleted = Boolean(d.isCompleted);
+
+      if (d.type === 'travel-game' || d.travelTournament === true) {
+        WorldEngine.openTravelHockeyHub?.();
+        return;
+      }
 
       if (isCompleted) {
         if (d.type === 'game') {
