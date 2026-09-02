@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine, refreshCareerUI */
+/* global WorldEngine, Game, refreshCareerUI */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -68,6 +68,69 @@
     });
   }
 
+  function bindCareerSnapshotToCanonicalPlayer() {
+    if (
+      typeof Game === 'undefined' ||
+      !Game?.player ||
+      typeof WorldEngine.getCareerPlayer !== 'function'
+    ) {
+      return null;
+    }
+
+    const canonicalPlayer = WorldEngine.getCareerPlayer();
+    if (!canonicalPlayer) return null;
+
+    /*
+     * The WorldEngine roster player is the permanent source of truth for
+     * development. Game.player is only a lightweight UI/career snapshot.
+     *
+     * Travel and playoff game completion correctly mutate the canonical
+     * player's development.attributeXP. Rebind the UI snapshot from that
+     * canonical record before the Player screen renders so the screen cannot
+     * continue displaying an older zero-XP copy.
+     *
+     * This does not calculate, award, spend, or redistribute XP.
+     */
+    Game.player = {
+      ...Game.player,
+      ...canonicalPlayer,
+
+      attributes: {
+        ...(canonicalPlayer.attributes || {}),
+      },
+
+      seasonStats: {
+        ...(canonicalPlayer.seasonStats || {}),
+      },
+
+      careerStats: {
+        ...(canonicalPlayer.careerStats || {}),
+      },
+
+      development: {
+        ...(canonicalPlayer.development || {}),
+
+        attributeXP: {
+          ...(canonicalPlayer.development?.attributeXP || {}),
+        },
+
+        attributeXPEarnedCareer: {
+          ...(canonicalPlayer.development?.attributeXPEarnedCareer || {}),
+        },
+
+        xpEarnedByCategory: {
+          ...(canonicalPlayer.development?.xpEarnedByCategory || {}),
+        },
+
+        attributeUpgradeCounts: {
+          ...(canonicalPlayer.development?.attributeUpgradeCounts || {}),
+        },
+      },
+    };
+
+    return canonicalPlayer;
+  }
+
   /*
    * The Player screen can rebuild its statistics row after attribute upgrades
    * and other local renders. Watch only the statistics section so the selected
@@ -86,23 +149,12 @@
       String(target?.dataset?.hubTab || '').toLowerCase() === 'player';
 
     requestAnimationFrame(() => {
-      /*
-       * PLAYER TAB CANONICAL REFRESH
-       *
-       * Game completion mutates the permanent WorldEngine career player first.
-       * The Player tab's attribute rows are normal DOM and can otherwise remain
-       * from the last Career UI render, even while the canonical attributeXP
-       * balance has already increased and been saved.
-       *
-       * Refresh the existing Career UI exactly when the Player tab is opened so
-       * its attribute rows are rebuilt from the canonical career player. This
-       * does not calculate, award, move, or spend XP; it only refreshes the view.
-       */
-      if (
-        openingPlayerTab &&
-        typeof refreshCareerUI === 'function'
-      ) {
-        refreshCareerUI();
+      if (openingPlayerTab) {
+        bindCareerSnapshotToCanonicalPlayer();
+
+        if (typeof refreshCareerUI === 'function') {
+          refreshCareerUI();
+        }
       }
 
       observeCurrentRoot();
