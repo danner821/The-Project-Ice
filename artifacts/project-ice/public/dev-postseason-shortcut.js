@@ -15,17 +15,6 @@
 
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-
-  /*
-   * v5 is intentionally a NEW baseline. The old shortcut synthesized a state
-   * immediately after Travel Tryouts. Phase 3.4 is now complete, so development
-   * should begin from the exact state produced by pressing "Continue Into
-   * Offseason" on the Travel Tournament Complete screen.
-   *
-   * The first run captures the real career at that boundary and stores an
-   * isolated immutable baseline. Every later shortcut use clones that baseline,
-   * so testing Phase 3.5 can never mutate or drift the real career save.
-   */
   const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-offseason-v5';
 
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
@@ -116,7 +105,7 @@
     const phase = String(world?.season?.phase || '').toLowerCase();
 
     if (!travel || !tournament) {
-      throw new Error('The real career has no completed Travel tournament to checkpoint from.');
+      throw new Error('This career has no completed Travel tournament to checkpoint from.');
     }
     if (tournament.status !== 'complete' || !tournament.championTeamId) {
       throw new Error('The Travel tournament is not complete yet. Finish the tournament first.');
@@ -146,16 +135,6 @@
       world.player.id = id;
     }
 
-    /*
-     * Preserve the real post-Travel career state exactly: completed tournament,
-     * archived Travel stats, XP, player development, HS history, awards, records,
-     * standings and the current date all come straight from the real save.
-     *
-     * Only remove unplayed Travel-only schedule artifacts. Clicking Continue Into
-     * Offseason already ends Travel participation, so no future Travel game or
-     * training should remain actionable in the Phase 3.5 sandbox. Completed
-     * Travel events stay in history.
-     */
     world.schedule = world.schedule.filter(event => {
       const travelEvent =
         event?.travelTournament === true ||
@@ -208,8 +187,35 @@
     const existing = await readRecord(db, DEV_BASELINE_RECORD_ID);
     if (existing?.world) return existing;
 
+    /*
+     * Phase 3.4 was developed inside the isolated dev sandbox, not the original
+     * visible career. That sandbox is therefore the most faithful source for the
+     * exact state produced by pressing Continue Into Offseason during our live
+     * validation. Prefer it when it is already at the completed Travel boundary.
+     *
+     * Only fall back to the visible career if that save independently completed
+     * Travel. This keeps the shortcut exact without mutating either source save.
+     */
+    const completedSandbox = await readRecord(db, DEV_WORLD_RECORD_ID);
+    if (completedSandbox?.world) {
+      try {
+        const prepared = preparePostTravelOffseason(completedSandbox.world);
+        const baseline = {
+          id: DEV_BASELINE_RECORD_ID,
+          sourceCareerId: completedSandbox.sourceCareerId || DEV_CAREER_ID,
+          createdAt: new Date().toISOString(),
+          checkpointDate: prepared.targetDate,
+          checkpointKind: 'post-travel-offseason',
+          sourceKind: 'completed-dev-sandbox',
+          world: prepared.world,
+        };
+        await writeRecord(db, baseline);
+        return baseline;
+      } catch (_) {}
+    }
+
     const realSave = await findRealDannerSave();
-    if (!realSave?.id) throw new Error('Could not find the real Danner Stephenson career save.');
+    if (!realSave?.id) throw new Error('Could not find a completed post-Travel career checkpoint.');
 
     const source = await readRecord(db, `career:${realSave.id}`);
     if (!source?.world) throw new Error('Danner Stephenson IndexedDB world record was not found.');
@@ -221,6 +227,7 @@
       createdAt: new Date().toISOString(),
       checkpointDate: prepared.targetDate,
       checkpointKind: 'post-travel-offseason',
+      sourceKind: 'visible-career',
       world: prepared.world,
     };
     await writeRecord(db, baseline);
@@ -255,11 +262,6 @@
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
     if (!loaded) throw new Error('Could not load isolated post-Travel offseason dev career.');
 
-    /*
-     * Do NOT rebuild/reopen the Travel world here. The real Continue Into
-     * Offseason path deliberately deactivates Travel presentation. Recreating the
-     * Travel world at this checkpoint would make the shortcut unlike real play.
-     */
     WorldEngine.archiveTravelTournamentStats?.({ save:false });
     WorldEngine.save?.();
     removeDevMetadataFromVisibleIndex();
