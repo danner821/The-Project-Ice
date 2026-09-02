@@ -1,0 +1,135 @@
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index 9f39d84..fb40b33 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -7704,9 +7704,66 @@ function openPostgameSummary(gameId) {
+           ?.created === true
+       );
+ 
++    const canonicalCareerPlayerId =
++      Game.player?.playerId ||
++      Game.player?.id ||
++      'career-player';
++
++    const canonicalCareerPlayer =
++      (
++        Array.isArray(
++          WorldEngine.state?.teams
++        )
++          ? WorldEngine.state.teams
++              .flatMap(team =>
++                Array.isArray(team?.roster)
++                  ? team.roster
++                  : []
++              )
++              .find(player =>
++                player?.isCareerPlayer === true ||
++                String(
++                  player?.playerId ||
++                  player?.id ||
++                  ''
++                ) ===
++                String(
++                  canonicalCareerPlayerId
++                )
++              )
++          : null
++      ) ||
++      (
++        typeof WorldEngine
++          .getPlayerById === 'function'
++          ? WorldEngine.getPlayerById(
++              canonicalCareerPlayerId
++            )
++          : null
++      );
++
++    const hasCanonicalCareerDevelopment =
++      Boolean(
++        canonicalCareerPlayer &&
++        Array.isArray(
++          canonicalCareerPlayer.gameLog
++        ) &&
++        canonicalCareerPlayer.gameLog.some(
++          entry =>
++            String(entry?.gameId || '') ===
++            String(
++              canonicalPostgameGameId ||
++              ''
++            )
++        )
++      );
++
+     if (
+       scheduledGame &&
+-      !hasSavedCareerDevelopment &&
++      (
++        !hasSavedCareerDevelopment ||
++        !hasCanonicalCareerDevelopment
++      ) &&
+       typeof WorldEngine
+         .repairCompletedGameDevelopment ===
+           'function'
+diff --git a/artifacts/project-ice/public/world.js b/artifacts/project-ice/public/world.js
+index 328a6bb..65e7255 100644
+--- a/artifacts/project-ice/public/world.js
++++ b/artifacts/project-ice/public/world.js
+@@ -34094,7 +34094,7 @@ case 'career-defense':
+           continue;
+         }
+ 
+-        const player =
++        const resolvedPlayer =
+           getPlayerById(
+             playerId
+           );
+@@ -34106,15 +34106,15 @@ case 'career-defense':
+ 
+         const isCareerPlayer =
+           Boolean(
+-            player &&
++            resolvedPlayer &&
+             (
+-              player.isCareerPlayer === true ||
++              resolvedPlayer.isCareerPlayer === true ||
+               (
+                 canonicalCareerPlayerId &&
+                 (
+                   String(
+-                    player.playerId ||
+-                    player.id ||
++                    resolvedPlayer.playerId ||
++                    resolvedPlayer.id ||
+                     ''
+                   ) ===
+                   String(
+@@ -34129,6 +34129,16 @@ case 'career-defense':
+           continue;
+         }
+ 
++        /*
++         * Travel rosters may contain a temporary career-player copy whose
++         * tournament player ID differs from the permanent HS/career record.
++         * Keep the Travel game line for performance statistics, but always
++         * apply development to the canonical career player in the main world.
++         */
++        const player =
++          getCareerPlayerFromWorldState() ||
++          resolvedPlayer;
++
+         /*
+          * Repair older/migrated career-player records that match
+          * the canonical career ID but are missing the explicit flag.
+@@ -34178,7 +34188,10 @@ case 'career-defense':
+ 
+           player,
+ 
+-          playerId,
++          playerId:
++            player.playerId ||
++            player.id ||
++            playerId,
+ 
+           playerType:
+             entry.playerType,
+
