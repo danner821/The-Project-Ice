@@ -1,0 +1,27 @@
+name: Style Travel Tournament Bracket
+on:
+  push:
+    paths:
+      - '.github/scripts/style_travel_tournament_bracket.py'
+      - '.github/workflows/style-travel-tournament-bracket.yml'
+permissions:
+  contents: write
+jobs:
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/style_travel_tournament_bracket.py
+      - run: node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: grep -q 'Tournament Bracket' artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: grep -q 'pi-bracket-round--qf' artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          git commit -m 'Style Travel tournament as compact bracket' || exit 0
+          git pull --rebase origin main
+          git push origin main
