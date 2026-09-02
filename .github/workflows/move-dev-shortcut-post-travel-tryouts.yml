@@ -1,0 +1,32 @@
+name: Move Dev Shortcut Post Travel Tryouts
+on:
+  push:
+    paths:
+      - '.github/scripts/move_dev_shortcut_post_travel_tryouts.py'
+      - '.github/workflows/move-dev-shortcut-post-travel-tryouts.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/move_dev_shortcut_post_travel_tryouts.py
+      - run: node --check artifacts/project-ice/public/dev-postseason-shortcut.js
+      - run: node --check artifacts/project-ice/public/travel-hockey-world.js
+      - run: node --check artifacts/project-ice/public/travel-hockey-roster-world.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          grep -q "dev-baseline:danner-post-travel-tryouts-v2" artifacts/project-ice/public/dev-postseason-shortcut.js
+          grep -q "Skip to Post-Travel Tryouts" artifacts/project-ice/public/dev-postseason-shortcut.js
+          grep -q "ensureTravelHockeyWorld" artifacts/project-ice/public/dev-postseason-shortcut.js
+          grep -q "rebuildTravelHockeyRosters" artifacts/project-ice/public/dev-postseason-shortcut.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/dev-postseason-shortcut.js
+          git commit -m 'Move isolated dev shortcut to post Travel tryouts' || exit 0
+          git pull --rebase origin main
+          git push origin main
