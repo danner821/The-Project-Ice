@@ -1,0 +1,45 @@
+name: Fix Travel Calendar Card Presentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/fix_travel_calendar_card_presentation.py'
+      - '.github/workflows/fix-travel-calendar-card-presentation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply calendar presentation fix
+        run: python .github/scripts/fix_travel_calendar_card_presentation.py
+      - name: Syntax check
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Contract checks
+        run: |
+          grep -q "function isScheduleCalendarGame" artifacts/project-ice/public/game.js
+          grep -q "event?.type === 'travel-game'" artifacts/project-ice/public/game.js
+          grep -q "isScheduleCalendarGame(event)" artifacts/project-ice/public/game.js
+          grep -q "!isScheduleCalendarGame(event)" artifacts/project-ice/public/game.js
+          grep -q "isScheduleCalendarGame(selectedEvent)" artifacts/project-ice/public/game.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime change
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Render Travel games as calendar matchup cards'
+            git pull --rebase origin main
+            git push origin main
+          fi
