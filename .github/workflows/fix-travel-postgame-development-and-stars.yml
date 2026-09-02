@@ -1,0 +1,52 @@
+name: Fix Travel Postgame Development and Stars
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/patches/fix-travel-postgame-development-and-stars.patch'
+      - '.github/workflows/fix-travel-postgame-development-and-stars.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Travel postgame fixes
+        run: |
+          git apply --check .github/patches/fix-travel-postgame-development-and-stars.patch
+          git apply .github/patches/fix-travel-postgame-development-and-stars.patch
+      - name: Syntax checks
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/travel-hockey-tournament-engine.js
+      - name: Travel postgame contract checks
+        run: |
+          grep -q "repairCompletedGameDevelopment" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "{ save:false }" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "const winBonus" artifacts/project-ice/public/game.js
+          grep -q "const lossPenalty" artifacts/project-ice/public/game.js
+          if sed -n '7700,7725p' artifacts/project-ice/public/game.js | grep -q "travelTournament !== true"; then
+            echo 'Travel development repair is still blocked'
+            exit 1
+          fi
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime fixes
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Fix Travel postgame development and stars'
+            git pull --rebase origin main
+            git push origin main
+          fi
