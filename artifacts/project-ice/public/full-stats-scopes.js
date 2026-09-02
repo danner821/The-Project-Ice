@@ -135,7 +135,27 @@
 
   const originalRender = renderFullStatsScreen;
 
+  function activeTravelAdapter() {
+    const id = Game?.fullStatsTravelTeamId || Game?.fullStatsTeamId || null;
+    if (!id) return null;
+    return (WorldEngine.state?.teams || []).find(team =>
+      team?.travelProfileAdapter === true && String(team?.teamId || '') === String(id)
+    ) || null;
+  }
+
   window.renderFullStatsScreen = function(...args) {
+    const travelAdapter = activeTravelAdapter();
+    if (travelAdapter) {
+      const result = originalRender(...args);
+      document.getElementById(CONTROL_ID)?.remove();
+      const context = document.getElementById('full-stats-context');
+      if (context) {
+        const base = String(context.textContent || '').replace(/\s+[·•]\s+(Regular Season|Playoffs|Travel Tournament)$/i, '');
+        context.textContent = `${base} · Travel Tournament`;
+      }
+      return result;
+    }
+
     const scope = currentScope();
     WorldEngine.rebuildHighSchoolPostseasonStats?.();
 

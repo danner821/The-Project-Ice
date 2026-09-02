@@ -125,7 +125,16 @@
     const full = root()?.querySelector('#profile-team-view-full-stats');
     if (full && full.dataset.piProfileScopeBound !== 'true') {
       full.dataset.piProfileScopeBound = 'true';
-      full.addEventListener('click',()=>{ if (typeof Game !== 'undefined') Game.fullStatsScope = selectedScope; },true);
+      full.addEventListener('click',()=>{
+        if (typeof Game === 'undefined') return;
+        if (isTravel) {
+          Game.fullStatsTravelTeamId = team.teamId;
+          Game.fullStatsScope = 'regular-season';
+        } else {
+          delete Game.fullStatsTravelTeamId;
+          Game.fullStatsScope = selectedScope;
+        }
+      },true);
     }
     return true;
   }

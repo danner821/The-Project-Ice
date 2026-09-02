@@ -239,7 +239,32 @@
     if (adapterId && Array.isArray(WorldEngine.state?.teams)) {
       WorldEngine.state.teams = WorldEngine.state.teams.filter(team => !(team.travelProfileAdapter && String(team.teamId) === String(adapterId)));
     }
+    const profileMount = document.getElementById('team-profile-modern-content');
+    if (profileMount) delete profileMount.dataset.travelTeamId;
     adapterId = null;
+  }
+
+  function canonicalTravelPlayerStats(player) {
+    const s = player?.travelStats || {};
+    const gamesPlayed = Number(s.gp ?? s.gamesPlayed ?? 0);
+    const goals = Number(s.g ?? s.goals ?? 0);
+    const assists = Number(s.a ?? s.assists ?? 0);
+    const points = Number(s.pts ?? s.points ?? (goals + assists));
+    const shots = Number(s.sog ?? s.shots ?? s.shotsOnGoal ?? 0);
+    const penaltyMinutes = Number(s.pim ?? s.penaltyMinutes ?? 0);
+    const wins = Number(s.wins ?? s.w ?? 0);
+    const losses = Number(s.losses ?? s.l ?? 0);
+    const shotsAgainst = Number(s.shotsAgainst ?? 0);
+    const saves = Number(s.saves ?? 0);
+    const goalsAgainst = Number(s.goalsAgainst ?? 0);
+    const savedPct = Number(s.savePercentage ?? s.svPct ?? 0);
+    const savePercentage = savedPct > 0 ? savedPct : (shotsAgainst > 0 ? saves / shotsAgainst : 0);
+    return {
+      ...s,
+      gamesPlayed, goals, assists, points, shots, shotsOnGoal: shots, penaltyMinutes,
+      wins, losses, shotsAgainst, saves, goalsAgainst, savePercentage,
+      gp: gamesPlayed, g: goals, a: assists, pts: points, sog: shots, pim: penaltyMinutes
+    };
   }
 
   function adapter(team) {
@@ -269,13 +294,16 @@
       level,
       teamLevel: `${level} Travel Hockey`,
       travelProfileAdapter: true,
-      roster: (team.roster || []).map(player => ({
-        ...player,
-        teamId: team.teamId,
-        stats: { ...(player.travelStats || {}) },
-        seasonStats: { ...(player.travelStats || {}) },
-        regularSeasonStats: { ...(player.travelStats || {}) },
-      })),
+      roster: (team.roster || []).map(player => {
+        const travelOnlyStats = canonicalTravelPlayerStats(player);
+        return {
+          ...player,
+          teamId: team.teamId,
+          stats: { ...travelOnlyStats },
+          seasonStats: { ...travelOnlyStats },
+          regularSeasonStats: { ...travelOnlyStats },
+        };
+      }),
     };
   }
 
@@ -292,6 +320,8 @@
     adapterId = profileTeam.teamId;
     document.getElementById(HUB)?.remove();
     globalThis.openTeamProfile(profileTeam.teamId,'hub');
+    const profileMount = document.getElementById('team-profile-modern-content');
+    if (profileMount) profileMount.dataset.travelTeamId = String(team.teamId);
 
     // renderTeamProfile builds the Travel profile synchronously from the Team tab
     // renderer, which temporarily selects the adapter as the Team-tab team. Put
