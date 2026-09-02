@@ -10300,6 +10300,9 @@ function pickStableEvent(items, dateKey, salt = '') {
         shortLabel: isHome
           ? `vs ${opponentAbbreviation}`
           : `@ ${opponentAbbreviation}`,
+        homeCardLabel: isTravelGame
+          ? `${isHome ? 'vs' : 'at'} ${String(opponentName || 'Opponent').replace(/\s+(B|A|AA|AAA)$/i, '')}`
+          : null,
         icon: '🏒',
         objective: 'Game Day',
         description: isTravelGame
@@ -10601,6 +10604,7 @@ function renderScheduleCalendar(year, month) {
       <span
   class="schedule-day-event
     schedule-day-event--${event.type}
+    ${isScheduleCalendarGame(event) ? 'schedule-day-event--game' : ''}
     ${!isScheduleCalendarGame(event) ? 'schedule-day-event--icon-only' : ''}
     ${event.location ? `schedule-day-event--${event.location}` : ''}
     ${event.resultType ? `schedule-day-event--${event.resultType}` : ''}
@@ -17016,6 +17020,7 @@ function setupHubCalendar() {
             ...scheduledEvent,
             icon: scheduledEvent.icon || '📅',
             event:
+              scheduledEvent.homeCardLabel ||
               scheduledEvent.label ||
               scheduledEvent.title ||
               'Open Day',
