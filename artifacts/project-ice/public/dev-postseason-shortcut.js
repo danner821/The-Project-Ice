@@ -14,7 +14,7 @@
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-tryouts-v2';
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-tryouts-v3';
 
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
     ? WorldEngine.listCareerSaves.bind(WorldEngine)
