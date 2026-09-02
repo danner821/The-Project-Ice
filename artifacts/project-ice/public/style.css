@@ -10608,13 +10608,20 @@ tr.career-player-highlight .full-stats-player-button {
 
 .postgame-scoreboard__name {
   width: 100%;
+  height: 2.35em;
 
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 
   color: #e6edfa;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.15;
   font-weight: 750;
 }
 
