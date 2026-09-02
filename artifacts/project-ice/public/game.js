@@ -5157,8 +5157,8 @@ function renderProspectsScreen() {
    * saves / brand-new careers before the first scouting week has published.
    */
   const canonicalRankedProspects =
-    (Array.isArray(WorldEngine.state.prospectRankings)
-      ? WorldEngine.state.prospectRankings
+    (typeof WorldEngine?.getProspectRankings === 'function'
+      ? WorldEngine.getProspectRankings()
       : [])
       .map(ranking => {
         const player =
