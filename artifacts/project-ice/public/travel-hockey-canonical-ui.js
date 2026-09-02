@@ -197,6 +197,14 @@
     }
     if (!Array.isArray(state.tournament.rounds.semifinals)) state.tournament.rounds.semifinals = [];
     if (!Array.isArray(state.tournament.rounds.championship)) state.tournament.rounds.championship = [];
+
+    // Keep the player's Travel series in the same canonical career schedule
+    // consumed by both Home and the Schedule tab. Do this at Travel-world
+    // ownership time, not only when a tournament control happens to render.
+    WorldEngine.ensureTravelTournamentProgression?.({ save:false });
+    WorldEngine.syncCareerTravelSchedule?.(state);
+    try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
+
     if (save) WorldEngine.save?.();
     return state;
   }
@@ -604,6 +612,19 @@
   setTimeout(queue,1200);
 
   WorldEngine.syncTravelCareerIdentity = syncCareer;
+
+  // Reconcile an already-active Travel save immediately on runtime load so the
+  // normal Home/Schedule surfaces never depend on opening the Travel Hub first.
+  try {
+    if (active()) {
+      const activeState = ensureWorld(false);
+      WorldEngine.syncCareerTravelSchedule?.(activeState);
+      globalThis.refreshScheduleEvents?.();
+    }
+  } catch (error) {
+    console.warn('[Travel] Schedule projection reconciliation skipped:', error);
+  }
+
   WorldEngine.openTravelHockeyHub = openHub;
   WorldEngine.openTravelTeamProfile = openTeam;
   WorldEngine.renderTravelHockeyHubEntries = reconcile;

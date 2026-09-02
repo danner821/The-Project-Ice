@@ -27,6 +27,18 @@
       return (x >>> 0) / 4294967296;
     };
   };
+
+  function freshTournamentSeed() {
+    try {
+      if (globalThis.crypto?.getRandomValues) {
+        const values = new Uint32Array(2);
+        globalThis.crypto.getRandomValues(values);
+        return `${values[0].toString(36)}-${values[1].toString(36)}`;
+      }
+    } catch (_) {}
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+  }
+
   const teamById = (state,id) => (state?.teams || []).find(t => String(t?.teamId || '') === String(id || '')) || null;
   const ovr = p => Number(p?.overall ?? p?.ovr ?? 60) || 60;
   const isGoalie = p => String(p?.position || '').toUpperCase() === 'G';
@@ -82,7 +94,7 @@
     ensureStats(a); ensureStats(b);
 
     const gameNumber = Number(series.gamesPlayed || 0) + 1;
-    const seed = `${state.tryoutResult?.completedAt || ''}:${series.seriesId}:${gameNumber}`;
+    const seed = `${state.tournament?.randomSeed || state.tryoutResult?.completedAt || ''}:${series.seriesId}:${gameNumber}`;
     const random = rng(seed);
     const sa = teamStrength(a), sb = teamStrength(b);
     const pA = Math.max(0.18, Math.min(0.82, 0.5 + (sa-sb)*0.028));
@@ -275,6 +287,7 @@
     for (const key of ROUND_KEYS) if (!Array.isArray(t.rounds[key])) t.rounds[key] = [];
     if (!t.activeRound || t.activeRound === 'not-started') t.activeRound = 'quarterfinals';
     if (!t.status || t.status === 'not-started') t.status = 'ready';
+    if (!t.randomSeed) t.randomSeed = freshTournamentSeed();
     const current = dateKey(WorldEngine.state?.season?.currentDate || WorldEngine.state?.player?.currentDate || WorldEngine.state?.currentDate);
     if (!t.currentGameDate) t.currentGameDate = addDays(current, 1);
     syncCareerTravelSchedule(state);
