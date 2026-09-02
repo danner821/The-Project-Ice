@@ -1,0 +1,43 @@
+name: Fix Travel Calendar Polish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/fix_travel_calendar_polish.py'
+      - '.github/workflows/fix-travel-calendar-polish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Travel calendar polish
+        run: python .github/scripts/fix_travel_calendar_polish.py
+      - name: Syntax check
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Contract checks
+        run: |
+          grep -q "schedule-day-event--game" artifacts/project-ice/public/game.js
+          grep -q "homeCardLabel: isTravelGame" artifacts/project-ice/public/game.js
+          grep -q "scheduledEvent.homeCardLabel" artifacts/project-ice/public/game.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime change
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Polish Travel calendar and Home matchup cards'
+            git pull --rebase origin main
+            git push origin main
+          fi
