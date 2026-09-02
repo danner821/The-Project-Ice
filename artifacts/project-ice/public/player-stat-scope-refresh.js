@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine, Game, refreshCareerUI */
+/* global WorldEngine, Game, updateHubScreen, refreshCareerUI */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -152,7 +152,20 @@
       if (openingPlayerTab) {
         bindCareerSnapshotToCanonicalPlayer();
 
-        if (typeof refreshCareerUI === 'function') {
+        /*
+         * IMPORTANT: refreshCareerUI() does NOT render the Player tab. It only
+         * refreshes schedule/calendar/team surfaces. The full Player attributes
+         * renderer lives inside updateHubScreen(), which calls
+         * syncCareerPlayerWithWorld() and renderCareerPlayerAttributes().
+         *
+         * Previous fixes correctly rebound the canonical development state, but
+         * then called the wrong refresh function, leaving the old zero-XP DOM in
+         * place. Use the actual hub renderer here so the visible attribute rows
+         * are rebuilt from the canonical player that already holds the XP.
+         */
+        if (typeof updateHubScreen === 'function') {
+          updateHubScreen();
+        } else if (typeof refreshCareerUI === 'function') {
           refreshCareerUI();
         }
       }
