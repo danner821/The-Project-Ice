@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 2;
+  const MODULE_VERSION = 3;
   const WINDOW_DAYS = 7;
   const MIN_TRAININGS_PER_WINDOW = 1;
 
@@ -74,34 +74,86 @@
       .filter(date => date > afterDate)[0] || null;
   }
 
+  function applyCanonicalPracticePresentation(event) {
+    if (!event) return event;
+
+    event.type = 'practice';
+    event.eventType = 'practice';
+    event.eventKey = 'practice-systems';
+    event.label = 'Travel Team Practice';
+    event.shortLabel = 'Practice';
+    event.icon = '🏒';
+    event.location = 'Travel Team Rink';
+    event.objective = 'Stay sharp and keep developing during the summer tournament.';
+    event.description = 'A focused summer travel practice built around skill work, team execution, and development.';
+    event.focus = 'systems';
+    event.requiresPlayerInteraction = true;
+    event.isCareerEvent = true;
+    event.offseasonEvent = true;
+    event.travelHockeyEvent = true;
+    event.travelTournamentTraining = true;
+    event.seasonType = 'travel';
+    event.cadenceVersion = MODULE_VERSION;
+
+    /*
+     * Do not mark a training event as travelTournament=true. The shared
+     * Schedule renderer intentionally treats that flag as a Travel GAME
+     * presentation signal, which gives the event the trophy/game card styling.
+     * Training remains Travel-owned through travelHockeyEvent,
+     * travelTournamentTraining, and seasonType='travel'.
+     */
+    event.travelTournament = false;
+    return event;
+  }
+
   function buildTrainingEvent(date, windowIndex) {
     const id = `travel-training-${date}`;
 
-    return {
+    return applyCanonicalPracticePresentation({
       id,
       eventId: id,
       date,
-      type: 'practice',
-      eventType: 'practice',
-      eventKey: 'practice-systems',
-      label: 'Travel Hockey Training',
-      shortLabel: 'Travel Training',
-      icon: '🏒',
-      location: 'Travel Team Rink',
-      objective: 'Stay sharp and keep developing during the summer tournament.',
-      description: 'A focused summer travel session built around skill work, team execution, and development.',
-      focus: 'systems',
-      requiresPlayerInteraction: true,
-      isCareerEvent: true,
-      travelTournament: true,
-      travelTournamentTraining: true,
-      seasonType: 'travel',
       completed: false,
       played: false,
       status: 'scheduled',
-      cadenceVersion: MODULE_VERSION,
       cadenceWindow: windowIndex,
-    };
+    });
+  }
+
+  function reconcileTrainingPresentation(events) {
+    let changed = false;
+
+    for (const event of events) {
+      if (!isTravelTraining(event)) continue;
+
+      const before = JSON.stringify({
+        type: event.type,
+        eventType: event.eventType,
+        eventKey: event.eventKey,
+        label: event.label,
+        shortLabel: event.shortLabel,
+        travelTournament: event.travelTournament,
+        travelHockeyEvent: event.travelHockeyEvent,
+        cadenceVersion: event.cadenceVersion,
+      });
+
+      applyCanonicalPracticePresentation(event);
+
+      const after = JSON.stringify({
+        type: event.type,
+        eventType: event.eventType,
+        eventKey: event.eventKey,
+        label: event.label,
+        shortLabel: event.shortLabel,
+        travelTournament: event.travelTournament,
+        travelHockeyEvent: event.travelHockeyEvent,
+        cadenceVersion: event.cadenceVersion,
+      });
+
+      if (before !== after) changed = true;
+    }
+
+    return changed;
   }
 
   function chooseTrainingDate(events, windowStart, windowEnd) {
@@ -154,16 +206,44 @@
     return true;
   }
 
-  function syncTravelTournamentCadence(options = {}) {
+  function ensureTravelTournamentScheduleReady() {
     const state = travelState();
+    if (!state?.tryoutResult || !state?.placementLevel || state?.completed === true) {
+      return state;
+    }
+
+    /*
+     * Travel tryouts are the lifecycle boundary. Build/project the tournament
+     * schedule as soon as placement exists instead of waiting for the first
+     * Travel game result to wake up cadence.
+     */
+    if (typeof WorldEngine.ensureTravelTournamentProgression === 'function') {
+      WorldEngine.ensureTravelTournamentProgression({ save: false });
+    }
+
+    const refreshed = travelState() || state;
+    if (typeof WorldEngine.syncCareerTravelSchedule === 'function') {
+      WorldEngine.syncCareerTravelSchedule(refreshed);
+    }
+
+    return refreshed;
+  }
+
+  function syncTravelTournamentCadence(options = {}) {
+    const state = ensureTravelTournamentScheduleReady();
     const world = WorldEngine.state;
     if (!state?.tournament || !world) return false;
 
     let events = schedule();
+    let changed = reconcileTrainingPresentation(events);
+
     const tournamentComplete =
       state.tournament.status === 'complete' || state.completed === true;
 
-    let changed = removeStaleFutureTrainings(events, tournamentComplete);
+    if (removeStaleFutureTrainings(events, tournamentComplete)) {
+      changed = true;
+    }
+
     if (tournamentComplete) {
       if (changed && options.save !== false) WorldEngine.save?.();
       return changed;
@@ -171,7 +251,10 @@
 
     events = schedule();
     const dates = gameDates(events);
-    if (dates.length === 0) return changed;
+    if (dates.length === 0) {
+      if (changed && options.save !== false) WorldEngine.save?.();
+      return changed;
+    }
 
     const firstGameDate = dates[0];
     const lastKnownGameDate = dates[dates.length - 1];
@@ -229,6 +312,8 @@
   WorldEngine.syncTravelTournamentCadence = syncTravelTournamentCadence;
 
   function installResultHookAndSync() {
+    ensureTravelTournamentScheduleReady();
+
     const originalApplyTravelResult =
       typeof WorldEngine.applyTravelTournamentGameResult === 'function'
         ? WorldEngine.applyTravelTournamentGameResult
@@ -256,14 +341,6 @@
     return syncTravelTournamentCadence({ save: true });
   }
 
-  /*
-   * travel-hockey-season-ui.js injects the tournament engine asynchronously.
-   * This cadence file is part of the normal Vite runtime stack, so it can run
-   * before that dynamic script has finished creating the Travel game schedule.
-   * Sync once now for already-loaded careers, then sync again exactly when the
-   * tournament engine finishes loading. That makes both fresh and resumed
-   * Travel tournaments deterministic without polling.
-   */
   installResultHookAndSync();
 
   const engineLoader =
@@ -280,4 +357,24 @@
       );
     }
   }
+
+  /*
+   * The tryout UI completes on a normal button click. This single deferred
+   * lifecycle check runs after that click's own handler, so a newly-created
+   * placement immediately receives its tournament schedule and weekly practice
+   * before the user returns to Home/Schedule. It also harmlessly reconciles
+   * resumed Travel careers without timers or polling.
+   */
+  document.addEventListener('click', () => {
+    requestAnimationFrame(() => {
+      const state = travelState();
+      if (
+        state?.tryoutResult &&
+        state?.placementLevel &&
+        state?.completed !== true
+      ) {
+        installResultHookAndSync();
+      }
+    });
+  }, { passive: true });
 })();
