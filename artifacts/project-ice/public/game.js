@@ -7704,9 +7704,66 @@ function openPostgameSummary(gameId) {
           ?.created === true
       );
 
+    const canonicalCareerPlayerId =
+      Game.player?.playerId ||
+      Game.player?.id ||
+      'career-player';
+
+    const canonicalCareerPlayer =
+      (
+        Array.isArray(
+          WorldEngine.state?.teams
+        )
+          ? WorldEngine.state.teams
+              .flatMap(team =>
+                Array.isArray(team?.roster)
+                  ? team.roster
+                  : []
+              )
+              .find(player =>
+                player?.isCareerPlayer === true ||
+                String(
+                  player?.playerId ||
+                  player?.id ||
+                  ''
+                ) ===
+                String(
+                  canonicalCareerPlayerId
+                )
+              )
+          : null
+      ) ||
+      (
+        typeof WorldEngine
+          .getPlayerById === 'function'
+          ? WorldEngine.getPlayerById(
+              canonicalCareerPlayerId
+            )
+          : null
+      );
+
+    const hasCanonicalCareerDevelopment =
+      Boolean(
+        canonicalCareerPlayer &&
+        Array.isArray(
+          canonicalCareerPlayer.gameLog
+        ) &&
+        canonicalCareerPlayer.gameLog.some(
+          entry =>
+            String(entry?.gameId || '') ===
+            String(
+              canonicalPostgameGameId ||
+              ''
+            )
+        )
+      );
+
     if (
       scheduledGame &&
-      !hasSavedCareerDevelopment &&
+      (
+        !hasSavedCareerDevelopment ||
+        !hasCanonicalCareerDevelopment
+      ) &&
       typeof WorldEngine
         .repairCompletedGameDevelopment ===
           'function'

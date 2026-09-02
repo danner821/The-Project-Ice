@@ -34094,7 +34094,7 @@ case 'career-defense':
           continue;
         }
 
-        const player =
+        const resolvedPlayer =
           getPlayerById(
             playerId
           );
@@ -34106,15 +34106,15 @@ case 'career-defense':
 
         const isCareerPlayer =
           Boolean(
-            player &&
+            resolvedPlayer &&
             (
-              player.isCareerPlayer === true ||
+              resolvedPlayer.isCareerPlayer === true ||
               (
                 canonicalCareerPlayerId &&
                 (
                   String(
-                    player.playerId ||
-                    player.id ||
+                    resolvedPlayer.playerId ||
+                    resolvedPlayer.id ||
                     ''
                   ) ===
                   String(
@@ -34128,6 +34128,16 @@ case 'career-defense':
         if (!isCareerPlayer) {
           continue;
         }
+
+        /*
+         * Travel rosters may contain a temporary career-player copy whose
+         * tournament player ID differs from the permanent HS/career record.
+         * Keep the Travel game line for performance statistics, but always
+         * apply development to the canonical career player in the main world.
+         */
+        const player =
+          getCareerPlayerFromWorldState() ||
+          resolvedPlayer;
 
         /*
          * Repair older/migrated career-player records that match
@@ -34178,7 +34188,10 @@ case 'career-defense':
 
           player,
 
-          playerId,
+          playerId:
+            player.playerId ||
+            player.id ||
+            playerId,
 
           playerType:
             entry.playerType,
