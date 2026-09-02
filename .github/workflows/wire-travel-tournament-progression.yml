@@ -1,0 +1,28 @@
+name: Wire Travel Tournament Progression
+on:
+  push:
+    paths:
+      - '.github/scripts/wire_travel_tournament_progression.py'
+      - '.github/workflows/wire-travel-tournament-progression.yml'
+permissions:
+  contents: write
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/wire_travel_tournament_progression.py
+      - run: node --check artifacts/project-ice/public/travel-hockey-tournament-engine.js
+      - run: node --check artifacts/project-ice/public/travel-hockey-season-ui.js
+      - run: node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: grep -q 'renderTravelTournamentProgressionControl' artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          git commit -m 'Wire Travel tournament progression into canonical hub' || exit 0
+          git pull --rebase origin main
+          git push origin main
