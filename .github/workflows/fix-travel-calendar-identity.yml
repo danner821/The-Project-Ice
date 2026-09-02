@@ -1,0 +1,43 @@
+name: Fix Travel Calendar Identity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/fix_travel_calendar_identity.py'
+      - '.github/workflows/fix-travel-calendar-identity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply fix
+        run: python .github/scripts/fix_travel_calendar_identity.py
+      - name: Syntax check
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Contract checks
+        run: |
+          grep -q "const travelTeams" artifacts/project-ice/public/game.js
+          grep -q "type: isTravelGame ? 'travel-game' : 'game'" artifacts/project-ice/public/game.js
+          grep -q "opponent?.name" artifacts/project-ice/public/game.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime fix
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Fix Travel calendar team identity'
+            git pull --rebase origin main
+            git push origin main
+          fi
