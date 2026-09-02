@@ -1,0 +1,14 @@
+name: Diagnose Prospect Badge Profile Path
+on:
+  push:
+    paths:
+      - '.github/scripts/diagnose_prospect_badge_profile_path.py'
+      - '.github/workflows/diagnose-prospect-badge-profile-path.yml'
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/diagnose_prospect_badge_profile_path.py
