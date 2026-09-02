@@ -4187,9 +4187,12 @@ function buildTeamLineupMarkup(roster = []) {
           ${position}
         </span>
 
-        <span class="lineup-player__name">
-          ${fullName}
-          ${getLeadershipBadge(player)}
+        <span class="lineup-player__identity">
+          <span class="lineup-player__name">
+            ${fullName}
+            ${getLeadershipBadge(player)}
+          </span>
+          ${getCanonicalProspectBadgeHtml(player)}
         </span>
 
         <span class="lineup-player__overall">
@@ -4387,9 +4390,12 @@ function buildTeamSpecialTeamsMarkup(
           ${roleLabel}
         </span>
 
-        <span class="lineup-player__name">
-          ${fullName}
-          ${getLeadershipBadge(player)}
+        <span class="lineup-player__identity">
+          <span class="lineup-player__name">
+            ${fullName}
+            ${getLeadershipBadge(player)}
+          </span>
+          ${getCanonicalProspectBadgeHtml(player)}
         </span>
 
         <span class="lineup-player__overall">
@@ -4961,19 +4967,20 @@ function renderTeamProfile(teamId) {
 
       nameEl.classList.remove('tp-roster-row__name--empty');
       nameEl.innerHTML = `
-        <span class="tp-roster-player-name-wrap">
-          <button
-            class="tp-player-link"
-            data-player-id="${rosterPlayer.id}"
-            type="button"
-          >
-            ${fullName}
-          </button>
+        <span class="tp-roster-player-info">
+          <span class="tp-roster-player-name-wrap">
+            <button
+              class="tp-player-link"
+              data-player-id="${rosterPlayer.id}"
+              type="button"
+            >
+              ${fullName}
+            </button>
 
-          ${leadershipBadge}
+            ${leadershipBadge}
+          </span>
+          ${prospectBadge}
         </span>
-
-        ${prospectBadge}
 
         <span class="tp-roster-player-ovr">
           ${rosterPlayer.overall} OVR
@@ -5050,17 +5057,18 @@ function renderTeamProfile(teamId) {
         const playerOverall = Game.player.overall || 60;
 
         nameEl.innerHTML = `
-          <span class="tp-roster-player-name-wrap">
-            <button
-              class="tp-player-link"
-              data-player-id="career-player"
-              type="button"
-            >
-              ${playerName}
-            </button>
-          </span>
+          <span class="tp-roster-player-info">
+            <span class="tp-roster-player-name-wrap">
+              <button
+                class="tp-player-link"
+                data-player-id="career-player"
+                type="button"
+              >
+                ${playerName}
+              </button>
+            </span>
 
-          ${getCanonicalProspectBadgeHtml({
+            ${getCanonicalProspectBadgeHtml({
           ...Game.player,
           playerId:
             WorldEngine.state?.player?.playerId ||
@@ -5070,6 +5078,7 @@ function renderTeamProfile(teamId) {
             'career-player',
           isCareerPlayer: true,
         })}
+          </span>
 
         <span class="tp-roster-player-ovr">
             ${playerOverall} OVR
@@ -16038,11 +16047,13 @@ function renderTeamTab(
           data-player-id="${playerId}"
         >
           <span class="lineup-player__position">${position}</span>
-          <span class="lineup-player__name">
-  ${fullName}
-  ${leadershipBadge}
-  ${getCanonicalProspectBadgeHtml(player, true)}
-</span>
+          <span class="lineup-player__identity">
+            <span class="lineup-player__name">
+              ${fullName}
+              ${leadershipBadge}
+            </span>
+            ${getCanonicalProspectBadgeHtml(player)}
+          </span>
           <span class="lineup-player__overall">${overall} OVR</span>
         </button>
       `;

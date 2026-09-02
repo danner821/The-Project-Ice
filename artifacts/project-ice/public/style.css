@@ -14890,3 +14890,47 @@ body.full-news-open {
   font-size: 8px;
   vertical-align: middle;
 }
+
+
+/* ── Canonical player identity stack: name, then prospect rank ── */
+.lineup-player__identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  gap: 2px;
+}
+
+.lineup-player__identity > .lineup-player__name {
+  width: 100%;
+  min-width: 0;
+}
+
+.lineup-player__identity > .pi-prospect-rank-badge {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-roster-player-info {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 2px;
+}
+
+.tp-roster-player-info > .tp-roster-player-name-wrap {
+  max-width: 100%;
+}
+
+.tp-roster-player-info > .pi-prospect-rank-badge {
+  margin: 0;
+}
