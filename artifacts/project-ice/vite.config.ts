@@ -78,6 +78,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-hockey-season-ui.js')) scripts.push('    <script src="/travel-hockey-season-ui.js"></script>');
     if (!html.includes('/travel-hockey-profile-repair-v2.js')) scripts.push('    <script src="/travel-hockey-profile-repair-v2.js"></script>');
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
+    if (!html.includes('/travel-xp-live-diagnostic.js')) scripts.push('    <script src="/travel-xp-live-diagnostic.js"></script>');
 
     if (scripts.length === 0) return html;
 
@@ -111,7 +112,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, 'src'),
+      '@': path.resolve(import.meta.dirname),
       '@assets': path.resolve(
         import.meta.dirname,
         '..',
