@@ -1,0 +1,65 @@
+name: Fix Canonical Career XP Lifecycle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/patches/fix-canonical-career-xp-lifecycle.patch'
+      - '.github/workflows/fix-canonical-career-xp-lifecycle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply canonical career XP lifecycle fix
+        run: |
+          git apply --check .github/patches/fix-canonical-career-xp-lifecycle.patch
+          git apply .github/patches/fix-canonical-career-xp-lifecycle.patch
+
+      - name: Syntax checks
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/travel-hockey-roster-world.js
+          node --check artifacts/project-ice/public/dev-postseason-shortcut.js
+          node --check .github/scripts/diagnose_travel_xp_identity.js
+
+      - name: Canonical career XP lifecycle regression
+        run: node .github/scripts/diagnose_travel_xp_identity.js
+
+      - name: Identity contract checks
+        run: |
+          grep -q "getCareerRosterPlayerFromWorldState" artifacts/project-ice/public/world.js
+          grep -q "getCareerPlayer: () =>" artifacts/project-ice/public/world.js
+          grep -q "WorldEngine.getCareerPlayer()" artifacts/project-ice/public/game.js
+          grep -q "WorldEngine.getCareerPlayer?.()" artifacts/project-ice/public/travel-hockey-roster-world.js
+          grep -q "canonicalCareerPlayerId" artifacts/project-ice/public/dev-postseason-shortcut.js
+
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+
+      - name: Commit root fix
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add \
+            artifacts/project-ice/public/world.js \
+            artifacts/project-ice/public/game.js \
+            artifacts/project-ice/public/travel-hockey-roster-world.js \
+            artifacts/project-ice/public/dev-postseason-shortcut.js \
+            .github/scripts/diagnose_travel_xp_identity.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Unify career player identity across Travel XP'
+            git pull --rebase origin main
+            git push origin main
+          fi
