@@ -1,0 +1,25 @@
+name: Fix Travel Leader Spacing
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_travel_leader_spacing.py'
+      - '.github/workflows/fix-travel-leader-spacing.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_travel_leader_spacing.py
+      - run: node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: grep -q 'pi-ts-leader__identity' artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          git commit -m 'Fix Travel Stat Leaders spacing' || exit 0
+          git pull --rebase origin main
+          git push origin main
