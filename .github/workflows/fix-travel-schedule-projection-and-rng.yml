@@ -1,0 +1,40 @@
+name: Fix Travel Schedule Projection And RNG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/fix_travel_schedule_projection_and_rng.py'
+      - '.github/workflows/fix-travel-schedule-projection-and-rng.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply fixes
+        run: python .github/scripts/fix_travel_schedule_projection_and_rng.py
+      - name: Syntax checks
+        run: |
+          node --check artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+      - name: Contract checks
+        run: |
+          grep -q "syncCareerTravelSchedule" artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          grep -q "randomSeed" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime changes
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/travel-hockey-tournament-engine.js artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          git commit -m 'Fix Travel schedule projection and tournament randomness' || exit 0
+          git pull --rebase origin main
+          git push origin main
