@@ -1,0 +1,378 @@
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index 35cee06..f1d49af 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -1913,12 +1913,20 @@ const EventSystem = (() => {
+ 
+   function _populate(def) {
+     _currentDef = def;
+-    _set('ev-type-badge',  def.type.toUpperCase());
++    const isGameEvent =
++      isScheduleCalendarGame(def);
++
++    _set(
++      'ev-type-badge',
++      def.type === 'travel-game'
++        ? 'TRAVEL HOCKEY'
++        : def.type.toUpperCase()
++    );
+     _set('ev-icon',        def.icon);
+     _set('ev-title',       def.title);
+     _set(
+       'ev-location',
+-      def.type === 'game'
++      isGameEvent
+         ? ''
+         : def.location
+     );
+@@ -1929,7 +1937,7 @@ const EventSystem = (() => {
+ 
+     if (metaRow) {
+       metaRow.style.display =
+-        def.type === 'game'
++        isGameEvent
+           ? 'none'
+           : '';
+     }
+@@ -2009,7 +2017,13 @@ const EventSystem = (() => {
+       screen.className = screen.className
+         .replace(/\bev-type--\S+/g, '')
+         .trim();
+-      screen.classList.add(`ev-type--${def.type}`);
++      screen.classList.add(
++        `ev-type--${
++          isGameEvent
++            ? 'game'
++            : def.type
++        }`
++      );
+     }
+ 
+     // Reset the "coming soon" toast
+@@ -11091,18 +11105,14 @@ const selectedEvent =
+   ) ||
+   null;
+ 
+-if (selectedEvent?.type === 'travel-game' || selectedEvent?.travelTournament === true) {
+-  WorldEngine.openTravelHockeyHub?.();
+-  return;
+-}
+-
+ /*
+- * Games should enter their normal pregame event screen first.
++ * High School and Travel games should enter the same normal
++ * pregame event screen first.
+  * The game is not simulated until the player presses
+  * Begin Event from that screen.
+  */
+ if (
+-  selectedEvent?.type === 'game' &&
++  isScheduleCalendarGame(selectedEvent) &&
+   selectedEvent.isCompleted !== true
+ ) {
+   EventSystem.openEvent(
+@@ -11134,11 +11144,6 @@ document
+ 
+     if (!selectedEvent) return;
+ 
+-    if (selectedEvent.type === 'travel-game' || selectedEvent.travelTournament === true) {
+-      WorldEngine.openTravelHockeyHub?.();
+-      return;
+-    }
+-
+     /*
+      * Completed career events reopen their permanently saved
+      * completion screen instead of reopening the pre-event screen.
+@@ -11151,7 +11156,7 @@ document
+      */
+     const isCompletedGame =
+       Boolean(selectedEvent.isCompleted) &&
+-      selectedEvent.type === 'game';
++      isScheduleCalendarGame(selectedEvent);
+ 
+     if (isCompletedGame) {
+       const completedGameId =
+@@ -17134,13 +17139,8 @@ function setupHubCalendar() {
+       const isFuture = selectedIndex > TODAY_INDEX;
+       const isCompleted = Boolean(d.isCompleted);
+ 
+-      if (d.type === 'travel-game' || d.travelTournament === true) {
+-        WorldEngine.openTravelHockeyHub?.();
+-        return;
+-      }
+-
+       if (isCompleted) {
+-        if (d.type === 'game') {
++        if (isScheduleCalendarGame(d)) {
+           const completedGameId =
+             d.gameId ||
+             d.id ||
+@@ -17153,7 +17153,7 @@ function setupHubCalendar() {
+         }
+ 
+         if (
+-          d.type !== 'game' &&
++          !isScheduleCalendarGame(d) &&
+           d.result &&
+           typeof d.result === 'object'
+         ) {
+@@ -17179,7 +17179,10 @@ function setupHubCalendar() {
+ 
+       // Schedule treats a future game specially: enter its normal event/pregame
+       // path instead of simulating through it. Home must do the same.
+-      if (isFuture && d.type === 'game') {
++      if (
++        isFuture &&
++        isScheduleCalendarGame(d)
++      ) {
+         if (d.eventId) {
+           EventSystem.openEvent(d.eventId, 'hub', d);
+         }
+@@ -17977,12 +17980,111 @@ function completeCurrentCareerEvent(
+  * scheduled game and the same team-strength profiles used by
+  * the canonical live-game engine.
+  */
++function getScheduledGamePresentationTeam(
++  teamId,
++  eventDefinition = null
++) {
++  const canonicalTeam =
++    WorldEngine.getTeamById(
++      teamId
++    );
++
++  if (canonicalTeam) {
++    return canonicalTeam;
++  }
++
++  if (
++    eventDefinition?.type !==
++      'travel-game' &&
++    eventDefinition
++      ?.travelTournament !== true
++  ) {
++    return null;
++  }
++
++  const travelState =
++    WorldEngine
++      .getTravelHockeyState?.() ||
++    WorldEngine.state
++      ?.travelHockey ||
++    null;
++
++  return (
++    travelState
++      ?.teams
++      ?.find(team =>
++        String(team?.teamId || '') ===
++        String(teamId || '')
++      ) ||
++    null
++  );
++}
++
++function getPregamePresentationProfile(
++  team,
++  eventDefinition
++) {
++  const canonicalProfile =
++    WorldEngine
++      .getLiveGameTeamSimulationProfile(
++        team?.teamId
++      );
++
++  if (
++    canonicalProfile?.success ===
++      true
++  ) {
++    return canonicalProfile.profile;
++  }
++
++  if (
++    eventDefinition?.type !==
++      'travel-game' &&
++    eventDefinition
++      ?.travelTournament !== true
++  ) {
++    return null;
++  }
++
++  const roster =
++    Array.isArray(team?.roster)
++      ? team.roster
++      : [];
++
++  const averageOverall =
++    roster.length > 0
++      ? roster.reduce(
++          (sum, player) =>
++            sum +
++            (
++              Number(
++                player?.overall ??
++                player?.ovr
++              ) ||
++              50
++            ),
++          0
++        ) / roster.length
++      : 50;
++
++  return {
++    overallQuality:
++      averageOverall,
++    possessionOffense:
++      averageOverall,
++    defensiveDisruption:
++      averageOverall,
++  };
++}
++
+ function openPregameMatchup(
+   eventDefinition
+ ) {
+   if (
+     !eventDefinition ||
+-    eventDefinition.type !== 'game'
++    !isScheduleCalendarGame(
++      eventDefinition
++    )
+   ) {
+     return false;
+   }
+@@ -18031,13 +18133,15 @@ function openPregameMatchup(
+   }
+ 
+   const awayTeam =
+-    WorldEngine.getTeamById(
+-      scheduledGame.awayTeamId
++    getScheduledGamePresentationTeam(
++      scheduledGame.awayTeamId,
++      eventDefinition
+     );
+ 
+   const homeTeam =
+-    WorldEngine.getTeamById(
+-      scheduledGame.homeTeamId
++    getScheduledGamePresentationTeam(
++      scheduledGame.homeTeamId,
++      eventDefinition
+     );
+ 
+   if (
+@@ -18052,29 +18156,17 @@ function openPregameMatchup(
+     return false;
+   }
+ 
+-  const awayProfileResult =
+-    WorldEngine
+-      .getLiveGameTeamSimulationProfile(
+-        awayTeam.teamId
+-      );
+-
+-  const homeProfileResult =
+-    WorldEngine
+-      .getLiveGameTeamSimulationProfile(
+-        homeTeam.teamId
+-      );
+-
+   const awayProfile =
+-    awayProfileResult
+-      ?.success === true
+-      ? awayProfileResult.profile
+-      : null;
++    getPregamePresentationProfile(
++      awayTeam,
++      eventDefinition
++    );
+ 
+   const homeProfile =
+-    homeProfileResult
+-      ?.success === true
+-      ? homeProfileResult.profile
+-      : null;
++    getPregamePresentationProfile(
++      homeTeam,
++      eventDefinition
++    );
+ 
+   /*
+    * The live-game profile values are already normalized
+@@ -18095,9 +18187,15 @@ function openPregameMatchup(
+   const teamRecord =
+     team =>
+       `${
+-        Number(team?.wins) || 0
++        Number(
++          team?.wins ??
++          team?.travelStats?.w
++        ) || 0
+       }-${
+-        Number(team?.losses) || 0
++        Number(
++          team?.losses ??
++          team?.travelStats?.l
++        ) || 0
+       }-${
+         Number(
+           team?.overtimeLosses
+@@ -18108,6 +18206,7 @@ function openPregameMatchup(
+     team =>
+       team?.schoolName ||
+       team?.teamName ||
++      team?.name ||
+       team?.abbreviation ||
+       'Team';
+ 
+@@ -22420,7 +22519,7 @@ document
+      * Opening the event screen does not simulate anything;
+      * the game begins only after the player presses Begin Event.
+      */
+-    if (def.type === 'game') {
++    if (isScheduleCalendarGame(def)) {
+       const gameDate =
+         def.date ||
+         null;
+@@ -22453,10 +22552,33 @@ document
+         String(currentDate) <
+           String(gameDate)
+       ) {
+-        simulateToDate(
++        const reachedDate =
++          simulateToDate(
+           gameDate
+         );
+ 
++        /*
++         * Travel tournament games are canonical Schedule records, but the
++         * High School Season Engine does not own their result resolution.
++         * Once normal date advancement reaches the Travel game day, finish
++         * this presentation-only bridge explicitly instead of waiting for a
++         * High School career-game stop that will never be emitted.
++         */
++        if (
++          (
++            def.type ===
++              'travel-game' ||
++            def.travelTournament ===
++              true
++          ) &&
++          String(reachedDate || '') >=
++            String(gameDate)
++        ) {
++          openPregameMatchup(
++            def
++          );
++        }
++
+         return;
+       }
+ 
+@@ -23843,4 +23965,4 @@ async function init() {
+   showScreen('title');
+ }
+ 
+-document.addEventListener('DOMContentLoaded', init);
+\ No newline at end of file
++document.addEventListener('DOMContentLoaded', init);
