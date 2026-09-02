@@ -1,0 +1,803 @@
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index bae37be..406219a 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -7706,6 +7706,8 @@ function openPostgameSummary(gameId) {
+ 
+     if (
+       scheduledGame &&
++      scheduledGame
++        .travelTournament !== true &&
+       !hasSavedCareerDevelopment &&
+       typeof WorldEngine
+         .repairCompletedGameDevelopment ===
+@@ -7820,6 +7822,8 @@ function openPostgameSummary(gameId) {
+ 
+   const playerTeamId =
+     String(
++      scheduledGame
++        ?.careerTeamId ||
+       Game.player.teamId ||
+       Game.player.currentTeamId ||
+       ''
+@@ -7856,6 +7860,40 @@ function openPostgameSummary(gameId) {
+     }
+   };
+ 
++  const postgameTeamName =
++    team =>
++      team?.teamName ||
++      team?.schoolName ||
++      team?.name ||
++      'Team';
++
++  const postgameTeamAbbreviation =
++    (team, fallback) => {
++      if (team?.abbreviation) {
++        return team.abbreviation;
++      }
++
++      const initials =
++        String(
++          team?.shortName ||
++          team?.name ||
++          postgameTeamName(team)
++        )
++          .replace(
++            /\s+(B|A|AA|AAA)$/i,
++            ''
++          )
++          .trim()
++          .split(/\s+/)
++          .filter(Boolean)
++          .map(word => word[0])
++          .join('')
++          .slice(0, 3)
++          .toUpperCase();
++
++      return initials || fallback;
++    };
++
+   setText(
+     'postgame-result-badge',
+     resultLabel
+@@ -7874,15 +7912,15 @@ function openPostgameSummary(gameId) {
+ 
+   setText(
+     'postgame-away-abbreviation',
+-    awayTeam?.abbreviation ||
+-    'AWY'
++    postgameTeamAbbreviation(
++      awayTeam,
++      'AWY'
++    )
+   );
+ 
+   setText(
+     'postgame-away-name',
+-    awayTeam?.teamName ||
+-    awayTeam?.schoolName ||
+-    'Away Team'
++    postgameTeamName(awayTeam)
+   );
+ 
+   setText(
+@@ -7894,15 +7932,15 @@ function openPostgameSummary(gameId) {
+ 
+   setText(
+     'postgame-home-abbreviation',
+-    homeTeam?.abbreviation ||
+-    'HOM'
++    postgameTeamAbbreviation(
++      homeTeam,
++      'HOM'
++    )
+   );
+ 
+   setText(
+     'postgame-home-name',
+-    homeTeam?.teamName ||
+-    homeTeam?.schoolName ||
+-    'Home Team'
++    postgameTeamName(homeTeam)
+   );
+ 
+   setText(
+@@ -7920,14 +7958,18 @@ function openPostgameSummary(gameId) {
+    */
+   setText(
+     'postgame-team-stats-away',
+-    awayTeam?.abbreviation ||
+-    'AWY'
++    postgameTeamAbbreviation(
++      awayTeam,
++      'AWY'
++    )
+   );
+ 
+   setText(
+     'postgame-team-stats-home',
+-    homeTeam?.abbreviation ||
+-    'HOM'
++    postgameTeamAbbreviation(
++      homeTeam,
++      'HOM'
++    )
+   );
+ 
+   setText(
+@@ -8129,8 +8171,10 @@ function openPostgameSummary(gameId) {
+         String(summary.home?.teamId)
+       ) {
+         return (
+-          homeTeam?.abbreviation ||
+-          'HOME'
++          postgameTeamAbbreviation(
++            homeTeam,
++            'HOME'
++          )
+         );
+       }
+ 
+@@ -8139,8 +8183,10 @@ function openPostgameSummary(gameId) {
+         String(summary.away?.teamId)
+       ) {
+         return (
+-          awayTeam?.abbreviation ||
+-          'AWAY'
++          postgameTeamAbbreviation(
++            awayTeam,
++            'AWAY'
++          )
+         );
+       }
+ 
+@@ -8580,12 +8626,16 @@ function openPostgameSummary(gameId) {
+     );
+ 
+   const homeAbbreviation =
+-    homeTeam?.abbreviation ||
+-    'HOME';
++    postgameTeamAbbreviation(
++      homeTeam,
++      'HOME'
++    );
+ 
+   const awayAbbreviation =
+-    awayTeam?.abbreviation ||
+-    'AWAY';
++    postgameTeamAbbreviation(
++      awayTeam,
++      'AWAY'
++    );
+ 
+   /*
+    * Support both scoring-summary contracts.
+@@ -18657,13 +18707,28 @@ function openLiveGame(
+    * the roster copy is the authoritative in-season player.
+    */
+   const worldTeams =
+-    Array.isArray(
+-      WorldEngine.state
+-        ?.teams
+-    )
+-      ? WorldEngine.state
+-          .teams
+-      : [];
++    scheduledGame
++      .travelTournament === true
++      ? (
++          Array.isArray(
++            WorldEngine.state
++              ?.travelHockey
++              ?.teams
++          )
++            ? WorldEngine.state
++                .travelHockey
++                .teams
++            : []
++        )
++      : (
++          Array.isArray(
++            WorldEngine.state
++              ?.teams
++          )
++            ? WorldEngine.state
++                .teams
++            : []
++        );
+ 
+   let careerTeam =
+     null;
+@@ -18769,17 +18834,50 @@ function openLiveGame(
+       ?.lineupStatus ||
+     playerPosition;
+ 
++  const liveTeamAbbreviation =
++    (team, fallback) => {
++      if (team?.abbreviation) {
++        return team.abbreviation;
++      }
++
++      const initials =
++        String(
++          team?.shortName ||
++          team?.name ||
++          team?.teamName ||
++          team?.schoolName ||
++          ''
++        )
++          .replace(
++            /\s+(B|A|AA|AAA)$/i,
++            ''
++          )
++          .trim()
++          .split(/\s+/)
++          .filter(Boolean)
++          .map(word => word[0])
++          .join('')
++          .slice(0, 3)
++          .toUpperCase();
++
++      return initials || fallback;
++    };
++
+   document.getElementById(
+     'live-game-away-abbr'
+   ).textContent =
+-    awayTeam.abbreviation ||
+-    'AWY';
++    liveTeamAbbreviation(
++      awayTeam,
++      'AWY'
++    );
+ 
+   document.getElementById(
+     'live-game-home-abbr'
+   ).textContent =
+-    homeTeam.abbreviation ||
+-    'HME';
++    liveTeamAbbreviation(
++      homeTeam,
++      'HME'
++    );
+ 
+   const formatLiveGameClock =
+     totalSeconds => {
+@@ -21672,6 +21770,85 @@ function pauseLiveGamePlayback() {
+  * connected here next.
+  */
+ 
++function findScheduledGameForResult(
++  gameResult
++) {
++  const resultId =
++    String(
++      gameResult?.gameId ||
++      gameResult?.eventId ||
++      ''
++    );
++
++  return (
++    (
++      Array.isArray(
++        WorldEngine.state
++          ?.schedule
++      )
++        ? WorldEngine.state
++            .schedule
++        : []
++    ).find(game =>
++      [
++        game?.gameId,
++        game?.id,
++        game?.eventId,
++      ].some(alias =>
++        String(alias || '') ===
++        resultId
++      )
++    ) ||
++    null
++  );
++}
++
++function applyCompletedGameResult(
++  gameResult
++) {
++  const scheduledGame =
++    findScheduledGameForResult(
++      gameResult
++    );
++
++  if (
++    scheduledGame
++      ?.travelTournament === true
++  ) {
++    if (
++      typeof WorldEngine
++        .applyTravelTournamentGameResult !==
++      'function'
++    ) {
++      return {
++        success: false,
++        reason:
++          'travel-result-applicator-unavailable',
++      };
++    }
++
++    return WorldEngine
++      .applyTravelTournamentGameResult(
++        gameResult
++      );
++  }
++
++  const gameDate =
++    gameResult?.date ||
++    scheduledGame?.date ||
++    Game.player.currentDate ||
++    null;
++
++  return WorldEngine.advanceToDate(
++    gameDate,
++    {
++      processCurrentDate: true,
++      resolvedGameResult:
++        gameResult,
++    }
++  );
++}
++
+   async function handleLiveGameCompletion() {
+   if (
+     liveGameCompletionHandled ||
+@@ -21797,18 +21974,10 @@ function pauseLiveGamePlayback() {
+        * - permanent postgame summary
+        */
+       const application =
+-        WorldEngine
+-          .advanceToDate(
+-            gameDate,
+-            {
+-              processCurrentDate:
+-                true,
+-
+-              resolvedGameResult:
+-                finalization
+-                  .gameResult,
+-            }
+-          );
++        applyCompletedGameResult(
++          finalization
++            .gameResult
++        );
+ 
+       if (
+         !application ||
+@@ -22462,13 +22631,8 @@ async function simulatePregameMatchupGame(
+       }
+ 
+       const application =
+-        WorldEngine.advanceToDate(
+-          gameDate,
+-          {
+-            processCurrentDate: true,
+-            resolvedGameResult:
+-              completedResult,
+-          }
++        applyCompletedGameResult(
++          completedResult
+         );
+ 
+       if (
+diff --git a/artifacts/project-ice/public/travel-hockey-roster-world.js b/artifacts/project-ice/public/travel-hockey-roster-world.js
+index ee9408c..1d9b404 100644
+--- a/artifacts/project-ice/public/travel-hockey-roster-world.js
++++ b/artifacts/project-ice/public/travel-hockey-roster-world.js
+@@ -39,6 +39,7 @@
+   const seeded=(list,seed)=>[...list].sort((a,b)=>hash(`${seed}:${pid(a)||pname(a)}`)-hash(`${seed}:${pid(b)||pname(b)}`));
+   const baseFor=l=>({B:58,A:64,AA:70,AAA:76})[String(l||'A').toUpperCase()]||64;
+   const blankStats=()=>({gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,savePercentage:0});
++  const fallbackAttributes=rating=>{const r=Math.max(40,Math.min(99,Number(rating)||60));return{passing:r,puckControl:r,offensiveAwareness:r,defensiveAwareness:r,speed:r,acceleration:r,agility:r,poise:r,strength:r,bodyChecking:r,stickChecking:r,wristShotAccuracy:r,wristShotPower:r,slapShotAccuracy:r,slapShotPower:r,handEye:r,deking:r,reflexes:r,puckTracking:r,positioning:r,lateralMovement:r,anticipation:r,composure:r,consistency:r,reboundControl:r};};
+ 
+   /*
+    * Leadership is team-context data, not player identity data.
+@@ -58,9 +59,9 @@
+ 
+   function normalize(p,extra={}){
+     const clean=stripInheritedLeadership(p||{});
+-    return{...clean,playerId:pid(clean)||`prospect:${hash(pname(clean))}`,sourcePlayerId:clean?.sourcePlayerId||pid(clean)||null,name:pname(clean),position:naturalPos(clean),overall:ovr(clean),ovr:ovr(clean),travelStats:clean?.travelStats||blankStats(),...extra};
++    return{...clean,playerId:pid(clean)||`prospect:${hash(pname(clean))}`,sourcePlayerId:clean?.sourcePlayerId||pid(clean)||null,name:pname(clean),position:naturalPos(clean),overall:ovr(clean),ovr:ovr(clean),attributes:clean?.attributes||fallbackAttributes(ovr(clean)),travelStats:clean?.travelStats||blankStats(),...extra};
+   }
+-  function generated(team,slot,level,delta){const seed=hash(`${team.teamId}:${slot}:${level}:travel-v${VERSION}`),first=FIRST[seed%FIRST.length],last=LAST[Math.floor(seed/31)%LAST.length],positions=['LW','C','RW','LW','C','RW','LW','C','RW','LW','C','RW','LD','RD','LD','RD','LD','RD','G','G'],overall=Math.max(45,Math.min(88,baseFor(level)+delta+((seed%9)-4)));return{playerId:`travel-gen:${team.teamId}:${slot}:v${VERSION}`,name:`${first} ${last}`,firstName:first,lastName:last,position:positions[slot]||'C',overall,ovr:overall,generatedTravelPlayer:true,travelStats:blankStats()};}
++  function generated(team,slot,level,delta){const seed=hash(`${team.teamId}:${slot}:${level}:travel-v${VERSION}`),first=FIRST[seed%FIRST.length],last=LAST[Math.floor(seed/31)%LAST.length],positions=['LW','C','RW','LW','C','RW','LW','C','RW','LW','C','RW','LD','RD','LD','RD','LD','RD','G','G'],overall=Math.max(45,Math.min(88,baseFor(level)+delta+((seed%9)-4)));return{playerId:`travel-gen:${team.teamId}:${slot}:v${VERSION}`,name:`${first} ${last}`,firstName:first,lastName:last,position:positions[slot]||'C',overall,ovr:overall,attributes:fallbackAttributes(overall),generatedTravelPlayer:true,travelStats:blankStats()};}
+   const worldPool=()=>{const a=WorldEngine.getAllWorldPlayers?.()||(WorldEngine.state?.teams||[]).flatMap(t=>t.roster||[]);return Array.isArray(a)?a:[];};
+   function rankedProspects(level){
+     const target=baseFor(level),out=[],seen=new Set();let rows=[];try{rows=WorldEngine.getProspectRankings?.()||WorldEngine.state?.prospectRankings||WorldEngine.state?.prospects||[];}catch(_){}
+@@ -125,7 +126,7 @@
+     const topF=fl.flat();
+     const topD=dp.flat();
+     const pp=u=>({slots:{leftFlank:id(u[0]),bumper:id(u[1]),rightFlank:id(u[2]),netFront:id(u[3]),quarterback:id(u[4])}});
+-    const pk=u=>({slots:{leftForward:id(u[0]),rightForward:id(u[1]),leftDefense:id(u[2]),rightDefense:id(u[3])}});
++    const pk=u=>({slots:{forward1:id(u[0]),forward2:id(u[1]),defense1:id(u[2]),defense2:id(u[3])}});
+ 
+     team.forwardLines=fl;
+     team.defensePairs=dp;
+@@ -140,7 +141,7 @@
+   }
+ 
+   function rebuild(state){
+-    if(!state?.teams?.length)return state;const level=state.placementLevel||'A';if(state.travelRosterWorldVersion===VERSION){state.teams.forEach(t=>{meta(t);lineup(t);});return state;}
++    if(!state?.teams?.length)return state;const level=state.placementLevel||'A';if(state.travelRosterWorldVersion===VERSION){state.teams.forEach(t=>{for(const p of t.roster||[])if(!p.attributes)p.attributes=fallbackAttributes(ovr(p));meta(t);lineup(t);});return state;}
+     const oldStats=new Map();for(const t of state.teams)for(const p of t.roster||[]){const key=String(p.sourcePlayerId||p.playerId||p.id||'');if(key)oldStats.set(key,p.travelStats);}
+     const used=new Set(),prospects=rankedProspects(level),others=otherPool(level),career=normalize(WorldEngine.state?.player||{});career.isCareerPlayer=true;
+     for(const team of state.teams){meta(team);const m=CLUB_META[clubId(team)]||{},roster=[];
+@@ -164,4 +165,4 @@
+   }
+   const original=typeof WorldEngine.ensureTravelHockeyWorld==='function'?WorldEngine.ensureTravelHockeyWorld.bind(WorldEngine):null;if(original&&!WorldEngine.__travelRosterWorldWrapped){WorldEngine.__travelRosterWorldWrapped=true;WorldEngine.ensureTravelHockeyWorld=function(options={}){const out=original(options)||travel();return rebuild(out);};}
+   setTimeout(()=>{const s=travel();if(s?.teams?.length)rebuild(s);},400);WorldEngine.rebuildTravelHockeyRosters=()=>rebuild(travel());
+-})();
+\ No newline at end of file
++})();
+diff --git a/artifacts/project-ice/public/travel-hockey-tournament-engine.js b/artifacts/project-ice/public/travel-hockey-tournament-engine.js
+index 7917db2..5899fba 100644
+--- a/artifacts/project-ice/public/travel-hockey-tournament-engine.js
++++ b/artifacts/project-ice/public/travel-hockey-tournament-engine.js
+@@ -331,6 +331,174 @@
+     return {success:true,round:round.key,date,results,tournamentStatus:state.tournament.status};
+   }
+ 
++  function applyTravelBoxScoreToPlayer(player, line, goalie = false) {
++    if (!player || !line) return;
++    player.travelStats = { ...blankPlayerStats(), ...(player.travelStats || {}) };
++    const stats = player.travelStats;
++
++    if (goalie) {
++      stats.gp += Math.max(0, Number(line.gamesPlayed) || 0);
++      stats.wins += Math.max(0, Number(line.wins) || 0);
++      stats.losses += Math.max(0, Number(line.losses) || 0);
++      stats.shotsAgainst += Math.max(0, Number(line.shotsAgainst) || 0);
++      stats.saves += Math.max(0, Number(line.saves) || 0);
++      stats.goalsAgainst += Math.max(0, Number(line.goalsAgainst) || 0);
++      stats.savePercentage = stats.shotsAgainst > 0 ? stats.saves / stats.shotsAgainst : 0;
++      return;
++    }
++
++    if (line.dressed !== false) stats.gp += 1;
++    stats.g += Math.max(0, Number(line.goals) || 0);
++    stats.a += Math.max(0, Number(line.assists) || 0);
++    stats.pts = stats.g + stats.a;
++    stats.pim += Math.max(0, Number(line.penaltyMinutes) || 0);
++    stats.sog += Math.max(0, Number(line.shots) || 0);
++  }
++
++  function travelPostgameSummary(gameResult, scheduledGame) {
++    const side = result => ({
++      teamId: result?.teamId || null,
++      score: Number(result?.score) || 0,
++      shots: Number(result?.shots) || 0,
++      powerPlayGoals: Number(result?.powerPlayGoals) || 0,
++      powerPlayOpportunities: Number(result?.powerPlayOpportunities) || 0,
++      skaters: Array.isArray(result?.skaters) ? structuredClone(result.skaters) : [],
++      goalies: Array.isArray(result?.goalies) ? structuredClone(result.goalies) : [],
++    });
++
++    return {
++      gameId: scheduledGame.gameId || scheduledGame.id || scheduledGame.eventId,
++      date: scheduledGame.date || gameResult.date || null,
++      resultType: gameResult.resultType || (gameResult.wentToOvertime ? 'overtime' : 'regulation'),
++      wentToOvertime: Boolean(gameResult.wentToOvertime),
++      wentToShootout: Boolean(gameResult.wentToShootout),
++      winnerTeamId: gameResult.winnerTeamId || null,
++      loserTeamId: gameResult.loserTeamId || null,
++      finalScore: {
++        home: Number(gameResult.home?.score) || 0,
++        away: Number(gameResult.away?.score) || 0,
++      },
++      home: side(gameResult.home),
++      away: side(gameResult.away),
++      timeline: Array.isArray(gameResult.scoringPlays) ? structuredClone(gameResult.scoringPlays) : [],
++      development: null,
++      travelTournament: true,
++      travelRound: scheduledGame.travelRound || null,
++      travelSeriesId: scheduledGame.travelSeriesId || null,
++      travelGameNumber: Number(scheduledGame.travelGameNumber || 1),
++      savedAt: new Date().toISOString(),
++    };
++  }
++
++  function applyTravelTournamentGameResult(gameResult) {
++    const state = ensureTournamentProgression();
++    const gameId = String(gameResult?.gameId || gameResult?.eventId || '');
++    if (!state || !gameId) return { success:false, applied:false, reason:'invalid-travel-game-result' };
++
++    const scheduledGame = (WorldEngine.state?.schedule || []).find(event =>
++      [event?.id,event?.eventId,event?.gameId].some(alias => String(alias || '') === gameId)
++    ) || null;
++
++    if (!scheduledGame || scheduledGame.travelTournament !== true) {
++      return { success:false, applied:false, reason:'travel-scheduled-game-not-found' };
++    }
++
++    if (scheduledGame.played === true || scheduledGame.completed === true) {
++      return { success:true, applied:false, reason:'travel-game-already-applied', scheduledGame };
++    }
++
++    const roundKey = scheduledGame.travelRound || state.tournament.activeRound;
++    const roundSeries = state.tournament?.rounds?.[roundKey] || [];
++    const series = roundSeries.find(item => String(item?.seriesId || '') === String(scheduledGame.travelSeriesId || '')) || null;
++    const home = teamById(state, gameResult.home?.teamId || scheduledGame.homeTeamId);
++    const away = teamById(state, gameResult.away?.teamId || scheduledGame.awayTeamId);
++    if (!series || !home || !away) return { success:false, applied:false, reason:'travel-result-context-missing' };
++
++    ensureStats(home); ensureStats(away);
++    const homeScore = Number(gameResult.home?.score);
++    const awayScore = Number(gameResult.away?.score);
++    const winnerTeamId = String(gameResult.winnerTeamId || '');
++    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore || !winnerTeamId) {
++      return { success:false, applied:false, reason:'invalid-travel-final-score' };
++    }
++
++    for (const [team, result] of [[home,gameResult.home],[away,gameResult.away]]) {
++      team.travelStats.gp += 1;
++      team.travelStats.gf += Number(result?.score) || 0;
++      team.travelStats.ga += team === home ? awayScore : homeScore;
++      if (String(team.teamId) === winnerTeamId) team.travelStats.w += 1;
++      else team.travelStats.l += 1;
++
++      for (const line of result?.skaters || []) {
++        const player = (team.roster || []).find(item => String(item?.playerId || item?.id || '') === String(line?.playerId || ''));
++        applyTravelBoxScoreToPlayer(player,line,false);
++      }
++      for (const line of result?.goalies || []) {
++        const player = (team.roster || []).find(item => String(item?.playerId || item?.id || '') === String(line?.playerId || ''));
++        applyTravelBoxScoreToPlayer(player,line,true);
++      }
++    }
++
++    const gameNumber = Number(scheduledGame.travelGameNumber || series.gamesPlayed + 1);
++    const teamAIsHome = String(series.teamAId) === String(home.teamId);
++    series.games = Array.isArray(series.games) ? series.games : [];
++    series.games.push({
++      gameId: scheduledGame.gameId || scheduledGame.id,
++      round: roundKey,
++      gameNumber,
++      date: scheduledGame.date,
++      teamAId: series.teamAId,
++      teamBId: series.teamBId,
++      teamAScore: teamAIsHome ? homeScore : awayScore,
++      teamBScore: teamAIsHome ? awayScore : homeScore,
++      winnerTeamId,
++      completed: true,
++      universalLiveGame: true,
++    });
++    series.gamesPlayed = Math.max(Number(series.gamesPlayed || 0),gameNumber);
++    if (winnerTeamId === String(series.teamAId)) series.teamAWins = Number(series.teamAWins || 0) + 1;
++    else series.teamBWins = Number(series.teamBWins || 0) + 1;
++    if (Number(series.teamAWins || 0) >= 2 || Number(series.teamBWins || 0) >= 2) {
++      series.status = 'complete';
++      series.winnerTeamId = Number(series.teamAWins || 0) > Number(series.teamBWins || 0) ? series.teamAId : series.teamBId;
++    } else series.status = 'active';
++
++    // Resolve the rest of this tournament date so every bracket series stays in sync.
++    for (const otherSeries of roundSeries) {
++      if (otherSeries === series || otherSeries.status === 'complete') continue;
++      while (Number(otherSeries.gamesPlayed || 0) < gameNumber && otherSeries.status !== 'complete') {
++        simulateGame(state,otherSeries,roundKey);
++      }
++    }
++
++    scheduledGame.played = true;
++    scheduledGame.completed = true;
++    scheduledGame.isCompleted = true;
++    scheduledGame.status = 'final';
++    scheduledGame.homeScore = homeScore;
++    scheduledGame.awayScore = awayScore;
++    scheduledGame.winnerTeamId = winnerTeamId;
++    scheduledGame.loserTeamId = winnerTeamId === String(home.teamId) ? away.teamId : home.teamId;
++    scheduledGame.resultType = gameResult.resultType || (gameResult.wentToOvertime ? 'overtime' : 'regulation');
++    scheduledGame.wentToOvertime = Boolean(gameResult.wentToOvertime);
++    scheduledGame.wentToShootout = Boolean(gameResult.wentToShootout);
++    scheduledGame.completedAt = scheduledGame.date;
++    scheduledGame.gameResult = { ...structuredClone(gameResult), completed:true, status:'completed', travelTournament:true };
++    scheduledGame.postgameSummary = travelPostgameSummary(gameResult,scheduledGame);
++
++    const finished = roundSeries.length > 0 && roundSeries.every(item => item.status === 'complete');
++    if (finished) buildNextRound(state,roundKey);
++    if (state.tournament.status !== 'complete') state.tournament.currentGameDate = addDays(scheduledGame.date,2);
++    if (!WorldEngine.state.season || typeof WorldEngine.state.season !== 'object') WorldEngine.state.season = {};
++    WorldEngine.state.season.currentDate = scheduledGame.date;
++    if (!WorldEngine.state.player || typeof WorldEngine.state.player !== 'object') WorldEngine.state.player = {};
++    WorldEngine.state.player.currentDate = scheduledGame.date;
++    WorldEngine.state.currentDate = scheduledGame.date;
++    syncCareerTravelSchedule(state);
++
++    return { success:true, applied:true, reason:'travel-game-result-applied', scheduledGame, series, roundKey };
++  }
++
+   function renderControl(state = travel()) {
+     if (!state?.tournament || state.completed === true) {
+       const champ = state?.tournament?.championTeamId ? teamById(state,state.tournament.championTeamId) : null;
+@@ -345,6 +513,7 @@
+   WorldEngine.ensureTravelTournamentProgression = ensureTournamentProgression;
+   WorldEngine.syncCareerTravelSchedule = syncCareerTravelSchedule;
+   WorldEngine.simulateNextTravelTournamentDay = simulateNextTournamentDay;
++  WorldEngine.applyTravelTournamentGameResult = applyTravelTournamentGameResult;
+   WorldEngine.renderTravelTournamentProgressionControl = renderControl;
+ 
+   document.addEventListener('click', event => {
+diff --git a/artifacts/project-ice/public/world.js b/artifacts/project-ice/public/world.js
+index de657ae..328a6bb 100644
+--- a/artifacts/project-ice/public/world.js
++++ b/artifacts/project-ice/public/world.js
+@@ -17198,6 +17198,66 @@ const WorldEngine = (() => {
+             ? team.roster
+             : [];
+ 
++        const getLiveLineupAssignment =
++          player => {
++            if (player?.lineupAssignment) {
++              return structuredClone(
++                player.lineupAssignment
++              );
++            }
++
++            const rosterSlot =
++              String(
++                player?.rosterSlot ||
++                player?.slot ||
++                ''
++              );
++
++            const forwardMatch =
++              rosterSlot.match(
++                /^fwd-(\d+)-(lw|c|rw)$/i
++              );
++
++            if (forwardMatch) {
++              return {
++                unit: 'forward',
++                line:
++                  Number(
++                    forwardMatch[1]
++                  ),
++                position:
++                  forwardMatch[2]
++                    .toUpperCase(),
++                rosterSlot,
++                label:
++                  `Line ${forwardMatch[1]}`,
++              };
++            }
++
++            const defenseMatch =
++              rosterSlot.match(
++                /^def-(\d+)-(ld|rd)$/i
++              );
++
++            if (defenseMatch) {
++              return {
++                unit: 'defense',
++                pair:
++                  Number(
++                    defenseMatch[1]
++                  ),
++                position:
++                  defenseMatch[2]
++                    .toUpperCase(),
++                rosterSlot,
++                label:
++                  `Pair ${defenseMatch[1]}`,
++              };
++            }
++
++            return null;
++          };
++
+         const activeSkaters =
+           roster
+             .filter(player => {
+@@ -17215,6 +17275,10 @@ const WorldEngine = (() => {
+                   'active' ||
+                 Boolean(
+                   player.lineupAssignment
++                ) ||
++                Boolean(
++                  player.rosterSlot ||
++                  player.slot
+                 )
+               );
+             })
+@@ -17246,11 +17310,9 @@ const WorldEngine = (() => {
+                 null,
+ 
+               lineupAssignment:
+-                player.lineupAssignment
+-                  ? structuredClone(
+-                      player.lineupAssignment
+-                    )
+-                  : null,
++                getLiveLineupAssignment(
++                  player
++                ),
+ 
+               overall:
+                 Number(
+@@ -30513,6 +30575,10 @@ case 'career-defense':
+               'active' ||
+             Boolean(
+               player.lineupAssignment
++            ) ||
++            Boolean(
++              player.rosterSlot ||
++              player.slot
+             )
+           )
+       );
+@@ -43746,11 +43812,31 @@ case 'career-defense':
+         ? _state.teams
+         : [];
+ 
+-    return (
++    const canonicalTeam =
+       teams.find(
+         team =>
+           String(team.teamId) ===
+           String(teamId)
++      ) || null;
++
++    if (canonicalTeam) {
++      return canonicalTeam;
++    }
++
++    const travelTeams =
++      Array.isArray(
++        _state.travelHockey
++          ?.teams
++      )
++        ? _state.travelHockey
++            .teams
++        : [];
++
++    return (
++      travelTeams.find(
++        team =>
++          String(team.teamId) ===
++          String(teamId)
+       ) || null
+     );
+   }
+@@ -44163,6 +44249,34 @@ case 'career-defense':
+       }
+     }
+ 
++    const travelTeams =
++      Array.isArray(
++        _state.travelHockey
++          ?.teams
++      )
++        ? _state.travelHockey
++            .teams
++        : [];
++
++    for (const team of travelTeams) {
++      const roster =
++        Array.isArray(team?.roster)
++          ? team.roster
++          : [];
++
++      const player = roster.find(
++        rosterPlayer =>
++          String(
++            rosterPlayer.playerId ||
++            rosterPlayer.id
++          ) === String(playerId)
++      );
++
++      if (player) {
++        return player;
++      }
++    }
++
+     const externalPlayer = ensureExternalProspectWorld().find(
+       prospect => String(prospect.playerId || prospect.id) === String(playerId)
+     );
