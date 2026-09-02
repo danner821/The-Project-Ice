@@ -19183,7 +19183,7 @@ function getLivePresentationPlayer(
     return null;
   }
 
-  const teams =
+  const highSchoolTeams =
     Array.isArray(
       WorldEngine.state
         ?.teams
@@ -19191,6 +19191,27 @@ function getLivePresentationPlayer(
       ? WorldEngine.state
           .teams
       : [];
+
+  const travelTeamsSource =
+    WorldEngine
+      .getTravelHockeyState?.()
+      ?.teams ||
+    WorldEngine.state
+      ?.travelHockey
+      ?.teams ||
+    [];
+
+  const travelTeams =
+    Array.isArray(
+      travelTeamsSource
+    )
+      ? travelTeamsSource
+      : [];
+
+  const teams = [
+    ...highSchoolTeams,
+    ...travelTeams,
+  ];
 
   for (const team of teams) {
     const roster =
