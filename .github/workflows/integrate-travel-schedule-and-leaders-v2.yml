@@ -1,0 +1,50 @@
+name: Integrate Travel Schedule And Leaders V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/integrate_travel_schedule_and_leaders_v2.py'
+      - '.github/workflows/integrate-travel-schedule-and-leaders-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply hardened integration
+        run: python .github/scripts/integrate_travel_schedule_and_leaders_v2.py
+      - name: Syntax checks
+        run: |
+          node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          node --check artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          node --check artifacts/project-ice/public/game.js
+      - name: Contract checks
+        run: |
+          grep -q "leaderColumn(state, 'Points', 'pts')" artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          grep -q "leaderColumn(state, 'Goals', 'g')" artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          grep -q "leaderColumn(state, 'Assists', 'a')" artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          grep -q "leaderColumn(state, 'Save %', 'savePercentage'" artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          grep -q "syncCareerTravelSchedule" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "type:'travel-game'" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "type === 'travel-game'" artifacts/project-ice/public/game.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime changes
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/travel-hockey-canonical-ui.js artifacts/project-ice/public/travel-hockey-tournament-engine.js artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Integrate Travel games with schedule and stat leaders'
+            git pull --rebase origin main
+            git push origin main
+          fi
