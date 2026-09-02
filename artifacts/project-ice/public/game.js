@@ -2662,6 +2662,12 @@ function syncCareerPlayerWithWorld() {
     'career-player';
 
   const existingPlayer =
+    (
+      typeof WorldEngine
+        .getCareerPlayer === 'function'
+        ? WorldEngine.getCareerPlayer()
+        : null
+    ) ||
     WorldEngine.getPlayerById(
       careerPlayerId
     );
@@ -2672,6 +2678,26 @@ function syncCareerPlayerWithWorld() {
    * regenerating attributes or changing lineup placement.
    */
   if (existingPlayer) {
+    /*
+     * Keep the lightweight root snapshot on the same permanent identity.
+     * Dev checkpoints and migrated saves may have omitted these fields;
+     * leaving them blank caused the next UI sync to invent a second
+     * `career-player` record and render its empty XP balance.
+     */
+    if (
+      WorldEngine.state?.player &&
+      typeof WorldEngine.state.player ===
+        'object'
+    ) {
+      WorldEngine.state.player.playerId =
+        existingPlayer.playerId ||
+        existingPlayer.id;
+
+      WorldEngine.state.player.id =
+        existingPlayer.id ||
+        existingPlayer.playerId;
+    }
+
     Game.player = {
       ...Game.player,
       ...existingPlayer,

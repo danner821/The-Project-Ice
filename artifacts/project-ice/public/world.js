@@ -36573,15 +36573,40 @@ case 'career-defense':
     return start ? `week:${start}` : null;
   }
 
-  function getCareerPlayerFromWorldState(state = _state) {
+  function getCareerRosterPlayerFromWorldState(state = _state) {
     const playerId = state?.player?.playerId || state?.player?.id || 'career-player';
+
+    /*
+     * The permanent high-school roster is the canonical career-player store.
+     * Prefer the explicit ownership marker before consulting any snapshot ID:
+     * older worlds can have a stale/missing root player ID, while temporary
+     * Travel copies can legitimately use a different tournament ID.
+     */
     for (const team of state?.teams || []) {
       const found = (team?.roster || []).find(player =>
-        player?.isCareerPlayer === true ||
+        player?.isCareerPlayer === true
+      );
+      if (found) return found;
+    }
+
+    for (const team of state?.teams || []) {
+      const found = (team?.roster || []).find(player =>
         String(player?.id || player?.playerId || '') === String(playerId)
       );
       if (found) return found;
     }
+
+    return null;
+  }
+
+  function getCareerPlayerFromWorldState(state = _state) {
+    const rosterPlayer =
+      getCareerRosterPlayerFromWorldState(state);
+
+    if (rosterPlayer) {
+      return rosterPlayer;
+    }
+
     return state?.player || null;
   }
 
@@ -44713,6 +44738,7 @@ case 'career-defense':
           '';
 
         return (
+          player.isCareerPlayer !== true &&
           String(playerId) !==
           String(careerPlayerId)
         );
@@ -44986,6 +45012,8 @@ case 'career-defense':
     getTeamById,
     getTeamRoster,
     getPlayerById,
+    getCareerPlayer: () =>
+      getCareerRosterPlayerFromWorldState(),
     getAllWorldPlayers,
     getScoutingProspectUniverse,
     getProspectRankings,

@@ -161,6 +161,32 @@
     };
 
     if (!world.player || typeof world.player !== 'object') world.player = {};
+
+    const canonicalCareerPlayer =
+      (world.teams || [])
+        .flatMap(team =>
+          Array.isArray(team?.roster)
+            ? team.roster
+            : []
+        )
+        .find(player =>
+          player?.isCareerPlayer === true
+        ) ||
+      null;
+
+    if (canonicalCareerPlayer) {
+      const canonicalCareerPlayerId =
+        canonicalCareerPlayer.playerId ||
+        canonicalCareerPlayer.id ||
+        'career-player';
+
+      world.player.playerId =
+        canonicalCareerPlayerId;
+
+      world.player.id =
+        canonicalCareerPlayerId;
+    }
+
     const overall = Math.max(40, Math.min(99, Math.round(Number(world.player.overall ?? world.player.ovr ?? 60))));
     const neutralForm = Math.max(50, Math.min(85, Math.round(Number(world.player.currentForm ?? world.player.form ?? 65))));
     const drillAverage = Math.max(68, Math.min(82, Math.round(overall + 7)));

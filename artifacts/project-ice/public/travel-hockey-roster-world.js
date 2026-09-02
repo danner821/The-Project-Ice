@@ -76,7 +76,7 @@
     try{if(typeof REAL_PROSPECTS!=='undefined'&&Array.isArray(REAL_PROSPECTS))REAL_PROSPECTS.forEach(p=>{const n=normalize(p,{isRealProspect:true});const key=n.sourcePlayerId||pid(n)||pname(n).toLowerCase();if(!seen.has(key)&&Math.abs(ovr(n)-target)<=10){seen.add(key);out.push(n);}});}catch(_){}
     return out;
   }
-  function otherPool(level){const target=baseFor(level),career=pid(WorldEngine.state?.player||{});return worldPool().filter(p=>p&&pid(p)&&pid(p)!==career&&!p.isCareerPlayer&&Math.abs(ovr(p)-target)<=8).map(p=>normalize(p));}
+  function otherPool(level){const target=baseFor(level),career=pid(WorldEngine.getCareerPlayer?.()||WorldEngine.state?.player||{});return worldPool().filter(p=>p&&pid(p)&&pid(p)!==career&&!p.isCareerPlayer&&Math.abs(ovr(p)-target)<=8).map(p=>normalize(p));}
   const clubId=t=>t.clubId||t.organizationId||String(t.teamId||'').replace(/^travel-/,'').replace(/-(b|a|aa|aaa)$/i,'');
   function meta(team){const m=CLUB_META[clubId(team)]||{};Object.assign(team,{coachName:m.coachName||'Travel Hockey Staff',coachStyle:m.coachStyle||'Balanced development',coach:{name:m.coachName||'Travel Hockey Staff',style:m.coachStyle||'Balanced development'},arenaName:m.arenaName||`${team.city||'Regional'} Ice Center`,arenaCapacity:m.arenaCapacity||800,arena:{name:m.arenaName||`${team.city||'Regional'} Ice Center`,capacity:m.arenaCapacity||800},prestige:m.prestige||3,identity:m.identity||'Competitive summer travel hockey',primaryColor:m.primaryColor||'#2f6fd6',secondaryColor:m.secondaryColor||'#8fc1ff',teamStrengthDelta:m.strength||0,captainId:null,alternateCaptainIds:[],captains:[],leadership:{}});return team;}
   function take(pool,want){let i=pool.findIndex(p=>pos(p)===want);if(i<0)i=0;return i>=0?pool.splice(i,1)[0]:null;}
@@ -143,7 +143,7 @@
   function rebuild(state){
     if(!state?.teams?.length)return state;const level=state.placementLevel||'A';if(state.travelRosterWorldVersion===VERSION){state.teams.forEach(t=>{for(const p of t.roster||[])if(!p.attributes)p.attributes=fallbackAttributes(ovr(p));meta(t);lineup(t);});return state;}
     const oldStats=new Map();for(const t of state.teams)for(const p of t.roster||[]){const key=String(p.sourcePlayerId||p.playerId||p.id||'');if(key)oldStats.set(key,p.travelStats);}
-    const used=new Set(),prospects=rankedProspects(level),others=otherPool(level),career=normalize(WorldEngine.state?.player||{});career.isCareerPlayer=true;
+    const used=new Set(),prospects=rankedProspects(level),others=otherPool(level),career=normalize(WorldEngine.getCareerPlayer?.()||WorldEngine.state?.player||{});career.isCareerPlayer=true;
     for(const team of state.teams){meta(team);const m=CLUB_META[clubId(team)]||{},roster=[];
       const counts=()=>({
         LW:roster.filter(p=>naturalPos(p)==='LW').length,
