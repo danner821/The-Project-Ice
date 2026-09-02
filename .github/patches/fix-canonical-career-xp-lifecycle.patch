@@ -1,0 +1,412 @@
+diff --git a/.github/scripts/diagnose_travel_xp_identity.js b/.github/scripts/diagnose_travel_xp_identity.js
+new file mode 100644
+index 0000000..9134725
+--- /dev/null
++++ b/.github/scripts/diagnose_travel_xp_identity.js
+@@ -0,0 +1,239 @@
++const fs = require('fs');
++const vm = require('vm');
++
++const storage = new Map();
++const context = {
++  console: {
++    log: (...args) => console.log(...args),
++    info: (...args) => console.info(...args),
++    warn: (...args) => console.warn(...args),
++    error: (...args) => {
++      if (String(args[0] || '').includes('[WorldEngine] IndexedDB save failed')) {
++        return;
++      }
++      console.error(...args);
++    },
++  },
++  structuredClone: global.structuredClone,
++  setTimeout: () => 0,
++  clearTimeout: () => {},
++  localStorage: {
++    getItem: key => storage.has(key) ? storage.get(key) : null,
++    setItem: (key, value) => storage.set(key, String(value)),
++    removeItem: key => storage.delete(key),
++  },
++  indexedDB: {
++    open() {
++      throw new Error('IndexedDB is not used by this diagnostic.');
++    },
++  },
++};
++
++vm.createContext(context);
++vm.runInContext(
++  `${fs.readFileSync('artifacts/project-ice/public/world.js', 'utf8')}\nthis.__WorldEngine = WorldEngine;`,
++  context,
++  { filename: 'world.js' }
++);
++
++const engine = context.__WorldEngine;
++const state = engine.state;
++const attributes = {
++  speed: 70,
++  acceleration: 70,
++  agility: 70,
++  balance: 70,
++  endurance: 70,
++  wristShotPower: 70,
++  wristShotAccuracy: 70,
++  slapShotPower: 70,
++  slapShotAccuracy: 70,
++  passing: 70,
++  puckControl: 70,
++  deking: 70,
++  handEye: 70,
++  offensiveAwareness: 70,
++  defensiveAwareness: 70,
++  stickChecking: 70,
++  shotBlocking: 70,
++  discipline: 70,
++  bodyChecking: 70,
++  strength: 70,
++  durability: 70,
++  vision: 70,
++  leadership: 70,
++  poise: 70,
++};
++
++const canonical = {
++  id: 'real-danner-id',
++  playerId: 'real-danner-id',
++  firstName: 'Danner',
++  lastName: 'Stephenson',
++  position: 'LW',
++  teamId: 'hs-team',
++  attributes: { ...attributes },
++  isCareerPlayer: true,
++  development: { attributeXP: {} },
++  gameLog: [],
++};
++
++const travelCopy = {
++  ...structuredClone(canonical),
++  id: undefined,
++  playerId: 'prospect:temporary-danner',
++  sourcePlayerId: null,
++  teamId: 'travel-team',
++  development: { attributeXP: {} },
++  gameLog: [],
++};
++
++state.player = {
++  firstName: 'Danner',
++  lastName: 'Stephenson',
++  position: 'LW',
++  teamId: 'hs-team',
++  highSchoolTeamId: 'hs-team',
++  attributes: { ...attributes },
++  stage: 'hub',
++  tryoutsComplete: true,
++};
++state.teams = [{
++  teamId: 'hs-team',
++  schoolName: 'Colorado',
++  teamName: 'Thunderbirds',
++  roster: [canonical],
++}];
++state.travelHockey = {
++  teams: [{ teamId: 'travel-team', roster: [travelCopy] }],
++};
++state.schedule = [{
++  id: 'travel-game-1',
++  gameId: 'travel-game-1',
++  date: '2027-06-07',
++  completed: true,
++  played: true,
++  travelTournament: true,
++  gameResult: {
++    gameId: 'travel-game-1',
++    date: '2027-06-07',
++    winnerTeamId: 'travel-opponent',
++    loserTeamId: 'travel-team',
++    home: {
++      teamId: 'travel-team',
++      score: 2,
++      skaters: [{
++        playerId: 'prospect:temporary-danner',
++        gamesPlayed: 1,
++        dressed: true,
++        goals: 0,
++        assists: 0,
++        shots: 3,
++        plusMinus: -2,
++        penaltyMinutes: 2,
++        hits: 1,
++        blockedShots: 0,
++        takeaways: 0,
++        giveaways: 0,
++      }],
++      goalies: [],
++    },
++    away: {
++      teamId: 'travel-opponent',
++      score: 4,
++      skaters: [],
++      goalies: [],
++    },
++  },
++}];
++
++const repaired = engine.repairCompletedGameDevelopment(
++  'travel-game-1',
++  { save: false }
++);
++
++const awarded = Object.values(canonical.development.attributeXP || {})
++  .reduce((sum, value) => sum + Number(value || 0), 0);
++
++// Execute the real game.js synchronization function used before rendering.
++engine.save = () => true;
++context.Game = { player: { ...state.player } };
++const gameSource = fs.readFileSync(
++  'artifacts/project-ice/public/game.js',
++  'utf8'
++);
++const syncStart = gameSource.indexOf(
++  'function syncCareerPlayerWithWorld()'
++);
++const syncEnd = gameSource.indexOf(
++  '/*\n * ============================================================\n * CAREER LOAD — SCHEDULE MIGRATION',
++  syncStart
++);
++
++if (syncStart < 0 || syncEnd < 0) {
++  throw new Error('Could not extract syncCareerPlayerWithWorld from game.js.');
++}
++
++vm.runInContext(
++  `${gameSource.slice(syncStart, syncEnd)}\nthis.__syncCareerPlayerWithWorld = syncCareerPlayerWithWorld;`,
++  context,
++  { filename: 'game-sync.js' }
++);
++
++const uiPlayer = context.__syncCareerPlayerWithWorld();
++const displayed = Object.values(uiPlayer?.development?.attributeXP || {})
++  .reduce((sum, value) => sum + Number(value || 0), 0);
++
++const careerPlayers = state.teams
++  .flatMap(team => team.roster || [])
++  .filter(player => player?.isCareerPlayer === true);
++
++state.travelHockey = {
++  placementLevel: 'A',
++  playerTeamId: 'travel-team',
++  teams: [{
++    teamId: 'travel-team',
++    clubId: 'colorado-thunderbirds',
++    roster: [],
++  }],
++};
++
++vm.runInContext(
++  fs.readFileSync(
++    'artifacts/project-ice/public/travel-hockey-roster-world.js',
++    'utf8'
++  ),
++  context,
++  { filename: 'travel-hockey-roster-world.js' }
++);
++
++engine.rebuildTravelHockeyRosters();
++
++const rebuiltTravelCareer = state.travelHockey.teams
++  .flatMap(team => team.roster || [])
++  .find(player => player?.isCareerPlayer === true);
++
++console.log(JSON.stringify({
++  repairSuccess: repaired?.success === true,
++  awardedToCanonical: awarded,
++  displayedByPlayerTabSource: displayed,
++  canonicalPlayerId: canonical.playerId,
++  playerTabPlayerId: uiPlayer?.playerId || uiPlayer?.id || null,
++  careerPlayerCount: careerPlayers.length,
++  rebuiltTravelPlayerId:
++    rebuiltTravelCareer?.playerId ||
++    rebuiltTravelCareer?.id ||
++    null,
++}, null, 2));
++
++if (!(
++  repaired?.success === true &&
++  awarded > 0 &&
++  displayed === awarded &&
++  uiPlayer === canonical &&
++  state.player.playerId === canonical.playerId &&
++  careerPlayers.length === 1 &&
++  rebuiltTravelCareer?.playerId === canonical.playerId
++)) {
++  process.exitCode = 1;
++}
+diff --git a/artifacts/project-ice/public/dev-postseason-shortcut.js b/artifacts/project-ice/public/dev-postseason-shortcut.js
+index 6da4a6f..caab727 100644
+--- a/artifacts/project-ice/public/dev-postseason-shortcut.js
++++ b/artifacts/project-ice/public/dev-postseason-shortcut.js
+@@ -161,6 +161,32 @@
+     };
+ 
+     if (!world.player || typeof world.player !== 'object') world.player = {};
++
++    const canonicalCareerPlayer =
++      (world.teams || [])
++        .flatMap(team =>
++          Array.isArray(team?.roster)
++            ? team.roster
++            : []
++        )
++        .find(player =>
++          player?.isCareerPlayer === true
++        ) ||
++      null;
++
++    if (canonicalCareerPlayer) {
++      const canonicalCareerPlayerId =
++        canonicalCareerPlayer.playerId ||
++        canonicalCareerPlayer.id ||
++        'career-player';
++
++      world.player.playerId =
++        canonicalCareerPlayerId;
++
++      world.player.id =
++        canonicalCareerPlayerId;
++    }
++
+     const overall = Math.max(40, Math.min(99, Math.round(Number(world.player.overall ?? world.player.ovr ?? 60))));
+     const neutralForm = Math.max(50, Math.min(85, Math.round(Number(world.player.currentForm ?? world.player.form ?? 65))));
+     const drillAverage = Math.max(68, Math.min(82, Math.round(overall + 7)));
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index fb40b33..4f07aa4 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -2662,6 +2662,12 @@ function syncCareerPlayerWithWorld() {
+     'career-player';
+ 
+   const existingPlayer =
++    (
++      typeof WorldEngine
++        .getCareerPlayer === 'function'
++        ? WorldEngine.getCareerPlayer()
++        : null
++    ) ||
+     WorldEngine.getPlayerById(
+       careerPlayerId
+     );
+@@ -2672,6 +2678,26 @@ function syncCareerPlayerWithWorld() {
+    * regenerating attributes or changing lineup placement.
+    */
+   if (existingPlayer) {
++    /*
++     * Keep the lightweight root snapshot on the same permanent identity.
++     * Dev checkpoints and migrated saves may have omitted these fields;
++     * leaving them blank caused the next UI sync to invent a second
++     * `career-player` record and render its empty XP balance.
++     */
++    if (
++      WorldEngine.state?.player &&
++      typeof WorldEngine.state.player ===
++        'object'
++    ) {
++      WorldEngine.state.player.playerId =
++        existingPlayer.playerId ||
++        existingPlayer.id;
++
++      WorldEngine.state.player.id =
++        existingPlayer.id ||
++        existingPlayer.playerId;
++    }
++
+     Game.player = {
+       ...Game.player,
+       ...existingPlayer,
+diff --git a/artifacts/project-ice/public/travel-hockey-roster-world.js b/artifacts/project-ice/public/travel-hockey-roster-world.js
+index 1d9b404..5984c8d 100644
+--- a/artifacts/project-ice/public/travel-hockey-roster-world.js
++++ b/artifacts/project-ice/public/travel-hockey-roster-world.js
+@@ -76,7 +76,7 @@
+     try{if(typeof REAL_PROSPECTS!=='undefined'&&Array.isArray(REAL_PROSPECTS))REAL_PROSPECTS.forEach(p=>{const n=normalize(p,{isRealProspect:true});const key=n.sourcePlayerId||pid(n)||pname(n).toLowerCase();if(!seen.has(key)&&Math.abs(ovr(n)-target)<=10){seen.add(key);out.push(n);}});}catch(_){}
+     return out;
+   }
+-  function otherPool(level){const target=baseFor(level),career=pid(WorldEngine.state?.player||{});return worldPool().filter(p=>p&&pid(p)&&pid(p)!==career&&!p.isCareerPlayer&&Math.abs(ovr(p)-target)<=8).map(p=>normalize(p));}
++  function otherPool(level){const target=baseFor(level),career=pid(WorldEngine.getCareerPlayer?.()||WorldEngine.state?.player||{});return worldPool().filter(p=>p&&pid(p)&&pid(p)!==career&&!p.isCareerPlayer&&Math.abs(ovr(p)-target)<=8).map(p=>normalize(p));}
+   const clubId=t=>t.clubId||t.organizationId||String(t.teamId||'').replace(/^travel-/,'').replace(/-(b|a|aa|aaa)$/i,'');
+   function meta(team){const m=CLUB_META[clubId(team)]||{};Object.assign(team,{coachName:m.coachName||'Travel Hockey Staff',coachStyle:m.coachStyle||'Balanced development',coach:{name:m.coachName||'Travel Hockey Staff',style:m.coachStyle||'Balanced development'},arenaName:m.arenaName||`${team.city||'Regional'} Ice Center`,arenaCapacity:m.arenaCapacity||800,arena:{name:m.arenaName||`${team.city||'Regional'} Ice Center`,capacity:m.arenaCapacity||800},prestige:m.prestige||3,identity:m.identity||'Competitive summer travel hockey',primaryColor:m.primaryColor||'#2f6fd6',secondaryColor:m.secondaryColor||'#8fc1ff',teamStrengthDelta:m.strength||0,captainId:null,alternateCaptainIds:[],captains:[],leadership:{}});return team;}
+   function take(pool,want){let i=pool.findIndex(p=>pos(p)===want);if(i<0)i=0;return i>=0?pool.splice(i,1)[0]:null;}
+@@ -143,7 +143,7 @@
+   function rebuild(state){
+     if(!state?.teams?.length)return state;const level=state.placementLevel||'A';if(state.travelRosterWorldVersion===VERSION){state.teams.forEach(t=>{for(const p of t.roster||[])if(!p.attributes)p.attributes=fallbackAttributes(ovr(p));meta(t);lineup(t);});return state;}
+     const oldStats=new Map();for(const t of state.teams)for(const p of t.roster||[]){const key=String(p.sourcePlayerId||p.playerId||p.id||'');if(key)oldStats.set(key,p.travelStats);}
+-    const used=new Set(),prospects=rankedProspects(level),others=otherPool(level),career=normalize(WorldEngine.state?.player||{});career.isCareerPlayer=true;
++    const used=new Set(),prospects=rankedProspects(level),others=otherPool(level),career=normalize(WorldEngine.getCareerPlayer?.()||WorldEngine.state?.player||{});career.isCareerPlayer=true;
+     for(const team of state.teams){meta(team);const m=CLUB_META[clubId(team)]||{},roster=[];
+       const counts=()=>({
+         LW:roster.filter(p=>naturalPos(p)==='LW').length,
+diff --git a/artifacts/project-ice/public/world.js b/artifacts/project-ice/public/world.js
+index 65e7255..876a039 100644
+--- a/artifacts/project-ice/public/world.js
++++ b/artifacts/project-ice/public/world.js
+@@ -36573,15 +36573,40 @@ case 'career-defense':
+     return start ? `week:${start}` : null;
+   }
+ 
+-  function getCareerPlayerFromWorldState(state = _state) {
++  function getCareerRosterPlayerFromWorldState(state = _state) {
+     const playerId = state?.player?.playerId || state?.player?.id || 'career-player';
++
++    /*
++     * The permanent high-school roster is the canonical career-player store.
++     * Prefer the explicit ownership marker before consulting any snapshot ID:
++     * older worlds can have a stale/missing root player ID, while temporary
++     * Travel copies can legitimately use a different tournament ID.
++     */
++    for (const team of state?.teams || []) {
++      const found = (team?.roster || []).find(player =>
++        player?.isCareerPlayer === true
++      );
++      if (found) return found;
++    }
++
+     for (const team of state?.teams || []) {
+       const found = (team?.roster || []).find(player =>
+-        player?.isCareerPlayer === true ||
+         String(player?.id || player?.playerId || '') === String(playerId)
+       );
+       if (found) return found;
+     }
++
++    return null;
++  }
++
++  function getCareerPlayerFromWorldState(state = _state) {
++    const rosterPlayer =
++      getCareerRosterPlayerFromWorldState(state);
++
++    if (rosterPlayer) {
++      return rosterPlayer;
++    }
++
+     return state?.player || null;
+   }
+ 
+@@ -44713,6 +44738,7 @@ case 'career-defense':
+           '';
+ 
+         return (
++          player.isCareerPlayer !== true &&
+           String(playerId) !==
+           String(careerPlayerId)
+         );
+@@ -44986,6 +45012,8 @@ case 'career-defense':
+     getTeamById,
+     getTeamRoster,
+     getPlayerById,
++    getCareerPlayer: () =>
++      getCareerRosterPlayerFromWorldState(),
+     getAllWorldPlayers,
+     getScoutingProspectUniverse,
+     getProspectRankings,
