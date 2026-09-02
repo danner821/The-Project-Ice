@@ -331,6 +331,174 @@
     return {success:true,round:round.key,date,results,tournamentStatus:state.tournament.status};
   }
 
+  function applyTravelBoxScoreToPlayer(player, line, goalie = false) {
+    if (!player || !line) return;
+    player.travelStats = { ...blankPlayerStats(), ...(player.travelStats || {}) };
+    const stats = player.travelStats;
+
+    if (goalie) {
+      stats.gp += Math.max(0, Number(line.gamesPlayed) || 0);
+      stats.wins += Math.max(0, Number(line.wins) || 0);
+      stats.losses += Math.max(0, Number(line.losses) || 0);
+      stats.shotsAgainst += Math.max(0, Number(line.shotsAgainst) || 0);
+      stats.saves += Math.max(0, Number(line.saves) || 0);
+      stats.goalsAgainst += Math.max(0, Number(line.goalsAgainst) || 0);
+      stats.savePercentage = stats.shotsAgainst > 0 ? stats.saves / stats.shotsAgainst : 0;
+      return;
+    }
+
+    if (line.dressed !== false) stats.gp += 1;
+    stats.g += Math.max(0, Number(line.goals) || 0);
+    stats.a += Math.max(0, Number(line.assists) || 0);
+    stats.pts = stats.g + stats.a;
+    stats.pim += Math.max(0, Number(line.penaltyMinutes) || 0);
+    stats.sog += Math.max(0, Number(line.shots) || 0);
+  }
+
+  function travelPostgameSummary(gameResult, scheduledGame) {
+    const side = result => ({
+      teamId: result?.teamId || null,
+      score: Number(result?.score) || 0,
+      shots: Number(result?.shots) || 0,
+      powerPlayGoals: Number(result?.powerPlayGoals) || 0,
+      powerPlayOpportunities: Number(result?.powerPlayOpportunities) || 0,
+      skaters: Array.isArray(result?.skaters) ? structuredClone(result.skaters) : [],
+      goalies: Array.isArray(result?.goalies) ? structuredClone(result.goalies) : [],
+    });
+
+    return {
+      gameId: scheduledGame.gameId || scheduledGame.id || scheduledGame.eventId,
+      date: scheduledGame.date || gameResult.date || null,
+      resultType: gameResult.resultType || (gameResult.wentToOvertime ? 'overtime' : 'regulation'),
+      wentToOvertime: Boolean(gameResult.wentToOvertime),
+      wentToShootout: Boolean(gameResult.wentToShootout),
+      winnerTeamId: gameResult.winnerTeamId || null,
+      loserTeamId: gameResult.loserTeamId || null,
+      finalScore: {
+        home: Number(gameResult.home?.score) || 0,
+        away: Number(gameResult.away?.score) || 0,
+      },
+      home: side(gameResult.home),
+      away: side(gameResult.away),
+      timeline: Array.isArray(gameResult.scoringPlays) ? structuredClone(gameResult.scoringPlays) : [],
+      development: null,
+      travelTournament: true,
+      travelRound: scheduledGame.travelRound || null,
+      travelSeriesId: scheduledGame.travelSeriesId || null,
+      travelGameNumber: Number(scheduledGame.travelGameNumber || 1),
+      savedAt: new Date().toISOString(),
+    };
+  }
+
+  function applyTravelTournamentGameResult(gameResult) {
+    const state = ensureTournamentProgression();
+    const gameId = String(gameResult?.gameId || gameResult?.eventId || '');
+    if (!state || !gameId) return { success:false, applied:false, reason:'invalid-travel-game-result' };
+
+    const scheduledGame = (WorldEngine.state?.schedule || []).find(event =>
+      [event?.id,event?.eventId,event?.gameId].some(alias => String(alias || '') === gameId)
+    ) || null;
+
+    if (!scheduledGame || scheduledGame.travelTournament !== true) {
+      return { success:false, applied:false, reason:'travel-scheduled-game-not-found' };
+    }
+
+    if (scheduledGame.played === true || scheduledGame.completed === true) {
+      return { success:true, applied:false, reason:'travel-game-already-applied', scheduledGame };
+    }
+
+    const roundKey = scheduledGame.travelRound || state.tournament.activeRound;
+    const roundSeries = state.tournament?.rounds?.[roundKey] || [];
+    const series = roundSeries.find(item => String(item?.seriesId || '') === String(scheduledGame.travelSeriesId || '')) || null;
+    const home = teamById(state, gameResult.home?.teamId || scheduledGame.homeTeamId);
+    const away = teamById(state, gameResult.away?.teamId || scheduledGame.awayTeamId);
+    if (!series || !home || !away) return { success:false, applied:false, reason:'travel-result-context-missing' };
+
+    ensureStats(home); ensureStats(away);
+    const homeScore = Number(gameResult.home?.score);
+    const awayScore = Number(gameResult.away?.score);
+    const winnerTeamId = String(gameResult.winnerTeamId || '');
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore === awayScore || !winnerTeamId) {
+      return { success:false, applied:false, reason:'invalid-travel-final-score' };
+    }
+
+    for (const [team, result] of [[home,gameResult.home],[away,gameResult.away]]) {
+      team.travelStats.gp += 1;
+      team.travelStats.gf += Number(result?.score) || 0;
+      team.travelStats.ga += team === home ? awayScore : homeScore;
+      if (String(team.teamId) === winnerTeamId) team.travelStats.w += 1;
+      else team.travelStats.l += 1;
+
+      for (const line of result?.skaters || []) {
+        const player = (team.roster || []).find(item => String(item?.playerId || item?.id || '') === String(line?.playerId || ''));
+        applyTravelBoxScoreToPlayer(player,line,false);
+      }
+      for (const line of result?.goalies || []) {
+        const player = (team.roster || []).find(item => String(item?.playerId || item?.id || '') === String(line?.playerId || ''));
+        applyTravelBoxScoreToPlayer(player,line,true);
+      }
+    }
+
+    const gameNumber = Number(scheduledGame.travelGameNumber || series.gamesPlayed + 1);
+    const teamAIsHome = String(series.teamAId) === String(home.teamId);
+    series.games = Array.isArray(series.games) ? series.games : [];
+    series.games.push({
+      gameId: scheduledGame.gameId || scheduledGame.id,
+      round: roundKey,
+      gameNumber,
+      date: scheduledGame.date,
+      teamAId: series.teamAId,
+      teamBId: series.teamBId,
+      teamAScore: teamAIsHome ? homeScore : awayScore,
+      teamBScore: teamAIsHome ? awayScore : homeScore,
+      winnerTeamId,
+      completed: true,
+      universalLiveGame: true,
+    });
+    series.gamesPlayed = Math.max(Number(series.gamesPlayed || 0),gameNumber);
+    if (winnerTeamId === String(series.teamAId)) series.teamAWins = Number(series.teamAWins || 0) + 1;
+    else series.teamBWins = Number(series.teamBWins || 0) + 1;
+    if (Number(series.teamAWins || 0) >= 2 || Number(series.teamBWins || 0) >= 2) {
+      series.status = 'complete';
+      series.winnerTeamId = Number(series.teamAWins || 0) > Number(series.teamBWins || 0) ? series.teamAId : series.teamBId;
+    } else series.status = 'active';
+
+    // Resolve the rest of this tournament date so every bracket series stays in sync.
+    for (const otherSeries of roundSeries) {
+      if (otherSeries === series || otherSeries.status === 'complete') continue;
+      while (Number(otherSeries.gamesPlayed || 0) < gameNumber && otherSeries.status !== 'complete') {
+        simulateGame(state,otherSeries,roundKey);
+      }
+    }
+
+    scheduledGame.played = true;
+    scheduledGame.completed = true;
+    scheduledGame.isCompleted = true;
+    scheduledGame.status = 'final';
+    scheduledGame.homeScore = homeScore;
+    scheduledGame.awayScore = awayScore;
+    scheduledGame.winnerTeamId = winnerTeamId;
+    scheduledGame.loserTeamId = winnerTeamId === String(home.teamId) ? away.teamId : home.teamId;
+    scheduledGame.resultType = gameResult.resultType || (gameResult.wentToOvertime ? 'overtime' : 'regulation');
+    scheduledGame.wentToOvertime = Boolean(gameResult.wentToOvertime);
+    scheduledGame.wentToShootout = Boolean(gameResult.wentToShootout);
+    scheduledGame.completedAt = scheduledGame.date;
+    scheduledGame.gameResult = { ...structuredClone(gameResult), completed:true, status:'completed', travelTournament:true };
+    scheduledGame.postgameSummary = travelPostgameSummary(gameResult,scheduledGame);
+
+    const finished = roundSeries.length > 0 && roundSeries.every(item => item.status === 'complete');
+    if (finished) buildNextRound(state,roundKey);
+    if (state.tournament.status !== 'complete') state.tournament.currentGameDate = addDays(scheduledGame.date,2);
+    if (!WorldEngine.state.season || typeof WorldEngine.state.season !== 'object') WorldEngine.state.season = {};
+    WorldEngine.state.season.currentDate = scheduledGame.date;
+    if (!WorldEngine.state.player || typeof WorldEngine.state.player !== 'object') WorldEngine.state.player = {};
+    WorldEngine.state.player.currentDate = scheduledGame.date;
+    WorldEngine.state.currentDate = scheduledGame.date;
+    syncCareerTravelSchedule(state);
+
+    return { success:true, applied:true, reason:'travel-game-result-applied', scheduledGame, series, roundKey };
+  }
+
   function renderControl(state = travel()) {
     if (!state?.tournament || state.completed === true) {
       const champ = state?.tournament?.championTeamId ? teamById(state,state.tournament.championTeamId) : null;
@@ -345,6 +513,7 @@
   WorldEngine.ensureTravelTournamentProgression = ensureTournamentProgression;
   WorldEngine.syncCareerTravelSchedule = syncCareerTravelSchedule;
   WorldEngine.simulateNextTravelTournamentDay = simulateNextTournamentDay;
+  WorldEngine.applyTravelTournamentGameResult = applyTravelTournamentGameResult;
   WorldEngine.renderTravelTournamentProgressionControl = renderControl;
 
   document.addEventListener('click', event => {

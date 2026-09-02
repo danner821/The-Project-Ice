@@ -39,6 +39,7 @@
   const seeded=(list,seed)=>[...list].sort((a,b)=>hash(`${seed}:${pid(a)||pname(a)}`)-hash(`${seed}:${pid(b)||pname(b)}`));
   const baseFor=l=>({B:58,A:64,AA:70,AAA:76})[String(l||'A').toUpperCase()]||64;
   const blankStats=()=>({gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,savePercentage:0});
+  const fallbackAttributes=rating=>{const r=Math.max(40,Math.min(99,Number(rating)||60));return{passing:r,puckControl:r,offensiveAwareness:r,defensiveAwareness:r,speed:r,acceleration:r,agility:r,poise:r,strength:r,bodyChecking:r,stickChecking:r,wristShotAccuracy:r,wristShotPower:r,slapShotAccuracy:r,slapShotPower:r,handEye:r,deking:r,reflexes:r,puckTracking:r,positioning:r,lateralMovement:r,anticipation:r,composure:r,consistency:r,reboundControl:r};};
 
   /*
    * Leadership is team-context data, not player identity data.
@@ -58,9 +59,9 @@
 
   function normalize(p,extra={}){
     const clean=stripInheritedLeadership(p||{});
-    return{...clean,playerId:pid(clean)||`prospect:${hash(pname(clean))}`,sourcePlayerId:clean?.sourcePlayerId||pid(clean)||null,name:pname(clean),position:naturalPos(clean),overall:ovr(clean),ovr:ovr(clean),travelStats:clean?.travelStats||blankStats(),...extra};
+    return{...clean,playerId:pid(clean)||`prospect:${hash(pname(clean))}`,sourcePlayerId:clean?.sourcePlayerId||pid(clean)||null,name:pname(clean),position:naturalPos(clean),overall:ovr(clean),ovr:ovr(clean),attributes:clean?.attributes||fallbackAttributes(ovr(clean)),travelStats:clean?.travelStats||blankStats(),...extra};
   }
-  function generated(team,slot,level,delta){const seed=hash(`${team.teamId}:${slot}:${level}:travel-v${VERSION}`),first=FIRST[seed%FIRST.length],last=LAST[Math.floor(seed/31)%LAST.length],positions=['LW','C','RW','LW','C','RW','LW','C','RW','LW','C','RW','LD','RD','LD','RD','LD','RD','G','G'],overall=Math.max(45,Math.min(88,baseFor(level)+delta+((seed%9)-4)));return{playerId:`travel-gen:${team.teamId}:${slot}:v${VERSION}`,name:`${first} ${last}`,firstName:first,lastName:last,position:positions[slot]||'C',overall,ovr:overall,generatedTravelPlayer:true,travelStats:blankStats()};}
+  function generated(team,slot,level,delta){const seed=hash(`${team.teamId}:${slot}:${level}:travel-v${VERSION}`),first=FIRST[seed%FIRST.length],last=LAST[Math.floor(seed/31)%LAST.length],positions=['LW','C','RW','LW','C','RW','LW','C','RW','LW','C','RW','LD','RD','LD','RD','LD','RD','G','G'],overall=Math.max(45,Math.min(88,baseFor(level)+delta+((seed%9)-4)));return{playerId:`travel-gen:${team.teamId}:${slot}:v${VERSION}`,name:`${first} ${last}`,firstName:first,lastName:last,position:positions[slot]||'C',overall,ovr:overall,attributes:fallbackAttributes(overall),generatedTravelPlayer:true,travelStats:blankStats()};}
   const worldPool=()=>{const a=WorldEngine.getAllWorldPlayers?.()||(WorldEngine.state?.teams||[]).flatMap(t=>t.roster||[]);return Array.isArray(a)?a:[];};
   function rankedProspects(level){
     const target=baseFor(level),out=[],seen=new Set();let rows=[];try{rows=WorldEngine.getProspectRankings?.()||WorldEngine.state?.prospectRankings||WorldEngine.state?.prospects||[];}catch(_){}
@@ -125,7 +126,7 @@
     const topF=fl.flat();
     const topD=dp.flat();
     const pp=u=>({slots:{leftFlank:id(u[0]),bumper:id(u[1]),rightFlank:id(u[2]),netFront:id(u[3]),quarterback:id(u[4])}});
-    const pk=u=>({slots:{leftForward:id(u[0]),rightForward:id(u[1]),leftDefense:id(u[2]),rightDefense:id(u[3])}});
+    const pk=u=>({slots:{forward1:id(u[0]),forward2:id(u[1]),defense1:id(u[2]),defense2:id(u[3])}});
 
     team.forwardLines=fl;
     team.defensePairs=dp;
@@ -140,7 +141,7 @@
   }
 
   function rebuild(state){
-    if(!state?.teams?.length)return state;const level=state.placementLevel||'A';if(state.travelRosterWorldVersion===VERSION){state.teams.forEach(t=>{meta(t);lineup(t);});return state;}
+    if(!state?.teams?.length)return state;const level=state.placementLevel||'A';if(state.travelRosterWorldVersion===VERSION){state.teams.forEach(t=>{for(const p of t.roster||[])if(!p.attributes)p.attributes=fallbackAttributes(ovr(p));meta(t);lineup(t);});return state;}
     const oldStats=new Map();for(const t of state.teams)for(const p of t.roster||[]){const key=String(p.sourcePlayerId||p.playerId||p.id||'');if(key)oldStats.set(key,p.travelStats);}
     const used=new Set(),prospects=rankedProspects(level),others=otherPool(level),career=normalize(WorldEngine.state?.player||{});career.isCareerPlayer=true;
     for(const team of state.teams){meta(team);const m=CLUB_META[clubId(team)]||{},roster=[];

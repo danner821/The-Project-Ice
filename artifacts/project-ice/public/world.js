@@ -17198,6 +17198,66 @@ const WorldEngine = (() => {
             ? team.roster
             : [];
 
+        const getLiveLineupAssignment =
+          player => {
+            if (player?.lineupAssignment) {
+              return structuredClone(
+                player.lineupAssignment
+              );
+            }
+
+            const rosterSlot =
+              String(
+                player?.rosterSlot ||
+                player?.slot ||
+                ''
+              );
+
+            const forwardMatch =
+              rosterSlot.match(
+                /^fwd-(\d+)-(lw|c|rw)$/i
+              );
+
+            if (forwardMatch) {
+              return {
+                unit: 'forward',
+                line:
+                  Number(
+                    forwardMatch[1]
+                  ),
+                position:
+                  forwardMatch[2]
+                    .toUpperCase(),
+                rosterSlot,
+                label:
+                  `Line ${forwardMatch[1]}`,
+              };
+            }
+
+            const defenseMatch =
+              rosterSlot.match(
+                /^def-(\d+)-(ld|rd)$/i
+              );
+
+            if (defenseMatch) {
+              return {
+                unit: 'defense',
+                pair:
+                  Number(
+                    defenseMatch[1]
+                  ),
+                position:
+                  defenseMatch[2]
+                    .toUpperCase(),
+                rosterSlot,
+                label:
+                  `Pair ${defenseMatch[1]}`,
+              };
+            }
+
+            return null;
+          };
+
         const activeSkaters =
           roster
             .filter(player => {
@@ -17215,6 +17275,10 @@ const WorldEngine = (() => {
                   'active' ||
                 Boolean(
                   player.lineupAssignment
+                ) ||
+                Boolean(
+                  player.rosterSlot ||
+                  player.slot
                 )
               );
             })
@@ -17246,11 +17310,9 @@ const WorldEngine = (() => {
                 null,
 
               lineupAssignment:
-                player.lineupAssignment
-                  ? structuredClone(
-                      player.lineupAssignment
-                    )
-                  : null,
+                getLiveLineupAssignment(
+                  player
+                ),
 
               overall:
                 Number(
@@ -30513,6 +30575,10 @@ case 'career-defense':
               'active' ||
             Boolean(
               player.lineupAssignment
+            ) ||
+            Boolean(
+              player.rosterSlot ||
+              player.slot
             )
           )
       );
@@ -43746,8 +43812,28 @@ case 'career-defense':
         ? _state.teams
         : [];
 
-    return (
+    const canonicalTeam =
       teams.find(
+        team =>
+          String(team.teamId) ===
+          String(teamId)
+      ) || null;
+
+    if (canonicalTeam) {
+      return canonicalTeam;
+    }
+
+    const travelTeams =
+      Array.isArray(
+        _state.travelHockey
+          ?.teams
+      )
+        ? _state.travelHockey
+            .teams
+        : [];
+
+    return (
+      travelTeams.find(
         team =>
           String(team.teamId) ===
           String(teamId)
@@ -44147,6 +44233,34 @@ case 'career-defense':
     for (const team of teams) {
       const roster =
         Array.isArray(team.roster)
+          ? team.roster
+          : [];
+
+      const player = roster.find(
+        rosterPlayer =>
+          String(
+            rosterPlayer.playerId ||
+            rosterPlayer.id
+          ) === String(playerId)
+      );
+
+      if (player) {
+        return player;
+      }
+    }
+
+    const travelTeams =
+      Array.isArray(
+        _state.travelHockey
+          ?.teams
+      )
+        ? _state.travelHockey
+            .teams
+        : [];
+
+    for (const team of travelTeams) {
+      const roster =
+        Array.isArray(team?.roster)
           ? team.roster
           : [];
 

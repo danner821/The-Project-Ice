@@ -7706,6 +7706,8 @@ function openPostgameSummary(gameId) {
 
     if (
       scheduledGame &&
+      scheduledGame
+        .travelTournament !== true &&
       !hasSavedCareerDevelopment &&
       typeof WorldEngine
         .repairCompletedGameDevelopment ===
@@ -7820,6 +7822,8 @@ function openPostgameSummary(gameId) {
 
   const playerTeamId =
     String(
+      scheduledGame
+        ?.careerTeamId ||
       Game.player.teamId ||
       Game.player.currentTeamId ||
       ''
@@ -7856,6 +7860,40 @@ function openPostgameSummary(gameId) {
     }
   };
 
+  const postgameTeamName =
+    team =>
+      team?.teamName ||
+      team?.schoolName ||
+      team?.name ||
+      'Team';
+
+  const postgameTeamAbbreviation =
+    (team, fallback) => {
+      if (team?.abbreviation) {
+        return team.abbreviation;
+      }
+
+      const initials =
+        String(
+          team?.shortName ||
+          team?.name ||
+          postgameTeamName(team)
+        )
+          .replace(
+            /\s+(B|A|AA|AAA)$/i,
+            ''
+          )
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0])
+          .join('')
+          .slice(0, 3)
+          .toUpperCase();
+
+      return initials || fallback;
+    };
+
   setText(
     'postgame-result-badge',
     resultLabel
@@ -7874,15 +7912,15 @@ function openPostgameSummary(gameId) {
 
   setText(
     'postgame-away-abbreviation',
-    awayTeam?.abbreviation ||
-    'AWY'
+    postgameTeamAbbreviation(
+      awayTeam,
+      'AWY'
+    )
   );
 
   setText(
     'postgame-away-name',
-    awayTeam?.teamName ||
-    awayTeam?.schoolName ||
-    'Away Team'
+    postgameTeamName(awayTeam)
   );
 
   setText(
@@ -7894,15 +7932,15 @@ function openPostgameSummary(gameId) {
 
   setText(
     'postgame-home-abbreviation',
-    homeTeam?.abbreviation ||
-    'HOM'
+    postgameTeamAbbreviation(
+      homeTeam,
+      'HOM'
+    )
   );
 
   setText(
     'postgame-home-name',
-    homeTeam?.teamName ||
-    homeTeam?.schoolName ||
-    'Home Team'
+    postgameTeamName(homeTeam)
   );
 
   setText(
@@ -7920,14 +7958,18 @@ function openPostgameSummary(gameId) {
    */
   setText(
     'postgame-team-stats-away',
-    awayTeam?.abbreviation ||
-    'AWY'
+    postgameTeamAbbreviation(
+      awayTeam,
+      'AWY'
+    )
   );
 
   setText(
     'postgame-team-stats-home',
-    homeTeam?.abbreviation ||
-    'HOM'
+    postgameTeamAbbreviation(
+      homeTeam,
+      'HOM'
+    )
   );
 
   setText(
@@ -8129,8 +8171,10 @@ function openPostgameSummary(gameId) {
         String(summary.home?.teamId)
       ) {
         return (
-          homeTeam?.abbreviation ||
-          'HOME'
+          postgameTeamAbbreviation(
+            homeTeam,
+            'HOME'
+          )
         );
       }
 
@@ -8139,8 +8183,10 @@ function openPostgameSummary(gameId) {
         String(summary.away?.teamId)
       ) {
         return (
-          awayTeam?.abbreviation ||
-          'AWAY'
+          postgameTeamAbbreviation(
+            awayTeam,
+            'AWAY'
+          )
         );
       }
 
@@ -8580,12 +8626,16 @@ function openPostgameSummary(gameId) {
     );
 
   const homeAbbreviation =
-    homeTeam?.abbreviation ||
-    'HOME';
+    postgameTeamAbbreviation(
+      homeTeam,
+      'HOME'
+    );
 
   const awayAbbreviation =
-    awayTeam?.abbreviation ||
-    'AWAY';
+    postgameTeamAbbreviation(
+      awayTeam,
+      'AWAY'
+    );
 
   /*
    * Support both scoring-summary contracts.
@@ -18657,13 +18707,28 @@ function openLiveGame(
    * the roster copy is the authoritative in-season player.
    */
   const worldTeams =
-    Array.isArray(
-      WorldEngine.state
-        ?.teams
-    )
-      ? WorldEngine.state
-          .teams
-      : [];
+    scheduledGame
+      .travelTournament === true
+      ? (
+          Array.isArray(
+            WorldEngine.state
+              ?.travelHockey
+              ?.teams
+          )
+            ? WorldEngine.state
+                .travelHockey
+                .teams
+            : []
+        )
+      : (
+          Array.isArray(
+            WorldEngine.state
+              ?.teams
+          )
+            ? WorldEngine.state
+                .teams
+            : []
+        );
 
   let careerTeam =
     null;
@@ -18769,17 +18834,50 @@ function openLiveGame(
       ?.lineupStatus ||
     playerPosition;
 
+  const liveTeamAbbreviation =
+    (team, fallback) => {
+      if (team?.abbreviation) {
+        return team.abbreviation;
+      }
+
+      const initials =
+        String(
+          team?.shortName ||
+          team?.name ||
+          team?.teamName ||
+          team?.schoolName ||
+          ''
+        )
+          .replace(
+            /\s+(B|A|AA|AAA)$/i,
+            ''
+          )
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0])
+          .join('')
+          .slice(0, 3)
+          .toUpperCase();
+
+      return initials || fallback;
+    };
+
   document.getElementById(
     'live-game-away-abbr'
   ).textContent =
-    awayTeam.abbreviation ||
-    'AWY';
+    liveTeamAbbreviation(
+      awayTeam,
+      'AWY'
+    );
 
   document.getElementById(
     'live-game-home-abbr'
   ).textContent =
-    homeTeam.abbreviation ||
-    'HME';
+    liveTeamAbbreviation(
+      homeTeam,
+      'HME'
+    );
 
   const formatLiveGameClock =
     totalSeconds => {
@@ -21672,6 +21770,85 @@ function pauseLiveGamePlayback() {
  * connected here next.
  */
 
+function findScheduledGameForResult(
+  gameResult
+) {
+  const resultId =
+    String(
+      gameResult?.gameId ||
+      gameResult?.eventId ||
+      ''
+    );
+
+  return (
+    (
+      Array.isArray(
+        WorldEngine.state
+          ?.schedule
+      )
+        ? WorldEngine.state
+            .schedule
+        : []
+    ).find(game =>
+      [
+        game?.gameId,
+        game?.id,
+        game?.eventId,
+      ].some(alias =>
+        String(alias || '') ===
+        resultId
+      )
+    ) ||
+    null
+  );
+}
+
+function applyCompletedGameResult(
+  gameResult
+) {
+  const scheduledGame =
+    findScheduledGameForResult(
+      gameResult
+    );
+
+  if (
+    scheduledGame
+      ?.travelTournament === true
+  ) {
+    if (
+      typeof WorldEngine
+        .applyTravelTournamentGameResult !==
+      'function'
+    ) {
+      return {
+        success: false,
+        reason:
+          'travel-result-applicator-unavailable',
+      };
+    }
+
+    return WorldEngine
+      .applyTravelTournamentGameResult(
+        gameResult
+      );
+  }
+
+  const gameDate =
+    gameResult?.date ||
+    scheduledGame?.date ||
+    Game.player.currentDate ||
+    null;
+
+  return WorldEngine.advanceToDate(
+    gameDate,
+    {
+      processCurrentDate: true,
+      resolvedGameResult:
+        gameResult,
+    }
+  );
+}
+
   async function handleLiveGameCompletion() {
   if (
     liveGameCompletionHandled ||
@@ -21797,18 +21974,10 @@ function pauseLiveGamePlayback() {
        * - permanent postgame summary
        */
       const application =
-        WorldEngine
-          .advanceToDate(
-            gameDate,
-            {
-              processCurrentDate:
-                true,
-
-              resolvedGameResult:
-                finalization
-                  .gameResult,
-            }
-          );
+        applyCompletedGameResult(
+          finalization
+            .gameResult
+        );
 
       if (
         !application ||
@@ -22462,13 +22631,8 @@ async function simulatePregameMatchupGame(
       }
 
       const application =
-        WorldEngine.advanceToDate(
-          gameDate,
-          {
-            processCurrentDate: true,
-            resolvedGameResult:
-              completedResult,
-          }
+        applyCompletedGameResult(
+          completedResult
         );
 
       if (
