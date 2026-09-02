@@ -10138,24 +10138,45 @@ function pickStableEvent(items, dateKey, salt = '') {
   WorldEngine.syncSeedTeamMetadata();
 
   const gameEvents = leagueGames
-    .filter(game =>
-      game.homeTeamId === playerTeamId ||
-      game.awayTeamId === playerTeamId
-    )
+    .filter(game => {
+      if (game?.travelTournament === true || game?.type === 'travel-game') {
+        const travelCareerTeamId = String(game?.careerTeamId || '');
+        return Boolean(travelCareerTeamId) && (
+          String(game?.homeTeamId || '') === travelCareerTeamId ||
+          String(game?.awayTeamId || '') === travelCareerTeamId
+        );
+      }
+      return (
+        game.homeTeamId === playerTeamId ||
+        game.awayTeamId === playerTeamId
+      );
+    })
     .map(game => {
+      const isTravelGame =
+        game?.travelTournament === true ||
+        game?.type === 'travel-game';
+
+      const gamePlayerTeamId =
+        isTravelGame
+          ? String(game?.careerTeamId || '')
+          : String(playerTeamId || '');
+
       const isHome =
-        game.homeTeamId === playerTeamId;
+        String(game.homeTeamId || '') === gamePlayerTeamId;
 
       const opponentId = isHome
         ? game.awayTeamId
         : game.homeTeamId;
 
       const opponent = teams.find(
-        team => team.teamId === opponentId
+        team => String(team.teamId || '') === String(opponentId || '')
       );
 
       const opponentName =
-        opponent?.teamName || 'Opponent';
+        game?.opponentName ||
+        opponent?.teamName ||
+        opponent?.schoolName ||
+        'Opponent';
 
       const opponentAbbreviation =
         opponent?.abbreviation ||
@@ -10270,12 +10291,14 @@ function pickStableEvent(items, dateKey, salt = '') {
           : `A regular-season road game against the ${opponentName}.`,
 
         details: {
-          League: 'High School',
+          League: isTravelGame ? 'Travel Hockey' : 'High School',
           Opponent: opponentName,
-          Venue: venueName,
+          Venue: isTravelGame ? (game.location || 'Summer Travel Tournament') : venueName,
           Date: gameDateLabel,
-          location: venueName,
-          'Game Type': 'Regular Season',
+          location: isTravelGame ? (game.location || 'Summer Travel Tournament') : venueName,
+          'Game Type': isTravelGame
+            ? `${String(game.travelRound || 'Tournament').replace(/(^|[-_\s])([a-z])/g, (_,a,b)=>`${a}${b.toUpperCase()}`)} · Game ${Number(game.travelGameNumber || 1)}`
+            : 'Regular Season',
         },
         eventId: game.id,
         gameId: game.id,
