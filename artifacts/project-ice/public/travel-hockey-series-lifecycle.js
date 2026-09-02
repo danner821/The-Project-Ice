@@ -22,6 +22,20 @@
     );
   }
 
+  function setCareerDate(date) {
+    const key = dateKey(date);
+    if (!key) return;
+    if (!WorldEngine.state.season || typeof WorldEngine.state.season !== 'object') {
+      WorldEngine.state.season = {};
+    }
+    if (!WorldEngine.state.player || typeof WorldEngine.state.player !== 'object') {
+      WorldEngine.state.player = {};
+    }
+    WorldEngine.state.season.currentDate = key;
+    WorldEngine.state.player.currentDate = key;
+    WorldEngine.state.currentDate = key;
+  }
+
   function playerSeries(state = travelState(), includeComplete = false) {
     const roundKey = state?.tournament?.activeRound || null;
     if (!roundKey || roundKey === 'complete') return null;
@@ -76,14 +90,6 @@
     if (!roundSeries.some(series => series?.status !== 'complete')) return false;
     if (typeof WorldEngine.simulateNextTravelTournamentDay !== 'function') return false;
 
-    /*
-     * A career series can finish 2-0 while another series is tied 1-1. There is
-     * then no career Game 3 to drive the tournament engine, so the rest of the
-     * round must resolve before the next career round can be projected.
-     *
-     * For an already-stuck save, never rewind the player's calendar: resume the
-     * unresolved tournament day from the current career date instead.
-     */
     const now = currentCareerDate();
     const tournamentDate = dateKey(tournament.currentGameDate);
     if (now && (!tournamentDate || now > tournamentDate)) {
@@ -111,6 +117,57 @@
       if (options.save !== false) WorldEngine.save?.();
       try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
       try { globalThis.refreshCareerUI?.(); } catch (_) {}
+    }
+
+    return changed;
+  }
+
+  function advanceEliminatedTournamentThroughDate(targetDate = currentCareerDate(), options = {}) {
+    const state = travelState();
+    const tournament = state?.tournament;
+    const throughDate = dateKey(targetDate);
+    if (
+      !state ||
+      !tournament ||
+      !throughDate ||
+      tournament.status === 'complete' ||
+      typeof WorldEngine.simulateNextTravelTournamentDay !== 'function'
+    ) return false;
+
+    // If the career team is still alive in the active round, its games must stay player-controlled.
+    if (playerSeries(state, false)) return false;
+
+    const preservedCareerDate = currentCareerDate() || throughDate;
+    let changed = false;
+    let safety = 0;
+
+    while (
+      safety < 8 &&
+      tournament.status !== 'complete'
+    ) {
+      const tournamentDate = dateKey(tournament.currentGameDate);
+      if (!tournamentDate || tournamentDate > throughDate) break;
+
+      const result = WorldEngine.simulateNextTravelTournamentDay();
+      if (!result?.success) break;
+      changed = true;
+      safety += 1;
+
+      // simulateNextTravelTournamentDay advances the shared world date to the
+      // tournament game date. An eliminated career should keep living on its
+      // own calendar, so restore the date the player had already reached.
+      setCareerDate(preservedCareerDate);
+    }
+
+    if (changed) {
+      setCareerDate(preservedCareerDate);
+      WorldEngine.syncCareerTravelSchedule?.(state);
+      pruneClinchedCareerGames({ save:false });
+      WorldEngine.syncTravelTournamentCadence?.({ save:false });
+      if (options.save !== false) WorldEngine.save?.();
+      try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
+      try { globalThis.refreshCareerUI?.(); } catch (_) {}
+      try { WorldEngine.renderTravelTournamentCloseout?.(); } catch (_) {}
     }
 
     return changed;
@@ -151,14 +208,31 @@
       WorldEngine.applyTravelTournamentGameResult = wrappedApply;
     }
 
+    const originalAdvanceToDate = WorldEngine.advanceToDate;
+    if (
+      typeof originalAdvanceToDate === 'function' &&
+      originalAdvanceToDate.__projectIceTravelEliminationWrapped !== true
+    ) {
+      const wrappedAdvanceToDate = (...args) => {
+        const result = originalAdvanceToDate.apply(WorldEngine, args);
+        advanceEliminatedTournamentThroughDate(currentCareerDate(), { save:true });
+        return result;
+      };
+      wrappedAdvanceToDate.__projectIceTravelEliminationWrapped = true;
+      wrappedAdvanceToDate.__projectIceTravelEliminationOriginal = originalAdvanceToDate;
+      WorldEngine.advanceToDate = wrappedAdvanceToDate;
+    }
+
     pruneClinchedCareerGames({ save:false });
     advanceBracketAfterCareerClinch({ save:false });
+    advanceEliminatedTournamentThroughDate(currentCareerDate(), { save:false });
     pruneClinchedCareerGames({ save:false });
     WorldEngine.save?.();
   }
 
   WorldEngine.pruneClinchedTravelCareerGames = pruneClinchedCareerGames;
   WorldEngine.advanceTravelBracketAfterCareerClinch = advanceBracketAfterCareerClinch;
+  WorldEngine.advanceEliminatedTravelTournamentThroughDate = advanceEliminatedTournamentThroughDate;
 
   install();
 
