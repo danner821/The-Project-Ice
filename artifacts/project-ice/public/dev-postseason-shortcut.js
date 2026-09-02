@@ -14,7 +14,7 @@
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-travel-tryouts-eve-v1';
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-tryouts-v2';
 
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
     ? WorldEngine.listCareerSaves.bind(WorldEngine)
@@ -116,7 +116,7 @@
     return dates[dates.length - 1] || '2027-04-22';
   }
 
-  function prepareTravelTryoutsEve(sourceWorld) {
+  function preparePostTravelTryouts(sourceWorld) {
     const world = structuredClone(sourceWorld);
     if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
 
@@ -126,10 +126,10 @@
     const championDate = dateKey(existing.championCheckpointAcknowledgedAt) || addDays(completedDate, 1);
     const ceremonyDate = dateKey(existing.awardsCeremonyDate) || addDays(championDate, 7);
     const tryoutDate = addDays(ceremonyDate, 7);
-    const targetDate = addDays(tryoutDate, -1);
+    const targetDate = addDays(tryoutDate, 1);
 
     if (!championDate || !ceremonyDate || !tryoutDate || !targetDate) {
-      throw new Error('Could not determine Travel Tryouts Eve date.');
+      throw new Error('Could not determine post-Travel Tryouts checkpoint date.');
     }
 
     const rounds = existing?.bracket?.rounds || {};
@@ -160,60 +160,130 @@
       syntheticDevCheckpoint: true,
     };
 
+    if (!world.player || typeof world.player !== 'object') world.player = {};
+    const overall = Math.max(40, Math.min(99, Math.round(Number(world.player.overall ?? world.player.ovr ?? 60))));
+    const neutralForm = Math.max(50, Math.min(85, Math.round(Number(world.player.currentForm ?? world.player.form ?? 65))));
+    const drillAverage = Math.max(68, Math.min(82, Math.round(overall + 7)));
+    const evaluation = Math.round(overall * 0.55 + neutralForm * 0.15 + drillAverage * 0.30);
+    const level = evaluation >= 84 ? 'AAA' : evaluation >= 76 ? 'AA' : evaluation >= 68 ? 'A' : 'B';
+
+    const clubs = [
+      { id: 'arizona-jr-coyotes', name: 'Arizona Jr. Coyotes', city: 'Phoenix, AZ' },
+      { id: 'colorado-thunderbirds', name: 'Colorado Thunderbirds', city: 'Denver, CO' },
+      { id: 'dallas-stars-elite', name: 'Dallas Stars Elite', city: 'Dallas, TX' },
+      { id: 'chicago-mission', name: 'Chicago Mission', city: 'Chicago, IL' },
+      { id: 'little-caesars', name: 'Little Caesars', city: 'Detroit, MI' },
+      { id: 'pittsburgh-penguins-elite', name: 'Pittsburgh Penguins Elite', city: 'Pittsburgh, PA' },
+      { id: 'boston-jr-eagles', name: 'Boston Jr. Eagles', city: 'Boston, MA' },
+      { id: 'la-jr-kings', name: 'LA Jr. Kings', city: 'Los Angeles, CA' },
+    ];
+
+    const careerPlayerId = String(world.player.playerId || world.player.id || 'career-player');
+    const placementSeed = `${careerPlayerId}|${tryoutDate}|${evaluation}|${level}`;
+    let hash = 2166136261;
+    for (const ch of placementSeed) {
+      hash ^= ch.charCodeAt(0);
+      hash = Math.imul(hash, 16777619);
+    }
+    const club = clubs[(hash >>> 0) % clubs.length];
+    const playerName = String(
+      world.player.name ||
+      world.player.playerName ||
+      [world.player.firstName, world.player.lastName].filter(Boolean).join(' ') ||
+      TARGET_PLAYER_NAME
+    );
+
+    const drillScores = {
+      skating: drillAverage,
+      skill: drillAverage,
+      scrimmage: drillAverage,
+    };
+
     world.travelHockey = {
       version: 1,
-      status: 'tryouts-pending',
+      status: 'placement-complete',
       awardsCeremonyDate: ceremonyDate,
       tryoutDate,
       levels: ['B', 'A', 'AA', 'AAA'],
       guaranteedMinimumLevel: 'B',
-      placementLevel: null,
-      placementTeamId: null,
-      placementTeamName: null,
-      tryoutResult: null,
+      placementLevel: level,
+      placementTeamId: club.id,
+      placementTeamName: club.name,
+      playerTeamId: null,
+      playerTeamName: club.name,
+      placementTeam: {
+        teamId: club.id,
+        clubId: club.id,
+        name: club.name,
+        city: club.city,
+        level,
+      },
+      tryoutResult: {
+        completedAt: tryoutDate,
+        playerName,
+        overallAtTryouts: overall,
+        formScore: neutralForm,
+        drillAverage,
+        drillScores,
+        evaluationScore: evaluation,
+        placementLevel: level,
+        placementTeamId: club.id,
+        placementTeamName: club.name,
+        placementTeamCity: club.city,
+        scoutingSummary: `Dev checkpoint: completed Travel tryouts at ${level} level.`,
+        reps: [],
+        randomClubApplied: true,
+        syntheticDevCheckpoint: true,
+      },
       tournament: null,
       completed: false,
+      syntheticDevCheckpoint: true,
     };
 
     if (!Array.isArray(world.schedule)) world.schedule = [];
-    world.schedule = world.schedule.filter(event =>
-      String(event?.eventId || event?.id || '') !== 'travel-hockey-tryouts'
+    let tryoutEvent = world.schedule.find(event =>
+      String(event?.eventId || event?.id || '') === 'travel-hockey-tryouts'
     );
-    world.schedule.push({
-      id: 'travel-hockey-tryouts',
-      eventId: 'travel-hockey-tryouts',
-      eventKey: 'travel-hockey-tryouts',
-      type: 'meeting',
-      eventType: 'tryout',
+    if (!tryoutEvent) {
+      tryoutEvent = {
+        id: 'travel-hockey-tryouts',
+        eventId: 'travel-hockey-tryouts',
+        eventKey: 'travel-hockey-tryouts',
+        type: 'meeting',
+        eventType: 'tryout',
+        label: 'Travel Hockey Tryouts',
+        shortLabel: 'Travel Tryouts',
+        icon: '🏒',
+        location: 'Regional Ice Center',
+        objective: 'Compete for your summer travel hockey placement.',
+        offseasonEvent: true,
+        travelHockeyEvent: true,
+        travelTryoutEvent: true,
+        requiresPlayerInteraction: true,
+      };
+      world.schedule.push(tryoutEvent);
+    }
+    Object.assign(tryoutEvent, {
       date: tryoutDate,
-      label: 'Travel Hockey Tryouts',
-      shortLabel: 'Travel Tryouts',
-      icon: '🏒',
-      location: 'Regional Ice Center',
-      objective: 'Compete for your summer travel hockey placement.',
-      offseasonEvent: true,
-      travelHockeyEvent: true,
-      travelTryoutEvent: true,
-      requiresPlayerInteraction: true,
-      completed: false,
-      played: false,
-      status: 'scheduled',
+      completed: true,
+      played: true,
+      status: 'completed',
+      completedAt: tryoutDate,
     });
+    world.schedule.sort((a, b) => dateKey(a?.date).localeCompare(dateKey(b?.date)));
 
     if (!world.season || typeof world.season !== 'object') world.season = {};
     world.season.currentDate = targetDate;
-    world.season.phase = 'offseason-travel-tryouts-pending';
-    if (!world.player || typeof world.player !== 'object') world.player = {};
+    world.season.phase = 'offseason-travel-hockey';
     world.player.currentDate = targetDate;
     world.currentDate = targetDate;
 
-    const careerPlayerId = world.player.playerId || world.player.id || 'career-player';
     for (const team of world.teams || []) {
       for (const player of team?.roster || []) {
         const id = player?.playerId || player?.id || null;
         if (
           player?.isCareerPlayer === true ||
-          String(id || '') === String(careerPlayerId) ||
+          String(id || '') === careerPlayerId ||
           String(id || '') === 'career-player'
         ) {
           player.currentDate = targetDate;
@@ -221,7 +291,7 @@
       }
     }
 
-    return { world, targetDate, tryoutDate, ceremonyDate };
+    return { world, targetDate, tryoutDate, ceremonyDate, placementLevel: level, placementTeamName: club.name };
   }
 
   async function findRealDannerSave() {
@@ -242,7 +312,7 @@
     const source = await readRecord(db, `career:${realSave.id}`);
     if (!source?.world) throw new Error('Danner Stephenson IndexedDB world record was not found.');
 
-    const prepared = prepareTravelTryoutsEve(source.world);
+    const prepared = preparePostTravelTryouts(source.world);
     const baseline = {
       id: DEV_BASELINE_RECORD_ID,
       sourceCareerId: realSave.id,
@@ -263,7 +333,7 @@
        * isolated baseline directly. It no longer scans or rewrites real saves.
        */
       const baseline = await getOrCreateBaseline(db);
-      prepared = prepareTravelTryoutsEve(baseline.world);
+      prepared = preparePostTravelTryouts(baseline.world);
 
       await writeRecord(db, {
         id: DEV_WORLD_RECORD_ID,
@@ -283,9 +353,12 @@
     removeDevMetadataFromVisibleIndex();
 
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
-    if (!loaded) throw new Error('Could not load isolated Travel Tryouts Eve dev career.');
+    if (!loaded) throw new Error('Could not load isolated post-Travel Tryouts dev career.');
 
     WorldEngine.ensureTravelHockeyFoundation?.({ save: false });
+    WorldEngine.ensureTravelHockeyWorld?.({ save: false });
+    WorldEngine.rebuildTravelHockeyRosters?.();
+    WorldEngine.save?.();
     removeDevMetadataFromVisibleIndex();
     return prepared;
   }
@@ -315,10 +388,12 @@
       console.warn('[Project Ice] Dev Hub refresh failed:', error);
     }
 
-    console.info('[Project Ice] Travel Tryouts Eve dev checkpoint loaded.', {
+    console.info('[Project Ice] Post-Travel Tryouts dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
       checkpointDate: result.targetDate,
       tryoutDate: result.tryoutDate,
+      placementLevel: result.placementLevel,
+      placementTeamName: result.placementTeamName,
     });
   }
 
@@ -340,7 +415,7 @@
     button.removeAttribute('disabled');
 
     const label = button.querySelector('.btn__label');
-    if (label) label.textContent = 'Skip to Travel Tryouts Eve';
+    if (label) label.textContent = 'Skip to Post-Travel Tryouts';
     if (hint) hint.classList.remove('is-visible');
 
     button.addEventListener('click', event => {
@@ -350,8 +425,8 @@
 
       loadCheckpoint()
         .catch(error => {
-          console.error('[Project Ice] Dev Travel Tryouts Eve shortcut failed:', error);
-          alert(`Dev Travel Tryouts Eve shortcut failed: ${error?.message || 'unknown error'}`);
+          console.error('[Project Ice] Dev post-Travel Tryouts shortcut failed:', error);
+          alert(`Dev post-Travel Tryouts shortcut failed: ${error?.message || 'unknown error'}`);
         })
         .finally(() => {
           button.disabled = false;
