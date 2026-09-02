@@ -1,0 +1,132 @@
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index f1d49af..e4fb38e 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -18229,24 +18229,87 @@ function openPregameMatchup(
+         )
+       : 'Game Day';
+ 
+-  const gameType =
+-    scheduledGame
+-      ?.specialType ||
++  const isTravelGame =
+     scheduledGame
+-      ?.gameType ||
++      ?.travelTournament === true ||
++    scheduledGame?.type ===
++      'travel-game' ||
+     eventDefinition
+-      ?.details
+-      ?.['Game Type'] ||
+-    'Regular Season';
++      ?.travelTournament === true ||
++    eventDefinition?.type ===
++      'travel-game';
++
++  const gameType =
++    isTravelGame
++      ? (
++          eventDefinition
++            ?.details
++            ?.['Game Type'] ||
++          scheduledGame
++            ?.travelRound ||
++          'Travel Tournament'
++        )
++      : (
++          scheduledGame
++            ?.specialType ||
++          scheduledGame
++            ?.gameType ||
++          eventDefinition
++            ?.details
++            ?.['Game Type'] ||
++          'Regular Season'
++        );
+ 
+   const venue =
+-    homeTeam
+-      ?.arena
+-      ?.name ||
+-    eventDefinition
+-      ?.details
+-      ?.Venue ||
+-    'Arena';
++    isTravelGame
++      ? (
++          scheduledGame
++            ?.location ||
++          eventDefinition
++            ?.details
++            ?.Venue ||
++          'Summer Travel Tournament'
++        )
++      : (
++          homeTeam
++            ?.arena
++            ?.name ||
++          eventDefinition
++            ?.details
++            ?.Venue ||
++          'Arena'
++        );
++
++  const teamAbbreviation =
++    (team, fallback) => {
++      if (team?.abbreviation) {
++        return team.abbreviation;
++      }
++
++      const clubName =
++        String(
++          team?.shortName ||
++          team?.name ||
++          teamDisplayName(team) ||
++          ''
++        )
++          .replace(
++            /\s+(B|A|AA|AAA)$/i,
++            ''
++          )
++          .trim();
++
++      const initials =
++        clubName
++          .split(/\s+/)
++          .filter(Boolean)
++          .map(word => word[0])
++          .join('')
++          .slice(0, 3)
++          .toUpperCase();
++
++      return initials || fallback;
++    };
+ 
+   document.getElementById(
+     'pregame-matchup-title'
+@@ -18269,8 +18332,10 @@ function openPregameMatchup(
+   document.getElementById(
+     'pregame-away-badge'
+   ).textContent =
+-    awayTeam.abbreviation ||
+-    'AWY';
++    teamAbbreviation(
++      awayTeam,
++      'AWY'
++    );
+ 
+   document.getElementById(
+     'pregame-away-name'
+@@ -18316,8 +18381,10 @@ function openPregameMatchup(
+   document.getElementById(
+     'pregame-home-badge'
+   ).textContent =
+-    homeTeam.abbreviation ||
+-    'HME';
++    teamAbbreviation(
++      homeTeam,
++      'HME'
++    );
+ 
+   document.getElementById(
+     'pregame-home-name'
