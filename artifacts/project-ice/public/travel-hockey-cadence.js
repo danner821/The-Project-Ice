@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 1;
+  const MODULE_VERSION = 2;
   const WINDOW_DAYS = 7;
   const MIN_TRAININGS_PER_WINDOW = 1;
 
@@ -36,7 +36,7 @@
   }
 
   function isTravelGame(event) {
-    return event?.travelTournament === true || event?.type === 'travel-game';
+    return event?.type === 'travel-game';
   }
 
   function isTravelTraining(event) {
@@ -118,7 +118,6 @@
       const nextGame = nextTravelGameDate(events, date);
       let score = 0;
 
-      // Prefer a useful off-day near a game without ever sharing the date.
       if (nextGame && addDays(date, 1) === nextGame) score += 5;
       if (previousGame && addDays(previousGame, 1) === date) score += 3;
 
@@ -229,28 +228,56 @@
 
   WorldEngine.syncTravelTournamentCadence = syncTravelTournamentCadence;
 
-  const originalApplyTravelResult =
-    typeof WorldEngine.applyTravelTournamentGameResult === 'function'
-      ? WorldEngine.applyTravelTournamentGameResult.bind(WorldEngine)
-      : null;
+  function installResultHookAndSync() {
+    const originalApplyTravelResult =
+      typeof WorldEngine.applyTravelTournamentGameResult === 'function'
+        ? WorldEngine.applyTravelTournamentGameResult
+        : null;
 
-  if (
-    originalApplyTravelResult &&
-    WorldEngine.applyTravelTournamentGameResult
-      .__projectIceTravelCadenceWrapped !== true
-  ) {
-    const wrappedApplyTravelTournamentGameResult = (...args) => {
-      const result = originalApplyTravelResult(...args);
-      syncTravelTournamentCadence({ save: true });
-      return result;
-    };
+    if (
+      originalApplyTravelResult &&
+      originalApplyTravelResult.__projectIceTravelCadenceWrapped !== true
+    ) {
+      const wrappedApplyTravelTournamentGameResult = (...args) => {
+        const result = originalApplyTravelResult.apply(WorldEngine, args);
+        syncTravelTournamentCadence({ save: true });
+        return result;
+      };
 
-    wrappedApplyTravelTournamentGameResult
-      .__projectIceTravelCadenceWrapped = true;
+      wrappedApplyTravelTournamentGameResult
+        .__projectIceTravelCadenceWrapped = true;
+      wrappedApplyTravelTournamentGameResult
+        .__projectIceTravelCadenceOriginal = originalApplyTravelResult;
 
-    WorldEngine.applyTravelTournamentGameResult =
-      wrappedApplyTravelTournamentGameResult;
+      WorldEngine.applyTravelTournamentGameResult =
+        wrappedApplyTravelTournamentGameResult;
+    }
+
+    return syncTravelTournamentCadence({ save: true });
   }
 
-  syncTravelTournamentCadence({ save: true });
+  /*
+   * travel-hockey-season-ui.js injects the tournament engine asynchronously.
+   * This cadence file is part of the normal Vite runtime stack, so it can run
+   * before that dynamic script has finished creating the Travel game schedule.
+   * Sync once now for already-loaded careers, then sync again exactly when the
+   * tournament engine finishes loading. That makes both fresh and resumed
+   * Travel tournaments deterministic without polling.
+   */
+  installResultHookAndSync();
+
+  const engineLoader =
+    document.getElementById('pi-travel-tournament-engine-loader');
+
+  if (engineLoader) {
+    if (engineLoader.dataset.loaded === 'true') {
+      installResultHookAndSync();
+    } else {
+      engineLoader.addEventListener(
+        'load',
+        installResultHookAndSync,
+        { once: true }
+      );
+    }
+  }
 })();
