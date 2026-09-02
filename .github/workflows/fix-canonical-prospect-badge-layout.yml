@@ -1,0 +1,27 @@
+name: Fix Canonical Prospect Badge Layout
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_canonical_prospect_badge_layout.py'
+      - '.github/workflows/fix-canonical-prospect-badge-layout.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_canonical_prospect_badge_layout.py
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: grep -q 'lineup-player__identity' artifacts/project-ice/public/game.js
+      - run: grep -q 'getCanonicalProspectBadgeHtml(player)' artifacts/project-ice/public/game.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js artifacts/project-ice/public/style.css
+          git commit -m 'Place prospect badges under names on all team surfaces' || exit 0
+          git pull --rebase origin main
+          git push origin main
