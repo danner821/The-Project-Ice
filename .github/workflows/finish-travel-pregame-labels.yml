@@ -1,0 +1,44 @@
+name: Finish Travel Pregame Labels
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/patches/finish-travel-pregame-labels.patch'
+      - '.github/workflows/finish-travel-pregame-labels.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply final Travel pregame labels
+        run: git apply --check .github/patches/finish-travel-pregame-labels.patch && git apply .github/patches/finish-travel-pregame-labels.patch
+      - name: Syntax check
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Travel pregame contract checks
+        run: |
+          grep -q "TRAVEL TOURNAMENT" artifacts/project-ice/public/game.js
+          grep -q 'Game ${travelGameNumber}' artifacts/project-ice/public/game.js
+          grep -q "Best-of-3" artifacts/project-ice/public/game.js
+          grep -q "regulationOnly" artifacts/project-ice/public/game.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime labels
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Finish Travel pregame matchup labels'
+            git pull --rebase origin main
+            git push origin main
+          fi
