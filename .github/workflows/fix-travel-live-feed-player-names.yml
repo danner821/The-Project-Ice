@@ -1,0 +1,46 @@
+name: Fix Travel Live Feed Player Names
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/patches/fix-travel-live-feed-player-names.patch'
+      - '.github/workflows/fix-travel-live-feed-player-names.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Travel live-feed player lookup fix
+        run: |
+          git apply --check .github/patches/fix-travel-live-feed-player-names.patch
+          git apply .github/patches/fix-travel-live-feed-player-names.patch
+      - name: Syntax check
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Live-feed lookup contract checks
+        run: |
+          grep -q "const highSchoolTeams" artifacts/project-ice/public/game.js
+          grep -q "const travelTeamsSource" artifacts/project-ice/public/game.js
+          grep -q "getTravelHockeyState" artifacts/project-ice/public/game.js
+          grep -q "...travelTeams" artifacts/project-ice/public/game.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime fix
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/game.js
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Resolve Travel players in live game feed'
+            git pull --rebase origin main
+            git push origin main
+          fi
