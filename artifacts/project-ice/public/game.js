@@ -10477,6 +10477,13 @@ function getScheduleGameIcon(event = {}) {
   // Standard game.
   return '🏒';
 }
+function isScheduleCalendarGame(event = {}) {
+  return (
+    event?.type === 'game' ||
+    event?.type === 'travel-game' ||
+    event?.travelTournament === true
+  );
+}
 function renderScheduleCalendar(year, month) {
   const grid =
     document.getElementById('schedule-calendar-grid');
@@ -10575,7 +10582,7 @@ function renderScheduleCalendar(year, month) {
   .map(
     event => `
     ${
-  event.type === 'game'
+  isScheduleCalendarGame(event)
     ? `
       <span
         class="schedule-day-game-icon"
@@ -10594,14 +10601,14 @@ function renderScheduleCalendar(year, month) {
       <span
   class="schedule-day-event
     schedule-day-event--${event.type}
-    ${event.type !== 'game' ? 'schedule-day-event--icon-only' : ''}
+    ${!isScheduleCalendarGame(event) ? 'schedule-day-event--icon-only' : ''}
     ${event.location ? `schedule-day-event--${event.location}` : ''}
     ${event.resultType ? `schedule-day-event--${event.resultType}` : ''}
     ${event.isCompleted ? 'schedule-day-event--completed' : ''}"
   title="${event.label || event.shortLabel || 'Scheduled event'}"
 >
   ${
-    event.type === 'game'
+    isScheduleCalendarGame(event)
       ? `
         <span class="schedule-day-event__matchup">
           ${
@@ -10680,7 +10687,7 @@ function renderScheduleCalendar(year, month) {
   <h4>${selectedEvent.label}</h4>
 
   ${
-    selectedEvent.type === 'game'
+    isScheduleCalendarGame(selectedEvent)
       ? ''
       : `
         <p>
