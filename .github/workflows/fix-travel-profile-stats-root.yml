@@ -1,0 +1,38 @@
+name: Fix Travel Profile Stats Root
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/fix_travel_profile_stats_root.py'
+      - '.github/workflows/fix-travel-profile-stats-root.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply root fix
+        run: python .github/scripts/fix_travel_profile_stats_root.py
+      - name: Syntax check
+        run: |
+          node --check artifacts/project-ice/public/travel-hockey-canonical-ui.js
+          node --check artifacts/project-ice/public/team-profile-stat-scopes.js
+          node --check artifacts/project-ice/public/full-stats-scopes.js
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/project-ice/public/travel-hockey-canonical-ui.js artifacts/project-ice/public/team-profile-stat-scopes.js artifacts/project-ice/public/full-stats-scopes.js
+          if git diff --cached --quiet; then
+            echo "No runtime changes to commit"
+          else
+            git commit -m "Isolate Travel Team Profile stats from HS stats"
+            git push
+          fi
