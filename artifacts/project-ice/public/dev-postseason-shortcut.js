@@ -14,7 +14,7 @@
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-tryouts-v3';
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-tryouts-v4';
 
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
     ? WorldEngine.listCareerSaves.bind(WorldEngine)
@@ -85,12 +85,6 @@
       if (!id || id === DEV_CAREER_ID || seenIds.has(id)) continue;
       seenIds.add(id);
 
-      /*
-       * During the recent dev-shortcut regression several separate career ids
-       * could point at the exact same visible Danner snapshot. Hide only exact
-       * visible duplicates; careers that differ by even one day remain separate.
-       * No IndexedDB world is deleted here.
-       */
       const fingerprint = [
         String(save?.playerName || '').trim().toLowerCase(),
         dateKey(save?.currentDate),
@@ -180,11 +174,40 @@
         canonicalCareerPlayer.id ||
         'career-player';
 
-      world.player.playerId =
-        canonicalCareerPlayerId;
+      world.player.playerId = canonicalCareerPlayerId;
+      world.player.id = canonicalCareerPlayerId;
+    }
 
-      world.player.id =
-        canonicalCareerPlayerId;
+    /*
+     * The synthetic checkpoint is explicitly BEFORE the new Travel tournament.
+     * Older dev runs used deterministic Travel game IDs such as
+     * `travel-career-travel-qf-1-g1`. Those IDs can remain in the real career's
+     * permanent gameLog even though this cloned sandbox resets Travel back to a
+     * fresh tournament. applyPostGameProgression correctly treats gameLog IDs as
+     * permanent duplicate guards, so carrying those future Travel IDs into the
+     * checkpoint makes a newly played game look "already applied": the postgame
+     * card can calculate XP while the canonical attribute balance stays at zero.
+     *
+     * Remove ONLY prior Travel-tournament game guards from the cloned dev world.
+     * The real save is untouched, and all HS/NHL/history gameLog entries remain.
+     */
+    const resetTravelGameLog = player => {
+      if (!player || typeof player !== 'object' || !Array.isArray(player.gameLog)) return;
+      player.gameLog = player.gameLog.filter(entry =>
+        !String(entry?.gameId || '').startsWith('travel-career-')
+      );
+    };
+
+    resetTravelGameLog(canonicalCareerPlayer);
+
+    for (const team of world.teams || []) {
+      for (const player of team?.roster || []) {
+        if (player?.isCareerPlayer === true) resetTravelGameLog(player);
+      }
+    }
+
+    if (Array.isArray(world.schedule)) {
+      world.schedule = world.schedule.filter(event => event?.travelTournament !== true);
     }
 
     const overall = Math.max(40, Math.min(99, Math.round(Number(world.player.overall ?? world.player.ovr ?? 60))));
@@ -354,10 +377,6 @@
     let prepared;
 
     try {
-      /*
-       * Fast path: after the first successful build, every dev run clones the
-       * isolated baseline directly. It no longer scans or rewrites real saves.
-       */
       const baseline = await getOrCreateBaseline(db);
       prepared = preparePostTravelTryouts(baseline.world);
 
@@ -392,10 +411,6 @@
   async function loadCheckpoint() {
     const result = await rebuildSandbox();
 
-    /*
-     * Never touch projectice_save here. The dev sandbox must not rewrite the
-     * real career preview or create/recover visible careers.
-     */
     try {
       if (typeof Game !== 'undefined' && WorldEngine.state?.player) {
         Game.player = {
