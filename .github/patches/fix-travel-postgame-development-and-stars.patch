@@ -1,0 +1,96 @@
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index 406219a..7e603dd 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -7706,8 +7706,6 @@ function openPostgameSummary(gameId) {
+ 
+     if (
+       scheduledGame &&
+-      scheduledGame
+-        .travelTournament !== true &&
+       !hasSavedCareerDevelopment &&
+       typeof WorldEngine
+         .repairCompletedGameDevelopment ===
+@@ -8553,11 +8551,46 @@ function openPostgameSummary(gameId) {
+           ? 18
+           : 0;
+ 
++      const goalieTeamId =
++        String(
++          candidate.team?.teamId ||
++          candidate.team?.id ||
++          ''
++        );
++
++      const winningTeamId =
++        String(
++          summary?.winnerTeamId ||
++          scheduledGame?.winnerTeamId ||
++          ''
++        );
++
++      const losingTeamId =
++        String(
++          summary?.loserTeamId ||
++          scheduledGame?.loserTeamId ||
++          ''
++        );
++
++      const winBonus =
++        goalieTeamId &&
++        goalieTeamId === winningTeamId
++          ? 8
++          : 0;
++
++      const lossPenalty =
++        goalieTeamId &&
++        goalieTeamId === losingTeamId
++          ? 2
++          : 0;
++
+       const goalieStarScore =
+-        (saves * 0.55) +
+-        (savePercentage * 22) -
+-        (goalsAgainst * 5) +
+-        shutoutBonus;
++        (saves * 0.25) +
++        (savePercentage * 18) -
++        (goalsAgainst * 4) +
++        shutoutBonus +
++        winBonus -
++        lossPenalty;
+ 
+       return {
+         type: 'goalie',
+diff --git a/artifacts/project-ice/public/travel-hockey-tournament-engine.js b/artifacts/project-ice/public/travel-hockey-tournament-engine.js
+index 5899fba..7e211ee 100644
+--- a/artifacts/project-ice/public/travel-hockey-tournament-engine.js
++++ b/artifacts/project-ice/public/travel-hockey-tournament-engine.js
+@@ -486,6 +486,26 @@
+     scheduledGame.gameResult = { ...structuredClone(gameResult), completed:true, status:'completed', travelTournament:true };
+     scheduledGame.postgameSummary = travelPostgameSummary(gameResult,scheduledGame);
+ 
++    /*
++     * Travel results keep their own team/player stat pipeline, but the career
++     * player should still receive the shared Development Engine rewards. Apply
++     * them before the surrounding game flow saves so the result and progression
++     * land atomically. The permanent game-log guard makes this idempotent.
++     */
++    if (typeof WorldEngine.repairCompletedGameDevelopment === 'function') {
++      try {
++        const developmentResult = WorldEngine.repairCompletedGameDevelopment(
++          scheduledGame.gameId || scheduledGame.id,
++          { save:false }
++        );
++        if (developmentResult?.success !== true) {
++          console.warn('[Travel Tournament] Development application failed.',developmentResult);
++        }
++      } catch (error) {
++        console.warn('[Travel Tournament] Development application threw; preserving game result.',error);
++      }
++    }
++
+     const finished = roundSeries.length > 0 && roundSeries.every(item => item.status === 'complete');
+     if (finished) buildNextRound(state,roundKey);
+     if (state.tournament.status !== 'complete') state.tournament.currentGameDate = addDays(scheduledGame.date,2);
+
