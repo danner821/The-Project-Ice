@@ -1,0 +1,29 @@
+name: Fix Prospect Rank Bootstrap Root
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_prospect_rank_bootstrap_root.py'
+      - '.github/workflows/fix-prospect-rank-bootstrap-root.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python .github/scripts/fix_prospect_rank_bootstrap_root.py
+      - run: node --check artifacts/project-ice/public/world.js
+      - run: node --check artifacts/project-ice/public/game.js
+      - run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - run: |
+          grep -q 'function ensureProspectRankingsInitialized' artifacts/project-ice/public/world.js
+          grep -q "WorldEngine.getProspectRankings()" artifacts/project-ice/public/game.js
+      - run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/world.js artifacts/project-ice/public/game.js
+          git commit -m 'Bootstrap one canonical prospect ranking board' || exit 0
+          git pull --rebase origin main
+          git push origin main
