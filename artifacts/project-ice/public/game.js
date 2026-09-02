@@ -7706,8 +7706,6 @@ function openPostgameSummary(gameId) {
 
     if (
       scheduledGame &&
-      scheduledGame
-        .travelTournament !== true &&
       !hasSavedCareerDevelopment &&
       typeof WorldEngine
         .repairCompletedGameDevelopment ===
@@ -8553,11 +8551,46 @@ function openPostgameSummary(gameId) {
           ? 18
           : 0;
 
+      const goalieTeamId =
+        String(
+          candidate.team?.teamId ||
+          candidate.team?.id ||
+          ''
+        );
+
+      const winningTeamId =
+        String(
+          summary?.winnerTeamId ||
+          scheduledGame?.winnerTeamId ||
+          ''
+        );
+
+      const losingTeamId =
+        String(
+          summary?.loserTeamId ||
+          scheduledGame?.loserTeamId ||
+          ''
+        );
+
+      const winBonus =
+        goalieTeamId &&
+        goalieTeamId === winningTeamId
+          ? 8
+          : 0;
+
+      const lossPenalty =
+        goalieTeamId &&
+        goalieTeamId === losingTeamId
+          ? 2
+          : 0;
+
       const goalieStarScore =
-        (saves * 0.55) +
-        (savePercentage * 22) -
-        (goalsAgainst * 5) +
-        shutoutBonus;
+        (saves * 0.25) +
+        (savePercentage * 18) -
+        (goalsAgainst * 4) +
+        shutoutBonus +
+        winBonus -
+        lossPenalty;
 
       return {
         type: 'goalie',

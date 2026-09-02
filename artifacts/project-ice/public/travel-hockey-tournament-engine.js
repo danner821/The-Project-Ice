@@ -486,6 +486,26 @@
     scheduledGame.gameResult = { ...structuredClone(gameResult), completed:true, status:'completed', travelTournament:true };
     scheduledGame.postgameSummary = travelPostgameSummary(gameResult,scheduledGame);
 
+    /*
+     * Travel results keep their own team/player stat pipeline, but the career
+     * player should still receive the shared Development Engine rewards. Apply
+     * them before the surrounding game flow saves so the result and progression
+     * land atomically. The permanent game-log guard makes this idempotent.
+     */
+    if (typeof WorldEngine.repairCompletedGameDevelopment === 'function') {
+      try {
+        const developmentResult = WorldEngine.repairCompletedGameDevelopment(
+          scheduledGame.gameId || scheduledGame.id,
+          { save:false }
+        );
+        if (developmentResult?.success !== true) {
+          console.warn('[Travel Tournament] Development application failed.',developmentResult);
+        }
+      } catch (error) {
+        console.warn('[Travel Tournament] Development application threw; preserving game result.',error);
+      }
+    }
+
     const finished = roundSeries.length > 0 && roundSeries.every(item => item.status === 'complete');
     if (finished) buildNextRound(state,roundKey);
     if (state.tournament.status !== 'complete') state.tournament.currentGameDate = addDays(scheduledGame.date,2);
