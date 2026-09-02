@@ -1,0 +1,42 @@
+diff --git a/artifacts/project-ice/public/game.js b/artifacts/project-ice/public/game.js
+index 7e603dd..9f39d84 100644
+--- a/artifacts/project-ice/public/game.js
++++ b/artifacts/project-ice/public/game.js
+@@ -19183,7 +19183,7 @@ function getLivePresentationPlayer(
+     return null;
+   }
+ 
+-  const teams =
++  const highSchoolTeams =
+     Array.isArray(
+       WorldEngine.state
+         ?.teams
+@@ -19192,6 +19192,27 @@ function getLivePresentationPlayer(
+           .teams
+       : [];
+ 
++  const travelTeamsSource =
++    WorldEngine
++      .getTravelHockeyState?.()
++      ?.teams ||
++    WorldEngine.state
++      ?.travelHockey
++      ?.teams ||
++    [];
++
++  const travelTeams =
++    Array.isArray(
++      travelTeamsSource
++    )
++      ? travelTeamsSource
++      : [];
++
++  const teams = [
++    ...highSchoolTeams,
++    ...travelTeams,
++  ];
++
+   for (const team of teams) {
+     const roster =
+       Array.isArray(
+
