@@ -4650,8 +4650,8 @@ const WorldEngine = (() => {
   ) {
     return {
       playerId:
-        player?.id ||
         player?.playerId ||
+        player?.id ||
         null,
 
       teamId:
@@ -4777,8 +4777,8 @@ const WorldEngine = (() => {
   ) {
     return {
       playerId:
-        player?.id ||
         player?.playerId ||
+        player?.id ||
         null,
 
       teamId:
@@ -44260,6 +44260,43 @@ case 'career-defense':
     return Array.from(unique.values());
   }
 
+  function playerIdentityMatches(
+    player,
+    playerId,
+    options = {}
+  ) {
+    if (
+      !player ||
+      playerId === null ||
+      playerId === undefined ||
+      playerId === ''
+    ) {
+      return false;
+    }
+
+    const aliases = [
+      player.playerId,
+      player.id,
+    ];
+
+    if (
+      options.includeSourcePlayerId ===
+      true
+    ) {
+      aliases.push(
+        player.sourcePlayerId
+      );
+    }
+
+    return aliases.some(alias =>
+      alias !== null &&
+      alias !== undefined &&
+      alias !== '' &&
+      String(alias) ===
+        String(playerId)
+    );
+  }
+
   function getPlayerById(playerId) {
     if (!playerId) return null;
 
@@ -44276,10 +44313,10 @@ case 'career-defense':
 
       const player = roster.find(
         rosterPlayer =>
-          String(
-            rosterPlayer.playerId ||
-            rosterPlayer.id
-          ) === String(playerId)
+          playerIdentityMatches(
+            rosterPlayer,
+            playerId
+          )
       );
 
       if (player) {
@@ -44304,10 +44341,14 @@ case 'career-defense':
 
       const player = roster.find(
         rosterPlayer =>
-          String(
-            rosterPlayer.playerId ||
-            rosterPlayer.id
-          ) === String(playerId)
+          playerIdentityMatches(
+            rosterPlayer,
+            playerId,
+            {
+              includeSourcePlayerId:
+                true,
+            }
+          )
       );
 
       if (player) {
@@ -44315,9 +44356,14 @@ case 'career-defense':
       }
     }
 
-    const externalPlayer = ensureExternalProspectWorld().find(
-      prospect => String(prospect.playerId || prospect.id) === String(playerId)
-    );
+    const externalPlayer =
+      ensureExternalProspectWorld()
+        .find(prospect =>
+          playerIdentityMatches(
+            prospect,
+            playerId
+          )
+        );
 
     return externalPlayer || null;
   }

@@ -66,10 +66,12 @@ const attributes = {
 };
 
 const canonical = {
-  id: 'real-danner-id',
-  playerId: 'real-danner-id',
+  id: 'legacy-danner-id',
+  playerId: 'canonical-danner-id',
   firstName: 'Danner',
   lastName: 'Stephenson',
+  playerId: 'canonical-danner-id',
+  id: 'legacy-danner-id',
   position: 'LW',
   teamId: 'hs-team',
   attributes: { ...attributes },
@@ -80,9 +82,9 @@ const canonical = {
 
 const travelCopy = {
   ...structuredClone(canonical),
-  id: undefined,
+  id: 'legacy-danner-id',
   playerId: 'prospect:temporary-danner',
-  sourcePlayerId: null,
+  sourcePlayerId: 'canonical-danner-id',
   teamId: 'travel-team',
   development: { attributeXP: {} },
   gameLog: [],
@@ -123,7 +125,7 @@ state.schedule = [{
       teamId: 'travel-team',
       score: 2,
       skaters: [{
-        playerId: 'prospect:temporary-danner',
+        playerId: 'legacy-danner-id',
         gamesPlayed: 1,
         dressed: true,
         goals: 0,
@@ -146,6 +148,9 @@ state.schedule = [{
     },
   },
 }];
+
+const legacyAliasPlayer = engine.getPlayerById('legacy-danner-id');
+const canonicalAliasPlayer = engine.getPlayerById('canonical-danner-id');
 
 const repaired = engine.repairCompletedGameDevelopment(
   'travel-game-1',
@@ -184,6 +189,11 @@ const uiPlayer = context.__syncCareerPlayerWithWorld();
 const displayed = Object.values(uiPlayer?.development?.attributeXP || {})
   .reduce((sum, value) => sum + Number(value || 0), 0);
 
+const canonicalAfterSync = engine.getCareerPlayer();
+const persistedAfterSync = Object.values(
+  canonicalAfterSync?.development?.attributeXP || {}
+).reduce((sum, value) => sum + Number(value || 0), 0);
+
 const careerPlayers = state.teams
   .flatMap(team => team.roster || [])
   .filter(player => player?.isCareerPlayer === true);
@@ -214,9 +224,12 @@ const rebuiltTravelCareer = state.travelHockey.teams
   .find(player => player?.isCareerPlayer === true);
 
 console.log(JSON.stringify({
+  legacyAliasResolved: legacyAliasPlayer === canonical,
+  canonicalAliasResolved: canonicalAliasPlayer === canonical,
   repairSuccess: repaired?.success === true,
   awardedToCanonical: awarded,
   displayedByPlayerTabSource: displayed,
+  persistedAfterPlayerTabSync: persistedAfterSync,
   canonicalPlayerId: canonical.playerId,
   playerTabPlayerId: uiPlayer?.playerId || uiPlayer?.id || null,
   careerPlayerCount: careerPlayers.length,
@@ -227,9 +240,12 @@ console.log(JSON.stringify({
 }, null, 2));
 
 if (!(
+  legacyAliasPlayer === canonical &&
+  canonicalAliasPlayer === canonical &&
   repaired?.success === true &&
   awarded > 0 &&
   displayed === awarded &&
+  persistedAfterSync === awarded &&
   uiPlayer === canonical &&
   state.player.playerId === canonical.playerId &&
   careerPlayers.length === 1 &&
