@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine */
+/* global WorldEngine, refreshCareerUI */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -81,7 +81,30 @@
   document.addEventListener('click', event => {
     const target = event.target?.closest?.('[data-tab], [data-hub-tab], [data-tab-target], .hub-tab, button');
     if (!target) return;
+
+    const openingPlayerTab =
+      String(target?.dataset?.hubTab || '').toLowerCase() === 'player';
+
     requestAnimationFrame(() => {
+      /*
+       * PLAYER TAB CANONICAL REFRESH
+       *
+       * Game completion mutates the permanent WorldEngine career player first.
+       * The Player tab's attribute rows are normal DOM and can otherwise remain
+       * from the last Career UI render, even while the canonical attributeXP
+       * balance has already increased and been saved.
+       *
+       * Refresh the existing Career UI exactly when the Player tab is opened so
+       * its attribute rows are rebuilt from the canonical career player. This
+       * does not calculate, award, move, or spend XP; it only refreshes the view.
+       */
+      if (
+        openingPlayerTab &&
+        typeof refreshCareerUI === 'function'
+      ) {
+        refreshCareerUI();
+      }
+
       observeCurrentRoot();
       queueRefresh();
     });
