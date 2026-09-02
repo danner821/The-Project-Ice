@@ -1,0 +1,48 @@
+name: Fix Postgame Full Team Names
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/patches/fix-postgame-full-team-names.patch'
+      - '.github/workflows/fix-postgame-full-team-names.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Postgame team-name layout fix
+        run: |
+          git apply --check .github/patches/fix-postgame-full-team-names.patch
+          git apply .github/patches/fix-postgame-full-team-names.patch
+      - name: Postgame team-name contract checks
+        run: |
+          postgame_rule="$(sed -n '/^\.postgame-scoreboard__name {/,/^}/p' artifacts/project-ice/public/style.css)"
+          grep -q "height: 2.35em" <<< "$postgame_rule"
+          grep -q "white-space: normal" <<< "$postgame_rule"
+          grep -q "overflow-wrap: anywhere" <<< "$postgame_rule"
+          if grep -q "text-overflow: ellipsis\|white-space: nowrap" <<< "$postgame_rule"; then
+            echo 'Postgame team-name truncation rule remains'
+            exit 1
+          fi
+      - name: Prospect integrity audit
+        run: node .github/scripts/audit_prospect_integrity_stabilization.js
+      - name: Commit runtime fix
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/style.css
+          if git diff --cached --quiet; then
+            echo 'No runtime changes to commit'
+          else
+            git commit -m 'Show full team names in Postgame Summary'
+            git pull --rebase origin main
+            git push origin main
+          fi
