@@ -24,11 +24,12 @@ short_anchor = """        shortLabel: isHome\n          ? `vs ${opponentAbbrevia
 short_new = """        shortLabel: isHome\n          ? `vs ${opponentAbbreviation}`\n          : `@ ${opponentAbbreviation}`,\n        homeCardLabel: isTravelGame\n          ? `${isHome ? 'vs' : 'at'} ${String(opponentName || 'Opponent').replace(/\\s+(B|A|AA|AAA)$/i, '')}`\n          : null,"""
 replace_once(short_anchor, short_new, 'Travel Home compact label')
 
-# 3) Home weekly strip prefers the compact presentation label when supplied.
+# 3) The Home weekly strip already consumes scheduledEvent.label. Prefer the
+# compact Travel-only label there without changing the full Schedule label.
 replace_once(
-"""            event:\n              scheduledEvent.label || 'Open Day',""",
-"""            event:\n              scheduledEvent.homeCardLabel ||\n              scheduledEvent.label ||\n              'Open Day',""",
-'Home weekly card label preference'
+    "scheduledEvent.label ||",
+    "scheduledEvent.homeCardLabel ||\n              scheduledEvent.label ||",
+    'Home weekly card label preference'
 )
 
 GAME.write_text(text)
