@@ -10135,6 +10135,10 @@ function pickStableEvent(items, dateKey, salt = '') {
 
   const teams =
     WorldEngine.state.teams || [];
+  const travelTeams =
+    WorldEngine.getTravelHockeyState?.()?.teams ||
+    WorldEngine.state?.travelHockey?.teams ||
+    [];
   WorldEngine.syncSeedTeamMetadata();
 
   const gameEvents = leagueGames
@@ -10168,12 +10172,16 @@ function pickStableEvent(items, dateKey, salt = '') {
         ? game.awayTeamId
         : game.homeTeamId;
 
-      const opponent = teams.find(
+      const gameTeams =
+        isTravelGame ? travelTeams : teams;
+
+      const opponent = gameTeams.find(
         team => String(team.teamId || '') === String(opponentId || '')
       );
 
       const opponentName =
         game?.opponentName ||
+        opponent?.name ||
         opponent?.teamName ||
         opponent?.schoolName ||
         'Opponent';
@@ -10187,12 +10195,14 @@ function pickStableEvent(items, dateKey, salt = '') {
           .slice(0, 3)
           .toUpperCase();
 
-      const homeTeam = teams.find(
-        team => team.teamId === game.homeTeamId
+      const homeTeam = gameTeams.find(
+        team => String(team.teamId || '') === String(game.homeTeamId || '')
       );
 
       const venueName =
-        homeTeam?.arena?.name || 'Arena';
+        isTravelGame
+          ? (game.location || 'Summer Travel Tournament')
+          : (homeTeam?.arena?.name || 'Arena');
 
       const gameDateLabel = new Date(
         `${game.date}T12:00:00`
@@ -10233,13 +10243,14 @@ function pickStableEvent(items, dateKey, salt = '') {
             : Number(game.homeScore);
 
         const didPlayerWin =
-          String(game.winnerTeamId) ===
-          String(playerTeamId);
+          String(game.winnerTeamId || '') ===
+          String(gamePlayerTeamId || '');
 
         const didPlayerLose =
           isCompleted &&
-          String(game.loserTeamId) ===
-          String(playerTeamId);
+          Boolean(game.winnerTeamId) &&
+          String(game.winnerTeamId || '') !==
+          String(gamePlayerTeamId || '');
 
         let completedResultLabel = '';
 
@@ -10276,7 +10287,12 @@ function pickStableEvent(items, dateKey, salt = '') {
 
         return {
           date: game.date,
-        type: 'game',
+        type: isTravelGame ? 'travel-game' : 'game',
+        travelTournament: isTravelGame,
+        travelRound: isTravelGame ? (game.travelRound || null) : null,
+        travelSeriesId: isTravelGame ? (game.travelSeriesId || null) : null,
+        travelGameNumber: isTravelGame ? Number(game.travelGameNumber || 1) : null,
+        careerTeamId: isTravelGame ? gamePlayerTeamId : null,
         location: isHome ? 'home' : 'away',
         label: isHome
           ? `Home Game vs ${opponentName}`
@@ -10286,9 +10302,11 @@ function pickStableEvent(items, dateKey, salt = '') {
           : `@ ${opponentAbbreviation}`,
         icon: '🏒',
         objective: 'Game Day',
-        description: isHome
-          ? `A regular-season home game against the ${opponentName}.`
-          : `A regular-season road game against the ${opponentName}.`,
+        description: isTravelGame
+          ? `${String(game.travelRound || 'Tournament').replace(/(^|[-_\s])([a-z])/g, (_,a,b)=>`${a}${b.toUpperCase()}`)} · Best-of-3 · Game ${Number(game.travelGameNumber || 1)} against ${opponentName}.`
+          : (isHome
+              ? `A regular-season home game against the ${opponentName}.`
+              : `A regular-season road game against the ${opponentName}.`),
 
         details: {
           League: isTravelGame ? 'Travel Hockey' : 'High School',
