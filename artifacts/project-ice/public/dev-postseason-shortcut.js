@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine, Game, openHubTab, refreshCareerUI */
+/* global WorldEngine, Game, openHubTab, refreshCareerUI, updateHubScreen */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -12,24 +12,27 @@
   const ACTIVE_CAREER_ID_KEY = 'projectice_active_career_id_v1';
   const PENDING_CAREER_ID_KEY = 'projectice_pending_career_id_v1';
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
+
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
-  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-tryouts-v4';
+
+  /*
+   * v5 is intentionally a NEW baseline. The old shortcut synthesized a state
+   * immediately after Travel Tryouts. Phase 3.4 is now complete, so development
+   * should begin from the exact state produced by pressing "Continue Into
+   * Offseason" on the Travel Tournament Complete screen.
+   *
+   * The first run captures the real career at that boundary and stores an
+   * isolated immutable baseline. Every later shortcut use clones that baseline,
+   * so testing Phase 3.5 can never mutate or drift the real career save.
+   */
+  const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-offseason-v5';
 
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
     ? WorldEngine.listCareerSaves.bind(WorldEngine)
     : null;
 
   const dateKey = value => String(value || '').slice(0, 10);
-
-  function addDays(value, days) {
-    const key = dateKey(value);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return null;
-    const date = new Date(`${key}T12:00:00`);
-    if (Number.isNaN(date.getTime())) return null;
-    date.setDate(date.getDate() + Number(days || 0));
-    return date.toISOString().slice(0, 10);
-  }
 
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -101,246 +104,96 @@
     return result;
   }
 
-  function regularSeasonEndDate(world) {
-    const dates = (world?.schedule || [])
-      .filter(event => String(event?.type || '').toLowerCase() === 'game' && event?.isPlayoff !== true)
-      .map(event => dateKey(event?.date))
-      .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
-      .sort();
-    return dates[dates.length - 1] || '2027-04-22';
+  function canonicalCareerPlayer(world) {
+    return (world?.teams || [])
+      .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
+      .find(player => player?.isCareerPlayer === true) || null;
   }
 
-  function preparePostTravelTryouts(sourceWorld) {
-    const world = structuredClone(sourceWorld);
-    if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
+  function validatePostTravelOffseason(world) {
+    const travel = world?.travelHockey || null;
+    const tournament = travel?.tournament || null;
+    const phase = String(world?.season?.phase || '').toLowerCase();
 
-    const existing = world.postseason.highSchool || {};
-    const regularEnd = dateKey(existing.regularSeasonEndDate) || regularSeasonEndDate(world);
-    const completedDate = dateKey(existing.completedDate) || addDays(regularEnd, 28) || '2027-05-20';
-    const championDate = dateKey(existing.championCheckpointAcknowledgedAt) || addDays(completedDate, 1);
-    const ceremonyDate = dateKey(existing.awardsCeremonyDate) || addDays(championDate, 7);
-    const tryoutDate = addDays(ceremonyDate, 7);
-    const targetDate = addDays(tryoutDate, 1);
-
-    if (!championDate || !ceremonyDate || !tryoutDate || !targetDate) {
-      throw new Error('Could not determine post-Travel Tryouts checkpoint date.');
+    if (!travel || !tournament) {
+      throw new Error('The real career has no completed Travel tournament to checkpoint from.');
+    }
+    if (tournament.status !== 'complete' || !tournament.championTeamId) {
+      throw new Error('The Travel tournament is not complete yet. Finish the tournament first.');
+    }
+    if (tournament.closeoutAcknowledged !== true || travel.completed !== true) {
+      throw new Error('Press Continue Into Offseason on the Travel Tournament Complete screen first.');
+    }
+    if (phase !== 'offseason') {
+      throw new Error(`Expected the post-Travel offseason boundary, but season phase is "${world?.season?.phase || 'unknown'}".`);
     }
 
-    const rounds = existing?.bracket?.rounds || {};
-    world.postseason.highSchool = {
-      ...existing,
-      initialized: true,
-      checkpointAcknowledged: true,
-      status: 'complete',
-      phase: 'postseason-complete',
-      regularSeasonEndDate: regularEnd,
-      completedDate,
-      championCheckpointAcknowledged: true,
-      championCheckpointAcknowledgedAt: championDate,
-      offseasonStartedDate: championDate,
-      awardsCeremonyDate: ceremonyDate,
-      awardsCeremonyAcknowledged: true,
-      awardsCeremonyAcknowledgedAt: ceremonyDate,
-      bracket: {
-        ...(existing.bracket || {}),
-        format: existing?.bracket?.format || 'six-team-bye-best-of-three',
-        qualifierCount: Number(existing?.bracket?.qualifierCount) || 6,
-        rounds: {
-          roundOne: Array.isArray(rounds.roundOne) ? rounds.roundOne : [],
-          semifinals: Array.isArray(rounds.semifinals) ? rounds.semifinals : [],
-          championship: Array.isArray(rounds.championship) ? rounds.championship : [],
-        },
-      },
-      syntheticDevCheckpoint: true,
-    };
+    return true;
+  }
+
+  function preparePostTravelOffseason(sourceWorld) {
+    validatePostTravelOffseason(sourceWorld);
+    const world = structuredClone(sourceWorld);
 
     if (!world.player || typeof world.player !== 'object') world.player = {};
+    if (!world.season || typeof world.season !== 'object') world.season = {};
+    if (!Array.isArray(world.schedule)) world.schedule = [];
 
-    const canonicalCareerPlayer =
-      (world.teams || [])
-        .flatMap(team =>
-          Array.isArray(team?.roster)
-            ? team.roster
-            : []
-        )
-        .find(player =>
-          player?.isCareerPlayer === true
-        ) ||
-      null;
-
-    if (canonicalCareerPlayer) {
-      const canonicalCareerPlayerId =
-        canonicalCareerPlayer.playerId ||
-        canonicalCareerPlayer.id ||
-        'career-player';
-
-      world.player.playerId = canonicalCareerPlayerId;
-      world.player.id = canonicalCareerPlayerId;
+    const canonical = canonicalCareerPlayer(world);
+    if (canonical) {
+      const id = canonical.playerId || canonical.id || 'career-player';
+      world.player.playerId = id;
+      world.player.id = id;
     }
 
     /*
-     * The synthetic checkpoint is explicitly BEFORE the new Travel tournament.
-     * Older dev runs used deterministic Travel game IDs such as
-     * `travel-career-travel-qf-1-g1`. Those IDs can remain in the real career's
-     * permanent gameLog even though this cloned sandbox resets Travel back to a
-     * fresh tournament. applyPostGameProgression correctly treats gameLog IDs as
-     * permanent duplicate guards, so carrying those future Travel IDs into the
-     * checkpoint makes a newly played game look "already applied": the postgame
-     * card can calculate XP while the canonical attribute balance stays at zero.
+     * Preserve the real post-Travel career state exactly: completed tournament,
+     * archived Travel stats, XP, player development, HS history, awards, records,
+     * standings and the current date all come straight from the real save.
      *
-     * Remove ONLY prior Travel-tournament game guards from the cloned dev world.
-     * The real save is untouched, and all HS/NHL/history gameLog entries remain.
+     * Only remove unplayed Travel-only schedule artifacts. Clicking Continue Into
+     * Offseason already ends Travel participation, so no future Travel game or
+     * training should remain actionable in the Phase 3.5 sandbox. Completed
+     * Travel events stay in history.
      */
-    const resetTravelGameLog = player => {
-      if (!player || typeof player !== 'object' || !Array.isArray(player.gameLog)) return;
-      player.gameLog = player.gameLog.filter(entry =>
-        !String(entry?.gameId || '').startsWith('travel-career-')
-      );
-    };
-
-    resetTravelGameLog(canonicalCareerPlayer);
-
-    for (const team of world.teams || []) {
-      for (const player of team?.roster || []) {
-        if (player?.isCareerPlayer === true) resetTravelGameLog(player);
-      }
-    }
-
-    if (Array.isArray(world.schedule)) {
-      world.schedule = world.schedule.filter(event => event?.travelTournament !== true);
-    }
-
-    const overall = Math.max(40, Math.min(99, Math.round(Number(world.player.overall ?? world.player.ovr ?? 60))));
-    const neutralForm = Math.max(50, Math.min(85, Math.round(Number(world.player.currentForm ?? world.player.form ?? 65))));
-    const drillAverage = Math.max(68, Math.min(82, Math.round(overall + 7)));
-    const evaluation = Math.round(overall * 0.55 + neutralForm * 0.15 + drillAverage * 0.30);
-    const level = evaluation >= 84 ? 'AAA' : evaluation >= 76 ? 'AA' : evaluation >= 68 ? 'A' : 'B';
-
-    const clubs = [
-      { id: 'arizona-jr-coyotes', name: 'Arizona Jr. Coyotes', city: 'Phoenix, AZ' },
-      { id: 'colorado-thunderbirds', name: 'Colorado Thunderbirds', city: 'Denver, CO' },
-      { id: 'dallas-stars-elite', name: 'Dallas Stars Elite', city: 'Dallas, TX' },
-      { id: 'chicago-mission', name: 'Chicago Mission', city: 'Chicago, IL' },
-      { id: 'little-caesars', name: 'Little Caesars', city: 'Detroit, MI' },
-      { id: 'pittsburgh-penguins-elite', name: 'Pittsburgh Penguins Elite', city: 'Pittsburgh, PA' },
-      { id: 'boston-jr-eagles', name: 'Boston Jr. Eagles', city: 'Boston, MA' },
-      { id: 'la-jr-kings', name: 'LA Jr. Kings', city: 'Los Angeles, CA' },
-    ];
-
-    const careerPlayerId = String(world.player.playerId || world.player.id || 'career-player');
-    const placementSeed = `${careerPlayerId}|${tryoutDate}|${evaluation}|${level}`;
-    let hash = 2166136261;
-    for (const ch of placementSeed) {
-      hash ^= ch.charCodeAt(0);
-      hash = Math.imul(hash, 16777619);
-    }
-    const club = clubs[(hash >>> 0) % clubs.length];
-    const playerName = String(
-      world.player.name ||
-      world.player.playerName ||
-      [world.player.firstName, world.player.lastName].filter(Boolean).join(' ') ||
-      TARGET_PLAYER_NAME
-    );
-
-    const drillScores = {
-      skating: drillAverage,
-      skill: drillAverage,
-      scrimmage: drillAverage,
-    };
-
-    world.travelHockey = {
-      version: 1,
-      status: 'placement-complete',
-      awardsCeremonyDate: ceremonyDate,
-      tryoutDate,
-      levels: ['B', 'A', 'AA', 'AAA'],
-      guaranteedMinimumLevel: 'B',
-      placementLevel: level,
-      placementTeamId: club.id,
-      placementTeamName: club.name,
-      playerTeamId: null,
-      playerTeamName: club.name,
-      placementTeam: {
-        teamId: club.id,
-        clubId: club.id,
-        name: club.name,
-        city: club.city,
-        level,
-      },
-      tryoutResult: {
-        completedAt: tryoutDate,
-        playerName,
-        overallAtTryouts: overall,
-        formScore: neutralForm,
-        drillAverage,
-        drillScores,
-        evaluationScore: evaluation,
-        placementLevel: level,
-        placementTeamId: club.id,
-        placementTeamName: club.name,
-        placementTeamCity: club.city,
-        scoutingSummary: `Dev checkpoint: completed Travel tryouts at ${level} level.`,
-        reps: [],
-        randomClubApplied: true,
-        syntheticDevCheckpoint: true,
-      },
-      tournament: null,
-      completed: false,
-      syntheticDevCheckpoint: true,
-    };
-
-    if (!Array.isArray(world.schedule)) world.schedule = [];
-    let tryoutEvent = world.schedule.find(event =>
-      String(event?.eventId || event?.id || '') === 'travel-hockey-tryouts'
-    );
-    if (!tryoutEvent) {
-      tryoutEvent = {
-        id: 'travel-hockey-tryouts',
-        eventId: 'travel-hockey-tryouts',
-        eventKey: 'travel-hockey-tryouts',
-        type: 'meeting',
-        eventType: 'tryout',
-        label: 'Travel Hockey Tryouts',
-        shortLabel: 'Travel Tryouts',
-        icon: '🏒',
-        location: 'Regional Ice Center',
-        objective: 'Compete for your summer travel hockey placement.',
-        offseasonEvent: true,
-        travelHockeyEvent: true,
-        travelTryoutEvent: true,
-        requiresPlayerInteraction: true,
-      };
-      world.schedule.push(tryoutEvent);
-    }
-    Object.assign(tryoutEvent, {
-      date: tryoutDate,
-      completed: true,
-      played: true,
-      status: 'completed',
-      completedAt: tryoutDate,
+    world.schedule = world.schedule.filter(event => {
+      const travelEvent =
+        event?.travelTournament === true ||
+        event?.travelTournamentTraining === true ||
+        event?.travelHockeyEvent === true;
+      if (!travelEvent) return true;
+      return event?.completed === true || event?.played === true || event?.isCompleted === true;
     });
-    world.schedule.sort((a, b) => dateKey(a?.date).localeCompare(dateKey(b?.date)));
 
-    if (!world.season || typeof world.season !== 'object') world.season = {};
+    world.season.phase = 'offseason';
+
+    const targetDate = dateKey(
+      world.season.currentDate ||
+      world.player.currentDate ||
+      world.currentDate
+    );
+
+    if (!targetDate) {
+      throw new Error('The post-Travel career has no valid current date.');
+    }
+
     world.season.currentDate = targetDate;
-    world.season.phase = 'offseason-travel-hockey';
     world.player.currentDate = targetDate;
     world.currentDate = targetDate;
 
     for (const team of world.teams || []) {
       for (const player of team?.roster || []) {
-        const id = player?.playerId || player?.id || null;
-        if (
-          player?.isCareerPlayer === true ||
-          String(id || '') === careerPlayerId ||
-          String(id || '') === 'career-player'
-        ) {
-          player.currentDate = targetDate;
-        }
+        if (player?.isCareerPlayer === true) player.currentDate = targetDate;
       }
     }
 
-    return { world, targetDate, tryoutDate, ceremonyDate, placementLevel: level, placementTeamName: club.name };
+    return {
+      world,
+      targetDate,
+      placementLevel: world.travelHockey?.placementLevel || null,
+      championTeamId: world.travelHockey?.tournament?.championTeamId || null,
+      tournamentMvpPlayerId: world.travelHockey?.tournament?.mvpPlayerId || null,
+    };
   }
 
   async function findRealDannerSave() {
@@ -361,11 +214,13 @@
     const source = await readRecord(db, `career:${realSave.id}`);
     if (!source?.world) throw new Error('Danner Stephenson IndexedDB world record was not found.');
 
-    const prepared = preparePostTravelTryouts(source.world);
+    const prepared = preparePostTravelOffseason(source.world);
     const baseline = {
       id: DEV_BASELINE_RECORD_ID,
       sourceCareerId: realSave.id,
       createdAt: new Date().toISOString(),
+      checkpointDate: prepared.targetDate,
+      checkpointKind: 'post-travel-offseason',
       world: prepared.world,
     };
     await writeRecord(db, baseline);
@@ -378,7 +233,7 @@
 
     try {
       const baseline = await getOrCreateBaseline(db);
-      prepared = preparePostTravelTryouts(baseline.world);
+      prepared = preparePostTravelOffseason(baseline.world);
 
       await writeRecord(db, {
         id: DEV_WORLD_RECORD_ID,
@@ -386,7 +241,7 @@
         devSandbox: true,
         sourceCareerId: baseline.sourceCareerId || null,
         checkpointDate: prepared.targetDate,
-        travelTryoutDate: prepared.tryoutDate,
+        checkpointKind: 'post-travel-offseason',
         world: prepared.world,
       });
     } finally {
@@ -398,11 +253,14 @@
     removeDevMetadataFromVisibleIndex();
 
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
-    if (!loaded) throw new Error('Could not load isolated post-Travel Tryouts dev career.');
+    if (!loaded) throw new Error('Could not load isolated post-Travel offseason dev career.');
 
-    WorldEngine.ensureTravelHockeyFoundation?.({ save: false });
-    WorldEngine.ensureTravelHockeyWorld?.({ save: false });
-    WorldEngine.rebuildTravelHockeyRosters?.();
+    /*
+     * Do NOT rebuild/reopen the Travel world here. The real Continue Into
+     * Offseason path deliberately deactivates Travel presentation. Recreating the
+     * Travel world at this checkpoint would make the shortcut unlike real play.
+     */
+    WorldEngine.archiveTravelTournamentStats?.({ save:false });
     WorldEngine.save?.();
     removeDevMetadataFromVisibleIndex();
     return prepared;
@@ -422,19 +280,25 @@
         };
       }
 
+      document.body.classList.remove('pi-travel-season-active');
+      document.getElementById('pi-travel-home-card')?.remove();
+      document.getElementById('pi-travel-league-card')?.remove();
+      document.getElementById('pi-travel-hockey-hub-canonical')?.remove();
+      document.getElementById('pi-league-postseason-card')?.remove();
+
       openHubTab?.('home');
-      refreshCareerUI?.();
-      WorldEngine.bridgeTravelHockeyPresentation?.();
+      if (typeof updateHubScreen === 'function') updateHubScreen();
+      else refreshCareerUI?.();
     } catch (error) {
       console.warn('[Project Ice] Dev Hub refresh failed:', error);
     }
 
-    console.info('[Project Ice] Post-Travel Tryouts dev checkpoint loaded.', {
+    console.info('[Project Ice] Post-Travel offseason dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
       checkpointDate: result.targetDate,
-      tryoutDate: result.tryoutDate,
       placementLevel: result.placementLevel,
-      placementTeamName: result.placementTeamName,
+      championTeamId: result.championTeamId,
+      tournamentMvpPlayerId: result.tournamentMvpPlayerId,
     });
   }
 
@@ -449,14 +313,14 @@
   function wireShortcut() {
     const button = document.getElementById('btn-dev-hub');
     const hint = document.getElementById('dev-shortcut-hint');
-    if (!button || button.dataset.travelTryoutCheckpointWired === 'true') return;
+    if (!button || button.dataset.postTravelOffseasonCheckpointWired === 'true') return;
 
-    button.dataset.travelTryoutCheckpointWired = 'true';
+    button.dataset.postTravelOffseasonCheckpointWired = 'true';
     button.disabled = false;
     button.removeAttribute('disabled');
 
     const label = button.querySelector('.btn__label');
-    if (label) label.textContent = 'Skip to Post-Travel Tryouts';
+    if (label) label.textContent = 'Skip to Post-Travel Offseason';
     if (hint) hint.classList.remove('is-visible');
 
     button.addEventListener('click', event => {
@@ -466,8 +330,8 @@
 
       loadCheckpoint()
         .catch(error => {
-          console.error('[Project Ice] Dev post-Travel Tryouts shortcut failed:', error);
-          alert(`Dev post-Travel Tryouts shortcut failed: ${error?.message || 'unknown error'}`);
+          console.error('[Project Ice] Dev post-Travel offseason shortcut failed:', error);
+          alert(`Dev post-Travel offseason shortcut failed: ${error?.message || 'unknown error'}`);
         })
         .finally(() => {
           button.disabled = false;
@@ -478,7 +342,7 @@
   removeDevMetadataFromVisibleIndex();
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
+    document.addEventListener('DOMContentLoaded', wireShortcut, { once:true });
   } else {
     wireShortcut();
   }
