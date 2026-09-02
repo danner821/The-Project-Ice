@@ -18185,8 +18185,9 @@ function openPregameMatchup(
       );
 
   const teamRecord =
-    team =>
-      `${
+    (team, regulationOnly = false) => {
+      const baseRecord =
+        `${
         Number(
           team?.wins ??
           team?.travelStats?.w
@@ -18196,11 +18197,18 @@ function openPregameMatchup(
           team?.losses ??
           team?.travelStats?.l
         ) || 0
-      }-${
+      }`;
+
+      if (regulationOnly) {
+        return baseRecord;
+      }
+
+      return `${baseRecord}-${
         Number(
           team?.overtimeLosses
         ) || 0
       }`;
+    };
 
   const teamDisplayName =
     team =>
@@ -18239,16 +18247,32 @@ function openPregameMatchup(
     eventDefinition?.type ===
       'travel-game';
 
+  const travelRound =
+    String(
+      scheduledGame
+        ?.travelRound ||
+      eventDefinition
+        ?.travelRound ||
+      'Travel Tournament'
+    )
+      .replace(
+        /(^|[-_\s])([a-z])/g,
+        (_, spacer, letter) =>
+          `${spacer}${letter.toUpperCase()}`
+      );
+
+  const travelGameNumber =
+    Number(
+      scheduledGame
+        ?.travelGameNumber ||
+      eventDefinition
+        ?.travelGameNumber ||
+      1
+    );
+
   const gameType =
     isTravelGame
-      ? (
-          eventDefinition
-            ?.details
-            ?.['Game Type'] ||
-          scheduledGame
-            ?.travelRound ||
-          'Travel Tournament'
-        )
+      ? `${travelRound} · Game ${travelGameNumber}`
       : (
           scheduledGame
             ?.specialType ||
@@ -18311,6 +18335,19 @@ function openPregameMatchup(
       return initials || fallback;
     };
 
+  const pregameEyebrow =
+    pregameMatchupScreen
+      ?.querySelector(
+        '.pregame-matchup__eyebrow'
+      );
+
+  if (pregameEyebrow) {
+    pregameEyebrow.textContent =
+      isTravelGame
+        ? 'TRAVEL TOURNAMENT'
+        : 'GAME NIGHT';
+  }
+
   document.getElementById(
     'pregame-matchup-title'
   ).textContent =
@@ -18319,7 +18356,9 @@ function openPregameMatchup(
   document.getElementById(
     'pregame-matchup-meta'
   ).textContent =
-    dateLabel;
+    isTravelGame
+      ? `${dateLabel} · Best-of-3`
+      : dateLabel;
 
   document.getElementById(
     'pregame-matchup-venue'
@@ -18348,7 +18387,8 @@ function openPregameMatchup(
     'pregame-away-record'
   ).textContent =
     teamRecord(
-      awayTeam
+      awayTeam,
+      isTravelGame
     );
 
   document.getElementById(
@@ -18397,7 +18437,8 @@ function openPregameMatchup(
     'pregame-home-record'
   ).textContent =
     teamRecord(
-      homeTeam
+      homeTeam,
+      isTravelGame
     );
 
   document.getElementById(
