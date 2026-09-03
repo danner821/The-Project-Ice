@@ -126,10 +126,10 @@ Status: ACTIVE
 Status: ACTIVE / NEXT IMPLEMENTATION
 
 Canonical HS timeline:
-- Freshman: 2022–23
-- Sophomore: 2023–24
-- Junior: 2024–25
-- Senior: 2025–26
+- Freshman: 2023–24
+- Sophomore: 2024–25
+- Junior: 2025–26
+- Senior: 2026–27
 
 Requirements:
 - eliminate conflicting fresh-career 2026/2027 hardcodes
