@@ -280,7 +280,7 @@
       ? WorldEngine.getOffseasonDevelopmentTrainingEvents()
       : (WorldEngine.state?.schedule || []).filter(event => event?.offseasonDevelopmentEvent === true);
 
-    if (trainings.length < 3) {
+    if (trainings.length < 2) {
       throw new Error(
         `Offseason cadence created ${trainings.length} training events at ${dateKey(WorldEngine.state?.season?.currentDate)}.`
       );
