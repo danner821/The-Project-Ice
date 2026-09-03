@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 2;
+  const MODULE_VERSION = 3;
   const WINDOW_DAYS = 7;
   const TRAININGS_PER_WINDOW = 3;
   const OFFSEASON_END_DATE = '2027-08-30';
@@ -24,21 +24,21 @@
   };
 
   function travelState() {
-    return WorldEngine.getTravelHockeyState?.() ||
-      WorldEngine.state?.travelHockey ||
+    return WorldEngine.state?.travelHockey ||
+      WorldEngine.getTravelHockeyState?.() ||
       null;
   }
 
   function isPostTravelOffseason() {
     const world = WorldEngine.state;
+    if (!world || String(world?.season?.phase || '').toLowerCase() !== 'offseason') return false;
+
     const travel = travelState();
     const tournament = travel?.tournament;
     return Boolean(
-      world &&
-      String(world?.season?.phase || '').toLowerCase() === 'offseason' &&
-      tournament?.status === 'complete' &&
-      tournament?.closeoutAcknowledged === true &&
-      travel?.completed === true
+      travel?.completed === true ||
+      tournament?.closeoutAcknowledged === true ||
+      world?.offseasonDevelopment?.postTravelBoundary === true
     );
   }
 
@@ -219,7 +219,9 @@
     const start = resolveStartDate();
     if (!world || !root || !start) return false;
 
-    let events = schedule();
+    root.postTravelBoundary = true;
+
+    const events = schedule();
     let changed = reconcileExistingEvents(events);
 
     let windowIndex = 0;
@@ -243,6 +245,7 @@
       endDate: OFFSEASON_END_DATE,
       trainingsPerSevenDays: TRAININGS_PER_WINDOW,
       checkpointDate: '2027-08-31',
+      postTravelBoundary: true,
     };
 
     if (
@@ -250,7 +253,8 @@
       root.startDate !== nextCadence.startDate ||
       root.endDate !== nextCadence.endDate ||
       Number(root.trainingsPerSevenDays) !== TRAININGS_PER_WINDOW ||
-      root.checkpointDate !== nextCadence.checkpointDate
+      root.checkpointDate !== nextCadence.checkpointDate ||
+      root.postTravelBoundary !== true
     ) {
       Object.assign(root, nextCadence);
       changed = true;
@@ -260,15 +264,16 @@
     return changed;
   }
 
+  function syncAndRefresh() {
+    const changed = syncOffseasonDevelopmentCadence({ save:true });
+    if (!changed) return false;
+    try { globalThis.refreshCareerUI?.(); } catch (_) {}
+    try { globalThis.updateHubScreen?.(); } catch (_) {}
+    return true;
+  }
+
   WorldEngine.syncOffseasonDevelopmentCadence = syncOffseasonDevelopmentCadence;
 
-  /*
-   * Career saves (including the dev shortcut sandbox) are swapped in
-   * asynchronously after this runtime has already loaded. Reconcile immediately
-   * after the canonical save loader finishes so the post-Travel checkpoint gets
-   * its offseason calendar on the very first frame, not after another game or
-   * manual refresh.
-   */
   const originalSelectCareerSave = WorldEngine.selectCareerSave;
   if (
     typeof originalSelectCareerSave === 'function' &&
@@ -276,7 +281,11 @@
   ) {
     const wrappedSelectCareerSave = async (...args) => {
       const result = await originalSelectCareerSave.apply(WorldEngine, args);
-      if (result) syncOffseasonDevelopmentCadence({ save:true });
+      if (result) {
+        syncAndRefresh();
+        queueMicrotask(syncAndRefresh);
+        requestAnimationFrame(syncAndRefresh);
+      }
       return result;
     };
     wrappedSelectCareerSave.__projectIceOffseasonCadenceWrapped = true;
@@ -284,16 +293,10 @@
     WorldEngine.selectCareerSave = wrappedSelectCareerSave;
   }
 
-  /* Real gameplay boundary: Continue Into Offseason finishes synchronously. */
   document.addEventListener('click', event => {
     if (!event.target?.closest?.('#pi-travel-closeout-continue')) return;
-    requestAnimationFrame(() => {
-      syncOffseasonDevelopmentCadence({ save:true });
-      try { globalThis.refreshCareerUI?.(); } catch (_) {}
-      try { globalThis.updateHubScreen?.(); } catch (_) {}
-    });
+    requestAnimationFrame(syncAndRefresh);
   });
 
-  /* Harmless on normal loads; active only at the post-Travel offseason phase. */
   syncOffseasonDevelopmentCadence({ save:true });
 })();
