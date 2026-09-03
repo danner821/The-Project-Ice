@@ -5,11 +5,11 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 4;
+  const MODULE_VERSION = 5;
   const WINDOW_DAYS = 7;
   const TRAININGS_PER_WINDOW = 3;
   const OFFSEASON_END_DATE = '2027-08-30';
-  const DEV_BOUNDARY_CLASS = 'pi-travel-closeout-complete';
+  const NEXT_SEASON_CHECKPOINT_DATE = '2027-08-31';
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -20,6 +20,7 @@
     const key = dateKey(value);
     if (!key) return null;
     const date = new Date(`${key}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
     date.setDate(date.getDate() + Number(days || 0));
     return date.toISOString().slice(0, 10);
   };
@@ -28,6 +29,35 @@
     return WorldEngine.state?.travelHockey ||
       WorldEngine.getTravelHockeyState?.() ||
       null;
+  }
+
+  function schedule() {
+    const world = WorldEngine.state;
+    if (!world) return [];
+    if (!Array.isArray(world.schedule)) world.schedule = [];
+    return world.schedule;
+  }
+
+  function offseasonRoot() {
+    const world = WorldEngine.state;
+    if (!world) return null;
+    if (!world.offseasonDevelopment || typeof world.offseasonDevelopment !== 'object') {
+      world.offseasonDevelopment = {};
+    }
+    return world.offseasonDevelopment;
+  }
+
+  function resolveCanonicalStartDate() {
+    const root = offseasonRoot();
+    const travel = travelState();
+
+    return dateKey(
+      travel?.tournament?.closeoutAcknowledgedAt ||
+      root?.startDate ||
+      WorldEngine.state?.season?.currentDate ||
+      WorldEngine.state?.player?.currentDate ||
+      WorldEngine.state?.currentDate
+    );
   }
 
   function isPostTravelOffseason() {
@@ -40,18 +70,16 @@
     const tournament = travel?.tournament;
 
     return Boolean(
-      world?.offseasonDevelopment?.postTravelBoundary === true ||
       travel?.completed === true ||
       tournament?.closeoutAcknowledged === true ||
-      document.body?.classList?.contains(DEV_BOUNDARY_CLASS)
+      world?.offseasonDevelopment?.postTravelBoundary === true
     );
   }
 
-  function schedule() {
-    const world = WorldEngine.state;
-    if (!world) return [];
-    if (!Array.isArray(world.schedule)) world.schedule = [];
-    return world.schedule;
+  function isComplete(event) {
+    return event?.completed === true ||
+      event?.played === true ||
+      event?.isCompleted === true;
   }
 
   function activeEvent(event) {
@@ -59,14 +87,39 @@
       String(event?.status || '').toLowerCase() !== 'not-needed';
   }
 
-  function hasAnyEventOnDate(events, date) {
-    return events.some(event =>
-      activeEvent(event) && dateKey(event?.date) === date
-    );
-  }
-
   function isOffseasonTraining(event) {
     return event?.offseasonDevelopmentEvent === true;
+  }
+
+  function isPriorPhaseFiller(event, startDate) {
+    const date = dateKey(event?.date);
+    if (!date || date < startDate || date > OFFSEASON_END_DATE) return false;
+    if (isComplete(event)) return false;
+    if (isOffseasonTraining(event)) return false;
+
+    if (
+      event?.travelTournament === true ||
+      event?.travelTournamentTraining === true ||
+      event?.travelHockeyEvent === true ||
+      String(event?.type || '').toLowerCase() === 'travel-game'
+    ) {
+      return true;
+    }
+
+    if (event?.postseasonCareerEvent === true) return true;
+
+    const type = String(event?.type || event?.eventType || '').trim().toLowerCase();
+    return new Set(['practice', 'recovery', 'training', 'off', 'rest']).has(type);
+  }
+
+  function normalizePostTravelSchedule(startDate) {
+    const world = WorldEngine.state;
+    const events = schedule();
+    const filtered = events.filter(event => !isPriorPhaseFiller(event, startDate));
+
+    if (filtered.length === events.length) return false;
+    world.schedule = filtered;
+    return true;
   }
 
   function applyCanonicalPracticePresentation(event, slotIndex = 0) {
@@ -116,46 +169,23 @@
     }, slotIndex);
   }
 
-  function offseasonRoot() {
-    const world = WorldEngine.state;
-    if (!world) return null;
-    if (!world.offseasonDevelopment || typeof world.offseasonDevelopment !== 'object') {
-      world.offseasonDevelopment = {};
-    }
-    return world.offseasonDevelopment;
-  }
-
-  function resolveStartDate() {
-    const root = offseasonRoot();
-    if (!root) return null;
-
-    const existing = dateKey(root.startDate);
-    if (existing) return existing;
-
-    const travel = travelState();
-    const start = dateKey(
-      travel?.tournament?.closeoutAcknowledgedAt ||
-      WorldEngine.state?.season?.currentDate ||
-      WorldEngine.state?.player?.currentDate ||
-      WorldEngine.state?.currentDate
-    );
-
-    if (start) root.startDate = start;
-    return start;
-  }
-
-  function reconcileExistingEvents(events) {
+  function reconcileExistingEvents(events, startDate) {
     let changed = false;
 
     for (const event of events) {
       if (!isOffseasonTraining(event)) continue;
+      const date = dateKey(event?.date);
+      if (!date || date < startDate || date > OFFSEASON_END_DATE) continue;
+
       const slot = Number(event?.cadenceSlot) || 0;
       const before = JSON.stringify({
         type: event.type,
         eventType: event.eventType,
         eventKey: event.eventKey,
         label: event.label,
+        shortLabel: event.shortLabel,
         requiresPlayerInteraction: event.requiresPlayerInteraction,
+        offseasonDevelopmentEvent: event.offseasonDevelopmentEvent,
         travelHockeyEvent: event.travelHockeyEvent,
         cadenceVersion: event.cadenceVersion,
       });
@@ -167,7 +197,9 @@
         eventType: event.eventType,
         eventKey: event.eventKey,
         label: event.label,
+        shortLabel: event.shortLabel,
         requiresPlayerInteraction: event.requiresPlayerInteraction,
+        offseasonDevelopmentEvent: event.offseasonDevelopmentEvent,
         travelHockeyEvent: event.travelHockeyEvent,
         cadenceVersion: event.cadenceVersion,
       });
@@ -178,6 +210,14 @@
     return changed;
   }
 
+  function hasBlockingEventOnDate(events, date) {
+    return events.some(event => {
+      if (!activeEvent(event)) return false;
+      if (dateKey(event?.date) !== date) return false;
+      return true;
+    });
+  }
+
   function chooseTrainingDates(events, windowStart, windowEnd, needed) {
     const preferredOffsets = [1, 3, 5, 2, 4, 0, 6];
     const candidates = [];
@@ -185,7 +225,7 @@
     for (const offset of preferredOffsets) {
       const date = addDays(windowStart, offset);
       if (!date || date > windowEnd || date > OFFSEASON_END_DATE) continue;
-      if (hasAnyEventOnDate(events, date)) continue;
+      if (hasBlockingEventOnDate(events, date)) continue;
       candidates.push(date);
       if (candidates.length >= needed) break;
     }
@@ -227,17 +267,19 @@
 
     const world = WorldEngine.state;
     const root = offseasonRoot();
-    const start = resolveStartDate();
-    if (!world || !root || !start) return false;
+    const startDate = resolveCanonicalStartDate();
+    if (!world || !root || !startDate) return false;
 
-    root.postTravelBoundary = true;
+    let changed = false;
+
+    if (normalizePostTravelSchedule(startDate)) changed = true;
 
     const events = schedule();
-    let changed = reconcileExistingEvents(events);
+    if (reconcileExistingEvents(events, startDate)) changed = true;
 
     let windowIndex = 0;
     for (
-      let cursor = start;
+      let cursor = startDate;
       cursor && cursor <= OFFSEASON_END_DATE;
       cursor = addDays(cursor, WINDOW_DAYS)
     ) {
@@ -252,19 +294,19 @@
 
     const nextCadence = {
       version: MODULE_VERSION,
-      startDate: start,
+      startDate,
       endDate: OFFSEASON_END_DATE,
       trainingsPerSevenDays: TRAININGS_PER_WINDOW,
-      checkpointDate: '2027-08-31',
+      checkpointDate: NEXT_SEASON_CHECKPOINT_DATE,
       postTravelBoundary: true,
     };
 
     if (
       Number(root.version) !== MODULE_VERSION ||
-      root.startDate !== nextCadence.startDate ||
-      root.endDate !== nextCadence.endDate ||
+      root.startDate !== startDate ||
+      root.endDate !== OFFSEASON_END_DATE ||
       Number(root.trainingsPerSevenDays) !== TRAININGS_PER_WINDOW ||
-      root.checkpointDate !== nextCadence.checkpointDate ||
+      root.checkpointDate !== NEXT_SEASON_CHECKPOINT_DATE ||
       root.postTravelBoundary !== true
     ) {
       Object.assign(root, nextCadence);
@@ -275,27 +317,15 @@
     return changed;
   }
 
-  function refreshScheduleMirror() {
-    try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
-  }
-
   function refreshVisibleCareerUI() {
-    refreshScheduleMirror();
+    try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
     try { globalThis.refreshCareerUI?.(); } catch (_) {}
     try { globalThis.updateHubScreen?.(); } catch (_) {}
   }
 
   function syncAndRefresh() {
     if (!isPostTravelOffseason()) return false;
-
     syncOffseasonDevelopmentCadence({ save: true });
-
-    /*
-     * Schedule/Home render from the legacy scheduleEvents mirror, not directly
-     * from WorldEngine.state.schedule. Refresh that mirror every time the
-     * post-Travel boundary is entered, even when cadence itself reports no new
-     * mutation (for example, events were already saved by an earlier sync).
-     */
     refreshVisibleCareerUI();
     return true;
   }
@@ -309,11 +339,7 @@
   ) {
     const wrappedSelectCareerSave = async (...args) => {
       const result = await originalSelectCareerSave.apply(WorldEngine, args);
-      if (result) {
-        syncAndRefresh();
-        queueMicrotask(syncAndRefresh);
-        requestAnimationFrame(syncAndRefresh);
-      }
+      if (result) syncAndRefresh();
       return result;
     };
 
@@ -322,26 +348,17 @@
     WorldEngine.selectCareerSave = wrappedSelectCareerSave;
   }
 
-  /* Real gameplay boundary. */
+  /*
+   * Real Travel closeout is the lifecycle boundary. The closeout handler marks
+   * the tournament complete and sets season.phase='offseason' before this event
+   * reaches document, so the canonical offseason schedule can be created once
+   * from the saved world state without DOM polling or timing races.
+   */
   document.addEventListener('click', event => {
     if (!event.target?.closest?.('#pi-travel-closeout-continue')) return;
     requestAnimationFrame(syncAndRefresh);
   });
 
-  /*
-   * Dev checkpoint boundary. The shortcut swaps the canonical world first, then
-   * adds pi-travel-closeout-complete to <body>. Observe that exact state change
-   * rather than racing the async save loader or polling.
-   */
-  if (document.body && typeof MutationObserver !== 'undefined') {
-    let boundarySeen = document.body.classList.contains(DEV_BOUNDARY_CLASS);
-    const observer = new MutationObserver(() => {
-      const active = document.body.classList.contains(DEV_BOUNDARY_CLASS);
-      if (active && !boundarySeen) requestAnimationFrame(syncAndRefresh);
-      boundarySeen = active;
-    });
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  }
-
+  /* Reload/resume path for a career already inside post-Travel offseason. */
   syncAndRefresh();
 })();
