@@ -8,7 +8,7 @@
   WorldEngine.__careerTimeServiceInstalled = true;
 
   const VERSION = 1;
-  const CANONICAL_START_YEAR = 2022;
+  const CANONICAL_START_YEAR = 2023;
   const LEGACY_START_YEAR = 2026;
   const YEAR_SHIFT = CANONICAL_START_YEAR - LEGACY_START_YEAR;
   const CLASS_NAMES = ['Freshman', 'Sophomore', 'Junior', 'Senior'];
