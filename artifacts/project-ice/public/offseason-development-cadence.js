@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 6;
+  const MODULE_VERSION = 7;
   const WINDOW_DAYS = 7;
   const TRAININGS_PER_WINDOW = 3;
 
@@ -138,11 +138,11 @@
       type: 'practice',
       eventType: 'practice',
       eventKey: 'practice-systems',
-      label: 'Offseason Training',
+      label: 'Training',
       shortLabel: 'Training',
-      icon: '🏒',
-      location: 'Training Rink',
-      objective: 'Keep developing before the next high school season.',
+      icon: '🏋️',
+      location: 'Training Facility',
+      objective: 'Choose an area of your game to develop.',
       description: descriptions[slotIndex % descriptions.length],
       focus: focuses[slotIndex % focuses.length],
       requiresPlayerInteraction: true,
