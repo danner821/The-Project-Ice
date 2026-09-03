@@ -81,6 +81,10 @@ const runtimeModulesPlugin = {
     if (!html.includes('/travel-tournament-closeout.js')) scripts.push('    <script src="/travel-tournament-closeout.js"></script>');
     if (!html.includes('/travel-stat-history.js')) scripts.push('    <script src="/travel-stat-history.js"></script>');
     if (!html.includes('/travel-hockey-profile-repair-v2.js')) scripts.push('    <script src="/travel-hockey-profile-repair-v2.js"></script>');
+
+    /* Phase 3.5: post-Travel offseason development + season transition. */
+    if (!html.includes('/offseason-development-cadence.js')) scripts.push('    <script src="/offseason-development-cadence.js"></script>');
+
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
     if (scripts.length === 0) return html;
