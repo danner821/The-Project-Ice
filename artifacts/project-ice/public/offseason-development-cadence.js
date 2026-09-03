@@ -5,11 +5,9 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 5;
+  const MODULE_VERSION = 6;
   const WINDOW_DAYS = 7;
   const TRAININGS_PER_WINDOW = 3;
-  const OFFSEASON_END_DATE = '2027-08-30';
-  const NEXT_SEASON_CHECKPOINT_DATE = '2027-08-31';
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -47,10 +45,9 @@
     return world.offseasonDevelopment;
   }
 
-  function resolveCanonicalStartDate() {
-    const root = offseasonRoot();
+  function resolveStartDate() {
     const travel = travelState();
-
+    const root = offseasonRoot();
     return dateKey(
       travel?.tournament?.closeoutAcknowledgedAt ||
       root?.startDate ||
@@ -60,6 +57,17 @@
     );
   }
 
+  function seasonBoundaryDates(startDate) {
+    const key = dateKey(startDate);
+    if (!key) return null;
+    const year = Number(key.slice(0, 4));
+    if (!Number.isFinite(year)) return null;
+    return {
+      endDate: `${year}-08-30`,
+      checkpointDate: `${year}-08-31`,
+    };
+  }
+
   function isPostTravelOffseason() {
     const world = WorldEngine.state;
     if (!world || String(world?.season?.phase || '').toLowerCase() !== 'offseason') {
@@ -67,11 +75,9 @@
     }
 
     const travel = travelState();
-    const tournament = travel?.tournament;
-
     return Boolean(
       travel?.completed === true ||
-      tournament?.closeoutAcknowledged === true ||
+      travel?.tournament?.closeoutAcknowledged === true ||
       world?.offseasonDevelopment?.postTravelBoundary === true
     );
   }
@@ -82,7 +88,7 @@
       event?.isCompleted === true;
   }
 
-  function activeEvent(event) {
+  function isActive(event) {
     return event?.canceled !== true &&
       String(event?.status || '').toLowerCase() !== 'not-needed';
   }
@@ -91,11 +97,10 @@
     return event?.offseasonDevelopmentEvent === true;
   }
 
-  function isPriorPhaseFiller(event, startDate) {
+  function isPriorPhaseFiller(event, startDate, endDate) {
     const date = dateKey(event?.date);
-    if (!date || date < startDate || date > OFFSEASON_END_DATE) return false;
-    if (isComplete(event)) return false;
-    if (isOffseasonTraining(event)) return false;
+    if (!date || date < startDate || date > endDate) return false;
+    if (isComplete(event) || isOffseasonTraining(event)) return false;
 
     if (
       event?.travelTournament === true ||
@@ -112,19 +117,16 @@
     return new Set(['practice', 'recovery', 'training', 'off', 'rest']).has(type);
   }
 
-  function normalizePostTravelSchedule(startDate) {
+  function normalizeSchedule(startDate, endDate) {
     const world = WorldEngine.state;
     const events = schedule();
-    const filtered = events.filter(event => !isPriorPhaseFiller(event, startDate));
-
+    const filtered = events.filter(event => !isPriorPhaseFiller(event, startDate, endDate));
     if (filtered.length === events.length) return false;
     world.schedule = filtered;
     return true;
   }
 
-  function applyCanonicalPracticePresentation(event, slotIndex = 0) {
-    if (!event) return event;
-
+  function applyPracticePresentation(event, slotIndex = 0) {
     const focuses = ['skills', 'systems', 'skating'];
     const descriptions = [
       'A focused offseason skill session built around puck work, shooting, and individual execution.',
@@ -132,32 +134,34 @@
       'A high-tempo offseason session centered on skating quality, pace, and movement.',
     ];
 
-    event.type = 'practice';
-    event.eventType = 'practice';
-    event.eventKey = 'practice-systems';
-    event.label = 'Offseason Training';
-    event.shortLabel = 'Training';
-    event.icon = '🏒';
-    event.location = 'Training Rink';
-    event.objective = 'Keep developing before the next high school season.';
-    event.description = descriptions[slotIndex % descriptions.length];
-    event.focus = focuses[slotIndex % focuses.length];
-    event.requiresPlayerInteraction = true;
-    event.isCareerEvent = true;
-    event.offseasonEvent = true;
-    event.offseasonDevelopmentEvent = true;
-    event.seasonType = 'offseason';
-    event.travelHockeyEvent = false;
-    event.travelTournament = false;
-    event.travelTournamentTraining = false;
-    event.cadenceVersion = MODULE_VERSION;
-    event.cadenceSlot = slotIndex;
+    Object.assign(event, {
+      type: 'practice',
+      eventType: 'practice',
+      eventKey: 'practice-systems',
+      label: 'Offseason Training',
+      shortLabel: 'Training',
+      icon: '🏒',
+      location: 'Training Rink',
+      objective: 'Keep developing before the next high school season.',
+      description: descriptions[slotIndex % descriptions.length],
+      focus: focuses[slotIndex % focuses.length],
+      requiresPlayerInteraction: true,
+      isCareerEvent: true,
+      offseasonEvent: true,
+      offseasonDevelopmentEvent: true,
+      seasonType: 'offseason',
+      travelHockeyEvent: false,
+      travelTournament: false,
+      travelTournamentTraining: false,
+      cadenceVersion: MODULE_VERSION,
+      cadenceSlot: slotIndex,
+    });
     return event;
   }
 
   function buildTrainingEvent(date, windowIndex, slotIndex) {
     const id = `offseason-training-${date}`;
-    return applyCanonicalPracticePresentation({
+    return applyPracticePresentation({
       id,
       eventId: id,
       date,
@@ -169,97 +173,65 @@
     }, slotIndex);
   }
 
-  function reconcileExistingEvents(events, startDate) {
-    let changed = false;
-
-    for (const event of events) {
-      if (!isOffseasonTraining(event)) continue;
-      const date = dateKey(event?.date);
-      if (!date || date < startDate || date > OFFSEASON_END_DATE) continue;
-
-      const slot = Number(event?.cadenceSlot) || 0;
-      const before = JSON.stringify({
-        type: event.type,
-        eventType: event.eventType,
-        eventKey: event.eventKey,
-        label: event.label,
-        shortLabel: event.shortLabel,
-        requiresPlayerInteraction: event.requiresPlayerInteraction,
-        offseasonDevelopmentEvent: event.offseasonDevelopmentEvent,
-        travelHockeyEvent: event.travelHockeyEvent,
-        cadenceVersion: event.cadenceVersion,
-      });
-
-      applyCanonicalPracticePresentation(event, slot);
-
-      const after = JSON.stringify({
-        type: event.type,
-        eventType: event.eventType,
-        eventKey: event.eventKey,
-        label: event.label,
-        shortLabel: event.shortLabel,
-        requiresPlayerInteraction: event.requiresPlayerInteraction,
-        offseasonDevelopmentEvent: event.offseasonDevelopmentEvent,
-        travelHockeyEvent: event.travelHockeyEvent,
-        cadenceVersion: event.cadenceVersion,
-      });
-
-      if (before !== after) changed = true;
-    }
-
-    return changed;
+  function hasBlockingEvent(events, date) {
+    return events.some(event =>
+      isActive(event) && dateKey(event?.date) === date
+    );
   }
 
-  function hasBlockingEventOnDate(events, date) {
-    return events.some(event => {
-      if (!activeEvent(event)) return false;
-      if (dateKey(event?.date) !== date) return false;
-      return true;
-    });
-  }
-
-  function chooseTrainingDates(events, windowStart, windowEnd, needed) {
+  function chooseTrainingDates(events, windowStart, windowEnd, endDate, needed) {
     const preferredOffsets = [1, 3, 5, 2, 4, 0, 6];
-    const candidates = [];
-
+    const dates = [];
     for (const offset of preferredOffsets) {
       const date = addDays(windowStart, offset);
-      if (!date || date > windowEnd || date > OFFSEASON_END_DATE) continue;
-      if (hasBlockingEventOnDate(events, date)) continue;
-      candidates.push(date);
-      if (candidates.length >= needed) break;
+      if (!date || date > windowEnd || date > endDate) continue;
+      if (hasBlockingEvent(events, date)) continue;
+      dates.push(date);
+      if (dates.length >= needed) break;
     }
-
-    return candidates;
+    return dates;
   }
 
-  function ensureWindow(events, windowStart, windowIndex) {
+  function ensureWindow(events, windowStart, endDate, windowIndex) {
     const rawEnd = addDays(windowStart, WINDOW_DAYS - 1);
-    const windowEnd = rawEnd && rawEnd < OFFSEASON_END_DATE
-      ? rawEnd
-      : OFFSEASON_END_DATE;
+    const windowEnd = rawEnd && rawEnd < endDate ? rawEnd : endDate;
 
     const existing = events.filter(event =>
       isOffseasonTraining(event) &&
-      activeEvent(event) &&
+      isActive(event) &&
       dateKey(event?.date) >= windowStart &&
       dateKey(event?.date) <= windowEnd
     );
 
     let needed = Math.max(0, TRAININGS_PER_WINDOW - existing.length);
-    if (needed === 0) return 0;
+    if (!needed) return 0;
 
-    const dates = chooseTrainingDates(events, windowStart, windowEnd, needed);
+    const dates = chooseTrainingDates(events, windowStart, windowEnd, endDate, needed);
     let added = 0;
-
     for (const date of dates) {
       events.push(buildTrainingEvent(date, windowIndex, existing.length + added));
       added += 1;
       needed -= 1;
-      if (needed <= 0) break;
+      if (!needed) break;
     }
-
     return added;
+  }
+
+  function reconcileExistingEvents(events, startDate, endDate) {
+    let changed = false;
+    for (const event of events) {
+      if (!isOffseasonTraining(event)) continue;
+      const date = dateKey(event?.date);
+      if (!date || date < startDate || date > endDate) continue;
+      const before = JSON.stringify(event);
+      applyPracticePresentation(event, Number(event?.cadenceSlot) || 0);
+      if (JSON.stringify(event) !== before) changed = true;
+    }
+    return changed;
+  }
+
+  function getTrainingEvents() {
+    return schedule().filter(event => isOffseasonTraining(event));
   }
 
   function syncOffseasonDevelopmentCadence(options = {}) {
@@ -267,23 +239,25 @@
 
     const world = WorldEngine.state;
     const root = offseasonRoot();
-    const startDate = resolveCanonicalStartDate();
-    if (!world || !root || !startDate) return false;
+    const startDate = resolveStartDate();
+    const boundaries = seasonBoundaryDates(startDate);
+    if (!world || !root || !startDate || !boundaries) return false;
 
-    let changed = false;
+    const { endDate, checkpointDate } = boundaries;
+    if (startDate > checkpointDate) return false;
 
-    if (normalizePostTravelSchedule(startDate)) changed = true;
-
+    let changed = normalizeSchedule(startDate, endDate);
     const events = schedule();
-    if (reconcileExistingEvents(events, startDate)) changed = true;
+
+    if (reconcileExistingEvents(events, startDate, endDate)) changed = true;
 
     let windowIndex = 0;
     for (
       let cursor = startDate;
-      cursor && cursor <= OFFSEASON_END_DATE;
+      cursor && cursor <= endDate;
       cursor = addDays(cursor, WINDOW_DAYS)
     ) {
-      if (ensureWindow(events, cursor, windowIndex) > 0) changed = true;
+      if (ensureWindow(events, cursor, endDate, windowIndex) > 0) changed = true;
       windowIndex += 1;
     }
 
@@ -292,24 +266,24 @@
       String(a?.eventId || a?.id || '').localeCompare(String(b?.eventId || b?.id || ''))
     );
 
-    const nextCadence = {
+    const nextRoot = {
       version: MODULE_VERSION,
       startDate,
-      endDate: OFFSEASON_END_DATE,
+      endDate,
       trainingsPerSevenDays: TRAININGS_PER_WINDOW,
-      checkpointDate: NEXT_SEASON_CHECKPOINT_DATE,
+      checkpointDate,
       postTravelBoundary: true,
     };
 
     if (
       Number(root.version) !== MODULE_VERSION ||
       root.startDate !== startDate ||
-      root.endDate !== OFFSEASON_END_DATE ||
+      root.endDate !== endDate ||
       Number(root.trainingsPerSevenDays) !== TRAININGS_PER_WINDOW ||
-      root.checkpointDate !== NEXT_SEASON_CHECKPOINT_DATE ||
+      root.checkpointDate !== checkpointDate ||
       root.postTravelBoundary !== true
     ) {
-      Object.assign(root, nextCadence);
+      Object.assign(root, nextRoot);
       changed = true;
     }
 
@@ -317,48 +291,11 @@
     return changed;
   }
 
-  function refreshVisibleCareerUI() {
-    try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
-    try { globalThis.refreshCareerUI?.(); } catch (_) {}
-    try { globalThis.updateHubScreen?.(); } catch (_) {}
-  }
-
-  function syncAndRefresh() {
-    if (!isPostTravelOffseason()) return false;
-    syncOffseasonDevelopmentCadence({ save: true });
-    refreshVisibleCareerUI();
-    return true;
-  }
-
   WorldEngine.syncOffseasonDevelopmentCadence = syncOffseasonDevelopmentCadence;
+  WorldEngine.getOffseasonDevelopmentTrainingEvents = getTrainingEvents;
 
-  const originalSelectCareerSave = WorldEngine.selectCareerSave;
-  if (
-    typeof originalSelectCareerSave === 'function' &&
-    originalSelectCareerSave.__projectIceOffseasonCadenceWrapped !== true
-  ) {
-    const wrappedSelectCareerSave = async (...args) => {
-      const result = await originalSelectCareerSave.apply(WorldEngine, args);
-      if (result) syncAndRefresh();
-      return result;
-    };
-
-    wrappedSelectCareerSave.__projectIceOffseasonCadenceWrapped = true;
-    wrappedSelectCareerSave.__projectIceOffseasonCadenceOriginal = originalSelectCareerSave;
-    WorldEngine.selectCareerSave = wrappedSelectCareerSave;
+  /* Resume path only. Lifecycle owners explicitly call sync at phase entry. */
+  if (isPostTravelOffseason()) {
+    syncOffseasonDevelopmentCadence({ save: true });
   }
-
-  /*
-   * Real Travel closeout is the lifecycle boundary. The closeout handler marks
-   * the tournament complete and sets season.phase='offseason' before this event
-   * reaches document, so the canonical offseason schedule can be created once
-   * from the saved world state without DOM polling or timing races.
-   */
-  document.addEventListener('click', event => {
-    if (!event.target?.closest?.('#pi-travel-closeout-continue')) return;
-    requestAnimationFrame(syncAndRefresh);
-  });
-
-  /* Reload/resume path for a career already inside post-Travel offseason. */
-  syncAndRefresh();
 })();
