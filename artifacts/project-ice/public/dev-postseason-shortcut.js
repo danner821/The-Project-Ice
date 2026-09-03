@@ -236,6 +236,57 @@
     if (result && typeof result.then === 'function') await result;
   }
 
+  function advanceDevWorldToSeasonRecap() {
+    const state = WorldEngine.state;
+    if (!state) throw new Error('No active dev world is loaded.');
+
+    WorldEngine.syncOffseasonDevelopmentCadence?.({ save: false });
+    WorldEngine.ensureHighSchoolSeasonArchive?.({ save: false });
+
+    const checkpoint = dateKey(
+      WorldEngine.getSeasonRecapCheckpointDate?.() ||
+      state?.offseasonDevelopment?.checkpointDate
+    );
+    if (!checkpoint) throw new Error('Season Recap checkpoint date is unavailable.');
+
+    for (const event of state.schedule || []) {
+      const eventDate = dateKey(event?.date);
+      if (
+        event?.offseasonDevelopmentEvent === true &&
+        eventDate && eventDate <= checkpoint &&
+        event?.completed !== true &&
+        event?.played !== true
+      ) {
+        event.completed = true;
+        event.played = true;
+        event.isCompleted = true;
+        event.status = 'completed';
+        event.completedAt = eventDate;
+        event.requiresPlayerInteraction = false;
+        event.devSkippedForSeasonRecap = true;
+      }
+    }
+
+    state.seasonTransition = state.seasonTransition && typeof state.seasonTransition === 'object'
+      ? state.seasonTransition
+      : {};
+    state.seasonTransition.recap = {};
+
+    state.season.phase = 'offseason';
+    state.season.currentDate = checkpoint;
+    state.player.currentDate = checkpoint;
+    state.currentDate = checkpoint;
+
+    for (const team of state.teams || []) {
+      for (const player of team?.roster || []) {
+        if (player?.isCareerPlayer === true) player.currentDate = checkpoint;
+      }
+    }
+
+    WorldEngine.ensureSeasonRecapCheckpointEvent?.({ save: false });
+    return checkpoint;
+  }
+
   async function rebuildSandbox() {
     const db = await openDatabase();
     let baseline;
@@ -273,27 +324,27 @@
     if (typeof WorldEngine.syncOffseasonDevelopmentCadence !== 'function') {
       throw new Error('Offseason cadence runtime did not load.');
     }
+    if (typeof WorldEngine.renderLeagueSeasonRecap !== 'function') {
+      throw new Error('Season Recap runtime did not load.');
+    }
 
     WorldEngine.syncOffseasonDevelopmentCadence({ save: false });
-
     const trainings = typeof WorldEngine.getOffseasonDevelopmentTrainingEvents === 'function'
       ? WorldEngine.getOffseasonDevelopmentTrainingEvents()
       : (WorldEngine.state?.schedule || []).filter(event => event?.offseasonDevelopmentEvent === true);
 
     if (trainings.length < 2) {
-      throw new Error(
-        `Offseason cadence created ${trainings.length} training events at ${dateKey(WorldEngine.state?.season?.currentDate)}.`
-      );
+      throw new Error(`Offseason cadence created ${trainings.length} training events.`);
     }
 
+    const targetDate = advanceDevWorldToSeasonRecap();
     await persistActiveWorld();
     removeDevMetadataFromVisibleIndex();
 
     return {
-      targetDate: dateKey(WorldEngine.state?.season?.currentDate),
+      targetDate,
       sourceKind: baseline.sourceKind || 'post-travel-offseason',
       trainingCount: trainings.length,
-      firstTrainingDate: dateKey(trainings[0]?.date),
     };
   }
 
@@ -321,12 +372,15 @@
     if (typeof updateHubScreen === 'function') updateHubScreen();
     if (typeof openHubTab === 'function') openHubTab('home');
 
-    console.info('[Project Ice] Post-Travel offseason dev checkpoint loaded.', {
+    requestAnimationFrame(() => {
+      WorldEngine.renderLeagueSeasonRecap?.({ force: true });
+    });
+
+    console.info('[Project Ice] Season Recap dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
       checkpointDate: result.targetDate,
       sourceKind: result.sourceKind,
       trainingCount: result.trainingCount,
-      firstTrainingDate: result.firstTrainingDate,
     });
   }
 
@@ -341,14 +395,14 @@
   function wireShortcut() {
     const button = document.getElementById('btn-dev-hub');
     const hint = document.getElementById('dev-shortcut-hint');
-    if (!button || button.dataset.postTravelOffseasonCheckpointWired === 'true') return;
+    if (!button || button.dataset.seasonRecapCheckpointWired === 'true') return;
 
-    button.dataset.postTravelOffseasonCheckpointWired = 'true';
+    button.dataset.seasonRecapCheckpointWired = 'true';
     button.disabled = false;
     button.removeAttribute('disabled');
 
     const label = button.querySelector('.btn__label');
-    if (label) label.textContent = 'Skip to Post-Travel Offseason';
+    if (label) label.textContent = 'Skip to Season Recap';
     if (hint) hint.classList.remove('is-visible');
 
     button.addEventListener('click', event => {
@@ -358,8 +412,8 @@
 
       loadCheckpoint()
         .catch(error => {
-          console.error('[Project Ice] Dev post-Travel offseason shortcut failed:', error);
-          alert(`Dev post-Travel offseason shortcut failed: ${error?.message || 'unknown error'}`);
+          console.error('[Project Ice] Dev Season Recap shortcut failed:', error);
+          alert(`Dev Season Recap shortcut failed: ${error?.message || 'unknown error'}`);
         })
         .finally(() => {
           button.disabled = false;
