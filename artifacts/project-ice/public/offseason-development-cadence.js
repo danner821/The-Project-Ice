@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 1;
+  const MODULE_VERSION = 2;
   const WINDOW_DAYS = 7;
   const TRAININGS_PER_WINDOW = 3;
   const OFFSEASON_END_DATE = '2027-08-30';
@@ -261,6 +261,28 @@
   }
 
   WorldEngine.syncOffseasonDevelopmentCadence = syncOffseasonDevelopmentCadence;
+
+  /*
+   * Career saves (including the dev shortcut sandbox) are swapped in
+   * asynchronously after this runtime has already loaded. Reconcile immediately
+   * after the canonical save loader finishes so the post-Travel checkpoint gets
+   * its offseason calendar on the very first frame, not after another game or
+   * manual refresh.
+   */
+  const originalSelectCareerSave = WorldEngine.selectCareerSave;
+  if (
+    typeof originalSelectCareerSave === 'function' &&
+    originalSelectCareerSave.__projectIceOffseasonCadenceWrapped !== true
+  ) {
+    const wrappedSelectCareerSave = async (...args) => {
+      const result = await originalSelectCareerSave.apply(WorldEngine, args);
+      if (result) syncOffseasonDevelopmentCadence({ save:true });
+      return result;
+    };
+    wrappedSelectCareerSave.__projectIceOffseasonCadenceWrapped = true;
+    wrappedSelectCareerSave.__projectIceOffseasonCadenceOriginal = originalSelectCareerSave;
+    WorldEngine.selectCareerSave = wrappedSelectCareerSave;
+  }
 
   /* Real gameplay boundary: Continue Into Offseason finishes synchronously. */
   document.addEventListener('click', event => {
