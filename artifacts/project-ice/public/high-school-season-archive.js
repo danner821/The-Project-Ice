@@ -7,7 +7,7 @@
   if (WorldEngine.__highSchoolSeasonArchiveInstalled === true) return;
   WorldEngine.__highSchoolSeasonArchiveInstalled = true;
 
-  const VERSION = 5;
+  const VERSION = 6;
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -234,6 +234,24 @@
     };
   }
 
+  function classLabel(player) {
+    const direct = String(
+      player?.schoolYear ||
+      player?.classLevel ||
+      player?.gradeName ||
+      player?.year ||
+      ''
+    ).trim();
+    if (direct) return direct;
+    const grade = Number(player?.grade);
+    return ({ 9: 'Freshman', 10: 'Sophomore', 11: 'Junior', 12: 'Senior' })[grade] || 'High School';
+  }
+
+  function isFreshman(player) {
+    const level = classLabel(player).toLowerCase();
+    return player?.isFreshman === true || level.includes('freshman') || Number(player?.grade) === 9;
+  }
+
   function leagueAwardWinners(post) {
     if (Array.isArray(post?.leagueAwards?.winners) && post.leagueAwards.winners.length) {
       return clone(post.leagueAwards.winners);
@@ -252,29 +270,55 @@
     const rows = allPlayers().map(player => ({
       player,
       stats: scopedStats(player, 'regular-season') || {},
+      playoffStats: scopedStats(player, 'playoffs') || {},
     }));
     const skaters = rows.filter(row => String(row.player?.position || '').toUpperCase() !== 'G');
     const goalies = rows.filter(row => String(row.player?.position || '').toUpperCase() === 'G');
+    const freshmen = rows.filter(row => isFreshman(row.player));
     const byPoints = [...skaters].sort((a, b) => Number(b.stats?.points || 0) - Number(a.stats?.points || 0));
+    const byGoals = [...skaters].sort((a, b) => Number(b.stats?.goals || 0) - Number(a.stats?.goals || 0) || Number(b.stats?.points || 0) - Number(a.stats?.points || 0));
+    const byAssists = [...skaters].sort((a, b) => Number(b.stats?.assists || 0) - Number(a.stats?.assists || 0) || Number(b.stats?.points || 0) - Number(a.stats?.points || 0));
     const defense = skaters.filter(row => ['D', 'LD', 'RD'].includes(String(row.player?.position || '').toUpperCase()))
       .sort((a, b) => Number(b.stats?.points || 0) - Number(a.stats?.points || 0));
     const bySave = [...goalies].sort((a, b) => Number(b.stats?.savePercentage || 0) - Number(a.stats?.savePercentage || 0));
-    const makeAward = (row, title) => row ? {
+    const freshmanRanked = [...freshmen].sort((a, b) =>
+      Number(b.stats?.points || 0) - Number(a.stats?.points || 0) ||
+      Number(b.stats?.goals || 0) - Number(a.stats?.goals || 0)
+    );
+    const playoffRanked = [...rows].sort((a, b) => {
+      const aGoalie = String(a.player?.position || '').toUpperCase() === 'G';
+      const bGoalie = String(b.player?.position || '').toUpperCase() === 'G';
+      const aScore = aGoalie
+        ? Number(a.playoffStats?.wins || 0) * 6 + Number(a.playoffStats?.savePercentage || 0) * 100
+        : Number(a.playoffStats?.points || 0) * 5 + Number(a.playoffStats?.goals || 0) * 2;
+      const bScore = bGoalie
+        ? Number(b.playoffStats?.wins || 0) * 6 + Number(b.playoffStats?.savePercentage || 0) * 100
+        : Number(b.playoffStats?.points || 0) * 5 + Number(b.playoffStats?.goals || 0) * 2;
+      return bScore - aScore;
+    });
+
+    const makeAward = (row, awardId, title, scope = 'regular-season') => row ? {
+      awardId,
       title,
       playerId: idOf(row.player),
       playerName: nameOf(row.player),
       teamId: row.player?.teamId || null,
-      team: teamById(row.player?.teamId)?.teamName || teamById(row.player?.teamId)?.name || '',
+      team: teamById(row.player?.teamId)?.abbreviation || teamById(row.player?.teamId)?.teamName || teamById(row.player?.teamId)?.name || '',
+      age: Number(row.player?.age || 0) || null,
+      classLabel: classLabel(row.player),
       position: row.player?.position || '',
-      scope: 'regular-season',
+      scope,
       syntheticDevFixture: true,
     } : null;
 
     return [
-      makeAward(byPoints[0], 'League MVP'),
-      makeAward(byPoints[1] || byPoints[0], 'Best Forward'),
-      makeAward(defense[0] || byPoints[2] || byPoints[0], 'Best Defenseman'),
-      makeAward(bySave[0], 'Best Goaltender'),
+      makeAward(byGoals[0], 'goal-scoring', 'Goal Scoring Leader'),
+      makeAward(byAssists[0], 'playmaker', 'Playmaker Award'),
+      makeAward(defense[0] || byPoints[0], 'defenseman', 'Best Defenseman'),
+      makeAward(bySave[0], 'goalie', 'Goaltender of the Year'),
+      makeAward(freshmanRanked[0] || byPoints[0], 'freshman', 'Freshman of the Year'),
+      makeAward(playoffRanked[0] || byPoints[0], 'playoff-mvp', 'Playoff MVP', 'playoffs'),
+      makeAward(byPoints[0], 'mvp', 'League MVP'),
     ].filter(Boolean);
   }
 
