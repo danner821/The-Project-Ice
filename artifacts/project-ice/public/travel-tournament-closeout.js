@@ -150,6 +150,39 @@
     document.head.appendChild(style);
   }
 
+  function completeTravelAndEnterOffseason(root) {
+    const current = travel();
+    if (!current?.tournament) return false;
+
+    current.tournament.closeoutAcknowledged = true;
+    current.tournament.closeoutAcknowledgedAt = String(
+      WorldEngine.state?.season?.currentDate ||
+      WorldEngine.state?.player?.currentDate ||
+      WorldEngine.state?.currentDate ||
+      new Date().toISOString().slice(0, 10)
+    ).slice(0, 10);
+    current.status = 'completed';
+    current.completed = true;
+
+    if (WorldEngine.state?.season) {
+      WorldEngine.state.season.phase = 'offseason';
+    }
+
+    WorldEngine.syncTravelTournamentCadence?.({ save: false });
+    WorldEngine.syncOffseasonDevelopmentCadence?.({ save: false });
+    WorldEngine.save?.();
+
+    root?.remove();
+    document.body.classList.remove('pi-travel-season-active');
+    document.getElementById('pi-travel-home-card')?.remove();
+    document.getElementById('pi-travel-league-card')?.remove();
+    document.getElementById('pi-travel-hockey-hub-canonical')?.remove();
+
+    if (typeof refreshCareerUI === 'function') refreshCareerUI();
+    if (typeof openHubTab === 'function') openHubTab('home');
+    return true;
+  }
+
   function render() {
     if (!shouldShow() || postgameVisible()) return false;
 
@@ -190,34 +223,7 @@
       </div>`;
 
     root.querySelector('#pi-travel-closeout-continue')?.addEventListener('click', () => {
-      const current = travel();
-      if (!current?.tournament) return;
-
-      current.tournament.closeoutAcknowledged = true;
-      current.tournament.closeoutAcknowledgedAt = String(
-        WorldEngine.state?.season?.currentDate ||
-        WorldEngine.state?.player?.currentDate ||
-        WorldEngine.state?.currentDate ||
-        new Date().toISOString().slice(0, 10)
-      ).slice(0, 10);
-      current.status = 'completed';
-      current.completed = true;
-
-      if (WorldEngine.state?.season) {
-        WorldEngine.state.season.phase = 'offseason';
-      }
-
-      WorldEngine.syncTravelTournamentCadence?.({ save:false });
-      WorldEngine.save?.();
-      root.remove();
-
-      try { document.body.classList.remove('pi-travel-season-active'); } catch (_) {}
-      try { document.getElementById('pi-travel-home-card')?.remove(); } catch (_) {}
-      try { document.getElementById('pi-travel-league-card')?.remove(); } catch (_) {}
-      try { document.getElementById('pi-travel-hockey-hub-canonical')?.remove(); } catch (_) {}
-
-      if (typeof openHubTab === 'function') openHubTab('home');
-      if (typeof refreshCareerUI === 'function') refreshCareerUI();
+      completeTravelAndEnterOffseason(root);
     });
 
     return true;
@@ -266,6 +272,7 @@
   });
 
   WorldEngine.renderTravelTournamentCloseout = render;
+  WorldEngine.completeTravelAndEnterOffseason = completeTravelAndEnterOffseason;
 
   installHooks();
 
@@ -275,7 +282,7 @@
     else engineLoader.addEventListener('load', () => {
       installHooks();
       requestAnimationFrame(render);
-    }, { once:true });
+    }, { once: true });
   }
 
   requestAnimationFrame(render);
