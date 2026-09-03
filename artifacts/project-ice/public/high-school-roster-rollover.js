@@ -1,14 +1,13 @@
 'use strict';
 
-/* global WorldEngine, Game, refreshCareerUI */
+/* global WorldEngine, Game, refreshCareerUI, renderProspectsScreen */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
   if (WorldEngine.__highSchoolRosterRolloverInstalled === true) return;
   WorldEngine.__highSchoolRosterRolloverInstalled = true;
 
-  const VERSION = 1;
-  const CLASS_BY_GRADE = { 9: 'Freshman', 10: 'Sophomore', 11: 'Junior', 12: 'Senior' };
+  const VERSION = 2;
   const FIRST_NAMES = [
     'Aiden','Bennett','Caleb','Carter','Cole','Dylan','Eli','Evan','Finn','Gavin',
     'Hudson','Jack','Jace','Landon','Leo','Logan','Mason','Miles','Nolan','Owen',
@@ -44,6 +43,15 @@
     return null;
   }
 
+  function seasonStartYear(world = WorldEngine.state) {
+    return Number(
+      world?.season?.seasonStartYear ||
+      world?.season?.currentYear ||
+      String(world?.season?.seasonId || '').match(/hs-(\d{4})-/)?.[1] ||
+      String(world?.season?.currentDate || world?.currentDate || '').slice(0, 4)
+    ) || null;
+  }
+
   function lifecycle(world = WorldEngine.state) {
     if (!world) return null;
     const root = world.highSchoolRosterLifecycle = world.highSchoolRosterLifecycle || {};
@@ -53,31 +61,70 @@
     return root;
   }
 
+  function emptySeasonStats(player) {
+    const goalie = String(player?.position || '').toUpperCase() === 'G';
+    return goalie
+      ? {
+          gamesPlayed: 0, gamesStarted: 0, wins: 0, losses: 0, overtimeLosses: 0,
+          shotsAgainst: 0, saves: 0, goalsAgainst: 0, savePercentage: 0,
+          goalsAgainstAverage: 0, shutouts: 0, minutesPlayed: 0,
+        }
+      : {
+          gamesPlayed: 0, goals: 0, assists: 0, points: 0, plusMinus: 0,
+          penaltyMinutes: 0, shots: 0, powerPlayGoals: 0, powerPlayPoints: 0,
+          shorthandedGoals: 0, gameWinningGoals: 0, minutesPlayed: 0,
+        };
+  }
+
   function resetStats(player) {
     if (!player || typeof player !== 'object') return;
     const zeroKeys = [
       'gamesPlayed','gp','goals','g','assists','a','points','pts','plusMinus','pim',
       'penaltyMinutes','shots','shotsOnGoal','sog','wins','w','losses','l',
-      'overtimeLosses','otl','goalsAgainst','ga','saves','shotsAgainst','shutouts','so'
+      'overtimeLosses','otl','goalsAgainst','ga','saves','shotsAgainst','shutouts','so',
+      'savePercentage','goalsAgainstAverage','gamesStarted','minutesPlayed',
+      'powerPlayGoals','powerPlayPoints','shorthandedGoals','gameWinningGoals'
     ];
     for (const key of zeroKeys) if (key in player) player[key] = 0;
+
     for (const bucket of ['stats','regularSeasonStats','playoffStats']) {
       if (!player[bucket] || typeof player[bucket] !== 'object') continue;
       for (const key of Object.keys(player[bucket])) {
         if (typeof player[bucket][key] === 'number') player[bucket][key] = 0;
       }
     }
+
+    /*
+     * getPlayerStatsByScope() treats seasonStats as the total current-season
+     * source of truth. Keeping last year's seasonStats is what made Team
+     * Leaders show the completed season after the rollover even though the
+     * top-level mirrors had been reset.
+     */
+    player.seasonStats = emptySeasonStats(player);
+    player.postseasonStats = emptySeasonStats(player);
   }
 
-  function canonicalGeneratedBirthDate(player, grade, seasonStartYear) {
+  function canonicalDraftYear(player, startYear) {
+    const grade = playerGrade(player);
+    if (!grade || !Number.isFinite(Number(startYear))) return Number(player?.draftYear) || null;
+    return Number(startYear) + (13 - grade);
+  }
+
+  function normalizeActiveProspectIdentity(player, startYear) {
+    if (!player || player?.isCareerPlayer === true) return;
+    const draftYear = canonicalDraftYear(player, startYear);
+    if (draftYear) player.draftYear = draftYear;
+  }
+
+  function canonicalGeneratedBirthDate(player, grade, startYear) {
     const expectedAge = 14 + Math.max(0, grade - 9);
-    const seed = hash(`${playerId(player)}:${seasonStartYear}:birth`);
-    const month = 1 + (seed % 8); // before Sept. 1 so displayed age matches grade baseline
+    const seed = hash(`${playerId(player)}:${startYear}:birth`);
+    const month = 1 + (seed % 8);
     const day = 1 + ((seed >>> 8) % 28);
-    return `${seasonStartYear - expectedAge}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return `${startYear - expectedAge}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
-  function repairGeneratedAge(player, seasonStartYear, force = false) {
+  function repairGeneratedAge(player, startYear, force = false) {
     if (!player || player?.isCareerPlayer === true) return false;
     const grade = playerGrade(player);
     if (!grade) return false;
@@ -87,7 +134,7 @@
     const obviouslyWrong = !Number.isFinite(currentAge) || Math.abs(currentAge - expectedAge) >= 2;
     if (!force && !generated && !obviouslyWrong) return false;
     if (!force && generated && !obviouslyWrong) return false;
-    const birthDate = canonicalGeneratedBirthDate(player, grade, seasonStartYear);
+    const birthDate = canonicalGeneratedBirthDate(player, grade, startYear);
     player.birthDate = birthDate;
     player.effectiveBirthDate = birthDate;
     player.birthDatePrecision = 'generated-day';
@@ -95,17 +142,33 @@
     return true;
   }
 
+  function completedSeasonEndYear(world = WorldEngine.state) {
+    const startYear = seasonStartYear(world);
+    return Number.isFinite(startYear) ? startYear + 1 : null;
+  }
+
+  function shouldGraduate(player, completedEndYear) {
+    if (!player || player?.isCareerPlayer === true) return false;
+    if (playerGrade(player) === 12) return true;
+    const draftYear = Number(player?.draftYear);
+    return Boolean(
+      Number.isFinite(draftYear) &&
+      Number.isFinite(completedEndYear) &&
+      draftYear <= completedEndYear
+    );
+  }
+
   function captureGraduatingClass() {
     const world = WorldEngine.state;
     const root = lifecycle(world);
     if (!world || !root) return false;
     const seasonId = String(world?.season?.seasonId || world?.season?.id || world?.currentSeason || 'unknown-season');
+    const endYear = completedSeasonEndYear(world);
     const pending = [];
 
     for (const team of world.teams || []) {
       for (const player of team?.roster || []) {
-        if (player?.isCareerPlayer === true) continue;
-        if (playerGrade(player) !== 12) continue;
+        if (!shouldGraduate(player, endYear)) continue;
         pending.push({
           playerId: playerId(player),
           teamId: String(team.teamId || ''),
@@ -170,6 +233,7 @@
       classLevel: 'Freshman',
       year: 'Freshman',
       age: 14,
+      draftYear: identity.startYear + 4,
       overall,
       startingOverall: overall,
       attributes: adjustAttributes(graduate?.attributes, seed),
@@ -201,24 +265,76 @@
     return player;
   }
 
+  function graduatedAlready(root, id) {
+    return root.graduatedPlayers.some(player => playerId(player) === String(id));
+  }
+
+  function reconcileMissedGraduates(world, root, identity, pendingByTeam) {
+    const currentDraftYear = identity.startYear + 1;
+    for (const team of world.teams || []) {
+      const teamId = String(team.teamId || '');
+      const existing = pendingByTeam.get(teamId) || [];
+      const known = new Set(existing.map(item => item.playerId));
+      for (const player of team.roster || []) {
+        if (player?.isCareerPlayer === true) continue;
+        const draftYear = Number(player?.draftYear);
+        const staleClass = Number.isFinite(draftYear) && draftYear < currentDraftYear;
+        if (!staleClass || known.has(playerId(player))) continue;
+        existing.push({
+          playerId: playerId(player),
+          teamId,
+          seasonId: root.pendingGraduatingSeasonId || 'legacy-reconciled',
+          player: JSON.parse(JSON.stringify(player)),
+        });
+        known.add(playerId(player));
+      }
+      if (existing.length) pendingByTeam.set(teamId, existing);
+    }
+  }
+
+  function refreshProspectPresentation() {
+    if (typeof Game !== 'undefined') {
+      Game.currentProspectRankings = [];
+      Game.visibleProspects = [];
+    }
+    try {
+      if (typeof renderProspectsScreen === 'function') renderProspectsScreen();
+    } catch (_) {}
+  }
+
   function applyRollover(detail = {}) {
     const world = WorldEngine.state;
     const root = lifecycle(world);
     if (!world || !root) return false;
     const seasonId = String(detail.seasonId || world?.season?.seasonId || world?.season?.id || '');
     const startYear = Number(String(detail.startDate || world?.season?.currentDate || '').slice(0, 4)) || Number(world?.season?.seasonStartYear) || 2024;
-    const identity = {
-      seasonId,
-      startYear,
-    };
-
-    if (root.completedSeasonIds.includes(seasonId)) return false;
+    const identity = { seasonId, startYear };
 
     const pending = Array.isArray(root.pendingGraduates) ? root.pendingGraduates : [];
     const pendingByTeam = new Map();
     for (const item of pending) {
       if (!pendingByTeam.has(item.teamId)) pendingByTeam.set(item.teamId, []);
       pendingByTeam.get(item.teamId).push(item);
+    }
+
+    /* Repair v1 rollovers that missed players whose class label was stale but
+       whose draft class proves they belonged to the graduating class. */
+    reconcileMissedGraduates(world, root, identity, pendingByTeam);
+
+    const alreadyCompleted = root.completedSeasonIds.includes(seasonId);
+    const hasMissedGraduates = Array.from(pendingByTeam.values()).some(items =>
+      items.some(item => (world.teams || []).some(team =>
+        (team.roster || []).some(player => playerId(player) === item.playerId)
+      ))
+    );
+    if (alreadyCompleted && !hasMissedGraduates) {
+      for (const team of world.teams || []) {
+        for (const player of team.roster || []) {
+          normalizeActiveProspectIdentity(player, startYear);
+        }
+      }
+      refreshProspectPresentation();
+      return false;
     }
 
     const usedNames = new Set(
@@ -239,12 +355,14 @@
       if (graduates.length > 0) {
         team.roster = roster.filter(player => !graduateIds.has(playerId(player)));
         graduates.forEach(item => {
-          root.graduatedPlayers.push({
-            ...item.player,
-            graduatedFromTeamId: teamId,
-            graduatedAfterSeasonId: item.seasonId,
-            graduationStatus: 'graduated',
-          });
+          if (!graduatedAlready(root, item.playerId)) {
+            root.graduatedPlayers.push({
+              ...item.player,
+              graduatedFromTeamId: teamId,
+              graduatedAfterSeasonId: item.seasonId,
+              graduationStatus: 'graduated',
+            });
+          }
         });
         graduatedCount += graduates.length;
 
@@ -255,7 +373,9 @@
       }
 
       for (const player of team.roster || []) {
+        normalizeActiveProspectIdentity(player, startYear);
         repairGeneratedAge(player, startYear, false);
+        resetStats(player);
       }
 
       try {
@@ -265,19 +385,24 @@
       }
     }
 
+    resetStats(world.player);
+    if (typeof Game !== 'undefined' && Game?.player) resetStats(Game.player);
+
     root.lastRollover = {
       seasonId,
       appliedAt: String(detail.startDate || world?.season?.currentDate || ''),
       graduatedCount,
       incomingCount,
     };
-    root.completedSeasonIds.push(seasonId);
+    if (!root.completedSeasonIds.includes(seasonId)) root.completedSeasonIds.push(seasonId);
     root.pendingGraduates = [];
     root.pendingGraduatingSeasonId = null;
 
     WorldEngine.syncPlayerAges?.(world, detail.startDate || world?.season?.currentDate);
+    refreshProspectPresentation();
     WorldEngine.save?.();
     try { refreshCareerUI?.(); } catch (_) {}
+    try { WorldEngine.renderScopedTeamLeaders?.(); } catch (_) {}
     return true;
   }
 
