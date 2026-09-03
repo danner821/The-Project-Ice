@@ -34,6 +34,7 @@ const runtimeModulesPlugin = {
 
     if (!html.includes('/disable-game-zoom.js')) scripts.push('    <script src="/disable-game-zoom.js"></script>');
     if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
+    if (!html.includes('/career-time.js')) scripts.push('    <script src="/career-time.js"></script>');
     if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
     if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
     if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js"></script>');
@@ -59,6 +60,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/home-postseason-polish.js')) scripts.push('    <script src="/home-postseason-polish.js"></script>');
     if (!html.includes('/championship-checkpoint.js')) scripts.push('    <script src="/championship-checkpoint.js"></script>');
     if (!html.includes('/awards-ceremony.js')) scripts.push('    <script src="/awards-ceremony.js"></script>');
+    if (!html.includes('/player-award-history.js')) scripts.push('    <script src="/player-award-history.js"></script>');
     if (!html.includes('/awards-calendar-event.js')) scripts.push('    <script src="/awards-calendar-event.js"></script>');
     if (!html.includes('/league-awards-history.js')) scripts.push('    <script src="/league-awards-history.js"></script>');
     if (!html.includes('/awards-offseason-exit.js')) scripts.push('    <script src="/awards-offseason-exit.js"></script>');
