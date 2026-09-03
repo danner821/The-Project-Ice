@@ -12,11 +12,11 @@
   const ACTIVE_CAREER_ID_KEY = 'projectice_active_career_id_v1';
   const PENDING_CAREER_ID_KEY = 'projectice_pending_career_id_v1';
   const CAREER_SAVE_INDEX_KEY = 'projectice_career_save_index_v1';
-
   const DEV_CAREER_ID = '__project-ice-postseason-dev__';
   const DEV_WORLD_RECORD_ID = `career:${DEV_CAREER_ID}`;
   const DEV_BASELINE_RECORD_ID = 'dev-baseline:danner-post-travel-offseason-v6';
   const LEGACY_POST_TRYOUT_BASELINE_ID = 'dev-baseline:danner-post-travel-tryouts-v4';
+  const RECAP_RUNTIME_SRC = '/season-recap-checkpoint.js';
 
   const originalListCareerSaves = typeof WorldEngine.listCareerSaves === 'function'
     ? WorldEngine.listCareerSaves.bind(WorldEngine)
@@ -81,12 +81,10 @@
     const seenIds = new Set();
     const seenFingerprints = new Set();
     const result = [];
-
     for (const save of Array.isArray(saves) ? saves : []) {
       const id = String(save?.id || '');
       if (!id || id === DEV_CAREER_ID || seenIds.has(id)) continue;
       seenIds.add(id);
-
       const fingerprint = [
         String(save?.playerName || '').trim().toLowerCase(),
         dateKey(save?.currentDate),
@@ -94,12 +92,10 @@
         String(save?.position || '').trim().toLowerCase(),
         String(save?.overall ?? ''),
       ].join('|');
-
       if (fingerprint !== '||||' && seenFingerprints.has(fingerprint)) continue;
       if (fingerprint !== '||||') seenFingerprints.add(fingerprint);
       result.push(save);
     }
-
     return result;
   }
 
@@ -144,7 +140,6 @@
     world.season.currentDate = targetDate;
     world.player.currentDate = targetDate;
     world.currentDate = targetDate;
-
     world.travelHockey.status = 'completed';
     world.travelHockey.completed = true;
     world.travelHockey.tournament = {
@@ -159,15 +154,14 @@
         if (player?.isCareerPlayer === true) player.currentDate = targetDate;
       }
     }
-
     return world;
   }
 
   function synthesizeBaselineFromLegacy(sourceWorld) {
     const world = structuredClone(sourceWorld);
-    if (!world.travelHockey || typeof world.travelHockey !== 'object') world.travelHockey = {};
-    if (!world.season || typeof world.season !== 'object') world.season = {};
-    if (!world.player || typeof world.player !== 'object') world.player = {};
+    world.travelHockey = world.travelHockey && typeof world.travelHockey === 'object' ? world.travelHockey : {};
+    world.season = world.season && typeof world.season === 'object' ? world.season : {};
+    world.player = world.player && typeof world.player === 'object' ? world.player : {};
 
     const travel = world.travelHockey;
     const tryoutDate = dateKey(
@@ -198,12 +192,10 @@
       closeoutAcknowledgedAt: targetDate,
       syntheticDevCheckpoint: true,
     };
-
     world.season.phase = 'offseason';
     world.season.currentDate = targetDate;
     world.player.currentDate = targetDate;
     world.currentDate = targetDate;
-
     return cleanPostTravelState(world);
   }
 
@@ -212,9 +204,7 @@
     if (existing?.world) return existing;
 
     const legacy = await readRecord(db, LEGACY_POST_TRYOUT_BASELINE_ID);
-    if (!legacy?.world) {
-      throw new Error('Could not find the stable post-Travel dev baseline.');
-    }
+    if (!legacy?.world) throw new Error('Could not find the stable post-Travel dev baseline.');
 
     const world = synthesizeBaselineFromLegacy(legacy.world);
     const baseline = {
@@ -226,7 +216,6 @@
       sourceKind: 'synthetic-from-post-tryout-baseline',
       world,
     };
-
     await writeRecord(db, baseline);
     return baseline;
   }
@@ -234,6 +223,36 @@
   async function persistActiveWorld() {
     const result = WorldEngine.save?.();
     if (result && typeof result.then === 'function') await result;
+  }
+
+  async function ensureSeasonRecapRuntime() {
+    if (
+      typeof WorldEngine.renderLeagueSeasonRecap === 'function' &&
+      typeof WorldEngine.ensureSeasonRecapCheckpointEvent === 'function'
+    ) return true;
+
+    const existing = Array.from(document.scripts).find(script =>
+      String(script.src || '').includes('season-recap-checkpoint.js')
+    );
+    if (existing) existing.remove();
+
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `${RECAP_RUNTIME_SRC}?v=${Date.now()}`;
+      script.async = false;
+      script.dataset.projectIceDynamicRuntime = 'season-recap';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Could not load /season-recap-checkpoint.js from the app server.'));
+      document.body.appendChild(script);
+    });
+
+    if (
+      typeof WorldEngine.renderLeagueSeasonRecap !== 'function' ||
+      typeof WorldEngine.ensureSeasonRecapCheckpointEvent !== 'function'
+    ) {
+      throw new Error('Season Recap script loaded but did not register its WorldEngine API.');
+    }
+    return true;
   }
 
   function advanceDevWorldToSeasonRecap() {
@@ -271,7 +290,6 @@
       ? state.seasonTransition
       : {};
     state.seasonTransition.recap = {};
-
     state.season.phase = 'offseason';
     state.season.currentDate = checkpoint;
     state.player.currentDate = checkpoint;
@@ -283,7 +301,7 @@
       }
     }
 
-    WorldEngine.ensureSeasonRecapCheckpointEvent?.({ save: false });
+    WorldEngine.ensureSeasonRecapCheckpointEvent({ save: false });
     return checkpoint;
   }
 
@@ -312,35 +330,27 @@
 
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
     if (!loaded) throw new Error('Could not load isolated post-Travel offseason dev career.');
-
     if (String(WorldEngine.state?.season?.phase || '').toLowerCase() !== 'offseason') {
       throw new Error(`Loaded dev state is not offseason (phase=${WorldEngine.state?.season?.phase || 'missing'}).`);
     }
-
     if (WorldEngine.state?.travelHockey?.completed !== true) {
       throw new Error('Loaded dev state lost the completed Travel boundary.');
     }
-
     if (typeof WorldEngine.syncOffseasonDevelopmentCadence !== 'function') {
       throw new Error('Offseason cadence runtime did not load.');
     }
-    if (typeof WorldEngine.renderLeagueSeasonRecap !== 'function') {
-      throw new Error('Season Recap runtime did not load.');
-    }
+
+    await ensureSeasonRecapRuntime();
 
     WorldEngine.syncOffseasonDevelopmentCadence({ save: false });
     const trainings = typeof WorldEngine.getOffseasonDevelopmentTrainingEvents === 'function'
       ? WorldEngine.getOffseasonDevelopmentTrainingEvents()
       : (WorldEngine.state?.schedule || []).filter(event => event?.offseasonDevelopmentEvent === true);
-
-    if (trainings.length < 2) {
-      throw new Error(`Offseason cadence created ${trainings.length} training events.`);
-    }
+    if (trainings.length < 2) throw new Error(`Offseason cadence created ${trainings.length} training events.`);
 
     const targetDate = advanceDevWorldToSeasonRecap();
     await persistActiveWorld();
     removeDevMetadataFromVisibleIndex();
-
     return {
       targetDate,
       sourceKind: baseline.sourceKind || 'post-travel-offseason',
@@ -372,9 +382,7 @@
     if (typeof updateHubScreen === 'function') updateHubScreen();
     if (typeof openHubTab === 'function') openHubTab('home');
 
-    requestAnimationFrame(() => {
-      WorldEngine.renderLeagueSeasonRecap?.({ force: true });
-    });
+    requestAnimationFrame(() => WorldEngine.renderLeagueSeasonRecap({ force: true }));
 
     console.info('[Project Ice] Season Recap dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
@@ -400,7 +408,6 @@
     button.dataset.seasonRecapCheckpointWired = 'true';
     button.disabled = false;
     button.removeAttribute('disabled');
-
     const label = button.querySelector('.btn__label');
     if (label) label.textContent = 'Skip to Season Recap';
     if (hint) hint.classList.remove('is-visible');
@@ -409,20 +416,16 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       button.disabled = true;
-
       loadCheckpoint()
         .catch(error => {
           console.error('[Project Ice] Dev Season Recap shortcut failed:', error);
           alert(`Dev Season Recap shortcut failed: ${error?.message || 'unknown error'}`);
         })
-        .finally(() => {
-          button.disabled = false;
-        });
+        .finally(() => { button.disabled = false; });
     }, true);
   }
 
   removeDevMetadataFromVisibleIndex();
-
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
   } else {
