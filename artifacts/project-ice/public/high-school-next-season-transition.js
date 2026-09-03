@@ -211,14 +211,16 @@
     world.schedule = (world.schedule || []).filter(event => {
       const type = String(event?.type || event?.eventType || '').toLowerCase();
       const key = String(event?.eventKey || '').toLowerCase();
-      return !type.includes('tryout') && !key.includes('tryout');
+      const sameTryoutDate = String(event?.date || '') === String(identity.tryoutDate || '');
+      const isReplaceableFiller = ['practice','recovery','training','off','rest'].includes(type);
+      return !type.includes('tryout') && !key.includes('tryout') && !(sameTryoutDate && isReplaceableFiller);
     });
 
     world.schedule.push({
       id: `returning-varsity-tryouts:${identity.seasonId}`,
       eventId: `returning-varsity-tryouts:${identity.seasonId}`,
-      type: 'returning-tryouts',
-      eventType: 'returning-tryouts',
+      type: 'tryout',
+      eventType: 'tryout',
       eventKey: 'returning-varsity-tryouts',
       label: 'Varsity Tryouts',
       shortLabel: 'Tryouts',
@@ -244,9 +246,6 @@
     const career = (world.teams || []).flatMap(team => team?.roster || []).find(player => player?.isCareerPlayer === true) || world.player;
     if (!career) return;
 
-    // The legacy dev fixture was anchored to 2027 before canonical time existed.
-    // Rebase only this synthetic player's DOB so the freshman->sophomore test
-    // represents the intended age progression instead of producing age 11.
     const birthDate = `${identity.startYear - 15}-06-15`;
     for (const player of [career, world.player, typeof Game !== 'undefined' ? Game?.player : null]) {
       if (!player) continue;
@@ -345,9 +344,13 @@
     root.classList.remove('is-visible');
     await wait(460);
     root.remove();
+
+    /* Canonical schedule was replaced during rollover; rebuild the legacy UI mirror before Home is rendered. */
+    try { window.refreshScheduleEvents?.(); } catch (_) {}
     try { window.refreshCareerUI?.(); } catch (_) {}
     try { window.updateHubScreen?.(); } catch (_) {}
     try { window.openHubTab?.('home'); } catch (_) {}
+
     window.dispatchEvent(new CustomEvent('projectice:next-high-school-season-started', { detail: { seasonId: identity.seasonId, careerYearIndex: identity.careerYearIndex, schoolYear: identity.schoolYear, startDate: identity.startDate, tryoutDate: identity.tryoutDate } }));
     return true;
   }
