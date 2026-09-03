@@ -109,23 +109,11 @@
       .find(player => player?.isCareerPlayer === true) || null;
   }
 
-  function isExactPostTravelOffseason(world) {
-    const travel = world?.travelHockey;
-    const tournament = travel?.tournament;
-    return Boolean(
-      travel &&
-      tournament?.status === 'complete' &&
-      tournament?.championTeamId &&
-      tournament?.closeoutAcknowledged === true &&
-      travel?.completed === true &&
-      String(world?.season?.phase || '').toLowerCase() === 'offseason'
-    );
-  }
-
   function cleanPostTravelState(world) {
     if (!world.player || typeof world.player !== 'object') world.player = {};
     if (!world.season || typeof world.season !== 'object') world.season = {};
     if (!Array.isArray(world.schedule)) world.schedule = [];
+    if (!world.travelHockey || typeof world.travelHockey !== 'object') world.travelHockey = {};
 
     const canonical = canonicalCareerPlayer(world);
     if (canonical) {
@@ -135,26 +123,36 @@
     }
 
     world.schedule = world.schedule.filter(event => {
-      const isTravel =
+      const travelEvent =
         event?.travelTournament === true ||
         event?.travelTournamentTraining === true ||
         event?.travelHockeyEvent === true ||
         String(event?.type || '') === 'travel-game';
-      if (!isTravel) return true;
+      if (!travelEvent) return true;
       return event?.completed === true || event?.played === true || event?.isCompleted === true;
     });
 
-    world.season.phase = 'offseason';
     const targetDate = dateKey(
+      world.travelHockey?.tournament?.closeoutAcknowledgedAt ||
       world.season.currentDate ||
       world.player.currentDate ||
       world.currentDate
     );
     if (!targetDate) throw new Error('The post-Travel checkpoint has no valid current date.');
 
+    world.season.phase = 'offseason';
     world.season.currentDate = targetDate;
     world.player.currentDate = targetDate;
     world.currentDate = targetDate;
+
+    world.travelHockey.status = 'completed';
+    world.travelHockey.completed = true;
+    world.travelHockey.tournament = {
+      ...(world.travelHockey.tournament || {}),
+      status: 'complete',
+      closeoutAcknowledged: true,
+      closeoutAcknowledgedAt: targetDate,
+    };
 
     for (const team of world.teams || []) {
       for (const player of team?.roster || []) {
@@ -165,37 +163,11 @@
     return world;
   }
 
-  function prepareExactPostTravelOffseason(sourceWorld) {
-    if (!isExactPostTravelOffseason(sourceWorld)) return null;
-    const world = cleanPostTravelState(structuredClone(sourceWorld));
-    return {
-      world,
-      targetDate: dateKey(world.season.currentDate),
-      sourceKind: 'exact-completed-travel',
-    };
-  }
-
-  /*
-   * Phase 3.4 was built and validated entirely in the isolated dev career. Some
-   * browser/title reloads can replace that sandbox record with the older dev
-   * checkpoint, so a completed Travel world is not guaranteed to still exist in
-   * IndexedDB when Phase 3.5 starts.
-   *
-   * This fallback intentionally creates ONLY a dev checkpoint. It starts from
-   * the already-stable post-Travel-Tryouts v4 baseline (which contains the real
-   * HS postseason/awards/player/development state) and advances the *lifecycle*
-   * to the same boundary as Continue Into Offseason. It does not touch the real
-   * career, award XP, replay games, or invent HS statistics.
-   *
-   * Travel tournament gameplay itself has already been live-validated. For the
-   * Phase 3.5 sandbox we need the correct offseason ownership/state boundary,
-   * not another replay of Phase 3.4.
-   */
-  function synthesizePostTravelOffseason(sourceWorld) {
+  function synthesizeBaselineFromLegacy(sourceWorld) {
     const world = structuredClone(sourceWorld);
-    if (!world.player || typeof world.player !== 'object') world.player = {};
-    if (!world.season || typeof world.season !== 'object') world.season = {};
     if (!world.travelHockey || typeof world.travelHockey !== 'object') world.travelHockey = {};
+    if (!world.season || typeof world.season !== 'object') world.season = {};
+    if (!world.player || typeof world.player !== 'object') world.player = {};
 
     const travel = world.travelHockey;
     const tryoutDate = dateKey(
@@ -205,9 +177,8 @@
       world.player.currentDate ||
       world.currentDate
     );
-    if (!tryoutDate) throw new Error('Could not determine the Travel checkpoint date.');
+    if (!tryoutDate) throw new Error('Could not determine the legacy Travel checkpoint date.');
 
-    /* The validated Travel tournament occupied roughly two tournament weeks. */
     const targetDate = addDays(tryoutDate, 16) || tryoutDate;
     const teamId = String(
       travel.playerTeamId ||
@@ -216,10 +187,9 @@
       'dev-travel-complete'
     );
 
-    travel.status = 'completed';
     travel.completed = true;
+    travel.status = 'completed';
     travel.syntheticDevCheckpoint = true;
-    travel.syntheticPostTravelOffseason = true;
     travel.tournament = {
       ...(travel.tournament || {}),
       status: 'complete',
@@ -227,7 +197,6 @@
       closeoutAcknowledged: true,
       closeoutAcknowledgedAt: targetDate,
       syntheticDevCheckpoint: true,
-      syntheticPostTravelOffseason: true,
     };
 
     world.season.phase = 'offseason';
@@ -235,89 +204,50 @@
     world.player.currentDate = targetDate;
     world.currentDate = targetDate;
 
-    if (!world.postseason || typeof world.postseason !== 'object') world.postseason = {};
-    if (world.postseason.highSchool) {
-      world.postseason.highSchool.status = 'complete';
-      world.postseason.highSchool.phase = 'postseason-complete';
-    }
-
-    const canonical = canonicalCareerPlayer(world);
-    if (canonical) canonical.currentDate = targetDate;
-
-    cleanPostTravelState(world);
-    return { world, targetDate, sourceKind: 'synthetic-from-post-tryout-baseline' };
+    return cleanPostTravelState(world);
   }
 
-  async function findRealDannerSave() {
-    if (!originalListCareerSaves) return null;
-    const saves = dedupeVisibleSaves(await originalListCareerSaves());
-    return saves.find(save =>
-      String(save?.playerName || '').trim().toLowerCase() === TARGET_PLAYER_NAME.toLowerCase()
-    ) || null;
-  }
-
-  async function getOrCreateBaseline(db) {
+  async function getBaseline(db) {
     const existing = await readRecord(db, DEV_BASELINE_RECORD_ID);
     if (existing?.world) return existing;
 
-    const candidates = [];
-
-    const currentSandbox = await readRecord(db, DEV_WORLD_RECORD_ID);
-    if (currentSandbox?.world) candidates.push({ record: currentSandbox, kind: 'current-dev-sandbox' });
-
-    const realSave = await findRealDannerSave();
-    if (realSave?.id) {
-      const realRecord = await readRecord(db, `career:${realSave.id}`);
-      if (realRecord?.world) candidates.push({ record: realRecord, kind: 'visible-career' });
-    }
-
-    for (const candidate of candidates) {
-      const prepared = prepareExactPostTravelOffseason(candidate.record.world);
-      if (!prepared) continue;
-      const baseline = {
-        id: DEV_BASELINE_RECORD_ID,
-        sourceCareerId: candidate.record.sourceCareerId || realSave?.id || null,
-        createdAt: new Date().toISOString(),
-        checkpointDate: prepared.targetDate,
-        checkpointKind: 'post-travel-offseason',
-        sourceKind: candidate.kind,
-        world: prepared.world,
-      };
-      await writeRecord(db, baseline);
-      return baseline;
-    }
-
     const legacy = await readRecord(db, LEGACY_POST_TRYOUT_BASELINE_ID);
     if (!legacy?.world) {
-      throw new Error('Could not find the existing post-Travel dev baseline.');
+      throw new Error('Could not find the stable post-Travel dev baseline.');
     }
 
-    const prepared = synthesizePostTravelOffseason(legacy.world);
+    const world = synthesizeBaselineFromLegacy(legacy.world);
     const baseline = {
       id: DEV_BASELINE_RECORD_ID,
       sourceCareerId: legacy.sourceCareerId || null,
       createdAt: new Date().toISOString(),
-      checkpointDate: prepared.targetDate,
+      checkpointDate: dateKey(world?.season?.currentDate),
       checkpointKind: 'post-travel-offseason',
-      sourceKind: prepared.sourceKind,
-      world: prepared.world,
+      sourceKind: 'synthetic-from-post-tryout-baseline',
+      world,
     };
+
     await writeRecord(db, baseline);
     return baseline;
+  }
+
+  async function persistActiveWorld() {
+    const result = WorldEngine.save?.();
+    if (result && typeof result.then === 'function') await result;
   }
 
   async function rebuildSandbox() {
     const db = await openDatabase();
     let baseline;
     try {
-      baseline = await getOrCreateBaseline(db);
+      baseline = await getBaseline(db);
       const world = cleanPostTravelState(structuredClone(baseline.world));
       await writeRecord(db, {
         id: DEV_WORLD_RECORD_ID,
         savedAt: new Date().toISOString(),
         devSandbox: true,
         sourceCareerId: baseline.sourceCareerId || null,
-        checkpointDate: baseline.checkpointDate,
+        checkpointDate: dateKey(world?.season?.currentDate),
         checkpointKind: 'post-travel-offseason',
         world,
       });
@@ -332,11 +262,38 @@
     const loaded = await WorldEngine.selectCareerSave?.(DEV_CAREER_ID);
     if (!loaded) throw new Error('Could not load isolated post-Travel offseason dev career.');
 
-    WorldEngine.save?.();
+    if (String(WorldEngine.state?.season?.phase || '').toLowerCase() !== 'offseason') {
+      throw new Error(`Loaded dev state is not offseason (phase=${WorldEngine.state?.season?.phase || 'missing'}).`);
+    }
+
+    if (WorldEngine.state?.travelHockey?.completed !== true) {
+      throw new Error('Loaded dev state lost the completed Travel boundary.');
+    }
+
+    if (typeof WorldEngine.syncOffseasonDevelopmentCadence !== 'function') {
+      throw new Error('Offseason cadence runtime did not load.');
+    }
+
+    WorldEngine.syncOffseasonDevelopmentCadence({ save: false });
+
+    const trainings = typeof WorldEngine.getOffseasonDevelopmentTrainingEvents === 'function'
+      ? WorldEngine.getOffseasonDevelopmentTrainingEvents()
+      : (WorldEngine.state?.schedule || []).filter(event => event?.offseasonDevelopmentEvent === true);
+
+    if (trainings.length < 3) {
+      throw new Error(
+        `Offseason cadence created ${trainings.length} training events at ${dateKey(WorldEngine.state?.season?.currentDate)}.`
+      );
+    }
+
+    await persistActiveWorld();
     removeDevMetadataFromVisibleIndex();
+
     return {
       targetDate: dateKey(WorldEngine.state?.season?.currentDate),
       sourceKind: baseline.sourceKind || 'post-travel-offseason',
+      trainingCount: trainings.length,
+      firstTrainingDate: dateKey(trainings[0]?.date),
     };
   }
 
@@ -360,14 +317,16 @@
     document.getElementById('pi-travel-hockey-hub-canonical')?.remove();
     document.getElementById('pi-league-postseason-card')?.remove();
 
-    openHubTab?.('home');
+    if (typeof refreshCareerUI === 'function') refreshCareerUI();
     if (typeof updateHubScreen === 'function') updateHubScreen();
-    else refreshCareerUI?.();
+    if (typeof openHubTab === 'function') openHubTab('home');
 
     console.info('[Project Ice] Post-Travel offseason dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
       checkpointDate: result.targetDate,
       sourceKind: result.sourceKind,
+      trainingCount: result.trainingCount,
+      firstTrainingDate: result.firstTrainingDate,
     });
   }
 
@@ -411,9 +370,8 @@
   removeDevMetadataFromVisibleIndex();
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', wireShortcut, { once:true });
+    document.addEventListener('DOMContentLoaded', wireShortcut, { once: true });
   } else {
     wireShortcut();
   }
-  window.setTimeout(wireShortcut, 250);
 })();
