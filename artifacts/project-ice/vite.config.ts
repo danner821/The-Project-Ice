@@ -35,6 +35,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/disable-game-zoom.js')) scripts.push('    <script src="/disable-game-zoom.js"></script>');
     if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
     if (!html.includes('/career-time.js')) scripts.push('    <script src="/career-time.js"></script>');
+    if (!html.includes('/season-development-snapshot.js')) scripts.push('    <script src="/season-development-snapshot.js"></script>');
     if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
     if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
     if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js"></script>');
@@ -112,7 +113,7 @@ export default defineConfig({
           await import('@replit/vite-plugin-cartographer').then((m) =>
             m.cartographer({
               root: path.resolve(import.meta.dirname, '..'),
-            }),
+            ),
           ),
           await import('@replit/vite-plugin-dev-banner').then((m) =>
             m.devBanner(),
