@@ -86,6 +86,7 @@ const runtimeModulesPlugin = {
 
     /* Phase 3.5: post-Travel offseason development + season transition. */
     if (!html.includes('/offseason-development-cadence.js')) scripts.push('    <script src="/offseason-development-cadence.js"></script>');
+    if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js"></script>');
 
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
