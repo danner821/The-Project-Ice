@@ -7,7 +7,7 @@
   if (WorldEngine.__highSchoolSeasonArchiveInstalled === true) return;
   WorldEngine.__highSchoolSeasonArchiveInstalled = true;
 
-  const VERSION = 2;
+  const VERSION = 3;
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -172,28 +172,73 @@
     };
   }
 
-  function archiveReady() {
-    const post = postseason();
-    const travel = world()?.travelHockey;
-    return Boolean(
-      post?.championTeamId &&
-      Array.isArray(post?.frozenStandings) &&
-      post.frozenStandings.length > 0 &&
-      Array.isArray(post?.leagueAwards?.winners) &&
-      post.leagueAwards.winners.length > 0 &&
-      travel?.completed === true &&
-      travel?.tournament?.closeoutAcknowledged === true
+  function finalStandings(post) {
+    if (Array.isArray(post?.frozenStandings) && post.frozenStandings.length) {
+      return clone(post.frozenStandings);
+    }
+
+    const teams = world()?.teams || [];
+    return teams.map(team => ({
+      teamId: team.teamId || '',
+      schoolName: team.schoolName || '',
+      teamName: team.teamName || team.name || '',
+      abbreviation: team.abbreviation || '',
+      wins: Number(team.wins || 0),
+      losses: Number(team.losses || 0),
+      overtimeLosses: Number(team.overtimeLosses || team.otl || 0),
+      points: Number(team.points ?? (Number(team.wins || 0) * 2 + Number(team.overtimeLosses || team.otl || 0))),
+    })).sort((a, b) =>
+      b.points - a.points ||
+      b.wins - a.wins ||
+      String(a.teamName).localeCompare(String(b.teamName))
     );
   }
 
+  function leagueAwardWinners(post) {
+    if (Array.isArray(post?.leagueAwards?.winners) && post.leagueAwards.winners.length) {
+      return clone(post.leagueAwards.winners);
+    }
+
+    const history = world()?.history?.leagueAwards;
+    if (!Array.isArray(history) || !history.length) return [];
+    const latest = [...history].reverse().find(record =>
+      Array.isArray(record?.winners) && record.winners.length
+    );
+    return clone(latest?.winners || []);
+  }
+
+  function archiveReadiness() {
+    const post = postseason();
+    const travel = world()?.travelHockey;
+    const standings = finalStandings(post);
+    const awards = leagueAwardWinners(post);
+    return {
+      ready: Boolean(
+        post?.championTeamId &&
+        standings.length > 0 &&
+        awards.length > 0 &&
+        travel?.completed === true &&
+        travel?.tournament?.closeoutAcknowledged === true
+      ),
+      champion: Boolean(post?.championTeamId),
+      standings: standings.length,
+      awards: awards.length,
+      travelCompleted: travel?.completed === true,
+      travelCloseout: travel?.tournament?.closeoutAcknowledged === true,
+    };
+  }
+
   function buildArchiveRecord() {
-    if (!archiveReady()) return null;
+    const readiness = archiveReadiness();
+    if (!readiness.ready) return null;
     const state = world();
     const post = postseason();
     const identity = seasonIdentity();
     const championship = championshipResult(post);
     const player = careerPlayerSnapshot();
-    const careerTeamStanding = (post.frozenStandings || []).find(row =>
+    const standings = finalStandings(post);
+    const awards = leagueAwardWinners(post);
+    const careerTeamStanding = standings.find(row =>
       String(row?.teamId || '') === String(player?.team?.teamId || '')
     ) || null;
 
@@ -206,11 +251,11 @@
       identity,
       regularSeasonEndDate: dateKey(post.regularSeasonEndDate),
       postseasonCompletedDate: dateKey(post.completedDate),
-      finalStandings: clone(post.frozenStandings || []),
+      finalStandings: standings,
       champion: championship.champion,
       runnerUp: championship.runnerUp,
       playoffs: clone(post.bracket || null),
-      leagueAwards: clone(post.leagueAwards?.winners || []),
+      leagueAwards: awards,
       playoffMvpPlayerId: post.playoffMvpPlayerId || null,
       leagueLeaders: leagueLeaders(),
       careerPlayer: player,
@@ -221,14 +266,18 @@
 
   function ensureArchive(options = {}) {
     const state = world();
-    if (!state || !archiveReady()) return { archived: false, reason: 'season-not-ready' };
+    const readiness = archiveReadiness();
+    if (!state || !readiness.ready) {
+      return { archived: false, reason: 'season-not-ready', readiness };
+    }
+
     state.history = state.history && typeof state.history === 'object' ? state.history : {};
     state.history.highSchoolSeasons = Array.isArray(state.history.highSchoolSeasons)
       ? state.history.highSchoolSeasons
       : [];
 
     const record = buildArchiveRecord();
-    if (!record) return { archived: false, reason: 'record-unavailable' };
+    if (!record) return { archived: false, reason: 'record-unavailable', readiness };
 
     const existingIndex = state.history.highSchoolSeasons.findIndex(item =>
       String(item?.archiveId || '') === String(record.archiveId || '')
@@ -236,11 +285,11 @@
     if (existingIndex >= 0) {
       const existing = state.history.highSchoolSeasons[existingIndex];
       if (Number(existing?.version || 0) >= VERSION) {
-        return { archived: false, reason: 'already-archived', record: clone(existing) };
+        return { archived: false, reason: 'already-archived', record: clone(existing), readiness };
       }
       state.history.highSchoolSeasons[existingIndex] = record;
       if (options.save !== false) WorldEngine.save?.();
-      return { archived: true, upgraded: true, record: clone(record) };
+      return { archived: true, upgraded: true, record: clone(record), readiness };
     }
 
     state.history.highSchoolSeasons.push(record);
@@ -249,7 +298,7 @@
     );
 
     if (options.save !== false) WorldEngine.save?.();
-    return { archived: true, record: clone(record) };
+    return { archived: true, record: clone(record), readiness };
   }
 
   function getArchives() {
@@ -284,6 +333,7 @@
   WorldEngine.ensureHighSchoolSeasonArchive = ensureArchive;
   WorldEngine.getHighSchoolSeasonArchives = getArchives;
   WorldEngine.getHighSchoolSeasonArchive = getArchiveById;
+  WorldEngine.getHighSchoolSeasonArchiveReadiness = archiveReadiness;
 
   ensureArchive({ save: true });
 })();
