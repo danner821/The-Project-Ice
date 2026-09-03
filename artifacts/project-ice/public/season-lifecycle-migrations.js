@@ -49,6 +49,37 @@
     });
   }
 
+  /*
+   * Lifecycle migrations are allowed to backfill schema, never to move a
+   * career backwards. Older saves can legitimately be missing the postseason
+   * checkpoint fields even though the player has already reached awards,
+   * Travel, or the offseason. Those states must not be re-initialized as a
+   * fresh postseason break on load.
+   */
+  function hasAdvancedBeyondPostseason(world = WorldEngine.state || {}) {
+    const phase = String(world?.season?.phase || '').trim().toLowerCase();
+    const post = world?.postseason?.highSchool || null;
+    const travel = world?.travelHockey || null;
+
+    return Boolean(
+      new Set([
+        'postseason-complete',
+        'awards',
+        'offseason',
+        'travel',
+        'travel-hockey',
+        'summer-travel',
+      ]).has(phase) ||
+      world?.season?.postseason?.completed === true ||
+      post?.status === 'complete' ||
+      Boolean(post?.championTeamId) ||
+      travel?.tryoutResult ||
+      travel?.placementLevel ||
+      travel?.completed === true ||
+      travel?.tournament?.closeoutAcknowledged === true
+    );
+  }
+
   function migrate() {
     const world = WorldEngine.state;
     const post = world?.postseason?.highSchool;
@@ -66,7 +97,8 @@
       null;
     if (!endDate) return false;
 
-    const playoffAlreadyStarted = hasPlayedPlayoffGame();
+    const advanced = hasAdvancedBeyondPostseason(world);
+    const playoffAlreadyStarted = advanced || hasPlayedPlayoffGame();
 
     post.version = MIGRATION_VERSION;
     post.regularSeasonEndDate = endDate;
@@ -98,6 +130,14 @@
   }
 
   function reconcileLoadedCareer() {
+    const world = WorldEngine.state || {};
+    const post = world?.postseason?.highSchool || null;
+
+    /* Never create a new live bracket inside a career that is already later. */
+    if (!post?.initialized && hasAdvancedBeyondPostseason(world)) {
+      return;
+    }
+
     WorldEngine.reconcileHighSchoolPostseason?.({ save: true });
     migrate();
   }
@@ -119,7 +159,8 @@
   }
 
   function observeActiveCareer() {
-    const post = WorldEngine.state?.postseason?.highSchool || null;
+    const world = WorldEngine.state || {};
+    const post = world?.postseason?.highSchool || null;
     const version = post?.version ?? null;
 
     if (post !== lastObservedPostseason || version !== lastObservedVersion) {
@@ -127,7 +168,9 @@
       lastObservedVersion = version;
 
       if (!post?.initialized) {
-        WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
+        if (!hasAdvancedBeyondPostseason(world)) {
+          WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
+        }
       }
       migrate();
       return;
