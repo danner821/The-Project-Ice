@@ -31,7 +31,6 @@
   function checkpointDate() {
     const explicit = dateKey(world()?.offseasonDevelopment?.checkpointDate);
     if (explicit) return explicit;
-
     const closeout = dateKey(world()?.travelHockey?.tournament?.closeoutAcknowledgedAt);
     if (!closeout) return null;
     return `${closeout.slice(0, 4)}-08-31`;
@@ -326,12 +325,39 @@
       const requested = dateKey(targetDate);
       const before = currentDate();
       const checkpoint = checkpointDate();
-      const mustStop = Boolean(
+      const recapPending = Boolean(
         isEligibleOffseason() &&
-        requested && before && checkpoint &&
-        before < checkpoint &&
-        requested >= checkpoint &&
+        checkpoint &&
         recapState()?.leagueRecapAcknowledged !== true
+      );
+
+      /*
+       * If the career is already sitting on Aug. 31, do not allow any later
+       * simulation path to move one day beyond the unresolved recap. This is
+       * the true hard-stop branch that the prior implementation missed.
+       */
+      if (
+        recapPending &&
+        requested && before &&
+        before >= checkpoint &&
+        requested > before
+      ) {
+        requestAnimationFrame(() => renderLeagueSeasonRecap({ force: true }));
+        return {
+          success: true,
+          currentDate: before,
+          targetDate: requested,
+          seasonRecapCheckpoint: true,
+          stopSimulation: true,
+          reason: 'season-recap-pending',
+        };
+      }
+
+      const mustStop = Boolean(
+        recapPending &&
+        requested && before &&
+        before < checkpoint &&
+        requested >= checkpoint
       );
 
       const result = originalAdvanceToDate(mustStop ? checkpoint : targetDate, {
@@ -342,13 +368,14 @@
       if (options.save !== false) WorldEngine.save?.();
 
       if (shouldBlockAtCheckpoint()) {
-        requestAnimationFrame(() => renderLeagueSeasonRecap());
+        requestAnimationFrame(() => renderLeagueSeasonRecap({ force: true }));
         return {
           ...(result || {}),
           success: true,
           currentDate: currentDate(),
           targetDate: requested,
           seasonRecapCheckpoint: true,
+          stopSimulation: true,
           reason: 'season-recap-checkpoint-reached',
         };
       }
@@ -374,5 +401,5 @@
   WorldEngine.getSeasonRecapCheckpointDate = checkpointDate;
 
   ensureCheckpointEvent({ save: true });
-  if (shouldBlockAtCheckpoint()) requestAnimationFrame(() => renderLeagueSeasonRecap());
+  if (shouldBlockAtCheckpoint()) requestAnimationFrame(() => renderLeagueSeasonRecap({ force: true }));
 })();
