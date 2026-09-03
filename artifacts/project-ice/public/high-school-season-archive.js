@@ -7,7 +7,7 @@
   if (WorldEngine.__highSchoolSeasonArchiveInstalled === true) return;
   WorldEngine.__highSchoolSeasonArchiveInstalled = true;
 
-  const VERSION = 1;
+  const VERSION = 2;
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -133,7 +133,7 @@
       points: topThree(skaters, stats => stats.points),
       goals: topThree(skaters, stats => stats.goals),
       assists: topThree(skaters, stats => stats.assists),
-      goalieWins: topThree(goalies, stats => stats.wins),
+      savePercentage: topThree(goalies, stats => stats.savePercentage),
     };
   }
 
@@ -230,10 +230,18 @@
     const record = buildArchiveRecord();
     if (!record) return { archived: false, reason: 'record-unavailable' };
 
-    const existing = state.history.highSchoolSeasons.find(item =>
+    const existingIndex = state.history.highSchoolSeasons.findIndex(item =>
       String(item?.archiveId || '') === String(record.archiveId || '')
     );
-    if (existing) return { archived: false, reason: 'already-archived', record: clone(existing) };
+    if (existingIndex >= 0) {
+      const existing = state.history.highSchoolSeasons[existingIndex];
+      if (Number(existing?.version || 0) >= VERSION) {
+        return { archived: false, reason: 'already-archived', record: clone(existing) };
+      }
+      state.history.highSchoolSeasons[existingIndex] = record;
+      if (options.save !== false) WorldEngine.save?.();
+      return { archived: true, upgraded: true, record: clone(record) };
+    }
 
     state.history.highSchoolSeasons.push(record);
     state.history.highSchoolSeasons.sort((a, b) =>
@@ -277,6 +285,5 @@
   WorldEngine.getHighSchoolSeasonArchives = getArchives;
   WorldEngine.getHighSchoolSeasonArchive = getArchiveById;
 
-  /* Current post-Travel dev/prod offseason states can archive immediately. */
   ensureArchive({ save: true });
 })();
