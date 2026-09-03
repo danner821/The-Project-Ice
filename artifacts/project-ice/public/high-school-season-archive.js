@@ -7,7 +7,7 @@
   if (WorldEngine.__highSchoolSeasonArchiveInstalled === true) return;
   WorldEngine.__highSchoolSeasonArchiveInstalled = true;
 
-  const VERSION = 4;
+  const VERSION = 5;
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -75,6 +75,40 @@
     };
   }
 
+  function finalStandings(post) {
+    if (Array.isArray(post?.frozenStandings) && post.frozenStandings.length) {
+      return clone(post.frozenStandings);
+    }
+
+    const teams = world()?.teams || [];
+    return teams.map(team => ({
+      teamId: team.teamId || '',
+      schoolName: team.schoolName || '',
+      teamName: team.teamName || team.name || '',
+      abbreviation: team.abbreviation || '',
+      wins: Number(team.wins || 0),
+      losses: Number(team.losses || 0),
+      overtimeLosses: Number(team.overtimeLosses || team.otl || 0),
+      points: Number(team.points ?? (Number(team.wins || 0) * 2 + Number(team.overtimeLosses || team.otl || 0))),
+    })).sort((a, b) =>
+      b.points - a.points ||
+      b.wins - a.wins ||
+      String(a.teamName).localeCompare(String(b.teamName))
+    );
+  }
+
+  function isSyntheticDevState() {
+    const post = postseason();
+    const travel = world()?.travelHockey;
+    return Boolean(
+      post?.syntheticDevCheckpoint === true ||
+      travel?.syntheticDevCheckpoint === true ||
+      travel?.syntheticPostTravelOffseason === true ||
+      travel?.tournament?.syntheticDevCheckpoint === true ||
+      travel?.tournament?.syntheticPostTravelOffseason === true
+    );
+  }
+
   function championshipSeries(post) {
     return post?.bracket?.rounds?.championship?.[0] ||
       post?.bracket?.championship?.[0] ||
@@ -82,14 +116,14 @@
       null;
   }
 
-  function championshipResult(post) {
+  function championshipResult(post, standings = finalStandings(post)) {
     const series = championshipSeries(post);
     const championTeamId =
       post?.championTeamId ||
       series?.winnerTeamId ||
       series?.winnerId ||
       post?.championship?.winnerTeamId ||
-      null;
+      (isSyntheticDevState() ? standings?.[0]?.teamId || null : null);
     const runnerUpTeamId =
       series?.loserTeamId ||
       series?.loserId ||
@@ -103,7 +137,10 @@
               series.awayTeamId,
             ].find(id => id && String(id) !== String(championTeamId)) || null
           : null
-      );
+      ) ||
+      (isSyntheticDevState()
+        ? standings.find(row => String(row?.teamId || '') !== String(championTeamId || ''))?.teamId || null
+        : null);
     return {
       championTeamId,
       runnerUpTeamId,
@@ -184,37 +221,17 @@
     const travel = world()?.travelHockey || null;
     const tournament = travel?.tournament || null;
     if (!travel || !tournament) return null;
+    const fallbackMvp = isSyntheticDevState() ? careerPlayer() : null;
     return {
       level: travel.placementLevel || tournament.level || null,
-      championTeamId: tournament.championTeamId || null,
-      mvpPlayerId: tournament.mvpPlayerId || null,
-      mvpPlayerName: tournament.mvpPlayerName || null,
-      mvpTeamId: tournament.mvpTeamId || null,
+      championTeamId: tournament.championTeamId || travel.playerTeamId || travel.placementTeamId || null,
+      mvpPlayerId: tournament.mvpPlayerId || idOf(fallbackMvp) || null,
+      mvpPlayerName: tournament.mvpPlayerName || (fallbackMvp ? nameOf(fallbackMvp) : null),
+      mvpTeamId: tournament.mvpTeamId || travel.playerTeamId || travel.placementTeamId || null,
       completed: travel.completed === true,
       closeoutAcknowledged: tournament.closeoutAcknowledged === true,
+      syntheticDevFixture: isSyntheticDevState(),
     };
-  }
-
-  function finalStandings(post) {
-    if (Array.isArray(post?.frozenStandings) && post.frozenStandings.length) {
-      return clone(post.frozenStandings);
-    }
-
-    const teams = world()?.teams || [];
-    return teams.map(team => ({
-      teamId: team.teamId || '',
-      schoolName: team.schoolName || '',
-      teamName: team.teamName || team.name || '',
-      abbreviation: team.abbreviation || '',
-      wins: Number(team.wins || 0),
-      losses: Number(team.losses || 0),
-      overtimeLosses: Number(team.overtimeLosses || team.otl || 0),
-      points: Number(team.points ?? (Number(team.wins || 0) * 2 + Number(team.overtimeLosses || team.otl || 0))),
-    })).sort((a, b) =>
-      b.points - a.points ||
-      b.wins - a.wins ||
-      String(a.teamName).localeCompare(String(b.teamName))
-    );
   }
 
   function leagueAwardWinners(post) {
@@ -223,11 +240,42 @@
     }
 
     const history = world()?.history?.leagueAwards;
-    if (!Array.isArray(history) || !history.length) return [];
-    const latest = [...history].reverse().find(record =>
-      Array.isArray(record?.winners) && record.winners.length
-    );
-    return clone(latest?.winners || []);
+    if (Array.isArray(history) && history.length) {
+      const latest = [...history].reverse().find(record =>
+        Array.isArray(record?.winners) && record.winners.length
+      );
+      if (latest?.winners?.length) return clone(latest.winners);
+    }
+
+    if (!isSyntheticDevState()) return [];
+
+    const rows = allPlayers().map(player => ({
+      player,
+      stats: scopedStats(player, 'regular-season') || {},
+    }));
+    const skaters = rows.filter(row => String(row.player?.position || '').toUpperCase() !== 'G');
+    const goalies = rows.filter(row => String(row.player?.position || '').toUpperCase() === 'G');
+    const byPoints = [...skaters].sort((a, b) => Number(b.stats?.points || 0) - Number(a.stats?.points || 0));
+    const defense = skaters.filter(row => ['D', 'LD', 'RD'].includes(String(row.player?.position || '').toUpperCase()))
+      .sort((a, b) => Number(b.stats?.points || 0) - Number(a.stats?.points || 0));
+    const bySave = [...goalies].sort((a, b) => Number(b.stats?.savePercentage || 0) - Number(a.stats?.savePercentage || 0));
+    const makeAward = (row, title) => row ? {
+      title,
+      playerId: idOf(row.player),
+      playerName: nameOf(row.player),
+      teamId: row.player?.teamId || null,
+      team: teamById(row.player?.teamId)?.teamName || teamById(row.player?.teamId)?.name || '',
+      position: row.player?.position || '',
+      scope: 'regular-season',
+      syntheticDevFixture: true,
+    } : null;
+
+    return [
+      makeAward(byPoints[0], 'League MVP'),
+      makeAward(byPoints[1] || byPoints[0], 'Best Forward'),
+      makeAward(defense[0] || byPoints[2] || byPoints[0], 'Best Defenseman'),
+      makeAward(bySave[0], 'Best Goaltender'),
+    ].filter(Boolean);
   }
 
   function archiveReadiness() {
@@ -235,7 +283,7 @@
     const travel = world()?.travelHockey;
     const standings = finalStandings(post);
     const awards = leagueAwardWinners(post);
-    const championship = championshipResult(post);
+    const championship = championshipResult(post, standings);
     return {
       ready: Boolean(
         championship.championTeamId &&
@@ -250,6 +298,7 @@
       awards: awards.length,
       travelCompleted: travel?.completed === true,
       travelCloseout: travel?.tournament?.closeoutAcknowledged === true,
+      syntheticDevFixture: isSyntheticDevState(),
     };
   }
 
@@ -259,9 +308,9 @@
     const state = world();
     const post = postseason();
     const identity = seasonIdentity();
-    const championship = championshipResult(post);
-    const player = careerPlayerSnapshot();
     const standings = finalStandings(post);
+    const championship = championshipResult(post, standings);
+    const player = careerPlayerSnapshot();
     const awards = leagueAwardWinners(post);
     const careerTeamStanding = standings.find(row =>
       String(row?.teamId || '') === String(player?.team?.teamId || '')
@@ -286,6 +335,7 @@
       careerPlayer: player,
       careerTeamStanding: careerTeamStanding ? clone(careerTeamStanding) : null,
       travel: travelSnapshot(),
+      syntheticDevFixture: readiness.syntheticDevFixture === true,
     };
   }
 
