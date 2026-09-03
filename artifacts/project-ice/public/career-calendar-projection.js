@@ -1,6 +1,6 @@
 'use strict';
 
-/* global WorldEngine, buildSeasonCalendarEvents, refreshScheduleEvents, setupHubCalendar, renderLeagueStandingsPreview */
+/* global WorldEngine, buildSeasonCalendarEvents, refreshScheduleEvents, setupHubCalendar, renderScheduleCalendar, renderScheduleKeyEvents, scheduleViewYear, scheduleViewMonth, renderLeagueStandingsPreview */
 
 (() => {
   if (typeof WorldEngine === 'undefined') return;
@@ -156,9 +156,40 @@
     };
   }
 
+  function syncVisibleCalendarFromCanonical() {
+    refreshScheduleEvents();
+
+    try {
+      setupHubCalendar();
+    } catch (_) {}
+
+    try {
+      if (
+        typeof renderScheduleCalendar === 'function' &&
+        Number.isFinite(Number(scheduleViewYear)) &&
+        Number.isFinite(Number(scheduleViewMonth))
+      ) {
+        renderScheduleCalendar(scheduleViewYear, scheduleViewMonth);
+      }
+      renderScheduleKeyEvents?.();
+    } catch (_) {}
+  }
+
+  /*
+   * Annual rollover is a hard lifecycle boundary. The new schedule is created
+   * synchronously before this event is emitted, so immediately rebuild both
+   * calendar views here from the new canonical schedule. No tab navigation or
+   * delayed retry should be required.
+   */
+  window.addEventListener('projectice:next-high-school-season-started', () => {
+    syncVisibleCalendarFromCanonical();
+  });
+
+  WorldEngine.syncCareerCalendarProjection = syncVisibleCalendarFromCanonical;
+
   /* Initial sync for careers that load directly into Hub. */
   try {
-    refreshScheduleEvents();
+    syncVisibleCalendarFromCanonical();
   } catch (error) {
     console.warn('[Project Ice] Career Calendar Projection initial sync skipped:', error);
   }
