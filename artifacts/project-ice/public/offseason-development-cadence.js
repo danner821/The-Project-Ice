@@ -5,10 +5,11 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 3;
+  const MODULE_VERSION = 4;
   const WINDOW_DAYS = 7;
   const TRAININGS_PER_WINDOW = 3;
   const OFFSEASON_END_DATE = '2027-08-30';
+  const DEV_BOUNDARY_CLASS = 'pi-travel-closeout-complete';
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -31,14 +32,18 @@
 
   function isPostTravelOffseason() {
     const world = WorldEngine.state;
-    if (!world || String(world?.season?.phase || '').toLowerCase() !== 'offseason') return false;
+    if (!world || String(world?.season?.phase || '').toLowerCase() !== 'offseason') {
+      return false;
+    }
 
     const travel = travelState();
     const tournament = travel?.tournament;
+
     return Boolean(
+      world?.offseasonDevelopment?.postTravelBoundary === true ||
       travel?.completed === true ||
       tournament?.closeoutAcknowledged === true ||
-      world?.offseasonDevelopment?.postTravelBoundary === true
+      document.body?.classList?.contains(DEV_BOUNDARY_CLASS)
     );
   }
 
@@ -105,6 +110,7 @@
       date,
       completed: false,
       played: false,
+      isCompleted: false,
       status: 'scheduled',
       cadenceWindow: windowIndex,
     }, slotIndex);
@@ -140,30 +146,35 @@
 
   function reconcileExistingEvents(events) {
     let changed = false;
+
     for (const event of events) {
       if (!isOffseasonTraining(event)) continue;
       const slot = Number(event?.cadenceSlot) || 0;
       const before = JSON.stringify({
-        type:event.type,
-        eventType:event.eventType,
-        eventKey:event.eventKey,
-        label:event.label,
-        requiresPlayerInteraction:event.requiresPlayerInteraction,
-        travelHockeyEvent:event.travelHockeyEvent,
-        cadenceVersion:event.cadenceVersion,
+        type: event.type,
+        eventType: event.eventType,
+        eventKey: event.eventKey,
+        label: event.label,
+        requiresPlayerInteraction: event.requiresPlayerInteraction,
+        travelHockeyEvent: event.travelHockeyEvent,
+        cadenceVersion: event.cadenceVersion,
       });
+
       applyCanonicalPracticePresentation(event, slot);
+
       const after = JSON.stringify({
-        type:event.type,
-        eventType:event.eventType,
-        eventKey:event.eventKey,
-        label:event.label,
-        requiresPlayerInteraction:event.requiresPlayerInteraction,
-        travelHockeyEvent:event.travelHockeyEvent,
-        cadenceVersion:event.cadenceVersion,
+        type: event.type,
+        eventType: event.eventType,
+        eventKey: event.eventKey,
+        label: event.label,
+        requiresPlayerInteraction: event.requiresPlayerInteraction,
+        travelHockeyEvent: event.travelHockeyEvent,
+        cadenceVersion: event.cadenceVersion,
       });
+
       if (before !== after) changed = true;
     }
+
     return changed;
   }
 
@@ -264,11 +275,28 @@
     return changed;
   }
 
-  function syncAndRefresh() {
-    const changed = syncOffseasonDevelopmentCadence({ save:true });
-    if (!changed) return false;
+  function refreshScheduleMirror() {
+    try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
+  }
+
+  function refreshVisibleCareerUI() {
+    refreshScheduleMirror();
     try { globalThis.refreshCareerUI?.(); } catch (_) {}
     try { globalThis.updateHubScreen?.(); } catch (_) {}
+  }
+
+  function syncAndRefresh() {
+    if (!isPostTravelOffseason()) return false;
+
+    syncOffseasonDevelopmentCadence({ save: true });
+
+    /*
+     * Schedule/Home render from the legacy scheduleEvents mirror, not directly
+     * from WorldEngine.state.schedule. Refresh that mirror every time the
+     * post-Travel boundary is entered, even when cadence itself reports no new
+     * mutation (for example, events were already saved by an earlier sync).
+     */
+    refreshVisibleCareerUI();
     return true;
   }
 
@@ -288,15 +316,32 @@
       }
       return result;
     };
+
     wrappedSelectCareerSave.__projectIceOffseasonCadenceWrapped = true;
     wrappedSelectCareerSave.__projectIceOffseasonCadenceOriginal = originalSelectCareerSave;
     WorldEngine.selectCareerSave = wrappedSelectCareerSave;
   }
 
+  /* Real gameplay boundary. */
   document.addEventListener('click', event => {
     if (!event.target?.closest?.('#pi-travel-closeout-continue')) return;
     requestAnimationFrame(syncAndRefresh);
   });
 
-  syncOffseasonDevelopmentCadence({ save:true });
+  /*
+   * Dev checkpoint boundary. The shortcut swaps the canonical world first, then
+   * adds pi-travel-closeout-complete to <body>. Observe that exact state change
+   * rather than racing the async save loader or polling.
+   */
+  if (document.body && typeof MutationObserver !== 'undefined') {
+    let boundarySeen = document.body.classList.contains(DEV_BOUNDARY_CLASS);
+    const observer = new MutationObserver(() => {
+      const active = document.body.classList.contains(DEV_BOUNDARY_CLASS);
+      if (active && !boundarySeen) requestAnimationFrame(syncAndRefresh);
+      boundarySeen = active;
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  syncAndRefresh();
 })();
