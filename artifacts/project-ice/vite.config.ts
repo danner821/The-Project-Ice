@@ -91,6 +91,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js"></script>');
     if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js"></script>');
     if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js"></script>');
+    if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js"></script>');
 
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
 
