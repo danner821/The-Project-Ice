@@ -102,6 +102,16 @@ const runtimeModulesPlugin = {
   },
 };
 
+const replitOnlyPlugins =
+  process.env.NODE_ENV !== 'production' && process.env.REPL_ID !== undefined
+    ? [
+        (await import('@replit/vite-plugin-cartographer')).cartographer({
+          root: path.resolve(import.meta.dirname, '..'),
+        }),
+        (await import('@replit/vite-plugin-dev-banner')).devBanner(),
+      ]
+    : [];
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -109,19 +119,7 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     runtimeModulesPlugin,
-    ...(process.env.NODE_ENV !== 'production' &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import('@replit/vite-plugin-cartographer').then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
-            }),
-          ),
-          await import('@replit/vite-plugin-dev-banner').then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
+    ...replitOnlyPlugins,
   ],
   resolve: {
     alias: {
