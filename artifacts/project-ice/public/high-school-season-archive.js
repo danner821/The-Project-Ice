@@ -7,7 +7,7 @@
   if (WorldEngine.__highSchoolSeasonArchiveInstalled === true) return;
   WorldEngine.__highSchoolSeasonArchiveInstalled = true;
 
-  const VERSION = 3;
+  const VERSION = 4;
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -75,15 +75,38 @@
     };
   }
 
+  function championshipSeries(post) {
+    return post?.bracket?.rounds?.championship?.[0] ||
+      post?.bracket?.championship?.[0] ||
+      post?.championshipSeries ||
+      null;
+  }
+
   function championshipResult(post) {
-    const series = post?.bracket?.rounds?.championship?.[0] || null;
-    const championTeamId = post?.championTeamId || series?.winnerTeamId || null;
-    const runnerUpTeamId = series?.loserTeamId || (
-      championTeamId && series
-        ? [series.higherSeedTeamId, series.lowerSeedTeamId].find(id => String(id) !== String(championTeamId)) || null
-        : null
-    );
+    const series = championshipSeries(post);
+    const championTeamId =
+      post?.championTeamId ||
+      series?.winnerTeamId ||
+      series?.winnerId ||
+      post?.championship?.winnerTeamId ||
+      null;
+    const runnerUpTeamId =
+      series?.loserTeamId ||
+      series?.loserId ||
+      post?.championship?.loserTeamId ||
+      (
+        championTeamId && series
+          ? [
+              series.higherSeedTeamId,
+              series.lowerSeedTeamId,
+              series.homeTeamId,
+              series.awayTeamId,
+            ].find(id => id && String(id) !== String(championTeamId)) || null
+          : null
+      );
     return {
+      championTeamId,
+      runnerUpTeamId,
       champion: teamSnapshot(championTeamId),
       runnerUp: teamSnapshot(runnerUpTeamId),
     };
@@ -212,15 +235,17 @@
     const travel = world()?.travelHockey;
     const standings = finalStandings(post);
     const awards = leagueAwardWinners(post);
+    const championship = championshipResult(post);
     return {
       ready: Boolean(
-        post?.championTeamId &&
+        championship.championTeamId &&
         standings.length > 0 &&
         awards.length > 0 &&
         travel?.completed === true &&
         travel?.tournament?.closeoutAcknowledged === true
       ),
-      champion: Boolean(post?.championTeamId),
+      champion: Boolean(championship.championTeamId),
+      championTeamId: championship.championTeamId || null,
       standings: standings.length,
       awards: awards.length,
       travelCompleted: travel?.completed === true,
@@ -244,19 +269,19 @@
 
     return {
       version: VERSION,
-      archiveId: identity.seasonId || `hs-season-${identity.startYear || dateKey(post.regularSeasonEndDate) || 'unknown'}`,
+      archiveId: identity.seasonId || `hs-season-${identity.startYear || dateKey(post?.regularSeasonEndDate) || 'unknown'}`,
       archivedAt: dateKey(
         state?.season?.currentDate || state?.player?.currentDate || state?.currentDate
       ),
       identity,
-      regularSeasonEndDate: dateKey(post.regularSeasonEndDate),
-      postseasonCompletedDate: dateKey(post.completedDate),
+      regularSeasonEndDate: dateKey(post?.regularSeasonEndDate),
+      postseasonCompletedDate: dateKey(post?.completedDate),
       finalStandings: standings,
       champion: championship.champion,
       runnerUp: championship.runnerUp,
-      playoffs: clone(post.bracket || null),
+      playoffs: clone(post?.bracket || null),
       leagueAwards: awards,
-      playoffMvpPlayerId: post.playoffMvpPlayerId || null,
+      playoffMvpPlayerId: post?.playoffMvpPlayerId || null,
       leagueLeaders: leagueLeaders(),
       careerPlayer: player,
       careerTeamStanding: careerTeamStanding ? clone(careerTeamStanding) : null,
