@@ -67,11 +67,9 @@
     const dob = fullBirthDate(birthDate);
     const now = dateKey(onDate);
     if (!dob || !now) return null;
-
     const birthYear = Number(dob.slice(0, 4));
     const currentYear = Number(now.slice(0, 4));
     if (!Number.isFinite(birthYear) || !Number.isFinite(currentYear)) return null;
-
     let age = currentYear - birthYear;
     if (now.slice(5) < dob.slice(5)) age -= 1;
     return Math.max(0, age);
@@ -107,7 +105,6 @@
 
   function ensurePlayerBirthDate(player, anchorDate) {
     if (!player || typeof player !== 'object') return false;
-
     let changed = false;
     const factualFull = fullBirthDate(player.birthDate);
     const factualYear = birthYearOnly(player.birthDate);
@@ -146,17 +143,14 @@
         changed = true;
       }
     }
-
     return changed;
   }
 
   function collectPlayers(world = WorldEngine.state) {
     const result = [];
     const seen = new Set();
-
     const add = player => {
-      if (!player || typeof player !== 'object') return;
-      if (seen.has(player)) return;
+      if (!player || typeof player !== 'object' || seen.has(player)) return;
       seen.add(player);
       result.push(player);
     };
@@ -209,7 +203,6 @@
       root.lastAgeSyncDate = now;
       changed = true;
     }
-
     return changed;
   }
 
@@ -243,8 +236,14 @@
         if (player?.isCareerPlayer === true) player.currentDate = date;
       }
     }
-
     if (typeof Game !== 'undefined' && Game?.player) Game.player.currentDate = date;
+  }
+
+  function hasRecordedScore(event) {
+    return ['homeScore', 'awayScore', 'scoreFor', 'scoreAgainst'].some(field => {
+      const value = event?.[field];
+      return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+    });
   }
 
   function hasPlayedSeasonGame(world) {
@@ -252,8 +251,7 @@
       event?.played === true ||
       event?.completed === true ||
       event?.isCompleted === true ||
-      Number(event?.homeScore) >= 0 ||
-      Number(event?.awayScore) >= 0
+      hasRecordedScore(event)
     );
     const teamStats = (world?.teams || []).some(team =>
       Number(team?.wins || 0) > 0 ||
@@ -283,7 +281,6 @@
 
   function normalizeFreshCareerTimeline(world = WorldEngine.state) {
     if (!isLegacyFreshCareer(world)) return false;
-
     const oldDate = currentWorldDate(world);
     const newDate = shiftIsoYear(oldDate, YEAR_SHIFT);
     const identity = seasonIdentity(0);
@@ -308,7 +305,6 @@
     world.player = world.player || {};
     world.player.year = 'Freshman';
     world.player.schoolYear = 'Freshman';
-
     if (typeof Game !== 'undefined' && Game?.player) {
       Game.player.year = 'Freshman';
       Game.player.schoolYear = 'Freshman';
