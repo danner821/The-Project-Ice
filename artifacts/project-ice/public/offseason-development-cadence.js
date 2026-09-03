@@ -5,9 +5,9 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 7;
+  const MODULE_VERSION = 8;
   const WINDOW_DAYS = 7;
-  const TRAININGS_PER_WINDOW = 3;
+  const TRAININGS_PER_WINDOW = 2;
 
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
@@ -126,7 +126,7 @@
     return true;
   }
 
-  function applyPracticePresentation(event, slotIndex = 0) {
+  function applyTrainingPresentation(event, slotIndex = 0) {
     const focuses = ['skills', 'systems', 'skating'];
     const descriptions = [
       'A focused offseason skill session built around puck work, shooting, and individual execution.',
@@ -135,9 +135,9 @@
     ];
 
     Object.assign(event, {
-      type: 'practice',
-      eventType: 'practice',
-      eventKey: 'practice-systems',
+      type: 'training',
+      eventType: 'training',
+      eventKey: 'training',
       label: 'Training',
       shortLabel: 'Training',
       icon: '🏋️',
@@ -161,7 +161,7 @@
 
   function buildTrainingEvent(date, windowIndex, slotIndex) {
     const id = `offseason-training-${date}`;
-    return applyPracticePresentation({
+    return applyTrainingPresentation({
       id,
       eventId: id,
       date,
@@ -180,7 +180,7 @@
   }
 
   function chooseTrainingDates(events, windowStart, windowEnd, endDate, needed) {
-    const preferredOffsets = [1, 3, 5, 2, 4, 0, 6];
+    const preferredOffsets = [1, 4, 3, 5, 2, 0, 6];
     const dates = [];
     for (const offset of preferredOffsets) {
       const date = addDays(windowStart, offset);
@@ -192,9 +192,40 @@
     return dates;
   }
 
+  function trimWindowTrainings(events, windowStart, windowEnd) {
+    const windowTrainings = events
+      .filter(event =>
+        isOffseasonTraining(event) &&
+        isActive(event) &&
+        dateKey(event?.date) >= windowStart &&
+        dateKey(event?.date) <= windowEnd
+      )
+      .sort((a, b) => String(a?.date || '').localeCompare(String(b?.date || '')));
+
+    const completed = windowTrainings.filter(isComplete);
+    const scheduled = windowTrainings.filter(event => !isComplete(event));
+    const allowedScheduled = Math.max(0, TRAININGS_PER_WINDOW - completed.length);
+
+    const extras = new Set(
+      scheduled
+        .slice(allowedScheduled)
+        .map(event => String(event?.eventId || event?.id || ''))
+        .filter(Boolean)
+    );
+
+    if (!extras.size) return false;
+
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const id = String(events[index]?.eventId || events[index]?.id || '');
+      if (extras.has(id)) events.splice(index, 1);
+    }
+    return true;
+  }
+
   function ensureWindow(events, windowStart, endDate, windowIndex) {
     const rawEnd = addDays(windowStart, WINDOW_DAYS - 1);
     const windowEnd = rawEnd && rawEnd < endDate ? rawEnd : endDate;
+    let changed = trimWindowTrainings(events, windowStart, windowEnd);
 
     const existing = events.filter(event =>
       isOffseasonTraining(event) &&
@@ -204,17 +235,17 @@
     );
 
     let needed = Math.max(0, TRAININGS_PER_WINDOW - existing.length);
-    if (!needed) return 0;
+    if (!needed) return changed;
 
     const dates = chooseTrainingDates(events, windowStart, windowEnd, endDate, needed);
-    let added = 0;
     for (const date of dates) {
-      events.push(buildTrainingEvent(date, windowIndex, existing.length + added));
-      added += 1;
+      events.push(buildTrainingEvent(date, windowIndex, existing.length));
+      existing.push(events[events.length - 1]);
+      changed = true;
       needed -= 1;
       if (!needed) break;
     }
-    return added;
+    return changed;
   }
 
   function reconcileExistingEvents(events, startDate, endDate) {
@@ -224,7 +255,7 @@
       const date = dateKey(event?.date);
       if (!date || date < startDate || date > endDate) continue;
       const before = JSON.stringify(event);
-      applyPracticePresentation(event, Number(event?.cadenceSlot) || 0);
+      applyTrainingPresentation(event, Number(event?.cadenceSlot) || 0);
       if (JSON.stringify(event) !== before) changed = true;
     }
     return changed;
@@ -257,7 +288,7 @@
       cursor && cursor <= endDate;
       cursor = addDays(cursor, WINDOW_DAYS)
     ) {
-      if (ensureWindow(events, cursor, endDate, windowIndex) > 0) changed = true;
+      if (ensureWindow(events, cursor, endDate, windowIndex)) changed = true;
       windowIndex += 1;
     }
 
@@ -294,7 +325,6 @@
   WorldEngine.syncOffseasonDevelopmentCadence = syncOffseasonDevelopmentCadence;
   WorldEngine.getOffseasonDevelopmentTrainingEvents = getTrainingEvents;
 
-  /* Resume path only. Lifecycle owners explicitly call sync at phase entry. */
   if (isPostTravelOffseason()) {
     syncOffseasonDevelopmentCadence({ save: true });
   }
