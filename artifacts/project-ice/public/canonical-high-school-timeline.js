@@ -6,7 +6,7 @@
   if (WorldEngine.__canonicalHighSchoolTimelineInstalled === true) return;
   WorldEngine.__canonicalHighSchoolTimelineInstalled = true;
 
-  const VERSION = 2;
+  const VERSION = 3;
   const CANONICAL_START_YEAR = 2023;
   const CLASS_NAMES = ['Freshman', 'Sophomore', 'Junior', 'Senior'];
 
@@ -102,6 +102,49 @@
     assign(player, 'year', label);
   }
 
+  function reconcileExpiredDraftClasses(world, id) {
+    if (!world || !id || typeof WorldEngine.applyHighSchoolRosterRollover !== 'function') return false;
+    if (Number(id.careerYearIndex) <= 0) return false;
+
+    const cutoffDraftYear = Number(id.startYear) + 1;
+    const lifecycle = world.highSchoolRosterLifecycle = world.highSchoolRosterLifecycle || {};
+    if (lifecycle.canonicalReconcileInProgress === true) return false;
+
+    const expired = [];
+    for (const team of world.teams || []) {
+      for (const player of team?.roster || []) {
+        if (!player || player?.isCareerPlayer === true) continue;
+        const draftYear = Number(player?.draftYear);
+        if (!Number.isFinite(draftYear) || draftYear >= cutoffDraftYear) continue;
+        expired.push({
+          playerId: String(player?.playerId || player?.id || ''),
+          teamId: String(team?.teamId || ''),
+          seasonId: `hs-${id.startYear - 1}-${id.startYear}`,
+          player: structuredClone(player),
+        });
+      }
+    }
+
+    if (!expired.length) return false;
+
+    lifecycle.pendingGraduatingSeasonId = `hs-${id.startYear - 1}-${id.startYear}`;
+    lifecycle.pendingGraduates = expired;
+    lifecycle.canonicalReconcileInProgress = true;
+    try {
+      WorldEngine.applyHighSchoolRosterRollover({
+        seasonId: id.seasonId,
+        careerYearIndex: id.careerYearIndex,
+        schoolYear: id.schoolYear,
+        startDate: id.startDate,
+        tryoutDate: id.tryoutDate,
+        canonicalIntegrityRepair: true,
+      });
+    } finally {
+      lifecycle.canonicalReconcileInProgress = false;
+    }
+    return true;
+  }
+
   function normalize(world = WorldEngine.state, options = {}) {
     if (!world) return false;
     const index = Number.isFinite(Number(options.careerYearIndex))
@@ -165,8 +208,17 @@
     root.syntheticFixture = isSyntheticDevFixture(world);
 
     WorldEngine.repairCanonicalHighSchoolAges?.(world, season.currentDate || world.currentDate || null);
-    if (changed && options.save !== false) WorldEngine.save?.();
-    return changed;
+
+    /* Active HS rosters may never contain a player from a draft class that has
+       already aged out of the current season. This is a world-state invariant,
+       not a Prospects-screen filter. The rollover service archives/removes the
+       expired player and creates the replacement freshman before presentation. */
+    const reconciledRosters = options.reconcileRosters === false
+      ? false
+      : reconcileExpiredDraftClasses(world, id);
+
+    if ((changed || reconciledRosters) && options.save !== false) WorldEngine.save?.();
+    return changed || reconciledRosters;
   }
 
   function wrapAsync(name) {
@@ -206,6 +258,10 @@
   });
 
   WorldEngine.normalizeCanonicalHighSchoolTimeline = normalize;
+  WorldEngine.reconcileExpiredHighSchoolDraftClasses = () => {
+    const index = inferCareerYearIndex(WorldEngine.state);
+    return reconcileExpiredDraftClasses(WorldEngine.state, identity(index));
+  };
   WorldEngine.getCanonicalHighSchoolCareerYearIndex = () => inferCareerYearIndex(WorldEngine.state);
   WorldEngine.getCanonicalHighSchoolSeasonStartYear = () => identity(inferCareerYearIndex(WorldEngine.state)).startYear;
 
