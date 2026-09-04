@@ -61,6 +61,27 @@
     return true;
   }
 
+  function rebuildProspectRankingsAtSeasonBoundary() {
+    const world = WorldEngine.state;
+    if (!world) return [];
+
+    /*
+     * Prospect rankings are persistent world state. The ranking bootstrap
+     * intentionally returns any existing non-empty array without rebuilding it,
+     * which means last season's Top 100 can survive even after the roster
+     * rollover correctly removes that draft class. A season boundary changes
+     * the eligible candidate universe, so the stored ranking is no longer a
+     * valid cache and must be rebuilt from canonical current-world truth.
+     */
+    world.prospectRankings = [];
+
+    const rebuilt = typeof WorldEngine.getProspectRankings === 'function'
+      ? WorldEngine.getProspectRankings()
+      : [];
+
+    return Array.isArray(rebuilt) ? rebuilt : [];
+  }
+
   async function runNextHighSchoolSeasonTransitionWithIntegrity(options = {}) {
     /*
      * The season transition is the canonical boundary between two HS years.
@@ -94,6 +115,7 @@
     );
 
     enforceActiveDraftClassInvariant();
+    rebuildProspectRankingsAtSeasonBoundary();
 
     const saveResult = WorldEngine.save?.();
     if (saveResult && typeof saveResult.then === 'function') await saveResult;
@@ -101,5 +123,6 @@
   }
 
   WorldEngine.enforceActiveHighSchoolDraftClassInvariant = enforceActiveDraftClassInvariant;
+  WorldEngine.rebuildProspectRankingsAtSeasonBoundary = rebuildProspectRankingsAtSeasonBoundary;
   WorldEngine.runNextHighSchoolSeasonTransition = runNextHighSchoolSeasonTransitionWithIntegrity;
 })();
