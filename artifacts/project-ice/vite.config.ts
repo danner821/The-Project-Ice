@@ -36,6 +36,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
     if (!html.includes('/career-time.js')) scripts.push('    <script src="/career-time.js"></script>');
     if (!html.includes('/career-age-timeline-repair.js')) scripts.push('    <script src="/career-age-timeline-repair.js"></script>');
+    if (!html.includes('/canonical-high-school-timeline.js')) scripts.push('    <script src="/canonical-high-school-timeline.js"></script>');
     if (!html.includes('/season-development-snapshot.js')) scripts.push('    <script src="/season-development-snapshot.js"></script>');
     if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
     if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
