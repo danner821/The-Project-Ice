@@ -92,6 +92,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/offseason-development-cadence.js')) scripts.push('    <script src="/offseason-development-cadence.js"></script>');
     if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js"></script>');
     if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js"></script>');
+    if (!html.includes('/league-history-recap-view.js')) scripts.push('    <script src="/league-history-recap-view.js"></script>');
     if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
     if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js"></script>');
     if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js"></script>');
@@ -133,7 +134,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(import.meta.dirname, 'src'),
+      '@': path.resolve(import.meta.dirname),
       '@assets': path.resolve(
         import.meta.dirname,
         '..',
