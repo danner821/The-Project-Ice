@@ -6,33 +6,40 @@
   if (WorldEngine.__highSchoolSeasonStatHistoryInstalled === true) return;
   WorldEngine.__highSchoolSeasonStatHistoryInstalled = true;
 
-  const VERSION = 1;
+  const VERSION = 2;
   const CLASS_ABBR = { 9: 'FR', 10: 'SO', 11: 'JR', 12: 'SR' };
-
   const clone = value => value == null ? value : structuredClone(value);
   const idOf = player => String(player?.playerId || player?.id || '');
   const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 
-  function seasonStartYear(state = WorldEngine.state) {
+  function seasonStartYear() {
     return Number(
-      state?.season?.seasonStartYear ||
-      state?.season?.currentYear ||
-      String(state?.season?.seasonId || '').match(/hs-(\d{4})-/)?.[1] ||
-      String(state?.season?.currentDate || state?.currentDate || '').slice(0, 4)
+      WorldEngine.getCanonicalHighSchoolSeasonStartYear?.() ||
+      WorldEngine.state?.season?.seasonStartYear ||
+      String(WorldEngine.state?.season?.currentDate || WorldEngine.state?.currentDate || '').slice(0, 4)
     ) || null;
   }
 
-  function seasonId(state = WorldEngine.state) {
-    return String(state?.season?.seasonId || state?.season?.id || state?.currentSeason || '');
+  function seasonIdentity(startYear = seasonStartYear()) {
+    const index = Number(startYear) - 2023;
+    const canonical = index >= 0 && index <= 3 ? WorldEngine.getHighSchoolSeasonIdentity?.(index) : null;
+    return canonical || {
+      seasonId: `hs-${startYear}-${Number(startYear) + 1}`,
+      label: `${startYear}-${String(Number(startYear) + 1).slice(-2)}`,
+      startYear: Number(startYear),
+    };
   }
 
-  function seasonLabel(state = WorldEngine.state) {
-    const start = seasonStartYear(state);
-    if (start) return `${String(start).slice(-2)}-${String(start + 1).slice(-2)}`;
-    return String(state?.season?.label || state?.season?.seasonLabel || state?.currentSeason || '');
+  function shortLabel(startYear) {
+    return `${String(startYear).slice(-2)}-${String(Number(startYear) + 1).slice(-2)}`;
   }
 
-  function gradeOf(player) {
+  function gradeOf(player, startYear = seasonStartYear()) {
+    const draftYear = Number(player?.draftYear);
+    if (Number.isFinite(draftYear) && Number.isFinite(Number(startYear))) {
+      const byDraft = 13 - (draftYear - Number(startYear));
+      if (byDraft >= 9 && byDraft <= 12) return byDraft;
+    }
     const explicit = Number(player?.grade);
     if (explicit >= 9 && explicit <= 12) return explicit;
     const label = String(player?.schoolYear || player?.classLevel || player?.year || '').toLowerCase();
@@ -57,35 +64,68 @@
     return WorldEngine.getAllWorldPlayers?.() || (WorldEngine.state?.teams || []).flatMap(team => team?.roster || []);
   }
 
+  function resolvePlayer(value) {
+    if (!value) return null;
+    if (typeof value === 'object') {
+      const id = idOf(value);
+      return (id && WorldEngine.getPlayerById?.(id)) || value;
+    }
+    return WorldEngine.getPlayerById?.(value) || null;
+  }
+
   function scoped(player, scope) {
     WorldEngine.rebuildHighSchoolPostseasonStats?.();
     return clone(WorldEngine.getPlayerStatsByScope?.(player, scope) || {});
   }
 
-  function historyRoot(player) {
-    player.highSchoolSeasonHistory = Array.isArray(player.highSchoolSeasonHistory)
-      ? player.highSchoolSeasonHistory
-      : [];
+  function rawHistory(player) {
+    player.highSchoolSeasonHistory = Array.isArray(player.highSchoolSeasonHistory) ? player.highSchoolSeasonHistory : [];
     return player.highSchoolSeasonHistory;
   }
 
-  function captureCompletedSeason() {
-    const state = WorldEngine.state;
-    if (!state) return false;
-    const sid = seasonId(state);
-    if (!sid) return false;
-    const label = seasonLabel(state);
+  function normalizeHistory(player) {
+    const history = rawHistory(player);
+    const currentStart = seasonStartYear();
+    if (!Number.isFinite(currentStart) || !history.length) return history;
+    const currentGrade = gradeOf(player, currentStart);
+    let changed = false;
 
+    history.forEach((row, index) => {
+      const distance = history.length - index;
+      const rowStart = currentStart - distance;
+      const rowGrade = currentGrade ? currentGrade - distance : null;
+      const identity = seasonIdentity(rowStart);
+      const updates = {
+        version: VERSION,
+        seasonId: identity.seasonId,
+        seasonLabel: shortLabel(rowStart),
+        seasonStartYear: rowStart,
+        grade: rowGrade >= 9 && rowGrade <= 12 ? rowGrade : row?.grade,
+        level: rowGrade >= 9 && rowGrade <= 12 ? CLASS_ABBR[rowGrade] : (row?.level || 'HS'),
+      };
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined && row[key] !== value) { row[key] = value; changed = true; }
+      });
+    });
+
+    if (changed) WorldEngine.save?.();
+    return history;
+  }
+
+  function captureCompletedSeason() {
+    const start = seasonStartYear();
+    if (!Number.isFinite(start)) return false;
+    const identity = seasonIdentity(start);
     for (const player of allPlayers()) {
       if (!player || !idOf(player)) continue;
-      const history = historyRoot(player);
-      if (history.some(row => String(row?.seasonId || '') === sid)) continue;
-      const grade = gradeOf(player);
+      const history = normalizeHistory(player);
+      if (history.some(row => Number(row?.seasonStartYear) === start)) continue;
+      const grade = gradeOf(player, start);
       history.push({
         version: VERSION,
-        seasonId: sid,
-        seasonLabel: label,
-        seasonStartYear: seasonStartYear(state),
+        seasonId: identity.seasonId,
+        seasonLabel: shortLabel(start),
+        seasonStartYear: start,
         teamId: player.teamId || null,
         teamAbbreviation: teamAbbr(player),
         grade,
@@ -102,10 +142,11 @@
   }
 
   function activeRow(player, scope) {
-    const grade = gradeOf(player);
+    const start = seasonStartYear();
+    const grade = gradeOf(player, start);
     return {
-      seasonId: seasonId(),
-      seasonLabel: seasonLabel(),
+      seasonId: seasonIdentity(start).seasonId,
+      seasonLabel: shortLabel(start),
       teamId: player?.teamId || null,
       teamAbbreviation: teamAbbr(player),
       grade,
@@ -115,20 +156,17 @@
     };
   }
 
-  function rowsFor(player, scope) {
+  function rowsFor(playerValue, scope) {
+    const player = resolvePlayer(playerValue);
+    if (!player) return [];
     const key = scope === 'playoffs' ? 'playoffStats' : 'regularSeasonStats';
-    const historical = historyRoot(player).map(row => ({
-      ...row,
-      stats: clone(row?.[key] || {}),
-      current: false,
-    }));
+    const historical = normalizeHistory(player).map(row => ({ ...row, stats: clone(row?.[key] || {}), current: false }));
     return [...historical, activeRow(player, scope)];
   }
 
   function headerMap(headId) {
-    const cells = Array.from(document.getElementById(headId)?.querySelectorAll('th') || []);
     const map = new Map();
-    cells.forEach((cell, index) => {
+    Array.from(document.getElementById(headId)?.querySelectorAll('th') || []).forEach((cell, index) => {
       const key = String(cell.textContent || '').trim().toUpperCase().replace(/[^A-Z0-9+/%-]/g, '');
       if (key) map.set(key, index);
     });
@@ -136,33 +174,17 @@
   }
 
   function setCell(row, index, value) {
-    if (!row || index === undefined) return;
-    const cell = row.children?.[index];
-    if (cell) cell.textContent = String(value);
+    if (row && index !== undefined && row.children?.[index]) row.children[index].textContent = String(value);
   }
 
   function applyStatsToRow(row, headers, record) {
     const s = record.stats || {};
     const values = {
-      SEASON: record.seasonLabel || '—',
-      TEAM: record.teamAbbreviation || '—',
-      LVL: record.level || 'HS',
-      GP: num(s.gamesPlayed),
-      G: num(s.goals),
-      A: num(s.assists),
-      PTS: num(s.points),
-      '+/-': num(s.plusMinus),
-      PIM: num(s.penaltyMinutes),
-      SOG: num(s.shots),
-      SHOTS: num(s.shots),
-      GS: num(s.gamesStarted),
-      W: num(s.wins),
-      L: num(s.losses),
-      OTL: num(s.overtimeLosses),
-      GA: num(s.goalsAgainst),
-      GAA: num(s.goalsAgainstAverage).toFixed(2),
-      'SV%': num(s.savePercentage).toFixed(3).replace(/^0/, ''),
-      SO: num(s.shutouts),
+      SEASON: record.seasonLabel || '—', TEAM: record.teamAbbreviation || '—', LVL: record.level || 'HS',
+      GP: num(s.gamesPlayed), G: num(s.goals), A: num(s.assists), PTS: num(s.points), '+/-': num(s.plusMinus),
+      PIM: num(s.penaltyMinutes), SOG: num(s.shots), SHOTS: num(s.shots), GS: num(s.gamesStarted),
+      W: num(s.wins), L: num(s.losses), OTL: num(s.overtimeLosses), GA: num(s.goalsAgainst),
+      GAA: num(s.goalsAgainstAverage).toFixed(2), 'SV%': num(s.savePercentage).toFixed(3).replace(/^0/, ''), SO: num(s.shutouts),
     };
     Object.entries(values).forEach(([key, value]) => setCell(row, headers.get(key), value));
     row.dataset.piSeasonHistory = record.seasonId || '';
@@ -172,11 +194,8 @@
   function totals(records) {
     const out = {};
     for (const record of records) {
-      const s = record.stats || {};
-      for (const [key, value] of Object.entries(s)) {
-        if (typeof value === 'number' && !['savePercentage','goalsAgainstAverage'].includes(key)) {
-          out[key] = num(out[key]) + num(value);
-        }
+      for (const [key, value] of Object.entries(record.stats || {})) {
+        if (typeof value === 'number' && !['savePercentage','goalsAgainstAverage'].includes(key)) out[key] = num(out[key]) + num(value);
       }
     }
     if ('goals' in out || 'assists' in out) out.points = num(out.goals) + num(out.assists);
@@ -186,56 +205,45 @@
   }
 
   function projectTable({ player, scope, headId, bodyId, footId }) {
+    player = resolvePlayer(player);
     const body = document.getElementById(bodyId);
     const headers = headerMap(headId);
     if (!body || !headers.size || !player) return false;
-
-    const existingRows = Array.from(body.querySelectorAll('tr'));
-    const template = existingRows[existingRows.length - 1];
+    const template = Array.from(body.querySelectorAll('tr')).pop();
     if (!template) return false;
-
     const records = rowsFor(player, scope);
     body.innerHTML = '';
-    for (const record of records) {
+    records.forEach(record => {
       const row = template.cloneNode(true);
       applyStatsToRow(row, headers, record);
       body.appendChild(row);
-    }
-
+    });
     const footer = document.getElementById(footId)?.querySelector('tr');
     if (footer) {
-      applyStatsToRow(footer, headers, {
-        seasonId: 'career',
-        seasonLabel: 'Career',
-        teamAbbreviation: '—',
-        level: '—',
-        stats: totals(records),
-        current: false,
-      });
-      setCell(footer, headers.get('SEASON'), 'Career');
-      setCell(footer, headers.get('TEAM'), '—');
-      setCell(footer, headers.get('LVL'), '—');
+      applyStatsToRow(footer, headers, { seasonId:'career', seasonLabel:'Career', teamAbbreviation:'—', level:'—', stats:totals(records), current:false });
+      setCell(footer, headers.get('SEASON'), 'Career'); setCell(footer, headers.get('TEAM'), '—'); setCell(footer, headers.get('LVL'), '—');
     }
     return true;
   }
 
   function careerPlayer() {
-    const players = allPlayers();
-    return players.find(player => player?.isCareerPlayer === true) || WorldEngine.state?.player || Game?.player || null;
+    return allPlayers().find(player => player?.isCareerPlayer === true) || WorldEngine.state?.player || Game?.player || null;
   }
 
-  function activeCareerScope() {
+  function careerScope() {
     return document.getElementById('pp-statistics-filter')?.value === 'playoffs' ? 'playoffs' : 'regular-season';
   }
 
   function projectCareerTable() {
-    projectTable({
-      player: careerPlayer(),
-      scope: activeCareerScope(),
-      headId: 'pp-statistics-head',
-      bodyId: 'pp-statistics-body',
-      footId: 'pp-statistics-foot',
-    });
+    return projectTable({ player:careerPlayer(), scope:careerScope(), headId:'pp-statistics-head', bodyId:'pp-statistics-body', footId:'pp-statistics-foot' });
+  }
+
+  function profileScope() {
+    return document.querySelector('#pi-player-profile-stat-scope .is-active')?.dataset?.scope === 'playoffs' ? 'playoffs' : 'regular-season';
+  }
+
+  function projectProfile(player) {
+    return projectTable({ player, scope:profileScope(), headId:'player-profile-statistics-head', bodyId:'player-profile-statistics-body', footId:'player-profile-statistics-foot' });
   }
 
   let lastProfilePlayer = null;
@@ -244,14 +252,8 @@
     globalThis.renderProjectIcePlayerStatistics = function(player = {}, options = {}) {
       const result = baseProfileRender(player, options);
       if (String(options?.headId || '') === 'player-profile-statistics-head') {
-        lastProfilePlayer = player;
-        requestAnimationFrame(() => projectTable({
-          player,
-          scope: document.querySelector('#pi-player-profile-stat-scope .is-active')?.dataset?.scope === 'playoffs' ? 'playoffs' : 'regular-season',
-          headId: 'player-profile-statistics-head',
-          bodyId: 'player-profile-statistics-body',
-          footId: 'player-profile-statistics-foot',
-        }));
+        lastProfilePlayer = resolvePlayer(player);
+        requestAnimationFrame(() => projectProfile(lastProfilePlayer));
       }
       return result;
     };
@@ -266,27 +268,23 @@
     const label = String(tab?.dataset?.tab || tab?.dataset?.hubTab || tab?.dataset?.tabTarget || tab?.textContent || '').toLowerCase();
     if (label.includes('player')) requestAnimationFrame(() => requestAnimationFrame(projectCareerTable));
 
-    const scopeButton = event.target?.closest?.('#pi-player-profile-stat-scope button[data-scope]');
-    if (scopeButton && lastProfilePlayer) {
-      requestAnimationFrame(() => projectTable({
-        player: lastProfilePlayer,
-        scope: scopeButton.dataset.scope === 'playoffs' ? 'playoffs' : 'regular-season',
-        headId: 'player-profile-statistics-head',
-        bodyId: 'player-profile-statistics-body',
-        footId: 'player-profile-statistics-foot',
-      }));
+    const playerRow = event.target?.closest?.('[data-player-id]');
+    const clickedId = playerRow?.dataset?.playerId;
+    if (clickedId) {
+      const canonical = resolvePlayer(clickedId);
+      if (canonical) {
+        lastProfilePlayer = canonical;
+        requestAnimationFrame(() => requestAnimationFrame(() => projectProfile(canonical)));
+      }
     }
-  });
+
+    const scopeButton = event.target?.closest?.('#pi-player-profile-stat-scope button[data-scope]');
+    if (scopeButton && lastProfilePlayer) requestAnimationFrame(() => projectProfile(lastProfilePlayer));
+  }, true);
 
   window.addEventListener('projectice:player-season-recap-complete', captureCompletedSeason);
 
-  /* The rollover service owns graduation. Calling it a second time at the same
-     deterministic boundary lets v2 reconcile stale draft-class metadata after
-     the new season identity is already canonical, without any timer/retry. */
-  window.addEventListener('projectice:next-high-school-season-started', event => {
-    WorldEngine.applyHighSchoolRosterRollover?.(event?.detail || {});
-  });
-
   WorldEngine.captureHighSchoolSeasonStatHistory = captureCompletedSeason;
   WorldEngine.getHighSchoolSeasonStatRows = rowsFor;
+  WorldEngine.normalizeHighSchoolSeasonStatHistory = normalizeHistory;
 })();
