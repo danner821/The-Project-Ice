@@ -6,7 +6,7 @@
   if (WorldEngine.__canonicalHighSchoolTimelineInstalled === true) return;
   WorldEngine.__canonicalHighSchoolTimelineInstalled = true;
 
-  const VERSION = 1;
+  const VERSION = 2;
   const CANONICAL_START_YEAR = 2023;
   const CLASS_NAMES = ['Freshman', 'Sophomore', 'Junior', 'Senior'];
 
@@ -58,16 +58,11 @@
 
   function inferCareerYearIndex(world = WorldEngine.state) {
     if (!world) return 0;
-
-    /*
-     * The long-lived dev baseline was created when freshman year was still
-     * bootstrapped as 2026-27. It represents the completed FIRST HS season,
-     * regardless of its legacy calendar year. Treat that fixture as freshman
-     * until the real next-season transition places it on the canonical 2024-25
-     * sophomore calendar.
-     */
     const rawDate = dateKey(world?.season?.currentDate || world?.currentDate || world?.player?.currentDate);
     const rawYear = Number(rawDate?.slice(0, 4));
+
+    /* The reusable dev fixture completed freshman year while it still carried
+       the retired 2026-27 bootstrap date. Its lifecycle position is freshman. */
     if (isSyntheticDevFixture(world) && Number.isFinite(rawYear) && rawYear >= 2027) return 0;
 
     const fromDate = indexFromCanonicalDate(world);
@@ -76,10 +71,8 @@
     const explicit = Number(world?.season?.careerYearIndex);
     if (explicit >= 0 && explicit <= 3) return explicit;
 
-    const player = careerPlayer(world);
-    const grade = gradeOf(player || world?.player || Game?.player);
+    const grade = gradeOf(careerPlayer(world) || world?.player || Game?.player);
     if (grade) return Math.max(0, Math.min(3, grade - 9));
-
     return 0;
   }
 
@@ -94,6 +87,19 @@
       startDate: `${CANONICAL_START_YEAR + index}-09-01`,
       tryoutDate: `${CANONICAL_START_YEAR + index}-09-02`,
     };
+  }
+
+  function normalizeNpcClass(player, startYear, assign) {
+    if (!player || player?.isCareerPlayer === true) return;
+    const draftYear = Number(player?.draftYear);
+    if (!Number.isFinite(draftYear)) return;
+    const grade = 13 - (draftYear - Number(startYear));
+    if (grade < 9 || grade > 12) return;
+    const label = CLASS_NAMES[grade - 9];
+    assign(player, 'grade', grade);
+    assign(player, 'schoolYear', label);
+    assign(player, 'classLevel', label);
+    assign(player, 'year', label);
   }
 
   function normalize(world = WorldEngine.state, options = {}) {
@@ -125,8 +131,7 @@
     assign(season, 'schoolYear', id.schoolYear);
 
     const player = careerPlayer(world);
-    const shouldOwnPlayerClass = Boolean(player?.isCareerPlayer === true || player === world.player);
-    if (player && shouldOwnPlayerClass) {
+    if (player) {
       assign(player, 'grade', index + 9);
       assign(player, 'schoolYear', id.schoolYear);
       assign(player, 'classLevel', id.schoolYear);
@@ -138,6 +143,13 @@
       assign(world.player, 'classLevel', id.schoolYear);
       assign(world.player, 'year', id.schoolYear);
     }
+
+    /* Draft year is the stable HS class anchor for NPCs. Repairing grade here
+       means graduation, age, profile history and rankings all read one class. */
+    for (const team of world.teams || []) {
+      for (const rosterPlayer of team?.roster || []) normalizeNpcClass(rosterPlayer, id.startYear, assign);
+    }
+
     if (typeof Game !== 'undefined' && Game?.player) {
       Game.player.grade = index + 9;
       Game.player.schoolYear = id.schoolYear;
