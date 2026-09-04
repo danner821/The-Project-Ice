@@ -255,6 +255,23 @@
     return true;
   }
 
+  function syncCurrentDate(date) {
+    const state = WorldEngine.state;
+    const key = dateKey(date);
+    if (!state || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+    state.currentDate = key;
+    state.player = state.player || {};
+    state.player.currentDate = key;
+    if (state.season) state.season.currentDate = key;
+    for (const team of state.teams || []) {
+      for (const player of team?.roster || []) {
+        if (player?.isCareerPlayer === true) player.currentDate = key;
+      }
+    }
+    if (typeof Game !== 'undefined' && Game?.player) Game.player.currentDate = key;
+    return true;
+  }
+
   function advanceDevWorldToSeasonRecap() {
     const state = WorldEngine.state;
     if (!state) throw new Error('No active dev world is loaded.');
@@ -301,8 +318,75 @@
       }
     }
 
+    WorldEngine.normalizeCanonicalHighSchoolTimeline?.(state, { careerYearIndex: 0, save: false });
     WorldEngine.ensureSeasonRecapCheckpointEvent({ save: false });
     return checkpoint;
+  }
+
+  function acknowledgeRecapsForDev() {
+    const state = WorldEngine.state;
+    if (!state) throw new Error('No active dev world is loaded.');
+    const archives = WorldEngine.getHighSchoolSeasonArchives?.() || [];
+    const archive = archives[archives.length - 1] || null;
+    const nextIdentity = WorldEngine.getHighSchoolSeasonIdentity?.(1) || null;
+
+    state.seasonTransition = state.seasonTransition && typeof state.seasonTransition === 'object'
+      ? state.seasonTransition
+      : {};
+    const recap = state.seasonTransition.recap = state.seasonTransition.recap && typeof state.seasonTransition.recap === 'object'
+      ? state.seasonTransition.recap
+      : {};
+
+    recap.archiveId = archive?.archiveId || recap.archiveId || null;
+    recap.leagueRecapAcknowledged = true;
+    recap.leagueRecapAcknowledgedAt = dateKey(state?.season?.currentDate || state?.currentDate);
+    recap.playerRecapAcknowledged = true;
+    recap.playerRecapAcknowledgedAt = recap.leagueRecapAcknowledgedAt;
+    recap.nextCareerYearIndex = 1;
+    recap.nextSeasonId = nextIdentity?.seasonId || 'hs-2024-2025';
+    recap.nextSeasonTransitionComplete = false;
+
+    if (typeof WorldEngine.captureHighSchoolGraduatingClass !== 'function') {
+      throw new Error('Annual roster rollover runtime did not load.');
+    }
+    WorldEngine.captureHighSchoolGraduatingClass();
+    return nextIdentity;
+  }
+
+  async function advanceDevWorldToSophomoreTryouts() {
+    advanceDevWorldToSeasonRecap();
+    const nextIdentity = acknowledgeRecapsForDev();
+
+    if (typeof WorldEngine.runNextHighSchoolSeasonTransition !== 'function') {
+      throw new Error('Next-season transition runtime did not load.');
+    }
+
+    const transitioned = await WorldEngine.runNextHighSchoolSeasonTransition({ force: true });
+    if (!transitioned) throw new Error('Could not create the sophomore-season dev world.');
+
+    const identity = nextIdentity || WorldEngine.getHighSchoolSeasonIdentity?.(1);
+    const tryoutDate = dateKey(identity?.tryoutDate || '2024-09-02');
+    const tryout = (WorldEngine.state?.schedule || []).find(event =>
+      event?.returningYearTryout === true ||
+      String(event?.eventKey || '') === 'returning-varsity-tryouts'
+    );
+    if (!tryout) throw new Error('Sophomore Varsity Tryouts were not created.');
+
+    tryout.completed = false;
+    tryout.played = false;
+    tryout.isCompleted = false;
+    tryout.status = 'scheduled';
+    tryout.requiresPlayerInteraction = true;
+    syncCurrentDate(tryoutDate);
+
+    WorldEngine.normalizeCanonicalHighSchoolTimeline?.(WorldEngine.state, { careerYearIndex: 1, save: false });
+    await persistActiveWorld();
+
+    return {
+      targetDate: tryoutDate,
+      sourceKind: 'sophomore-varsity-tryouts',
+      trainingCount: 0,
+    };
   }
 
   async function rebuildSandbox() {
@@ -348,12 +432,12 @@
       : (WorldEngine.state?.schedule || []).filter(event => event?.offseasonDevelopmentEvent === true);
     if (trainings.length < 2) throw new Error(`Offseason cadence created ${trainings.length} training events.`);
 
-    const targetDate = advanceDevWorldToSeasonRecap();
+    const result = await advanceDevWorldToSophomoreTryouts();
     await persistActiveWorld();
     removeDevMetadataFromVisibleIndex();
     return {
-      targetDate,
-      sourceKind: baseline.sourceKind || 'post-travel-offseason',
+      ...result,
+      sourceKind: baseline.sourceKind || result.sourceKind,
       trainingCount: trainings.length,
     };
   }
@@ -377,14 +461,14 @@
     document.getElementById('pi-travel-league-card')?.remove();
     document.getElementById('pi-travel-hockey-hub-canonical')?.remove();
     document.getElementById('pi-league-postseason-card')?.remove();
+    document.getElementById('pi-league-season-recap-screen')?.remove();
+    document.getElementById('pi-player-season-recap-screen')?.remove();
 
     if (typeof refreshCareerUI === 'function') refreshCareerUI();
     if (typeof updateHubScreen === 'function') updateHubScreen();
     if (typeof openHubTab === 'function') openHubTab('home');
 
-    requestAnimationFrame(() => WorldEngine.renderLeagueSeasonRecap({ force: true }));
-
-    console.info('[Project Ice] Season Recap dev checkpoint loaded.', {
+    console.info('[Project Ice] Sophomore Varsity Tryouts dev checkpoint loaded.', {
       playerName: TARGET_PLAYER_NAME,
       checkpointDate: result.targetDate,
       sourceKind: result.sourceKind,
@@ -403,13 +487,13 @@
   function wireShortcut() {
     const button = document.getElementById('btn-dev-hub');
     const hint = document.getElementById('dev-shortcut-hint');
-    if (!button || button.dataset.seasonRecapCheckpointWired === 'true') return;
+    if (!button || button.dataset.sophomoreTryoutCheckpointWired === 'true') return;
 
-    button.dataset.seasonRecapCheckpointWired = 'true';
+    button.dataset.sophomoreTryoutCheckpointWired = 'true';
     button.disabled = false;
     button.removeAttribute('disabled');
     const label = button.querySelector('.btn__label');
-    if (label) label.textContent = 'Skip to Season Recap';
+    if (label) label.textContent = 'Skip to Sophomore Tryouts';
     if (hint) hint.classList.remove('is-visible');
 
     button.addEventListener('click', event => {
@@ -418,8 +502,8 @@
       button.disabled = true;
       loadCheckpoint()
         .catch(error => {
-          console.error('[Project Ice] Dev Season Recap shortcut failed:', error);
-          alert(`Dev Season Recap shortcut failed: ${error?.message || 'unknown error'}`);
+          console.error('[Project Ice] Dev Sophomore Tryouts shortcut failed:', error);
+          alert(`Dev Sophomore Tryouts shortcut failed: ${error?.message || 'unknown error'}`);
         })
         .finally(() => { button.disabled = false; });
     }, true);
