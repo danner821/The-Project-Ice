@@ -7,7 +7,7 @@
   if (WorldEngine.__playerAwardHistoryInstalled === true) return;
   WorldEngine.__playerAwardHistoryInstalled = true;
 
-  const VERSION = 1;
+  const VERSION = 2;
 
   const idOf = player => String(player?.playerId || player?.id || '');
   const dateKey = value => {
@@ -30,10 +30,11 @@
       award?.season ||
       record?.seasonLabel ||
       record?.season ||
+      record?.identity?.label ||
       null;
     if (explicit) return String(explicit);
 
-    const date = dateKey(record?.date) || dateKey(String(record?.key || '').split(':')[0]);
+    const date = dateKey(record?.date) || dateKey(record?.archivedAt) || dateKey(String(record?.key || '').split(':')[0]);
     if (!date) return String(WorldEngine.state?.season?.label || 'High School');
     const year = Number(date.slice(0, 4));
     const month = Number(date.slice(5, 7));
@@ -56,7 +57,7 @@
       team: award?.team || null,
       teamId: award?.teamId || null,
       playerId: String(award?.playerId || ''),
-      date: record?.date || null,
+      date: record?.date || record?.archivedAt || null,
     };
   }
 
@@ -79,24 +80,42 @@
     return true;
   }
 
+  function reconcileAwardRecord(record, winners) {
+    let changed = false;
+    for (const winner of winners || []) {
+      const playerId = String(winner?.playerId || '');
+      if (!playerId) continue;
+      const player = playerById(playerId);
+      if (!player) continue;
+      if (upsertPlayerAward(player, normalizedAward(record, winner))) changed = true;
+    }
+    return changed;
+  }
+
   function reconcilePlayerAwardHistory() {
     const world = WorldEngine.state;
     if (!world) return false;
     const history = world.history = world.history || {};
-    const records = Array.isArray(history.leagueAwards) ? history.leagueAwards : [];
     let changed = false;
 
-    for (const record of records) {
-      for (const winner of record?.winners || []) {
-        const playerId = String(winner?.playerId || '');
-        if (!playerId) continue;
-        const player = playerById(playerId);
-        if (!player) continue;
-        if (upsertPlayerAward(player, normalizedAward(record, winner))) changed = true;
-      }
+    /* Legacy/current award history remains a compatibility input. */
+    const legacyRecords = Array.isArray(history.leagueAwards) ? history.leagueAwards : [];
+    for (const record of legacyRecords) {
+      if (reconcileAwardRecord(record, record?.winners || [])) changed = true;
     }
 
-    /* Also reconcile the current postseason result before/while its history record is written. */
+    /*
+     * Canonical source of completed-season truth. Once a season rolls over,
+     * postseason state can reset and the old one-off leagueAwards bucket may no
+     * longer be sufficient. Permanent player awards must therefore be rebuilt
+     * from the immutable yearly archives that survive every future season.
+     */
+    const seasonArchives = Array.isArray(history.highSchoolSeasons) ? history.highSchoolSeasons : [];
+    for (const archive of seasonArchives) {
+      if (reconcileAwardRecord(archive, archive?.leagueAwards || [])) changed = true;
+    }
+
+    /* Also reconcile the current postseason result before/while its archive is written. */
     const postseason = WorldEngine.getHighSchoolPostseason?.() || world?.postseason?.highSchool || null;
     const currentWinners = Array.isArray(postseason?.leagueAwards?.winners)
       ? postseason.leagueAwards.winners
@@ -106,11 +125,7 @@
         date: postseason?.leagueAwards?.selectedAt || world?.season?.currentDate || null,
         seasonLabel: world?.season?.label || world?.season?.seasonLabel || null,
       };
-      for (const winner of currentWinners) {
-        const player = playerById(winner?.playerId);
-        if (!player) continue;
-        if (upsertPlayerAward(player, normalizedAward(currentRecord, winner))) changed = true;
-      }
+      if (reconcileAwardRecord(currentRecord, currentWinners)) changed = true;
     }
 
     const root = history.playerAwardHistory = history.playerAwardHistory || {};
