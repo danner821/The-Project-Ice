@@ -8,6 +8,7 @@
   WorldEngine.__prospectRankingModelV2Installed = true;
 
   const VERSION = 2;
+  const REVISION = 3;
   const TOP_LIMIT = 100;
   const clamp = (value, min = 0, max = 100) => Math.max(min, Math.min(max, Number(value) || 0));
   const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -200,6 +201,31 @@
     return map;
   }
 
+  function publicationMovementLimit(previousRank, components, rawGap) {
+    if (!(previousRank > 0)) return null;
+
+    let limit = previousRank <= 10
+      ? 4
+      : previousRank <= 25
+        ? 6
+        : previousRank <= 50
+          ? 9
+          : 12;
+
+    const scouting = clamp(components?.scouting, 0, 100);
+    const performance = clamp(components?.performance, 0, 100);
+    const trajectory = clamp(components?.trajectory, 0, 100);
+
+    /* Strong evidence can accelerate a move, but one publication should never
+       turn one hot game into a 30-spot leap. */
+    if (scouting >= 70) limit += 2;
+    if (performance >= 82 || performance <= 18) limit += 2;
+    if (trajectory >= 75 || trajectory <= 25) limit += 1;
+    if (Math.abs(rawGap) >= 35 && scouting >= 60) limit += 2;
+
+    return Math.min(18, limit);
+  }
+
   function buildRankingSnapshot() {
     const universe = prospectUniverse();
     const previous = priorRankMap();
@@ -217,13 +243,21 @@
       const prev = previous.get(entry.playerId) || 0;
       const currentRaw = rawRank.get(entry.playerId) || 999;
       const exposure = clamp(entry.components.scouting, 0, 100);
-      const priorWeight = prev > 0 ? Math.max(0.48, 0.68 - exposure * 0.0015) : 0;
+      const rawGap = prev > 0 ? currentRaw - prev : 0;
+      const movementLimit = publicationMovementLimit(prev, entry.components, rawGap);
+      const boundedRaw = prev > 0 && movementLimit
+        ? clamp(currentRaw, Math.max(1, prev - movementLimit), prev + movementLimit)
+        : currentRaw;
+      const priorWeight = prev > 0 ? Math.max(0.46, 0.66 - exposure * 0.0015) : 0;
+
       return {
         ...entry,
         previousRank: prev || null,
         rawRank: currentRaw,
+        movementLimit,
+        boundedRawRank: boundedRaw,
         stabilizedRankScore: prev > 0
-          ? prev * priorWeight + currentRaw * (1 - priorWeight)
+          ? prev * priorWeight + boundedRaw * (1 - priorWeight)
           : currentRaw,
       };
     }).sort((a, b) =>
@@ -238,6 +272,7 @@
       const prev = entry.previousRank;
       return {
         modelVersion: VERSION,
+        modelRevision: REVISION,
         publicationKey: key,
         rank,
         playerId: entry.playerId,
@@ -251,6 +286,8 @@
         score: entry.score,
         components: entry.components,
         rawRank: entry.rawRank,
+        boundedRawRank: entry.boundedRawRank,
+        publicationMovementLimit: entry.movementLimit,
         previousRank: prev,
         rankChange: prev ? prev - rank : 0,
         trend: !prev ? 'new' : prev > rank ? 'up' : prev < rank ? 'down' : 'even',
@@ -277,10 +314,13 @@
       world.prospectRankings = rows;
       world.prospectRankingModelV2 = {
         version: VERSION,
+        revision: REVISION,
         publicationKey: key,
         publishedAt: currentDate() || null,
         universeSize: universe.length,
         topLimit: TOP_LIMIT,
+        publicationCadenceDays: 14,
+        movementPolicy: 'tiered-evidence-capped',
         weights: {
           ability: 0.30,
           potential: 0.24,
@@ -304,8 +344,9 @@
     const key = publicationKey();
     const existing = Array.isArray(world?.prospectRankings) ? world.prospectRankings : [];
     const valid = existing.length > 0 &&
-      existing.every(row => Number(row?.modelVersion) === VERSION) &&
-      String(world?.prospectRankingModelV2?.publicationKey || '') === key;
+      existing.every(row => Number(row?.modelVersion) === VERSION && Number(row?.modelRevision) === REVISION) &&
+      String(world?.prospectRankingModelV2?.publicationKey || '') === key &&
+      Number(world?.prospectRankingModelV2?.revision) === REVISION;
     if (valid) return existing;
     return buildRankingSnapshot();
   }
