@@ -7,7 +7,7 @@
   if (WorldEngine.__playerAwardHistoryInstalled === true) return;
   WorldEngine.__playerAwardHistoryInstalled = true;
 
-  const VERSION = 2;
+  const VERSION = 3;
 
   const idOf = player => String(player?.playerId || player?.id || '');
   const dateKey = value => {
@@ -44,11 +44,14 @@
 
   function normalizedAward(record, award) {
     const seasonLabel = seasonLabelFromRecord(record, award);
-    const awardId = String(award?.awardId || award?.id || award?.title || 'award');
+    const title = String(award?.title || award?.name || award?.awardName || 'League Award');
+    const awardId = String(award?.awardId || award?.id || title || 'award');
     return {
       key: `${seasonLabel}:${awardId}`,
       awardId,
-      title: String(award?.title || 'League Award'),
+      title,
+      name: title,
+      awardName: title,
       season: seasonLabel,
       seasonLabel,
       year: seasonLabel,
@@ -67,7 +70,7 @@
     player.history.awards = Array.isArray(player.history.awards) ? player.history.awards : [];
 
     const index = player.history.awards.findIndex(item =>
-      String(item?.key || `${item?.seasonLabel || item?.season || ''}:${item?.awardId || item?.title || ''}`) === award.key
+      String(item?.key || `${item?.seasonLabel || item?.season || ''}:${item?.awardId || item?.title || item?.name || ''}`) === award.key
     );
 
     if (index >= 0) {
@@ -142,7 +145,7 @@
     const awards = Array.isArray(player?.history?.awards) ? player.history.awards : [];
     return awards.slice().sort((a, b) =>
       String(a?.seasonLabel || a?.season || '').localeCompare(String(b?.seasonLabel || b?.season || '')) ||
-      String(a?.title || '').localeCompare(String(b?.title || ''))
+      String(a?.title || a?.name || '').localeCompare(String(b?.title || b?.name || ''))
     );
   }
 
