@@ -42,6 +42,11 @@
     throw new Error('Sophomore dev checkpoint did not finish loading in time.');
   }
 
+  async function ensureDevWorld() {
+    const fastLoaded = await tryFastLoad();
+    if (!fastLoaded) await fallbackBuild();
+  }
+
   async function loadAndOpenMeeting(button) {
     button.disabled = true;
     const label = button.querySelector('.btn__label');
@@ -49,9 +54,7 @@
     if (label) label.textContent = 'Opening Coach Meeting…';
 
     try {
-      const fastLoaded = await tryFastLoad();
-      if (!fastLoaded) await fallbackBuild();
-
+      await ensureDevWorld();
       WorldEngine.syncCoachMeetingCadence?.({ save: false });
       const result = WorldEngine.openCoachMeetingDiagnostic?.();
       if (!result?.success) throw new Error(result?.reason || 'Could not open the Coach Meeting diagnostic.');
@@ -61,27 +64,57 @@
     }
   }
 
-  function install() {
-    const area = document.querySelector('.dev-shortcut-area');
-    if (!area || document.getElementById('btn-dev-coach-meeting')) return;
+  async function completeObjectiveDiagnostic(button) {
+    button.disabled = true;
+    const label = button.querySelector('.btn__label');
+    const original = label?.textContent || 'Pass Coach Objective';
+    if (label) label.textContent = 'Completing Objective…';
 
+    try {
+      await ensureDevWorld();
+      const result = WorldEngine.runCoachObjectiveOutcomeDiagnostic?.('success');
+      if (!result?.success) throw new Error(result?.reason || 'Could not complete the Coach Objective diagnostic.');
+      try { await WorldEngine.save?.(); } catch (_) {}
+      try { globalThis.refreshCareerUI?.(); } catch (_) {}
+      try { globalThis.updateHubScreen?.(); } catch (_) {}
+      try { globalThis.openHubTab?.('home'); } catch (_) {}
+
+      const review = result.review || result.objective?.roleReview || null;
+      const role = result.role?.label || result.role?.role || 'current role';
+      const message = review?.approved
+        ? `Objective passed. Coach approved the role review. New role: ${review.newRole || role}.`
+        : `Objective passed. Coach review completed. You remain in ${role}.`;
+      alert(message);
+    } finally {
+      button.disabled = false;
+      if (label) label.textContent = original;
+    }
+  }
+
+  function addButton(area, id, labelText, handler, hint) {
+    if (document.getElementById(id)) return;
     const button = document.createElement('button');
-    button.id = 'btn-dev-coach-meeting';
+    button.id = id;
     button.type = 'button';
     button.className = 'btn btn--dev';
-    button.innerHTML = '<span class="btn__label">Test Coach Meeting</span>';
-
-    const hint = document.getElementById('dev-shortcut-hint');
+    button.innerHTML = `<span class="btn__label">${labelText}</span>`;
     if (hint) area.insertBefore(button, hint);
     else area.appendChild(button);
-
     button.addEventListener('click', event => {
       event.preventDefault();
-      loadAndOpenMeeting(button).catch(error => {
-        console.error('[Project Ice] Coach Meeting diagnostic shortcut failed:', error);
-        alert(`Coach Meeting diagnostic failed: ${error?.message || 'unknown error'}`);
+      handler(button).catch(error => {
+        console.error(`[Project Ice] ${labelText} diagnostic failed:`, error);
+        alert(`${labelText} diagnostic failed: ${error?.message || 'unknown error'}`);
       });
     });
+  }
+
+  function install() {
+    const area = document.querySelector('.dev-shortcut-area');
+    if (!area) return;
+    const hint = document.getElementById('dev-shortcut-hint');
+    addButton(area, 'btn-dev-coach-meeting', 'Test Coach Meeting', loadAndOpenMeeting, hint);
+    addButton(area, 'btn-dev-coach-objective-pass', 'Pass Coach Objective', completeObjectiveDiagnostic, hint);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
