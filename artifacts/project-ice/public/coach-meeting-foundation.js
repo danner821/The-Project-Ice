@@ -129,7 +129,14 @@
     for (const template of templates) {
       const eventId = `hs-${year}-${template.key}-coach-meeting`;
       const existing = world.schedule.find(event => String(event?.id || event?.eventId || '') === eventId);
-      if (existing) continue;
+      if (existing) {
+        existing.icon = '📋';
+        existing.label = template.label;
+        existing.title = template.label;
+        existing.type = 'coach-meeting';
+        existing.eventType = 'coach-meeting';
+        continue;
+      }
       const preferred = dateKey(year + (template.yearOffset || 0), template.month, template.day);
       const date = nearestOpenDate(preferred);
       const context = meetingContext(player);
@@ -145,7 +152,7 @@
         title: template.label,
         subtitle: 'Your coach wants to review your current role and what comes next.',
         description: 'A private check-in about your performance, development, and lineup opportunity.',
-        icon: '🏒',
+        icon: '📋',
         isCareerEvent: true,
         requiresPlayerInteraction: true,
         completed: false,
@@ -163,7 +170,7 @@
       eventIds: templates.map(template => `hs-${year}-${template.key}-coach-meeting`),
     };
 
-    if (added.length && options.save !== false) WorldEngine.save?.();
+    if ((added.length || options.save === true) && options.save !== false) WorldEngine.save?.();
     try { globalThis.refreshScheduleEvents?.(); } catch (_) {}
     return added;
   }
