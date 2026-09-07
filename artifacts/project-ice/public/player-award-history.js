@@ -7,7 +7,7 @@
   if (WorldEngine.__playerAwardHistoryInstalled === true) return;
   WorldEngine.__playerAwardHistoryInstalled = true;
 
-  const VERSION = 3;
+  const VERSION = 4;
 
   const idOf = player => String(player?.playerId || player?.id || '');
   const dateKey = value => {
@@ -15,12 +15,18 @@
     return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
   };
 
+  function graduatedPlayers() {
+    const rows = WorldEngine.state?.highSchoolRosterLifecycle?.graduatedPlayers || [];
+    return Array.isArray(rows) ? rows : [];
+  }
+
   function playerById(playerId) {
     if (!playerId) return null;
     return WorldEngine.getPlayerById?.(playerId) ||
       (WorldEngine.getAllWorldPlayers?.() || []).find(player => idOf(player) === String(playerId)) ||
       (WorldEngine.state?.teams || []).flatMap(team => team?.roster || [])
         .find(player => idOf(player) === String(playerId)) ||
+      graduatedPlayers().find(player => idOf(player) === String(playerId)) ||
       null;
   }
 
