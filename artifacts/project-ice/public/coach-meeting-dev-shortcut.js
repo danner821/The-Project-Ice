@@ -8,6 +8,7 @@
   WorldEngine.__coachMeetingDevShortcutInstalled = true;
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const DEV_CAREER_ID = '__project-ice-postseason-dev__';
 
   function currentDate() {
     return String(
@@ -18,34 +19,42 @@
     ).slice(0, 10);
   }
 
-  async function loadAndOpenMeeting(button) {
+  async function tryFastLoad() {
+    const alreadyReady = /^2024-09-\d{2}$/.test(currentDate()) && WorldEngine.state?.season;
+    if (alreadyReady) return true;
+    if (typeof WorldEngine.selectCareerSave !== 'function') return false;
+    try {
+      const loaded = await WorldEngine.selectCareerSave(DEV_CAREER_ID);
+      return Boolean(loaded && /^2024-09-\d{2}$/.test(currentDate()) && WorldEngine.state?.season);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function fallbackBuild() {
     const baseShortcut = document.getElementById('btn-dev-hub');
     if (!baseShortcut) throw new Error('Sophomore dev shortcut button is unavailable.');
+    baseShortcut.click();
+    for (let attempt = 0; attempt < 160; attempt += 1) {
+      await sleep(100);
+      if (/^2024-09-\d{2}$/.test(currentDate()) && WorldEngine.state?.season) return true;
+    }
+    throw new Error('Sophomore dev checkpoint did not finish loading in time.');
+  }
 
+  async function loadAndOpenMeeting(button) {
     button.disabled = true;
     const label = button.querySelector('.btn__label');
     const original = label?.textContent || 'Test Coach Meeting';
-    if (label) label.textContent = 'Loading Coach Meeting…';
+    if (label) label.textContent = 'Opening Coach Meeting…';
 
     try {
-      baseShortcut.click();
-
-      let loaded = false;
-      for (let attempt = 0; attempt < 160; attempt += 1) {
-        await sleep(100);
-        const date = currentDate();
-        if (/^2024-09-\d{2}$/.test(date) && WorldEngine.state?.season) {
-          loaded = true;
-          break;
-        }
-      }
-      if (!loaded) throw new Error('Sophomore dev checkpoint did not finish loading in time.');
+      const fastLoaded = await tryFastLoad();
+      if (!fastLoaded) await fallbackBuild();
 
       WorldEngine.syncCoachMeetingCadence?.({ save: false });
       const result = WorldEngine.openCoachMeetingDiagnostic?.();
-      if (!result?.success) {
-        throw new Error(result?.reason || 'Could not open the Coach Meeting diagnostic.');
-      }
+      if (!result?.success) throw new Error(result?.reason || 'Could not open the Coach Meeting diagnostic.');
     } finally {
       button.disabled = false;
       if (label) label.textContent = original;
@@ -75,9 +84,6 @@
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', install, { once: true });
-  } else {
-    install();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
+  else install();
 })();
