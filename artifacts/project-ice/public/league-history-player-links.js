@@ -35,6 +35,15 @@
     );
   }
 
+  function graduatedPlayers() {
+    const rows = WorldEngine.state?.highSchoolRosterLifecycle?.graduatedPlayers || [];
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function historicalPlayers() {
+    return [...currentWorldPlayers(), ...graduatedPlayers()];
+  }
+
   function archivedReferenceByName(name) {
     const target = clean(name);
     if (!target) return null;
@@ -58,13 +67,13 @@
     const id = String(reference?.row?.playerId || '');
     if (id) {
       const canonical = WorldEngine.getPlayerById?.(id) ||
-        currentWorldPlayers().find(player => playerId(player) === id) ||
+        historicalPlayers().find(player => playerId(player) === id) ||
         null;
       if (canonical) return { player: canonical, archive: reference.archive };
     }
 
     const target = clean(name);
-    const fallback = currentWorldPlayers().find(player => playerName(player) === target) || null;
+    const fallback = historicalPlayers().find(player => playerName(player) === target) || null;
     return fallback ? { player: fallback, archive: reference?.archive || null } : null;
   }
 
