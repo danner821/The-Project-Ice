@@ -70,17 +70,22 @@
 
   function resolvePlayer(name) {
     const reference = archivedReferenceByName(name);
-    const id = String(reference?.row?.playerId || '');
-    if (id) {
-      const canonical = WorldEngine.getPlayerById?.(id) ||
-        historicalPlayers().find(player => playerId(player) === id) ||
+    const archivedId = String(reference?.row?.playerId || '');
+    if (archivedId) {
+      const canonical = WorldEngine.getPlayerById?.(archivedId) ||
+        historicalPlayers().find(player => playerId(player) === archivedId) ||
         null;
-      if (canonical) return { player: canonical, archive: reference.archive, row: reference.row };
+      if (canonical) return { player: canonical, archive: reference.archive, row: reference.row, archivedId };
     }
 
     const target = clean(name);
     const fallback = historicalPlayers().find(player => playerName(player) === target) || null;
-    return fallback ? { player: fallback, archive: reference?.archive || null, row: reference?.row || null } : null;
+    return fallback ? {
+      player: fallback,
+      archive: reference?.archive || null,
+      row: reference?.row || null,
+      archivedId: String(reference?.row?.playerId || playerId(fallback) || ''),
+    } : null;
   }
 
   function clickedArchivedPlayerRow(event) {
@@ -135,8 +140,13 @@
   }
 
   function statsForScope(context, scope) {
-    const rows = allArchiveRows(context.archive)
-      .filter(row => String(row?.playerId || '') === String(context.playerId || ''));
+    const archivedId = String(context.archivedPlayerId || context.row?.playerId || '');
+    const archivedName = clean(context.row?.playerName || context.row?.name || playerName(context.player));
+    const rows = allArchiveRows(context.archive).filter(row => {
+      const rowId = String(row?.playerId || '');
+      if (archivedId && rowId) return rowId === archivedId;
+      return clean(row?.playerName || row?.name) === archivedName;
+    });
 
     const wantedScope = scope === 'playoffs' ? 'playoffs' : 'regular-season';
     const scopedRow = rows.find(row =>
@@ -149,10 +159,11 @@
     if (scopedRow) return { row: scopedRow, stats: scopedRow.stats };
 
     if (wantedScope === 'regular-season') {
-      const leaderRow = rows.find(row => row?.stats && typeof row.stats === 'object');
-      if (leaderRow && String(leaderRow?.scope || '').toLowerCase() !== 'playoffs') {
-        return { row: leaderRow, stats: leaderRow.stats };
-      }
+      const leaderRow = rows.find(row =>
+        row?.stats && typeof row.stats === 'object' &&
+        String(row?.scope || '').toLowerCase() !== 'playoffs'
+      );
+      if (leaderRow) return { row: leaderRow, stats: leaderRow.stats };
     }
 
     return null;
@@ -212,9 +223,7 @@
       return index !== undefined && clean(row.children?.[index]?.textContent) === seasonLabel;
     });
 
-    if (!target) {
-      target = rows.find(row => rowLooksEmpty(row, headers)) || rows[0];
-    }
+    if (!target) target = rows.find(row => rowLooksEmpty(row, headers)) || rows[0];
 
     const s = source.stats || {};
     const team = teamAbbreviation(context.archive, source.row || context.row);
@@ -302,7 +311,7 @@
       archive: resolved.archive,
       row: resolved.row,
       player: resolved.player,
-      playerId: playerId(resolved.player),
+      archivedPlayerId: String(resolved.archivedId || resolved.row?.playerId || ''),
     };
     WorldEngine.activeHistoricalProfileContext = activeHistoricalContext;
 
@@ -313,7 +322,6 @@
     scheduleArchivedStatsRender();
   }, true);
 
-  /* Add a subtle interactive affordance only while a historical recap is open. */
   const style = document.createElement('style');
   style.textContent = `
     #${ROOT_ID} .pi-lhr-leader-row:has(strong),
