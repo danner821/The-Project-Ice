@@ -106,8 +106,10 @@ const runtimeModulesPlugin = {
     if (!html.includes('/prospect-reputation-calibration.js')) scripts.push('    <script src="/prospect-reputation-calibration.js"></script>');
     if (!html.includes('/coach-meeting-foundation.js')) scripts.push('    <script src="/coach-meeting-foundation.js"></script>');
     if (!html.includes('/coach-meeting-immersion.js')) scripts.push('    <script src="/coach-meeting-immersion.js"></script>');
+    if (!html.includes('/coach-meeting-runtime-fix.js')) scripts.push('    <script src="/coach-meeting-runtime-fix.js"></script>');
 
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
+    if (!html.includes('/coach-meeting-dev-shortcut.js')) scripts.push('    <script src="/coach-meeting-dev-shortcut.js"></script>');
 
     if (scripts.length === 0) return html;
 
