@@ -43,6 +43,13 @@
     return { ...role, tier, label: `${role.unit === 'defense' ? 'Pair' : 'Line'} ${tier}` };
   }
 
+  function betterRole(role) {
+    if (!role || role.tier <= 1) return null;
+    const tier = role.tier - 1;
+    if (role.unit === 'goalie') return { ...role, tier: 1, label: 'Starting Goalie' };
+    return { ...role, tier, label: `${role.unit === 'defense' ? 'Pair' : 'Line'} ${tier}` };
+  }
+
   function slotFor(player, role) {
     if (role.unit === 'goalie') return role.tier === 1 ? 'g-starter' : 'g-backup';
     const current = String(player?.rosterSlot || player?.lineupAssignment?.rosterSlot || '').toLowerCase();
@@ -154,7 +161,7 @@
       if (!risk.warned || Number(risk.strikes || 0) < 1) return plan;
 
       const role = currentRole(player);
-      const unitLabel = role.unit === 'goalie' ? role.label : role.label;
+      const unitLabel = role.label;
       plan.title = `Protect Your ${unitLabel} Role`;
       if (role.unit === 'goalie') {
         plan.targetWins = 1;
@@ -196,9 +203,27 @@
     const world = state();
     const player = careerPlayer();
     if (!world || !player) return { success: false, reason: 'no-career-player' };
-    const oldRole = currentRole(player);
-    const next = worseRole(oldRole);
+
+    let oldRole = currentRole(player);
+    let next = worseRole(oldRole);
+
+    /*
+     * The hidden dev save often begins on the lowest role (forwards: Line 4,
+     * defense: Pair 3, goalies: Backup). The diagnostic should test demotion
+     * plumbing, not depend on whatever role that fixture happens to load with.
+     * If needed, stage the player one role higher first, then immediately run
+     * the real forced demotion path back down.
+     */
+    if (!next) {
+      const stagedRole = betterRole(oldRole);
+      if (!stagedRole) return { success: false, reason: 'cannot-stage-demotion-role', role: oldRole };
+      applyRole(player, stagedRole, 'coach-demotion-diagnostic-setup');
+      oldRole = currentRole(player);
+      next = worseRole(oldRole);
+    }
+
     if (!next) return { success: false, reason: 'already-lowest-role', role: oldRole };
+
     const objective = {
       id: `coach-demotion-diagnostic-${Date.now()}`,
       title: `Protect Your ${oldRole.label} Role`,
