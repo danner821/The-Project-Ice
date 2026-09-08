@@ -156,7 +156,29 @@
     };
   }
 
-  function syncVisibleCalendarFromCanonical() {
+  function syncVisibleCalendarFromCanonical(targetDate = null) {
+    const normalizedTarget = String(
+      targetDate ||
+      WorldEngine.state?.season?.currentDate ||
+      WorldEngine.state?.currentDate ||
+      ''
+    ).slice(0, 10);
+
+    /*
+     * A new season starts in a different month than the recap/offseason view.
+     * Updating the canonical schedule alone is not enough: the Schedule screen
+     * can remain pointed at August and appear stale until the user navigates.
+     * Move the visible month to the new canonical date before repainting.
+     */
+    if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedTarget)) {
+      const targetYear = Number(normalizedTarget.slice(0, 4));
+      const targetMonth = Number(normalizedTarget.slice(5, 7)) - 1;
+      if (Number.isFinite(targetYear) && Number.isFinite(targetMonth)) {
+        scheduleViewYear = targetYear;
+        scheduleViewMonth = targetMonth;
+      }
+    }
+
     refreshScheduleEvents();
 
     try {
@@ -177,12 +199,14 @@
 
   /*
    * Annual rollover is a hard lifecycle boundary. The new schedule is created
-   * synchronously before this event is emitted, so immediately rebuild both
-   * calendar views here from the new canonical schedule. No tab navigation or
-   * delayed retry should be required.
+   * synchronously before this event is emitted, and roster rollover listeners
+   * run before this module because they are registered earlier in the runtime
+   * stack. Repoint the visible month and rebuild both calendar views directly
+   * from canonical state. No extra click, navigation, or simulated day should
+   * be required.
    */
-  window.addEventListener('projectice:next-high-school-season-started', () => {
-    syncVisibleCalendarFromCanonical();
+  window.addEventListener('projectice:next-high-school-season-started', event => {
+    syncVisibleCalendarFromCanonical(event?.detail?.startDate || null);
   });
 
   WorldEngine.syncCareerCalendarProjection = syncVisibleCalendarFromCanonical;
