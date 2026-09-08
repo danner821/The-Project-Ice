@@ -108,6 +108,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/coach-meeting-immersion.js')) scripts.push('    <script src="/coach-meeting-immersion.js"></script>');
     if (!html.includes('/coach-meeting-runtime-fix.js')) scripts.push('    <script src="/coach-meeting-runtime-fix.js"></script>');
     if (!html.includes('/coach-objective-role-review.js')) scripts.push('    <script src="/coach-objective-role-review.js"></script>');
+    if (!html.includes('/coach-role-security.js')) scripts.push('    <script src="/coach-role-security.js"></script>');
 
     if (!html.includes('/dev-postseason-shortcut.js')) scripts.push('    <script src="/dev-postseason-shortcut.js"></script>');
     if (!html.includes('/coach-meeting-dev-shortcut.js')) scripts.push('    <script src="/coach-meeting-dev-shortcut.js"></script>');
