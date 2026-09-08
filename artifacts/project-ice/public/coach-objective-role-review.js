@@ -131,9 +131,10 @@
     const productionRatio = clamp(actualProduction / Math.max(1, targetProduction), 0, 1.5);
     const abilityScore = clamp(70 + (overall - peerAvg) * 6, 35, 95);
     const reviewScore = Math.round(trust * 0.45 + abilityScore * 0.35 + clamp(productionRatio * 70, 0, 100) * 0.20);
+    const normalApproval = trust >= 68 && overall >= peerAvg - 4 && reviewScore >= 68;
     return {
-      approved: trust >= 68 && overall >= peerAvg - 4 && reviewScore >= 68,
-      reason: 'promotion-review',
+      approved: objective?.diagnosticForcePromotion === true ? true : normalApproval,
+      reason: objective?.diagnosticForcePromotion === true ? 'diagnostic-promotion-review' : 'promotion-review',
       role,
       next,
       peerAvg: Math.round(peerAvg * 10) / 10,
@@ -252,6 +253,44 @@
   }
 
   WorldEngine.processCoachObjectiveRoleReview = syncRoleReview;
+
+  WorldEngine.createCoachPromotionReviewDiagnostic = function() {
+    const world = state();
+    const player = careerPlayer();
+    if (!world || !player) return { success: false, reason: 'no-career-player' };
+    const role = currentRole(player);
+    const next = targetRole(role);
+    if (!next) return { success: false, reason: 'already-top-role' };
+    const baseline = statsFor(player);
+    const objective = {
+      id: `coach-promotion-diagnostic-${Date.now()}`,
+      meetingEventId: 'coach-promotion-diagnostic',
+      createdDate: String(world?.season?.currentDate || world?.currentDate || '').slice(0, 10),
+      title: `Earn a ${next.label} Look`,
+      objectiveText: `Play 3 more games and make a strong case for ${next.label}.`,
+      coachMessage: `You've earned a real opportunity to push from ${role.label} toward ${next.label}. Give me three strong games and I'll review the move.`,
+      targetGames: 3,
+      targetPoints: role.unit === 'goalie' ? 0 : role.unit === 'defense' ? 2 : 3,
+      targetWins: role.unit === 'goalie' ? 2 : 0,
+      baseline,
+      context: {
+        role: role.label,
+        coachTrust: Number(player.coachTrust) || 50,
+        overall: Number(player.overall) || null,
+      },
+      outcome: 'promotion_review',
+      status: 'active',
+      progress: 0,
+      diagnosticForcePromotion: true,
+      diagnosticOnly: true,
+    };
+    world.activeCoachObjective = objective;
+    player.activeCoachObjective = objective;
+    if (world.player && world.player !== player) world.player.activeCoachObjective = structuredClone(objective);
+    try { WorldEngine.save?.(); } catch (_) {}
+    try { WorldEngine.renderActiveCoachObjective?.(); } catch (_) {}
+    return { success: true, objective, role, next };
+  };
 
   WorldEngine.runCoachObjectiveOutcomeDiagnostic = function(mode = 'success') {
     const world = state();
