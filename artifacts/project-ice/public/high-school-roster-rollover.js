@@ -102,6 +102,16 @@
      */
     player.seasonStats = emptySeasonStats(player);
     player.postseasonStats = emptySeasonStats(player);
+
+    /*
+     * High-school schedule game IDs repeat their cycle/round/matchup shape
+     * every year. appliedGameIds is therefore current-season idempotency state,
+     * not career history. Carrying it across rollover makes the next year's
+     * box scores look already applied: standings move, but every returning
+     * player's statistics stay at zero. Reset it with the rest of the current
+     * season stat state so the new season can apply its games exactly once.
+     */
+    player.appliedGameIds = [];
   }
 
   function canonicalDraftYear(player, startYear) {
