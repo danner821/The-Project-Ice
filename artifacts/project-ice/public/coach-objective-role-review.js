@@ -302,6 +302,29 @@
     const targetGames = Number(objective.targetGames) || 3;
     const targetPoints = Number(objective.targetPoints) || 0;
     const targetWins = Number(objective.targetWins) || 0;
+
+    if (mode === 'success' && objective.diagnosticForcePromotion === true) {
+      objective.current = {
+        games: targetGames,
+        points: targetPoints,
+        wins: targetWins,
+        progress: 100,
+        completed: true,
+      };
+      objective.progress = 100;
+      objective.status = 'completed';
+      objective.completedDate = String(world?.season?.currentDate || world?.currentDate || '').slice(0, 10);
+      objective.roleReviewProcessed = false;
+      const reviewResult = processCompletedObjective(objective);
+      return {
+        success: true,
+        mode,
+        objective,
+        role: currentRole(player),
+        review: objective.roleReview || player.lastCoachRoleReview || reviewResult || null,
+      };
+    }
+
     const fakeStats = {
       gamesPlayed: (Number(baseline.gp) || 0) + targetGames,
       points: (Number(baseline.points) || 0) + (mode === 'success' ? targetPoints : Math.max(0, targetPoints - 1)),
