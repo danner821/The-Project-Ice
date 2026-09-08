@@ -61,6 +61,63 @@
     return true;
   }
 
+  function ensureSeasonScopedHighSchoolGameIds() {
+    const world = WorldEngine.state;
+    if (!world || !Array.isArray(world.schedule)) return { changed: 0, totalGames: 0 };
+
+    const seasonId = String(
+      world?.season?.seasonId ||
+      world?.season?.id ||
+      world?.currentSeason ||
+      ''
+    ).trim();
+
+    if (!seasonId) return { changed: 0, totalGames: 0 };
+
+    let changed = 0;
+    let totalGames = 0;
+
+    for (const event of world.schedule) {
+      const isGame = Boolean(
+        event?.type === 'game' ||
+        event?.eventType === 'game' ||
+        (event?.homeTeamId && event?.awayTeamId)
+      );
+      if (!isGame) continue;
+      totalGames += 1;
+
+      const existingId = String(
+        event?.canonicalEventId ||
+        event?.gameId ||
+        event?.eventId ||
+        event?.id ||
+        ''
+      );
+      if (!existingId) continue;
+
+      const prefix = `${seasonId}:`;
+      const scopedId = existingId.startsWith(prefix)
+        ? existingId
+        : `${prefix}${existingId}`;
+
+      if (scopedId === existingId) continue;
+
+      /*
+       * The base schedule generator intentionally reuses cycle/round/matchup
+       * IDs every year. That violates the multi-year lifecycle contract and
+       * collides with player-level appliedGameIds. Normalize every alias at the
+       * season boundary, before any game in the new year can be resolved.
+       */
+      event.id = scopedId;
+      event.eventId = scopedId;
+      event.gameId = scopedId;
+      event.canonicalEventId = scopedId;
+      changed += 1;
+    }
+
+    return { changed, totalGames };
+  }
+
   function rebuildProspectRankingsAtSeasonBoundary() {
     const world = WorldEngine.state;
     if (!world) return [];
@@ -115,7 +172,20 @@
     );
 
     enforceActiveDraftClassInvariant();
+    ensureSeasonScopedHighSchoolGameIds();
     rebuildProspectRankingsAtSeasonBoundary();
+
+    /*
+     * The transition's own cutscene can repaint UI before every boundary
+     * listener has finished mutating canonical state. Rebuild the calendar once
+     * more here, after roster eligibility, season-scoped IDs and rankings are
+     * final, so Schedule immediately reflects the completed new-season state.
+     */
+    try {
+      WorldEngine.syncCareerCalendarProjection?.(
+        WorldEngine.state?.season?.currentDate || null
+      );
+    } catch (_) {}
 
     const saveResult = WorldEngine.save?.();
     if (saveResult && typeof saveResult.then === 'function') await saveResult;
@@ -123,6 +193,7 @@
   }
 
   WorldEngine.enforceActiveHighSchoolDraftClassInvariant = enforceActiveDraftClassInvariant;
+  WorldEngine.ensureSeasonScopedHighSchoolGameIds = ensureSeasonScopedHighSchoolGameIds;
   WorldEngine.rebuildProspectRankingsAtSeasonBoundary = rebuildProspectRankingsAtSeasonBoundary;
   WorldEngine.runNextHighSchoolSeasonTransition = runNextHighSchoolSeasonTransitionWithIntegrity;
 })();
