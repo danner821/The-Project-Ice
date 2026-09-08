@@ -1,119 +1,218 @@
-# Project Ice — Codebase Audit
+# Project Ice — Pre-Playthrough Codebase Audit
 
-Audit date: 2026-08-14
+Audit date: 2026-09-08
+
+## Purpose
+
+This audit is the hardening pass immediately before the first full Freshman → Senior high-school career playthrough.
+
+The goal is not to redesign working systems. It is to verify the current code against the locked Project Ice architecture, remove obvious pre-alpha debris, repair lifecycle bugs that would corrupt a multi-year career, and identify items that are better tuned naturally during the full playthrough.
 
 ## Runtime source of truth
 
-The live Project Ice application is the static app under `artifacts/project-ice/index.html` plus runtime files in `artifacts/project-ice/public/`.
+The live Project Ice application remains the static app under `artifacts/project-ice/index.html` plus runtime files under `artifacts/project-ice/public/`.
 
-Primary runtime files:
-- `index.html` — application screens and UI markup.
-- `public/style.css` — application styling.
-- `public/game.js` — presentation/controller layer, navigation, player-facing systems, live-game UI and career flow.
-- `public/world.js` — canonical world state, schedules, rosters, simulation, statistics, development data and persistence.
-- `public/prospects.js` — prospect data.
-- `public/career-persistence.js` — temporary compatibility bridge that reconstructs the lightweight Continue Career preview from the IndexedDB world.
+Canonical owners remain:
+- `public/world.js` — world state, persistence, rosters, schedule resolution, statistics, development and simulation state.
+- `public/game.js` — player-facing controller/presentation and live-game flow.
+- focused runtime modules — lifecycle, postseason, Travel, history, rankings, coach meetings and compatibility repairs.
+- IndexedDB — canonical full career persistence.
 
-The React tree under `src/` is Replit-generated scaffold and is not the current Project Ice gameplay entry point. `src/App.tsx` still contains the placeholder "Replit Agent is building..." screen.
+The React `src/` tree is still dormant Replit scaffold, not the gameplay runtime.
 
-## Persistence architecture
+## Current architecture status
 
-The full world belongs in IndexedDB. `world.js` uses the `projectice_database` IndexedDB database and retains the old `projectice_world` localStorage key only as a migration source.
+### High-school multi-year lifecycle — implemented and actively hardened
 
-The small `projectice_save` localStorage record is intentionally retained as a lightweight player/Continue Career preview. It must not become the canonical world save again.
+The canonical timeline is:
+- Freshman: 2023–24
+- Sophomore: 2024–25
+- Junior: 2025–26
+- Senior: 2026–27
 
-Save-schema/versioning and migration conventions are documented in `PROJECT_ICE_SAVE_SCHEMA.md`.
+The annual loop now includes:
+Regular Season → Postseason → Champion → Awards → Travel → Offseason → League Season Recap → Player Season Recap → New Season Cutscene → Roster Rollover → Returning Varsity Tryouts → Next Season.
 
-## Cleanup findings
+### Permanent history — implemented
 
-### `game-loader.js` — RETIRED
+Completed seasons are frozen before annual mutation. League History can reopen archived season recaps. Awards retain stable player identities and persist onto player profiles.
 
-The final-horn async callback was repaired directly in canonical `game.js`. The application now loads `game.js` directly, and regression testing confirmed both Play Game and Sim Game persist correctly after reload. The temporary loader shim was removed.
+Known non-blocking QA item:
+- one archived generated-player profile path has previously failed to display its frozen historical statistics even though the archive/award itself is correct. This was explicitly deferred for observation during the real playthrough unless it becomes broader than the isolated case.
 
-### `career-persistence.js` — KEEP FOR NOW
+### Prospect model — implemented / calibrated
 
-This file repairs the lightweight Continue Career preview for careers affected by the IndexedDB migration. It should remain persistence-only through the current pre-alpha migration window.
+The public Top 100 now uses the calibrated V2 model rather than a simple OVR/potential sort. It includes ability, potential, performance, development trajectory, scouting/exposure, competition context and draft readiness, with separate goalie/skater performance logic, two-week publications and controlled rank movement.
 
-### Dev shortcut / diagnostic UI — DEFER REMOVAL
+Public reputation tiers (Local / Regional / National / Elite / Generational) are coordinated with the published rankings without becoming aliases for rank. Generational status is intentionally rare.
 
-The title screen still contains development shortcut/diagnostic controls and `game.js` contains their listeners. These are release-obsolete, but still useful while simulation and save architecture are being hardened. Remove in Release Cleanup, not during feature work.
+### Coach / role immersion — implemented
 
-### Dormant React/Replit scaffold — DO NOT DELETE YET
+Recurring contextual coach meetings occur during the HS season. Meetings read the player's current role, coach trust, form, overall and special-teams context, then create short-term objectives.
 
-The `src/` React app is not used by the current static Project Ice runtime. The repository also contains Replit-generated `mockup-sandbox` and `api-server` artifacts. Mark these dormant rather than delete them until a clean Replit build proves they are unnecessary.
+The role loop now supports:
+- trust/consistency objectives
+- promotion reviews
+- role-security warnings
+- demotion reviews
+- persisted coach-role history
+- canonical NPC lineup reconciliation after a career-player role change
 
-### Monolithic runtime files — LARGEST MAINTAINABILITY RISK
+Objective targets will still need feel/balance tuning during the real playthrough.
 
-Approximate current sizes:
-- `world.js`: 787 KB
-- `game.js`: 484 KB
-- `style.css`: 258 KB
-- `index.html`: 173 KB
+## Critical findings repaired in this audit
 
-Do not rewrite these files wholesale. New roadmap systems should increasingly live in focused modules, and existing code should be extracted only when there is a clear functional reason and test path.
+### 1. Returning-player sophomore statistics stayed at zero — FIXED
 
-## Regression-sensitive areas
+Root cause:
+- HS schedule game IDs reused the same cycle/round/matchup IDs every season.
+- each player also retained `appliedGameIds` across annual rollover.
+- therefore a sophomore game could look identical to a freshman game to the player-level duplicate guard.
+- standings advanced because team/schedule result application succeeded, while player stat application correctly refused what looked like a duplicate.
 
-Do not casually clean or refactor these without immediate testing:
-- Continue Career / IndexedDB migration
-- live-game final horn and postgame persistence
-- Sim Game approval flow
-- schedule rebuilding/migration
-- career player roster synchronization
-- lineup/special teams deployment
-- development state and attribute XP
-- career date advancement
+Repairs:
+- `appliedGameIds` is now reset with other current-season stat state during HS roster rollover.
+- new-season HS game IDs are normalized to include the canonical season identity before the new season is played.
 
-Regression procedure is documented in `PROJECT_ICE_REGRESSION.md`.
+This restores the intended invariant: game-result idempotency is per unique game, while player career history remains permanent.
 
-## Roadmap status audit
+### 2. New-season Schedule could repaint the old month — FIXED
 
-### Development Engine — substantially implemented
+The canonical schedule was already rebuilt, but the visible Schedule screen could remain pointed at the previous August/offseason month until navigation forced another render.
 
-Attributes, overall-from-attributes, individual development state, potential/development concepts and career-event development hooks exist. Future work should tune rather than redesign the architecture.
+The calendar projection now:
+- repoints the visible calendar month to the new canonical season date
+- rebuilds Home/Schedule projections directly from `world.schedule`
+- performs a final boundary sync after annual integrity work finishes
 
-### Player Tab redesign — implemented
+The player should no longer need an extra click or simulated day to see the new season.
 
-The redesigned player presentation and snapshot/profile separation are in place.
+### 3. Yearly HS game IDs were not season-scoped — FIXED
 
-### Practice / Recovery — implemented
+The roadmap requires all yearly lifecycle/game IDs to include season identity. The base schedule generator's reusable IDs are now normalized at the annual boundary to include the active `seasonId` before any game can be resolved.
 
-Practice, recovery and training are part of the career schedule and feed progression without a fatigue mechanic.
+### 4. Coach role change could leave NPC lineup state stale — FIXED
 
-### Game Simulation foundation — implemented and hardened
+Promotion/demotion changed the career player's reserved slot, but the canonical NPC lineup manager was not guaranteed to re-run immediately afterwards.
 
-Play Game, Sim Game and AI background games use the canonical simulation architecture. Live presentation, event feed/markers, deployment, manpower, postgame summary and career-game persistence are wired. The canonical final-horn persistence path now executes directly without a loader shim, and both Play Game and Sim Game were verified to remain completed after reload.
+A reconciliation runtime now re-runs team roster management once after an approved promotion or demotion so the career player's new slot is reserved and NPCs are re-sorted around it rather than leaving duplicate slot ownership.
 
-### Complete Live Game Experience — next
+### 5. Obsolete user-specific dev-save cleanup still loaded on every boot — REMOVED FROM RUNTIME
 
-The remaining player-facing game-simulation work is contextual interactive decisions during Play Game. These must influence the canonical simulation rather than create a separate arcade outcome layer.
+A dated one-off cleanup module targeted specific old dev saves by player name/date. Its migration purpose is over and it no longer belongs in the live runtime stack. The file may remain in repository history, but Vite no longer injects it.
 
-### Weekly Living World — foundation exists, feature layer incomplete
+## Multi-year integrity checks reviewed
 
-The world already advances dates, resolves AI games and updates standings/statistics. Missing is the player-facing weekly layer that surfaces meaningful changes, performances, league movement and durable world events.
+### Canonical time / class / age
+- canonical 2023–27 HS identity module is active
+- grade/class remains separate from age
+- generated-player age repair is deterministic
+- active draft-class reconciliation runs at annual boundaries
 
-### Scouting — partial
+### Roster rollover
+- completed-season data is captured before mutation
+- graduating/expired players are archived rather than destroyed
+- incoming freshmen replace vacated roster positions
+- active-player current-season stat containers reset after archive
+- AI lineup management re-runs after rollover
 
-Scouts-in-attendance context and prospect data exist. Full evolving scouting evaluations, watchlists and prospect-world integration remain incomplete. `public/prospects.js` is only a partial seed list; the planned real 2027-2030 draft classes still need to be researched and integrated.
+### Statistics
+Canonical scope separation remains:
+- Regular Season
+- Playoffs
+- Travel
+- International where applicable
 
-### News / Home refresh — partial
+Travel must not contaminate HS regular-season/playoff totals.
 
-Home has standings/team stats/news surfaces, but dynamic news driven by canonical world events is not complete.
+The newly repaired annual `appliedGameIds` lifecycle is a required regression check for sophomore, junior and senior seasons.
 
-### Season Transition & History — not complete
+### Awards / history
+- awards remain stable-player-ID facts
+- yearly archive owns completed-season historical truth
+- League History reopening works
+- historical profile navigation works
+- goalie lower-profile rendering has been repaired
 
-Season rollover, year advancement, archived season history, awards/championship history and multi-season continuity remain future work.
+### Schedule / blocking events
+- `world.schedule` remains authoritative
+- recurring coach meetings project into Home/Schedule
+- returning tryouts remain blocking player-interaction events
+- new-season calendar projection rebuilds directly after rollover
 
-### Post-HS / NHL career — not complete
+### Prospect rankings
+- expired draft classes are removed from active HS rosters before new-season rankings rebuild
+- Top 100 candidate pool is rebuilt at the season boundary
+- rankings are not simply OVR order
 
-Travel/junior/college/pro pathways, draft and NHL career ecosystem remain future work.
+### Persistence
+- IndexedDB remains canonical
+- annual changes save after boundary integrity work
+- lightweight Continue Career preview must remain presentation only
 
-## Conclusion
+## Remaining pre-playthrough cleanup / watch items
 
-Project Ice does not need a rewrite. The correct strategy is conservative stabilization plus modular forward development:
-1. keep IndexedDB as canonical world persistence;
-2. keep only the remaining migration bridge while affected saves may still need it;
-3. stop growing monolithic files where practical by putting new systems in modules;
-4. complete the interactive live-game experience next;
-5. build the living-world layer before Scouting and News because those systems should consume living-world events;
-6. preserve explicit save-schema migration before Season Transition creates multi-season state.
+### P1 — verify repaired sophomore stat accumulation live
+Before starting a fresh four-year career, use the sophomore dev shortcut, simulate at least one regular-season game, and verify:
+- team standings advance
+- skater GP/G/A/PTS advance
+- goalie GP/W/L/SV% advance
+- Full Stats / Team Leaders / player profiles agree
+- reload does not duplicate those totals
+
+This is the final live validation for the stat-ID repair.
+
+### P1 — Travel yearly identity should be watched closely
+The HS yearly game-ID collision is now fixed. Travel tournament series currently use reusable human-readable series IDs internally (`travel-qf-*`, `travel-sf-*`, etc.). Travel state is replaced between seasons, so this is not currently proven to corrupt statistics, but the roadmap's stronger rule is that yearly tournament/game identity should also be season-specific.
+
+Before senior completion, verify Travel history and current Travel schedule never confuse two seasons. If any collision appears, season-scope the Travel tournament identity rather than patching individual screens.
+
+### P2 — transition UI still performs legacy hidden tab refreshes
+The next-season cutscene contains a legacy `hardRefreshRolloverUI()` helper that opens Schedule → League → Home behind the cutscene. Canonical calendar sync now makes this unnecessary for Schedule correctness.
+
+It is not currently a correctness blocker, but it is a likely source of avoidable work during rollover. Remove/refactor only with immediate transition regression testing because this path touches several presentation systems at once.
+
+### P2 — runtime module count is high
+The project has intentionally moved new systems out of `game.js` / `world.js`, which is good, but several feature areas now use layered wrappers around the same functions. Continue to prefer one canonical owner per responsibility and retire narrow repair wrappers when their behavior can safely be consolidated.
+
+Do not perform a broad rewrite immediately before the full playthrough.
+
+### P2 — coach objective balance
+The objective plumbing is functional. Point/win targets and promotion thresholds should be tuned from the real Freshman → Senior experience rather than overfitted through diagnostics.
+
+### P3 — dev controls
+Dev shortcuts remain useful for the pre-alpha hardening pass. They should not be removed until the full HS QA run is complete.
+
+## Pre-playthrough hard gate
+
+Do not begin the fresh HS playthrough until all of these pass:
+
+1. App boots without runtime error.
+2. Sophomore dev shortcut creates the 2024–25 season correctly.
+3. New Schedule immediately shows the 2024–25 calendar without extra navigation.
+4. At least one sophomore game produces non-zero player statistics.
+5. Stats survive reload without duplication.
+6. Current Top 100 contains only eligible active draft classes.
+7. Contextual coach meeting opens and creates an objective.
+8. Promotion/demotion diagnostics leave a valid lineup with one career player and no duplicate role slot.
+9. Fresh New Career still begins on the canonical 2023–24 Freshman timeline.
+
+Once those pass, start a completely new career and use the four-year playthrough itself as the next QA phase.
+
+## During the full playthrough
+
+Tune/fix one issue at a time while watching:
+- progression pace and XP
+- coach objective difficulty/frequency
+- lineup movement
+- scouting exposure and ranking movement
+- game/stat realism
+- standings and award races
+- postseason/Travel flow
+- annual archive correctness
+- roster turnover
+- age/draft-class progression
+- history/profile presentation
+- performance on mobile
+
+Do not begin NHL/Draft implementation until a newly created career reaches the end of senior-year Travel with correct permanent four-year history.
