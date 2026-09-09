@@ -27,6 +27,13 @@
       ''
     );
 
+  const eventIds = event => [
+    event?.canonicalEventId,
+    event?.eventId,
+    event?.gameId,
+    event?.id,
+  ].filter(Boolean).map(String);
+
   const dateKey = event => String(event?.date || '').slice(0, 10);
 
   const isGame = event => Boolean(
@@ -37,6 +44,151 @@
       event?.awayTeamId
     )
   );
+
+  const isHighSchoolRegularSeasonGame = event => {
+    if (!event || !isGame(event)) return false;
+
+    const type = String(event?.type || event?.eventType || '').toLowerCase();
+
+    if (
+      type === 'travel-game' ||
+      event?.travelTournament === true ||
+      event?.postseasonGame === true ||
+      event?.isPostseasonGame === true ||
+      event?.playoffGame === true ||
+      event?.postseason === true ||
+      event?.playoff === true ||
+      String(event?.seasonScope || '').toLowerCase().includes('playoff') ||
+      String(event?.scope || '').toLowerCase().includes('playoff')
+    ) {
+      return false;
+    }
+
+    return Boolean(event?.homeTeamId && event?.awayTeamId);
+  };
+
+  const teamById = teamId =>
+    (WorldEngine.state?.teams || []).find(team =>
+      String(team?.teamId || team?.id || '') === String(teamId || '')
+    ) || null;
+
+  const teamName = team => String(
+    team?.schoolName && team?.teamName
+      ? `${team.schoolName} ${team.teamName}`
+      : team?.teamName ||
+        team?.name ||
+        team?.schoolName ||
+        team?.abbreviation ||
+        'Opponent'
+  ).trim();
+
+  const careerTeamId = () => String(
+    (WorldEngine.state?.teams || [])
+      .flatMap(team => Array.isArray(team?.roster) ? team.roster : [])
+      .find(player => player?.isCareerPlayer === true || player?.isUser === true)
+      ?.teamId ||
+    WorldEngine.state?.player?.teamId ||
+    ''
+  );
+
+  const findCanonicalGame = (event, canonicalSchedule) => {
+    const wantedIds = new Set(eventIds(event));
+
+    let match = canonicalSchedule.find(candidate =>
+      isGame(candidate) &&
+      eventIds(candidate).some(id => wantedIds.has(id))
+    ) || null;
+
+    if (match) return match;
+
+    const eventDate = dateKey(event);
+    const homeTeamId = String(event?.homeTeamId || '');
+    const awayTeamId = String(event?.awayTeamId || '');
+
+    if (!eventDate || !homeTeamId || !awayTeamId) return null;
+
+    return canonicalSchedule.find(candidate =>
+      isGame(candidate) &&
+      dateKey(candidate) === eventDate &&
+      String(candidate?.homeTeamId || '') === homeTeamId &&
+      String(candidate?.awayTeamId || '') === awayTeamId
+    ) || null;
+  };
+
+  /*
+   * Regular-season HS games use one presentation contract in every school year.
+   * This runs inside the calendar projector itself — the same source that Home
+   * and Schedule consume — so sophomore/junior/senior games cannot fall back to
+   * the EventSystem catalog's generic "Upcoming Event" copy.
+   */
+  const presentHighSchoolGame = (event, canonicalSchedule) => {
+    if (!isHighSchoolRegularSeasonGame(event)) return event;
+
+    const canonicalGame = findCanonicalGame(event, canonicalSchedule);
+    const merged = canonicalGame
+      ? { ...canonicalGame, ...event }
+      : event;
+
+    const home = teamById(merged.homeTeamId);
+    const away = teamById(merged.awayTeamId);
+
+    if (!home || !away) return merged;
+
+    const homeName = teamName(home);
+    const awayName = teamName(away);
+    const matchup = `${awayName} at ${homeName}`;
+
+    const playerTeamId = careerTeamId();
+    const playerIsHome =
+      playerTeamId &&
+      String(merged.homeTeamId) === playerTeamId;
+
+    const opponent = playerIsHome ? away : home;
+    const opponentName = teamName(opponent);
+    const venueWord = playerIsHome ? 'home' : 'away';
+
+    const rawLabel = String(merged.label || merged.title || '').trim();
+    const rawObjective = String(merged.objective || '').trim();
+    const rawDescription = String(merged.description || '').trim();
+
+    const genericTitle =
+      !rawLabel ||
+      /^upcoming event$/i.test(rawLabel) ||
+      /^open day$/i.test(rawLabel);
+
+    const genericObjective =
+      !rawObjective ||
+      /^prepare for the event\.?$/i.test(rawObjective) ||
+      /^no scheduled activities\.?$/i.test(rawObjective);
+
+    const genericDescription =
+      !rawDescription ||
+      /^review the event details before continuing\.?$/i.test(rawDescription);
+
+    const label = genericTitle ? matchup : rawLabel;
+
+    return {
+      ...merged,
+      label,
+      title: label,
+      shortLabel:
+        merged.shortLabel ||
+        `${away?.abbreviation || awayName} at ${home?.abbreviation || homeName}`,
+      objective: genericObjective
+        ? `Regular-season ${venueWord} game against ${opponentName}.`
+        : merged.objective,
+      description: genericDescription
+        ? `${awayName} visits ${homeName} in regular-season league play.`
+        : merged.description,
+      details: {
+        Opponent: opponentName,
+        Matchup: matchup,
+        ...(merged.details && typeof merged.details === 'object'
+          ? merged.details
+          : {}),
+      },
+    };
+  };
 
   const shouldProjectCareerEvent = event => {
     if (!event || isGame(event)) return false;
@@ -65,9 +217,15 @@
    * dated career event that the player can actually interact with.
    */
   buildSeasonCalendarEvents = function buildCanonicalCareerCalendarEvents() {
-    const projected = originalBuildSeasonCalendarEvents();
+    const rawProjected = originalBuildSeasonCalendarEvents();
     const canonical = Array.isArray(WorldEngine.state?.schedule)
       ? WorldEngine.state.schedule
+      : [];
+
+    const projected = Array.isArray(rawProjected)
+      ? rawProjected.map(event =>
+          presentHighSchoolGame(event, canonical)
+        )
       : [];
 
     const existingKeys = new Set(
