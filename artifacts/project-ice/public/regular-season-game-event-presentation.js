@@ -1,6 +1,6 @@
 'use strict';
 
-/* global EventSystem */
+/* global EventSystem, buildSeasonCalendarEvents */
 (() => {
   if (typeof EventSystem === 'undefined') return;
   if (typeof EventSystem.openEvent !== 'function') return;
@@ -17,14 +17,21 @@
   ].filter(Boolean).map(String);
 
   function projectedRegularSeasonGame(eventId, eventData = null) {
-    if (typeof globalThis.buildSeasonCalendarEvents !== 'function') return null;
+    /*
+     * buildSeasonCalendarEvents is a global lexical binding created by game.js
+     * and later wrapped by career-calendar-projection.js. A top-level let/const
+     * binding is visible by identifier across classic scripts, but it is not a
+     * property of window/globalThis. Referencing globalThis here made this
+     * bridge silently return null every time.
+     */
+    if (typeof buildSeasonCalendarEvents !== 'function') return null;
 
     const wanted = new Set([
       String(eventId || ''),
       ...idsOf(eventData),
     ].filter(Boolean));
 
-    const events = globalThis.buildSeasonCalendarEvents();
+    const events = buildSeasonCalendarEvents();
     if (!Array.isArray(events)) return null;
 
     return events.find(event => {
