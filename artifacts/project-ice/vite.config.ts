@@ -100,6 +100,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js"></script>');
     if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js"></script>');
     if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js"></script>');
+    if (!html.includes('/regular-season-game-event-presentation.js')) scripts.push('    <script src="/regular-season-game-event-presentation.js"></script>');
     if (!html.includes('/high-school-tryout-polish.js')) scripts.push('    <script src="/high-school-tryout-polish.js"></script>');
     if (!html.includes('/player-profile-default-collapse.js')) scripts.push('    <script src="/player-profile-default-collapse.js"></script>');
     if (!html.includes('/prospect-ranking-model-v2.js')) scripts.push('    <script src="/prospect-ranking-model-v2.js"></script>');
