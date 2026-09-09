@@ -28,6 +28,33 @@
     ''
   );
 
+  function canonicalEvent(eventId, eventData = null) {
+    const wanted = String(
+      eventData?.eventId ||
+      eventData?.id ||
+      eventData?.gameId ||
+      eventId ||
+      ''
+    );
+
+    if (!wanted) return eventData || null;
+
+    const schedule = Array.isArray(WorldEngine.state?.schedule)
+      ? WorldEngine.state.schedule
+      : [];
+
+    const found = schedule.find(event => {
+      const keys = [event?.eventId, event?.id, event?.gameId]
+        .filter(Boolean)
+        .map(String);
+      return keys.includes(wanted);
+    }) || null;
+
+    return found
+      ? { ...found, ...(eventData || {}) }
+      : eventData;
+  }
+
   function isRegularSeasonGame(event = {}) {
     const type = String(event?.type || event?.eventType || '').toLowerCase();
     if (type !== 'game' && !(event?.homeTeamId && event?.awayTeamId)) return false;
@@ -66,6 +93,7 @@
     return {
       ...event,
       label: genericTitle ? `${awayName} at ${homeName}` : event.label,
+      title: genericTitle ? `${awayName} at ${homeName}` : (event.title || event.label),
       shortLabel: event.shortLabel || `${away?.abbreviation || awayName} at ${home?.abbreviation || homeName}`,
       objective: genericObjective
         ? `Regular-season ${venueWord} game against ${opponentName}.`
@@ -82,6 +110,7 @@
   }
 
   EventSystem.openEvent = function(eventId, origin = 'hub', eventData = null) {
-    return originalOpenEvent(eventId, origin, eventData ? enrich(eventData) : eventData);
+    const resolved = canonicalEvent(eventId, eventData);
+    return originalOpenEvent(eventId, origin, resolved ? enrich(resolved) : eventData);
   };
 })();
