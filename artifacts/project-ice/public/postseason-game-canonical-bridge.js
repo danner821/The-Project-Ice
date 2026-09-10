@@ -14,6 +14,27 @@
 
   const dateKey = value => String(value || '').slice(0, 10);
 
+  function mergeCanonical(found, event) {
+    if (!found) return event || null;
+    if (!event || typeof event !== 'object') return found;
+
+    /*
+     * Canonical state supplies simulation identity and fields the UI projection
+     * may omit. The caller's projected/presentation fields must remain intact.
+     *
+     * Previously this bridge returned `found` by itself. Because this wrapper
+     * sits underneath the regular-season presentation wrapper in the openEvent
+     * chain, that behavior discarded the already-correct Home/Away Game label,
+     * objective and description immediately before EventSystem populated the
+     * screen. The surviving canonical featured flags are why the special-game
+     * reasons looked correct while the hero fell back to "Upcoming Event".
+     */
+    return {
+      ...found,
+      ...event,
+    };
+  }
+
   function resolveCanonicalEvent(event, fallbackId = null) {
     const schedule = Array.isArray(WorldEngine.state?.schedule)
       ? WorldEngine.state.schedule
@@ -24,7 +45,7 @@
 
     for (const id of ids) {
       const found = schedule.find(item => eventKey(item) === id);
-      if (found) return found;
+      if (found) return mergeCanonical(found, event);
     }
 
     if (event?.date && event?.homeTeamId && event?.awayTeamId) {
@@ -33,7 +54,7 @@
         String(item?.homeTeamId || '') === String(event.homeTeamId || '') &&
         String(item?.awayTeamId || '') === String(event.awayTeamId || '')
       );
-      if (found) return found;
+      if (found) return mergeCanonical(found, event);
     }
 
     return event || null;
@@ -43,12 +64,9 @@
   if (!presentationAwareOpenEvent) return;
 
   /*
-   * The Schedule/Home calendar can pass a projected event object that omits
-   * postseason-only fields. Resolve that projection back to the canonical
-   * WorldEngine schedule entry before the presentation wrapper receives it.
-   *
-   * This module intentionally has no observers, timers, DOM writes, or save
-   * behavior. It only restores canonical event metadata at the call boundary.
+   * Restore canonical metadata without replacing richer projected UI data.
+   * This keeps postseason-only fields available while allowing the regular
+   * season calendar/event presentation to survive the wrapper chain.
    */
   EventSystem.openEvent = function(eventId, origin = 'hub', eventData = null) {
     const canonicalEvent = resolveCanonicalEvent(eventData, eventId);
