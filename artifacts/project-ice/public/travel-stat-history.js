@@ -69,9 +69,7 @@
     if (state.tournament.status !== 'complete' && state.completed !== true) return false;
 
     const key = tournamentKey(state);
-    if (!key) return false;
-    const already = root.tournaments[key]?.archived === true;
-    if (already) return false;
+    if (!key || root.tournaments[key]?.archived === true) return false;
 
     const date = String(
       state.tournament.closeoutAcknowledgedAt ||
@@ -97,22 +95,24 @@
         if (!primaryId) continue;
 
         const record = root.players[primaryId] || {
-          playerId: primaryId,
-          name: nameOf(player),
-          aliases: [],
-          tournaments: {},
+          playerId:primaryId,
+          name:nameOf(player),
+          aliases:[],
+          tournaments:{},
         };
         const aliases = new Set(record.aliases || []);
-        [player?.sourcePlayerId, player?.playerId, player?.id, nameOf(player)].filter(Boolean).forEach(alias => aliases.add(String(alias)));
+        [player?.sourcePlayerId, player?.playerId, player?.id, nameOf(player)]
+          .filter(Boolean)
+          .forEach(alias => aliases.add(String(alias)));
         record.name = record.name || nameOf(player);
         record.aliases = [...aliases];
         record.tournaments[key] = {
           date,
-          teamId: team?.teamId || null,
-          teamName: team?.name || team?.teamName || null,
-          teamAbbr: team?.shortName || team?.abbr || team?.abbreviation || null,
-          level: state.placementLevel || state.tournament.level || null,
-          position: player?.position || null,
+          teamId:team?.teamId || null,
+          teamName:team?.name || team?.teamName || null,
+          teamAbbr:team?.shortName || team?.abbr || team?.abbreviation || null,
+          level:state.placementLevel || state.tournament.level || null,
+          position:player?.position || null,
           stats,
         };
         root.players[primaryId] = record;
@@ -123,7 +123,7 @@
     return true;
   }
 
-  function findTravelRecord(player) {
+  function findArchivedTravelRecord(player) {
     const root = historyRoot();
     if (!root || !player) return null;
     const ids = [player?.sourcePlayerId, player?.playerId, player?.id].filter(Boolean).map(String);
@@ -134,63 +134,89 @@
       if (ids.some(id => aliases.includes(id))) return record;
       if (name && norm(record?.name) === name) return record;
     }
+    return null;
+  }
 
+  function findLiveTravelEntry(player) {
     const state = travelState();
-    for (const team of state?.teams || []) {
+    if (!state || !Array.isArray(state.teams) || !player) return null;
+    const ids = [player?.sourcePlayerId, player?.playerId, player?.id].filter(Boolean).map(String);
+    const name = norm(nameOf(player));
+
+    for (const team of state.teams) {
       const match = (team?.roster || []).find(candidate => {
         const candidateIds = [candidate?.sourcePlayerId, candidate?.playerId, candidate?.id].filter(Boolean).map(String);
         return ids.some(id => candidateIds.includes(id)) || (name && norm(nameOf(candidate)) === name);
       });
-      if (match && Number(match?.travelStats?.gp || 0) > 0) {
-        return {
-          playerId:idOf(match),
-          name:nameOf(match),
-          aliases:[match?.sourcePlayerId, match?.playerId, match?.id].filter(Boolean).map(String),
-          tournaments:{
-            current:{
-              date:String(WorldEngine.state?.season?.currentDate || '').slice(0,10),
-              teamId:team?.teamId || null,
-              teamName:team?.name || null,
-              teamAbbr:team?.shortName || team?.abbr || null,
-              level:state?.placementLevel || state?.tournament?.level || null,
-              position:match?.position || null,
-              stats:normalizeStats(match),
-            }
-          }
-        };
-      }
+      if (!match) continue;
+      return {
+        date:String(WorldEngine.state?.season?.currentDate || WorldEngine.state?.currentDate || '').slice(0,10),
+        teamId:team?.teamId || null,
+        teamName:team?.name || team?.teamName || null,
+        teamAbbr:team?.shortName || team?.abbr || team?.abbreviation || null,
+        level:state?.placementLevel || state?.tournament?.level || null,
+        position:match?.position || null,
+        stats:normalizeStats(match),
+      };
     }
     return null;
   }
 
+  function seasonLabelFromDate(value) {
+    const key = String(value || '').slice(0,10);
+    const match = key.match(/^(\d{4})-(\d{2})-/);
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+    const start = month >= 9 ? year : year - 1;
+    return `${String(start).slice(-2)}-${String(start + 1).slice(-2)}`;
+  }
+
+  function travelEntries(player) {
+    const archived = findArchivedTravelRecord(player);
+    const entries = Object.values(archived?.tournaments || {}).map(entry => ({ ...entry }));
+    const live = findLiveTravelEntry(player);
+    if (live && Number(live?.stats?.gp || 0) > 0) {
+      const liveLabel = seasonLabelFromDate(live.date);
+      const archivedSameSeason = entries.some(entry => seasonLabelFromDate(entry?.date) === liveLabel);
+      if (!archivedSameSeason) entries.push(live);
+    }
+    return entries;
+  }
+
   function cumulativeTravel(player) {
-    const record = findTravelRecord(player);
-    if (!record) return null;
-    const entries = Object.values(record.tournaments || {});
+    const entries = travelEntries(player);
     if (!entries.length) return null;
     const total = {gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,losses:0,shotsAgainst:0,saves:0,goalsAgainst:0,savePercentage:0};
     for (const entry of entries) {
       const s = entry?.stats || {};
-      for (const key of ['gp','g','a','pts','pim','sog','wins','losses','shotsAgainst','saves','goalsAgainst']) total[key] += Number(s[key] || 0);
+      for (const key of ['gp','g','a','pts','pim','sog','wins','losses','shotsAgainst','saves','goalsAgainst']) {
+        total[key] += Number(s[key] || 0);
+      }
     }
     total.savePercentage = total.shotsAgainst > 0 ? total.saves / total.shotsAgainst : 0;
-    const latest = entries[entries.length - 1] || {};
-    return { record, total, latest };
+    return { total, latest:entries[entries.length - 1] || {}, entries };
   }
 
   function headerMap(headId) {
     const map = new Map();
-    [...(document.getElementById(headId)?.querySelectorAll('th') || [])].forEach((cell, index) => {
+    [...(document.getElementById(headId)?.querySelectorAll('th') || [])].forEach((cell,index) => {
       const key = String(cell.textContent || '').trim().toUpperCase().replace(/[^A-Z0-9+/%-]/g,'');
       if (key) map.set(key,index);
     });
     return map;
   }
 
-  function setCell(row, index, value) {
+  function setCell(row,index,value) {
     if (!row || index === undefined) return;
     const cell = row.children?.[index];
     if (cell) cell.textContent = String(value);
+  }
+
+  function readCell(row,index) {
+    if (!row || index === undefined) return '';
+    return String(row.children?.[index]?.textContent || '').trim();
   }
 
   function zeroStats(player) {
@@ -200,19 +226,43 @@
       : {GP:0,G:0,A:0,PTS:0,'+/-':0,PIM:0,SOG:0,SHOTS:0};
   }
 
-  function travelValues(player) {
-    const data = cumulativeTravel(player);
-    if (!data) return { values:zeroStats(player), meta:null };
-    const s = data.total;
-    const goalie = String(player?.position || data.latest?.position || '').toUpperCase() === 'G';
+  function valuesFromTravelStats(player,s = {},position = null) {
+    const goalie = String(position || player?.position || '').toUpperCase() === 'G';
     if (goalie) {
-      const gaa = s.gp > 0 ? s.goalsAgainst / s.gp : 0;
+      const gp = Number(s.gp || 0);
+      const ga = Number(s.goalsAgainst || 0);
+      const shotsAgainst = Number(s.shotsAgainst || 0);
+      const saves = Number(s.saves || 0);
       return {
-        values:{GP:s.gp,GS:s.gp,W:s.wins,L:s.losses,OTL:0,GA:s.goalsAgainst,GAA:gaa.toFixed(2),'SV%':Number(s.savePercentage || 0).toFixed(3).replace(/^0/,''),SO:0},
-        meta:data.latest,
+        GP:gp, GS:gp, W:Number(s.wins || 0), L:Number(s.losses || 0), OTL:0,
+        GA:ga, GAA:(gp > 0 ? ga / gp : 0).toFixed(2),
+        'SV%':(shotsAgainst > 0 ? saves / shotsAgainst : 0).toFixed(3).replace(/^0/,''), SO:0,
       };
     }
-    return { values:{GP:s.gp,G:s.g,A:s.a,PTS:s.pts,'+/-':0,PIM:s.pim,SOG:s.sog,SHOTS:s.sog}, meta:data.latest };
+    return {
+      GP:Number(s.gp || 0), G:Number(s.g || 0), A:Number(s.a || 0),
+      PTS:Number(s.pts ?? (Number(s.g || 0) + Number(s.a || 0))),
+      '+/-':0, PIM:Number(s.pim || 0), SOG:Number(s.sog || 0), SHOTS:Number(s.sog || 0),
+    };
+  }
+
+  function travelBySeason(player) {
+    const map = new Map();
+    for (const entry of travelEntries(player)) {
+      const label = seasonLabelFromDate(entry?.date);
+      if (!label) continue;
+      const existing = map.get(label) || {
+        stats:{gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,losses:0,shotsAgainst:0,saves:0,goalsAgainst:0},
+        meta:entry,
+      };
+      const s = entry?.stats || {};
+      for (const key of ['gp','g','a','pts','pim','sog','wins','losses','shotsAgainst','saves','goalsAgainst']) {
+        existing.stats[key] += Number(s[key] || 0);
+      }
+      existing.meta = entry;
+      map.set(label,existing);
+    }
+    return map;
   }
 
   function internationalValues(player) {
@@ -229,38 +279,68 @@
         };
   }
 
-  function overlayTable(player, scope, ids) {
-    if (!player) return false;
+  function applyValues(row,headers,values) {
+    for (const [label,value] of Object.entries(values || {})) setCell(row,headers.get(label),value);
+  }
+
+  function overlayTravelRows(player,ids) {
     const headers = headerMap(ids.headId);
     const rows = [...(document.getElementById(ids.bodyId)?.querySelectorAll('tr') || [])];
-    if (!rows.length) return false;
-    const row = rows[rows.length - 1];
     const foot = document.getElementById(ids.footId)?.querySelector('tr') || null;
+    if (!rows.length || !headers.size) return false;
 
-    let values = null;
-    let meta = null;
-    if (scope === 'travel') ({values,meta} = travelValues(player));
-    else if (scope === 'international') values = internationalValues(player);
-    else return false;
+    const bySeason = travelBySeason(player);
+    let career = {gp:0,g:0,a:0,pts:0,pim:0,sog:0,wins:0,losses:0,shotsAgainst:0,saves:0,goalsAgainst:0};
 
-    for (const [label,value] of Object.entries(values || {})) {
-      setCell(row,headers.get(label),value);
-      if (foot) setCell(foot,headers.get(label),value);
+    for (const row of rows) {
+      const season = readCell(row,headers.get('SEASON'));
+      const data = bySeason.get(season) || null;
+      const stats = data?.stats || {};
+      const values = data
+        ? valuesFromTravelStats(player,stats,data?.meta?.position)
+        : zeroStats(player);
+
+      applyValues(row,headers,values);
+      setCell(row,headers.get('TEAM'),data?.meta?.teamAbbr || data?.meta?.teamName || 'Travel');
+      setCell(row,headers.get('LVL'),data?.meta?.level || 'TRV');
+      row.dataset.piStatScope = 'travel';
+
+      for (const key of Object.keys(career)) career[key] += Number(stats[key] || 0);
     }
 
-    if (scope === 'travel') {
-      const teamLabel = meta?.teamAbbr || meta?.teamName || 'Travel';
-      setCell(row,headers.get('TEAM'),teamLabel);
-      setCell(row,headers.get('LVL'),meta?.level || 'TRV');
-      if (foot) {
-        setCell(foot,headers.get('TEAM'),'—');
-        setCell(foot,headers.get('LVL'),'—');
-      }
+    career.pts = Number(career.g || 0) + Number(career.a || 0);
+    if (foot) {
+      applyValues(foot,headers,valuesFromTravelStats(player,career));
+      setCell(foot,headers.get('SEASON'),'Career');
+      setCell(foot,headers.get('TEAM'),'—');
+      setCell(foot,headers.get('LVL'),'—');
+      foot.dataset.piStatScope = 'travel';
     }
-
-    row.dataset.piStatScope = scope;
-    if (foot) foot.dataset.piStatScope = scope;
     return true;
+  }
+
+  function overlaySingleScope(player,scope,ids) {
+    const headers = headerMap(ids.headId);
+    const rows = [...(document.getElementById(ids.bodyId)?.querySelectorAll('tr') || [])];
+    if (!rows.length || !headers.size) return false;
+    const values = scope === 'international' ? internationalValues(player) : zeroStats(player);
+    rows.forEach((row,index) => {
+      applyValues(row,headers,index === rows.length - 1 ? values : zeroStats(player));
+      row.dataset.piStatScope = scope;
+    });
+    const foot = document.getElementById(ids.footId)?.querySelector('tr') || null;
+    if (foot) {
+      applyValues(foot,headers,values);
+      foot.dataset.piStatScope = scope;
+    }
+    return true;
+  }
+
+  function overlayTable(player,scope,ids) {
+    if (!player) return false;
+    if (scope === 'travel') return overlayTravelRows(player,ids);
+    if (scope === 'international') return overlaySingleScope(player,scope,ids);
+    return false;
   }
 
   function careerPlayer() {
@@ -275,7 +355,7 @@
       travelOption.value = 'travel';
       travelOption.textContent = 'Travel';
       const international = select.querySelector('option[value="international"]');
-      if (international) select.insertBefore(travelOption, international);
+      if (international) select.insertBefore(travelOption,international);
       else select.appendChild(travelOption);
     }
     return select;
@@ -320,7 +400,7 @@
 
   const baseProfileRender = globalThis.renderProjectIcePlayerStatistics;
   if (typeof baseProfileRender === 'function') {
-    globalThis.renderProjectIcePlayerStatistics = function(player = {}, options = {}) {
+    globalThis.renderProjectIcePlayerStatistics = function(player = {},options = {}) {
       const result = baseProfileRender(player,options);
       if (String(options?.headId || '') === 'player-profile-statistics-head') {
         lastProfilePlayer = player;
@@ -339,7 +419,7 @@
     };
   }
 
-  document.addEventListener('click', event => {
+  document.addEventListener('click',event => {
     const button = event.target?.closest?.(`#${PROFILE_CONTROL_ID} button[data-scope]`);
     if (!button) return;
     const scope = button.dataset.scope;
@@ -360,13 +440,13 @@
     } else {
       requestAnimationFrame(syncProfileButtons);
     }
-  }, true);
+  },true);
 
-  document.addEventListener('change', event => {
+  document.addEventListener('change',event => {
     if (event.target?.id === 'pp-statistics-filter') scheduleCareerOverlay();
-  }, true);
+  },true);
 
-  document.addEventListener('click', event => {
+  document.addEventListener('click',event => {
     const target = event.target?.closest?.('[data-hub-tab], [data-tab], .hub-tab');
     const label = norm(target?.dataset?.hubTab || target?.dataset?.tab || target?.textContent);
     if (label.includes('player')) scheduleCareerOverlay();
@@ -385,14 +465,14 @@
     if (complete) document.getElementById('pi-league-postseason-card')?.remove();
   }
 
-  document.addEventListener('click', event => {
+  document.addEventListener('click',event => {
     if (!event.target?.closest?.('#pi-travel-closeout-continue')) return;
     archiveTravelTournament({save:false});
     requestAnimationFrame(() => {
       installPostseasonArchivePresentation();
       WorldEngine.save?.();
     });
-  }, true);
+  },true);
 
   WorldEngine.archiveTravelTournamentStats = archiveTravelTournament;
   WorldEngine.getPlayerTravelStats = cumulativeTravel;
