@@ -239,11 +239,17 @@
   }
 
   function profileScope() {
-    return document.querySelector('#pi-player-profile-stat-scope .is-active')?.dataset?.scope === 'playoffs' ? 'playoffs' : 'regular-season';
+    const active = document.querySelector('#pi-player-profile-stat-scope .is-active')?.dataset?.scope;
+    return active === 'playoffs' ? 'playoffs' : 'regular-season';
   }
 
-  function projectProfile(player) {
-    return projectTable({ player, scope:profileScope(), headId:'player-profile-statistics-head', bodyId:'player-profile-statistics-body', footId:'player-profile-statistics-foot' });
+  function projectProfile(player, requestedScope = null) {
+    const scope = requestedScope === 'playoffs'
+      ? 'playoffs'
+      : requestedScope === 'regular-season'
+        ? 'regular-season'
+        : profileScope();
+    return projectTable({ player, scope, headId:'player-profile-statistics-head', bodyId:'player-profile-statistics-body', footId:'player-profile-statistics-foot' });
   }
 
   let lastProfilePlayer = null;
@@ -279,7 +285,13 @@
     }
 
     const scopeButton = event.target?.closest?.('#pi-player-profile-stat-scope button[data-scope]');
-    if (scopeButton && lastProfilePlayer) requestAnimationFrame(() => projectProfile(lastProfilePlayer));
+    const requestedScope = scopeButton?.dataset?.scope;
+    if (
+      lastProfilePlayer &&
+      (requestedScope === 'regular-season' || requestedScope === 'playoffs')
+    ) {
+      requestAnimationFrame(() => projectProfile(lastProfilePlayer, requestedScope));
+    }
   }, true);
 
   window.addEventListener('projectice:player-season-recap-complete', captureCompletedSeason);
