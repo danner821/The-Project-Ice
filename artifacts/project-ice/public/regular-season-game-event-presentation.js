@@ -16,6 +16,8 @@
     event?.gameId,
   ].filter(Boolean).map(String);
 
+  const dateOf = event => String(event?.date || '').slice(0, 10);
+
   const teamById = teamId =>
     (WorldEngine.state?.teams || []).find(team =>
       String(team?.teamId || '') === String(teamId || '')
@@ -50,12 +52,7 @@
       return false;
     }
 
-    if (
-      event?.travelTournament === true ||
-      type === 'travel-game'
-    ) {
-      return false;
-    }
+    if (event?.travelTournament === true || type === 'travel-game') return false;
 
     if (
       event?.postseasonGame === true ||
@@ -72,103 +69,138 @@
     return true;
   }
 
-  function projectedRegularSeasonGame(eventId, eventData = null) {
-    if (typeof buildSeasonCalendarEvents !== 'function') return null;
+  function canonicalWorldGame(eventId, eventData = null) {
+    const schedule = Array.isArray(WorldEngine.state?.schedule)
+      ? WorldEngine.state.schedule
+      : [];
+
+    const games = schedule.filter(isRegularSeasonGame);
+    if (!games.length) return null;
 
     const wantedIds = new Set([
       String(eventId || ''),
       ...idsOf(eventData),
     ].filter(Boolean));
 
-    const events = buildSeasonCalendarEvents();
-    if (!Array.isArray(events)) return null;
-
-    const byId = events.find(event =>
-      isRegularSeasonGame(event) &&
-      idsOf(event).some(id => wantedIds.has(id))
+    const byId = games.find(game =>
+      idsOf(game).some(id => wantedIds.has(id))
     );
-
     if (byId) return byId;
 
     /*
-     * Season-scoped rollover ids can differ from the temporary UI payload.
-     * Date + matchup identity is the canonical fallback for the same game.
+     * The season UI can carry a presentation/event id that is not the same as
+     * the regenerated canonical game id after rollover. The date is the stable
+     * identity at this point in the flow: there is only one HS league game for
+     * the career player on a given date.
      */
-    const date = String(eventData?.date || '').slice(0, 10);
-    const homeTeamId = String(eventData?.homeTeamId || '');
-    const awayTeamId = String(eventData?.awayTeamId || '');
+    const wantedDate = dateOf(eventData);
+    if (wantedDate) {
+      const playerTeam = careerTeamId();
+      const byDate = games.find(game =>
+        dateOf(game) === wantedDate &&
+        (!playerTeam ||
+          String(game.homeTeamId || '') === playerTeam ||
+          String(game.awayTeamId || '') === playerTeam)
+      );
+      if (byDate) return byDate;
+    }
+
+    return null;
+  }
+
+  function projectedGame(canonicalGame) {
+    if (!canonicalGame || typeof buildSeasonCalendarEvents !== 'function') {
+      return null;
+    }
+
+    const canonicalIds = new Set(idsOf(canonicalGame));
+    const canonicalDate = dateOf(canonicalGame);
+    const events = buildSeasonCalendarEvents();
+    if (!Array.isArray(events)) return null;
 
     return events.find(event => {
       if (!isRegularSeasonGame(event)) return false;
-      if (date && String(event?.date || '').slice(0, 10) !== date) return false;
-      if (homeTeamId && String(event?.homeTeamId || '') !== homeTeamId) return false;
-      if (awayTeamId && String(event?.awayTeamId || '') !== awayTeamId) return false;
-      return Boolean(date || homeTeamId || awayTeamId);
+      if (idsOf(event).some(id => canonicalIds.has(id))) return true;
+      return Boolean(canonicalDate) && dateOf(event) === canonicalDate;
     }) || null;
   }
 
-  function enrichRegularSeasonGame(event = {}) {
+  function presentRegularSeasonGame(event = {}) {
     if (!isRegularSeasonGame(event)) return event;
 
     const home = teamById(event.homeTeamId);
     const away = teamById(event.awayTeamId);
-
-    /* The core freshman projector already owns presentation when teams resolve. */
     if (!home || !away) return event;
-
-    const rawLabel = String(event.label || event.title || '').trim();
-    const rawObjective = String(event.objective || '').trim();
-    const rawDescription = String(event.description || '').trim();
-
-    const genericTitle = !rawLabel || /^upcoming event$/i.test(rawLabel);
-    const genericObjective = !rawObjective || /^prepare for the event\.?$/i.test(rawObjective);
-    const genericDescription = !rawDescription || /^review the event details before continuing\.?$/i.test(rawDescription);
-
-    if (!genericTitle && !genericObjective && !genericDescription) {
-      return event;
-    }
 
     const playerTeamId = careerTeamId();
     const isHome = String(event.homeTeamId || '') === playerTeamId;
     const opponent = isHome ? away : home;
     const opponentName = teamName(opponent);
+    const homeName = teamName(home);
+    const awayName = teamName(away);
+    const matchup = `${awayName} at ${homeName}`;
+    const title = isHome
+      ? `Home Game vs ${opponentName}`
+      : `Away Game at ${opponentName}`;
+
+    const rawObjective = String(event.objective || '').trim();
+    const rawDescription = String(event.description || '').trim();
+    const genericObjective =
+      !rawObjective ||
+      /^prepare for the event\.?$/i.test(rawObjective) ||
+      /^no scheduled activities\.?$/i.test(rawObjective);
+    const genericDescription =
+      !rawDescription ||
+      /^review the event details before continuing\.?$/i.test(rawDescription);
 
     return {
       ...event,
-      label: genericTitle
-        ? (isHome ? `Home Game vs ${opponentName}` : `Away Game at ${opponentName}`)
-        : event.label,
-      title: genericTitle
-        ? (isHome ? `Home Game vs ${opponentName}` : `Away Game at ${opponentName}`)
-        : (event.title || event.label),
-      objective: genericObjective ? 'Compete and help your team win.' : event.objective,
+      label: title,
+      title,
+      shortLabel: isHome
+        ? `vs ${away?.abbreviation || opponentName}`
+        : `@ ${home?.abbreviation || opponentName}`,
+      objective: genericObjective
+        ? `Compete against ${opponentName} and help your team win.`
+        : event.objective,
       description: genericDescription
-        ? `${isHome ? 'Home' : 'Away'} regular-season matchup against ${opponentName}.`
+        ? `${awayName} visits ${homeName} in regular-season league play.`
         : event.description,
+      location: event.location || (isHome ? 'Home' : 'Away'),
+      details: {
+        Opponent: opponentName,
+        Matchup: matchup,
+        ...(event.details && typeof event.details === 'object'
+          ? event.details
+          : {}),
+      },
     };
   }
 
   EventSystem.openEvent = function(eventId, origin = 'hub', eventData = null) {
-    const projected = projectedRegularSeasonGame(eventId, eventData);
-
     /*
-     * IMPORTANT: the freshman calendar projection is authoritative for game
-     * presentation. The previous merge order spread the generic caller payload
-     * AFTER the projected game, overwriting its correct Home/Away Game label,
-     * objective, description, team ids, and matchup data with "Upcoming Event"
-     * defaults. Preserve caller-only metadata first; projected fields win last.
+     * Resolve the actual game from WorldEngine.state.schedule FIRST. That is the
+     * authoritative source used by simulation and survives HS season rollover.
+     * The previous bridge tried to identify the game through the UI projection;
+     * when the rollover UI carried a generic event identity, that lookup missed
+     * and the generic "Upcoming Event" payload flowed unchanged into openEvent.
      */
-    const resolved = projected
-      ? {
-          ...(eventData || {}),
-          ...projected,
-        }
-      : eventData;
+    const canonical = canonicalWorldGame(eventId, eventData);
+    if (!canonical) {
+      return originalOpenEvent(eventId, origin, eventData);
+    }
+
+    const projected = projectedGame(canonical);
+    const resolved = {
+      ...(eventData || {}),
+      ...canonical,
+      ...(projected || {}),
+    };
 
     return originalOpenEvent(
       eventId,
       origin,
-      resolved ? enrichRegularSeasonGame(resolved) : resolved
+      presentRegularSeasonGame(resolved)
     );
   };
 })();
