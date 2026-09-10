@@ -6,10 +6,11 @@
   if (WorldEngine.__careerTimelineInstalled === true) return;
   WorldEngine.__careerTimelineInstalled = true;
 
-  const VERSION = 1;
+  const VERSION = 2;
   const ROOT_ID = 'pp-career-timeline';
   const STYLE_ID = 'pi-career-timeline-styles';
   const CLASS_BY_GRADE = { 9:'Freshman', 10:'Sophomore', 11:'Junior', 12:'Senior' };
+  const MILESTONE_STEP = 100;
 
   const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const clean = value => String(value || '').trim();
@@ -70,11 +71,24 @@
     return player.history.careerTimeline;
   }
 
+  function trackingRoot(player = careerPlayer()) {
+    if (!player) return null;
+    player.history = player.history && typeof player.history === 'object' ? player.history : {};
+    player.history.timelineTracking = player.history.timelineTracking && typeof player.history.timelineTracking === 'object'
+      ? player.history.timelineTracking
+      : {};
+    const root = player.history.timelineTracking;
+    root.version = VERSION;
+    root.levels = root.levels && typeof root.levels === 'object' ? root.levels : {};
+    return root;
+  }
+
   function normalizeEvent(event = {}) {
-    const date = clean(event.date).slice(0,10) || currentDate() || null;
+    const explicitNullDate = Object.prototype.hasOwnProperty.call(event, 'date') && event.date === null;
+    const date = explicitNullDate ? null : (clean(event.date).slice(0,10) || currentDate() || null);
     const title = clean(event.title || event.name || 'Career Moment');
     const type = clean(event.type || 'milestone').toLowerCase();
-    const key = clean(event.key || `${date || 'undated'}:${type}:${title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`);
+    const key = clean(event.key || `${date || event.seasonLabel || 'undated'}:${type}:${title.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`);
     return {
       version: VERSION,
       key,
@@ -84,6 +98,7 @@
       subtitle: clean(event.subtitle),
       detail: clean(event.detail || event.description),
       seasonLabel: clean(event.seasonLabel || event.season),
+      level: clean(event.level),
       icon: clean(event.icon),
       source: clean(event.source || 'career'),
     };
@@ -109,6 +124,13 @@
     return `${gp} GP · ${goals} G · ${assists} A · ${points} PTS`;
   }
 
+  function statLine(stats = {}) {
+    const goals = num(stats.goals ?? stats.g);
+    const assists = num(stats.assists ?? stats.a);
+    const points = num(stats.points ?? stats.pts ?? (goals + assists));
+    return { goals, assists, points };
+  }
+
   function seedCareerStart(player) {
     const firstStart = 2023;
     upsertEvent({
@@ -120,6 +142,7 @@
       subtitle:`Freshman · ${teamName(player)}`,
       detail:'Your four-year high school hockey journey begins.',
       seasonLabel:seasonLabel(firstStart),
+      level:'High School',
       source:'career-time',
     }, {save:false});
   }
@@ -142,6 +165,7 @@
         subtitle:`${row?.teamAbbreviation || teamName(player)} · ${seasonLabel(start)}`,
         detail:`${statsSummary(stats)}${ovr ? ` · ${ovr} OVR` : ''}`,
         seasonLabel:seasonLabel(start),
+        level:'High School',
         source:'high-school-season-history',
       }, {save:false});
     }
@@ -161,6 +185,7 @@
       subtitle:`${teamName(player)} · ${seasonLabel(start)}`,
       detail:'A new high school season begins.',
       seasonLabel:seasonLabel(start),
+      level:'High School',
       source:'career-time',
     }, {save:false});
   }
@@ -179,9 +204,260 @@
         subtitle:`${label} · High School`,
         detail:'Individual award earned.',
         seasonLabel:label,
+        level:'High School',
         source:'player-award-history',
       }, {save:false});
     }
+  }
+
+  function seedChampionships(player) {
+    const archives = WorldEngine.getHighSchoolSeasonArchives?.() || WorldEngine.state?.history?.highSchoolSeasons || [];
+    for (const archive of archives || []) {
+      const playerTeamId = clean(archive?.careerPlayer?.team?.teamId);
+      const championTeamId = clean(archive?.champion?.teamId || archive?.championTeamId);
+      if (!playerTeamId || !championTeamId || playerTeamId !== championTeamId) continue;
+      const label = clean(archive?.identity?.label || archive?.seasonLabel || 'High School');
+      const team = clean(
+        archive?.champion?.abbreviation ||
+        archive?.careerPlayer?.team?.abbreviation ||
+        archive?.careerPlayer?.team?.teamName ||
+        teamName(player)
+      );
+      upsertEvent({
+        key:`championship:high-school:${archive?.archiveId || label}`,
+        date:clean(archive?.postseasonCompletedDate || archive?.archivedAt).slice(0,10) || null,
+        type:'championship',
+        icon:'🏆',
+        title:'High School Champion',
+        subtitle:`${team} · ${label}`,
+        detail:'Won the high school championship.',
+        seasonLabel:label,
+        level:'High School',
+        source:'high-school-season-archive',
+      }, {save:false});
+    }
+  }
+
+  function completedHighSchoolStats(player) {
+    const rows = Array.isArray(player?.highSchoolSeasonHistory) ? player.highSchoolSeasonHistory : [];
+    return rows.map(row => ({
+      seasonLabel: clean(row?.seasonLabel || (Number.isFinite(Number(row?.seasonStartYear)) ? seasonLabel(Number(row.seasonStartYear)) : '')),
+      stats: statLine(row?.regularSeasonStats || {}),
+    }));
+  }
+
+  function currentHighSchoolCareerStats(player) {
+    const completed = completedHighSchoolStats(player);
+    const out = completed.reduce((sum, row) => ({
+      goals: sum.goals + row.stats.goals,
+      assists: sum.assists + row.stats.assists,
+      points: sum.points + row.stats.points,
+    }), { goals:0, assists:0, points:0 });
+    const current = statLine(WorldEngine.getPlayerStatsByScope?.(player, 'regular-season') || player || {});
+    out.goals += current.goals;
+    out.assists += current.assists;
+    out.points += current.points;
+    return out;
+  }
+
+  function earliestCompletedSeasonWith(player, stat) {
+    return completedHighSchoolStats(player).find(row => num(row?.stats?.[stat]) > 0)?.seasonLabel || '';
+  }
+
+  function addFirstLevelMoments(levelKey, levelName, stats, previous, metadata = {}) {
+    const firstPointKey = `first:${levelKey}:point`;
+    const firstGoalKey = `first:${levelKey}:goal`;
+    const root = historyRoot() || [];
+    const hasPoint = root.some(item => clean(item?.key) === firstPointKey);
+    const hasGoal = root.some(item => clean(item?.key) === firstGoalKey);
+    const pointCrossed = !hasPoint && previous.points <= 0 && stats.points > 0;
+    const goalCrossed = !hasGoal && previous.goals <= 0 && stats.goals > 0;
+
+    if (pointCrossed && goalCrossed && metadata.sameGame !== false) {
+      upsertEvent({
+        key:`first:${levelKey}:goal-and-point`,
+        date:metadata.date ?? currentDate(),
+        type:'first',
+        icon:'🥅',
+        title:`First ${levelName} Goal & Point`,
+        subtitle:metadata.subtitle || levelName,
+        detail:`Scored the first goal and recorded the first point at the ${levelName} level.`,
+        seasonLabel:metadata.seasonLabel || '',
+        level:levelName,
+        source:'career-stat-milestones',
+      }, {save:false});
+      return;
+    }
+
+    if (pointCrossed) {
+      upsertEvent({
+        key:firstPointKey,
+        date:metadata.date ?? currentDate(),
+        type:'first',
+        icon:'⭐',
+        title:`First ${levelName} Point`,
+        subtitle:metadata.subtitle || levelName,
+        detail:`Recorded the first point at the ${levelName} level.`,
+        seasonLabel:metadata.seasonLabel || '',
+        level:levelName,
+        source:'career-stat-milestones',
+      }, {save:false});
+    }
+
+    if (goalCrossed) {
+      upsertEvent({
+        key:firstGoalKey,
+        date:metadata.date ?? currentDate(),
+        type:'first',
+        icon:'🥅',
+        title:`First ${levelName} Goal`,
+        subtitle:metadata.subtitle || levelName,
+        detail:`Scored the first goal at the ${levelName} level.`,
+        seasonLabel:metadata.seasonLabel || '',
+        level:levelName,
+        source:'career-stat-milestones',
+      }, {save:false});
+    }
+  }
+
+  function addHundredMilestones(levelKey, levelName, stats, previous, metadata = {}) {
+    for (const [field, label] of [['points','Career Points'], ['goals','Career Goals'], ['assists','Career Assists']]) {
+      const before = Math.max(0, num(previous[field]));
+      const after = Math.max(0, num(stats[field]));
+      const firstThreshold = Math.floor(before / MILESTONE_STEP) * MILESTONE_STEP + MILESTONE_STEP;
+      for (let mark = firstThreshold; mark <= after; mark += MILESTONE_STEP) {
+        upsertEvent({
+          key:`milestone:${levelKey}:${field}:${mark}`,
+          date:metadata.date ?? currentDate(),
+          type:'milestone',
+          icon:'💯',
+          title:`${mark} ${label}`,
+          subtitle:metadata.subtitle || levelName,
+          detail:`Reached ${mark} ${field} in the career.`,
+          seasonLabel:metadata.seasonLabel || '',
+          level:levelName,
+          source:'career-stat-milestones',
+        }, {save:false});
+      }
+    }
+  }
+
+  function recordLevelStats(levelKey, levelName, statsInput, metadata = {}) {
+    const player = careerPlayer();
+    const tracking = trackingRoot(player);
+    if (!player || !tracking) return [];
+    const key = clean(levelKey || levelName || 'career').toLowerCase().replace(/[^a-z0-9]+/g,'-');
+    const stats = statLine(statsInput || {});
+    const previous = tracking.levels[key] && typeof tracking.levels[key] === 'object'
+      ? tracking.levels[key]
+      : { goals:0, assists:0, points:0, initialized:false };
+
+    if (previous.initialized === true) {
+      addFirstLevelMoments(key, levelName, stats, previous, metadata);
+      addHundredMilestones(key, levelName, stats, previous, metadata);
+    }
+
+    tracking.levels[key] = { ...stats, initialized:true, updatedAt:metadata.date || currentDate() || null };
+    return historyRoot(player) || [];
+  }
+
+  function seedHighSchoolFirsts(player) {
+    const stats = currentHighSchoolCareerStats(player);
+    const root = historyRoot(player) || [];
+    const hasAnyFirst = root.some(item => clean(item?.key).startsWith('first:high-school:') || clean(item?.key) === 'first:high-school:goal-and-point');
+    if (!hasAnyFirst) {
+      if (stats.points > 0) {
+        const label = earliestCompletedSeasonWith(player, 'points') || seasonLabel(seasonStartYear());
+        upsertEvent({
+          key:'first:high-school:point',
+          date:null,
+          type:'first',
+          icon:'⭐',
+          title:'First High School Point',
+          subtitle:`High School · ${label}`,
+          detail:'Recorded the first point of the high school career.',
+          seasonLabel:label,
+          level:'High School',
+          source:'career-stat-backfill',
+        }, {save:false});
+      }
+      if (stats.goals > 0) {
+        const label = earliestCompletedSeasonWith(player, 'goals') || seasonLabel(seasonStartYear());
+        upsertEvent({
+          key:'first:high-school:goal',
+          date:null,
+          type:'first',
+          icon:'🥅',
+          title:'First High School Goal',
+          subtitle:`High School · ${label}`,
+          detail:'Scored the first goal of the high school career.',
+          seasonLabel:label,
+          level:'High School',
+          source:'career-stat-backfill',
+        }, {save:false});
+      }
+    }
+
+    const tracking = trackingRoot(player);
+    const level = tracking?.levels?.['high-school'];
+    if (!level?.initialized) {
+      if (tracking) tracking.levels['high-school'] = { ...stats, initialized:true, updatedAt:currentDate() || null };
+    } else {
+      recordLevelStats('high-school', 'High School', stats, {
+        date:currentDate(),
+        seasonLabel:seasonLabel(seasonStartYear()),
+        subtitle:`${teamName(player)} · ${seasonLabel(seasonStartYear())}`,
+        sameGame:true,
+      });
+    }
+  }
+
+  function recordChampionship(options = {}) {
+    const levelName = clean(options.level || 'Career');
+    return upsertEvent({
+      key:clean(options.key || `championship:${levelName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}:${options.seasonLabel || options.date || currentDate()}`),
+      date:options.date ?? currentDate(),
+      type:'championship',
+      icon:options.icon || '🏆',
+      title:options.title || `${levelName} Champion`,
+      subtitle:options.subtitle || levelName,
+      detail:options.detail || `Won the ${levelName} championship.`,
+      seasonLabel:options.seasonLabel || '',
+      level:levelName,
+      source:options.source || 'career-championship',
+    });
+  }
+
+  function recordCaptaincy(role = 'Captain', options = {}) {
+    const normalizedRole = /alternate|assistant|\ba\b/i.test(clean(role)) ? 'Alternate Captain' : 'Captain';
+    const levelName = clean(options.level || 'Career');
+    return upsertEvent({
+      key:clean(options.key || `captaincy:${levelName.toLowerCase().replace(/[^a-z0-9]+/g,'-')}:${normalizedRole.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`),
+      date:options.date ?? currentDate(),
+      type:'captaincy',
+      icon:'©️',
+      title:`Named ${normalizedRole}`,
+      subtitle:options.subtitle || levelName,
+      detail:options.detail || `Leadership role awarded at the ${levelName} level.`,
+      seasonLabel:options.seasonLabel || '',
+      level:levelName,
+      source:options.source || 'career-captaincy',
+    });
+  }
+
+  function recordTransition(options = {}) {
+    return upsertEvent({
+      key:clean(options.key || `transition:${options.title || options.level || currentDate()}`),
+      date:options.date ?? currentDate(),
+      type:options.type || 'transition',
+      icon:options.icon || '➡️',
+      title:options.title || 'Career Transition',
+      subtitle:options.subtitle || clean(options.level),
+      detail:options.detail || '',
+      seasonLabel:options.seasonLabel || '',
+      level:options.level || '',
+      source:options.source || 'career-transition',
+    });
   }
 
   function reconcile() {
@@ -191,8 +467,10 @@
     seedCompletedSeasons(player);
     seedCurrentSeason(player);
     seedAwards(player);
+    seedChampionships(player);
+    seedHighSchoolFirsts(player);
     const root = historyRoot(player) || [];
-    root.sort((a,b) => clean(a?.date || '9999').localeCompare(clean(b?.date || '9999')) || clean(a?.title).localeCompare(clean(b?.title)));
+    root.sort((a,b) => clean(a?.date || '9999').localeCompare(clean(b?.date || '9999')) || clean(a?.seasonLabel).localeCompare(clean(b?.seasonLabel)) || clean(a?.title).localeCompare(clean(b?.title)));
     return root;
   }
 
@@ -200,7 +478,8 @@
     if (event?.icon) return event.icon;
     return ({
       'career-start':'🏒', season:'📅', 'season-start':'❄️', award:'🏆',
-      championship:'🏆', promotion:'⬆️', milestone:'⭐', team:'🛡️'
+      championship:'🏆', promotion:'⬆️', milestone:'💯', first:'⭐',
+      captaincy:'©️', transition:'➡️', draft:'🎟️', contract:'✍️', team:'🛡️'
     })[event?.type] || '•';
   }
 
@@ -290,6 +569,10 @@
   WorldEngine.addCareerTimelineEvent = upsertEvent;
   WorldEngine.reconcileCareerTimeline = reconcile;
   WorldEngine.renderCareerTimeline = render;
+  WorldEngine.recordCareerLevelStats = recordLevelStats;
+  WorldEngine.recordCareerChampionship = recordChampionship;
+  WorldEngine.recordCareerCaptaincy = recordCaptaincy;
+  WorldEngine.recordCareerTransition = recordTransition;
 
   reconcile();
   scheduleRender();
