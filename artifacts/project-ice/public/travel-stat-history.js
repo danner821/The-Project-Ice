@@ -18,6 +18,10 @@
     player?.name || player?.playerName || [player?.firstName, player?.lastName].filter(Boolean).join(' ') || ''
   ).trim();
 
+  function unifiedProfileScopeOwnerActive() {
+    return typeof WorldEngine.applyStandalonePlayerProfileStatScope === 'function';
+  }
+
   function travelState() {
     return WorldEngine.getTravelHockeyState?.() || WorldEngine.state?.travelHockey || null;
   }
@@ -375,6 +379,7 @@
   }
 
   function ensureProfileButtons() {
+    if (unifiedProfileScopeOwnerActive()) return false;
     const control = document.getElementById(PROFILE_CONTROL_ID);
     if (!control) return false;
     control.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
@@ -391,6 +396,7 @@
   }
 
   function syncProfileButtons() {
+    if (unifiedProfileScopeOwnerActive()) return;
     document.querySelectorAll(`#${PROFILE_CONTROL_ID} button[data-scope]`).forEach(button => {
       const active = button.dataset.scope === profileScope;
       button.classList.toggle('is-active',active);
@@ -406,13 +412,15 @@
         lastProfilePlayer = player;
         lastProfileOptions = options;
         requestAnimationFrame(() => {
-          ensureProfileButtons();
-          if (profileScope === 'travel' || profileScope === 'international') {
-            overlayTable(player,profileScope,{
-              headId:'player-profile-statistics-head',bodyId:'player-profile-statistics-body',footId:'player-profile-statistics-foot'
-            });
+          if (!unifiedProfileScopeOwnerActive()) {
+            ensureProfileButtons();
+            if (profileScope === 'travel' || profileScope === 'international') {
+              overlayTable(player,profileScope,{
+                headId:'player-profile-statistics-head',bodyId:'player-profile-statistics-body',footId:'player-profile-statistics-foot'
+              });
+            }
+            syncProfileButtons();
           }
-          syncProfileButtons();
         });
       }
       return result;
@@ -420,6 +428,7 @@
   }
 
   document.addEventListener('click',event => {
+    if (unifiedProfileScopeOwnerActive()) return;
     const button = event.target?.closest?.(`#${PROFILE_CONTROL_ID} button[data-scope]`);
     if (!button) return;
     const scope = button.dataset.scope;
@@ -484,7 +493,7 @@
 
   const observer = new MutationObserver(() => {
     ensureCareerOptions();
-    ensureProfileButtons();
+    if (!unifiedProfileScopeOwnerActive()) ensureProfileButtons();
     installPostseasonArchivePresentation();
   });
   observer.observe(document.body,{childList:true,subtree:true});
