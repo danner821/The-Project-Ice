@@ -7,7 +7,7 @@
   if (WorldEngine.__playerAwardHistoryInstalled === true) return;
   WorldEngine.__playerAwardHistoryInstalled = true;
 
-  const VERSION = 4;
+  const VERSION = 5;
 
   const idOf = player => String(player?.playerId || player?.id || '');
   const dateKey = value => {
@@ -20,13 +20,30 @@
     return Array.isArray(rows) ? rows : [];
   }
 
+  function allKnownPlayers() {
+    const rows = [];
+    const seen = new Set();
+    const add = player => {
+      if (!player || typeof player !== 'object') return;
+      const key = idOf(player) || player;
+      if (seen.has(key)) return;
+      seen.add(key);
+      rows.push(player);
+    };
+
+    for (const player of WorldEngine.getAllWorldPlayers?.() || []) add(player);
+    for (const team of WorldEngine.state?.teams || []) {
+      for (const player of team?.roster || []) add(player);
+    }
+    for (const player of graduatedPlayers()) add(player);
+    add(WorldEngine.state?.player);
+    return rows;
+  }
+
   function playerById(playerId) {
     if (!playerId) return null;
     return WorldEngine.getPlayerById?.(playerId) ||
-      (WorldEngine.getAllWorldPlayers?.() || []).find(player => idOf(player) === String(playerId)) ||
-      (WorldEngine.state?.teams || []).flatMap(team => team?.roster || [])
-        .find(player => idOf(player) === String(playerId)) ||
-      graduatedPlayers().find(player => idOf(player) === String(playerId)) ||
+      allKnownPlayers().find(player => idOf(player) === String(playerId)) ||
       null;
   }
 
@@ -48,6 +65,15 @@
     return `${startYear}-${String(startYear + 1).slice(-2)}`;
   }
 
+  function canonicalSeasonDate(record, value) {
+    const raw = dateKey(value);
+    const endYear = Number(record?.identity?.endYear);
+    if (!raw || !Number.isFinite(endYear)) return raw;
+    const year = Number(raw.slice(0, 4));
+    if (year === endYear) return raw;
+    return `${endYear}${raw.slice(4)}`;
+  }
+
   function normalizedAward(record, award) {
     const seasonLabel = seasonLabelFromRecord(record, award);
     const title = String(award?.title || award?.name || award?.awardName || 'League Award');
@@ -61,7 +87,7 @@
       season: seasonLabel,
       seasonLabel,
       year: seasonLabel,
-      level: 'High School',
+      level: award?.level || 'High School',
       scope: award?.scope || 'regular-season',
       team: award?.team || null,
       teamId: award?.teamId || null,
@@ -101,30 +127,113 @@
     return changed;
   }
 
+  function playerParticipatedForTeam(player, archive, teamId) {
+    const startYear = Number(archive?.identity?.startYear);
+    const history = Array.isArray(player?.highSchoolSeasonHistory)
+      ? player.highSchoolSeasonHistory
+      : [];
+
+    if (Number.isFinite(startYear)) {
+      return history.some(row =>
+        Number(row?.seasonStartYear) === startYear &&
+        String(row?.teamId || '') === String(teamId || '')
+      );
+    }
+
+    return String(player?.teamId || '') === String(teamId || '');
+  }
+
+  function championshipAward(record, player, teamId, teamName) {
+    const seasonLabel = seasonLabelFromRecord(record, null);
+    const rawDate = record?.postseasonCompletedDate || record?.archivedAt || null;
+    const date = canonicalSeasonDate(record, rawDate);
+    return {
+      key: `${seasonLabel}:high-school-champion`,
+      awardId: 'high-school-champion',
+      title: 'High School Champion',
+      name: 'High School Champion',
+      awardName: 'High School Champion',
+      season: seasonLabel,
+      seasonLabel,
+      year: seasonLabel,
+      level: 'High School',
+      scope: 'team',
+      team: teamName || null,
+      teamId: teamId || null,
+      playerId: idOf(player),
+      date,
+      championship: true,
+      teamAward: true,
+    };
+  }
+
+  function reconcileArchivedChampionship(record) {
+    const championTeamId = String(record?.champion?.teamId || record?.championTeamId || '');
+    if (!championTeamId) return false;
+
+    const championName = String(
+      record?.champion?.abbreviation ||
+      record?.champion?.teamName ||
+      record?.champion?.name ||
+      ''
+    );
+
+    let changed = false;
+    for (const player of allKnownPlayers()) {
+      if (!playerParticipatedForTeam(player, record, championTeamId)) continue;
+      if (upsertPlayerAward(player, championshipAward(record, player, championTeamId, championName))) {
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  function reconcileCurrentChampionship(postseason, world) {
+    const championTeamId = String(postseason?.championTeamId || '');
+    if (!championTeamId) return false;
+
+    const team = (world?.teams || []).find(item => String(item?.teamId || '') === championTeamId) || null;
+    const seasonLabel = String(world?.season?.label || world?.season?.seasonLabel || world?.currentSeason || 'High School');
+    const date = dateKey(postseason?.completedDate || world?.season?.currentDate || world?.currentDate);
+    const record = {
+      identity: {
+        label: seasonLabel,
+        startYear: Number(world?.season?.seasonStartYear || world?.season?.currentYear) || null,
+        endYear: Number(world?.season?.seasonEndYear) || null,
+      },
+      seasonLabel,
+      postseasonCompletedDate: date,
+    };
+
+    let changed = false;
+    for (const player of team?.roster || []) {
+      if (upsertPlayerAward(player, championshipAward(
+        record,
+        player,
+        championTeamId,
+        team?.abbreviation || team?.teamName || team?.name || ''
+      ))) changed = true;
+    }
+    return changed;
+  }
+
   function reconcilePlayerAwardHistory() {
     const world = WorldEngine.state;
     if (!world) return false;
     const history = world.history = world.history || {};
     let changed = false;
 
-    /* Legacy/current award history remains a compatibility input. */
     const legacyRecords = Array.isArray(history.leagueAwards) ? history.leagueAwards : [];
     for (const record of legacyRecords) {
       if (reconcileAwardRecord(record, record?.winners || [])) changed = true;
     }
 
-    /*
-     * Canonical source of completed-season truth. Once a season rolls over,
-     * postseason state can reset and the old one-off leagueAwards bucket may no
-     * longer be sufficient. Permanent player awards must therefore be rebuilt
-     * from the immutable yearly archives that survive every future season.
-     */
     const seasonArchives = Array.isArray(history.highSchoolSeasons) ? history.highSchoolSeasons : [];
     for (const archive of seasonArchives) {
       if (reconcileAwardRecord(archive, archive?.leagueAwards || [])) changed = true;
+      if (reconcileArchivedChampionship(archive)) changed = true;
     }
 
-    /* Also reconcile the current postseason result before/while its archive is written. */
     const postseason = WorldEngine.getHighSchoolPostseason?.() || world?.postseason?.highSchool || null;
     const currentWinners = Array.isArray(postseason?.leagueAwards?.winners)
       ? postseason.leagueAwards.winners
@@ -136,6 +245,7 @@
       };
       if (reconcileAwardRecord(currentRecord, currentWinners)) changed = true;
     }
+    if (reconcileCurrentChampionship(postseason, world)) changed = true;
 
     const root = history.playerAwardHistory = history.playerAwardHistory || {};
     if (root.version !== VERSION) {
