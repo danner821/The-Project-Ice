@@ -64,6 +64,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/championship-checkpoint.js')) scripts.push('    <script src="/championship-checkpoint.js"></script>');
     if (!html.includes('/awards-ceremony.js')) scripts.push('    <script src="/awards-ceremony.js"></script>');
     if (!html.includes('/freshman-award-race-migration.js')) scripts.push('    <script src="/freshman-award-race-migration.js"></script>');
+    if (!html.includes('/award-race-stale-snapshot-bridge.js')) scripts.push('    <script src="/award-race-stale-snapshot-bridge.js"></script>');
     if (!html.includes('/player-award-history.js')) scripts.push('    <script src="/player-award-history.js"></script>');
     if (!html.includes('/player-awards-style.js')) scripts.push('    <script src="/player-awards-style.js"></script>');
     if (!html.includes('/awards-calendar-event.js')) scripts.push('    <script src="/awards-calendar-event.js"></script>');
