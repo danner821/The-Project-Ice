@@ -15,22 +15,6 @@
     return pos === 'G' || pos.includes('GOAL');
   };
 
-  function renderCareerPlayerAwards() {
-    if (typeof WorldEngine === 'undefined') return false;
-    if (typeof globalThis.renderProjectIcePlayerAwards !== 'function') return false;
-
-    const player = WorldEngine.state?.player;
-    if (!player) return false;
-
-    return globalThis.renderProjectIcePlayerAwards(player, {
-      listId: 'pp-awards-list',
-    });
-  }
-
-  function scheduleCareerPlayerAwards() {
-    requestAnimationFrame(() => requestAnimationFrame(renderCareerPlayerAwards));
-  }
-
   function finishGoalieProfile(player) {
     if (typeof WorldEngine === 'undefined' || !player || !isGoalie(player)) return;
     const p = (idOf(player) && WorldEngine.getPlayerById?.(idOf(player))) || player;
@@ -95,9 +79,7 @@
   if (typeof baseShowScreen === 'function') {
     globalThis.showScreen = function(screenId, ...args) {
       const result = baseShowScreen(screenId, ...args);
-      const normalized = String(screenId || '').toLowerCase();
-      if (normalized === 'player-profile') requestAnimationFrame(collapse);
-      if (normalized === 'player' || normalized === 'player-screen') scheduleCareerPlayerAwards();
+      if (String(screenId || '') === 'player-profile') requestAnimationFrame(collapse);
       return result;
     };
   }
@@ -120,29 +102,5 @@
       }
       return result;
     };
-  }
-
-  document.addEventListener('click', event => {
-    const tab = event.target?.closest?.(
-      '[data-tab], [data-hub-tab], [data-tab-target], .hub-tab'
-    );
-    const label = String(
-      tab?.dataset?.tab ||
-      tab?.dataset?.hubTab ||
-      tab?.dataset?.tabTarget ||
-      tab?.textContent ||
-      ''
-    ).toLowerCase();
-
-    if (label.includes('player')) scheduleCareerPlayerAwards();
-  });
-
-  window.addEventListener('projectice:player-season-recap-complete', scheduleCareerPlayerAwards);
-  window.addEventListener('projectice:next-high-school-season-started', scheduleCareerPlayerAwards);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scheduleCareerPlayerAwards, { once: true });
-  } else {
-    scheduleCareerPlayerAwards();
   }
 })();
