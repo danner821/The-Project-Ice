@@ -8,12 +8,156 @@
   WorldEngine.__playerAwardHistoryInstalled = true;
 
   const VERSION = 5;
+  const STYLE_ID = 'pi-player-awards-styles';
 
   const idOf = player => String(player?.playerId || player?.id || '');
   const dateKey = value => {
     const text = String(value || '').slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
   };
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function installAwardStyles() {
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      #pp-awards-list.pi-player-awards,
+      #player-profile-awards-list.pi-player-awards{
+        display:grid;
+        gap:10px;
+        margin-top:16px;
+      }
+
+      .pi-player-award-card{
+        position:relative;
+        display:grid;
+        grid-template-columns:44px minmax(0,1fr);
+        gap:12px;
+        align-items:center;
+        padding:14px 15px;
+        border:1px solid rgba(83,145,232,.24);
+        border-radius:15px;
+        background:
+          linear-gradient(145deg,rgba(13,42,78,.82),rgba(6,22,45,.90));
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.035),
+          0 8px 24px rgba(0,0,0,.08);
+        overflow:hidden;
+      }
+
+      .pi-player-award-card::before{
+        content:'';
+        position:absolute;
+        inset:0 auto 0 0;
+        width:3px;
+        background:linear-gradient(180deg,#5aa8ff,#2e6dd8);
+        opacity:.9;
+      }
+
+      .pi-player-award-card--championship{
+        border-color:rgba(225,177,73,.30);
+        background:
+          linear-gradient(145deg,rgba(49,40,24,.38),rgba(8,27,52,.92) 58%);
+      }
+
+      .pi-player-award-card--championship::before{
+        background:linear-gradient(180deg,#f0ca68,#b98025);
+      }
+
+      .pi-player-award-card__icon{
+        width:42px;
+        height:42px;
+        border-radius:13px;
+        display:grid;
+        place-items:center;
+        font-size:23px;
+        line-height:1;
+        background:rgba(43,104,189,.14);
+        border:1px solid rgba(91,155,241,.22);
+      }
+
+      .pi-player-award-card--championship .pi-player-award-card__icon{
+        background:rgba(207,155,43,.11);
+        border-color:rgba(225,177,73,.25);
+      }
+
+      .pi-player-award-card__copy{
+        min-width:0;
+      }
+
+      .pi-player-award-card__eyebrow{
+        display:flex;
+        align-items:center;
+        gap:7px;
+        margin-bottom:4px;
+        color:#75a9ea;
+        font-size:9px;
+        font-weight:900;
+        letter-spacing:.14em;
+        text-transform:uppercase;
+      }
+
+      .pi-player-award-card--championship .pi-player-award-card__eyebrow{
+        color:#d8b35e;
+      }
+
+      .pi-player-award-card__title{
+        display:block;
+        color:#f3f7ff;
+        font-size:16px;
+        font-weight:800;
+        line-height:1.22;
+        letter-spacing:-.01em;
+      }
+
+      .pi-player-award-card__meta{
+        display:block;
+        margin-top:4px;
+        color:#8ea8ca;
+        font-size:12px;
+        line-height:1.35;
+      }
+
+      .pi-player-awards-empty{
+        display:flex;
+        align-items:center;
+        gap:16px;
+        padding:18px;
+        border:1px solid rgba(83,145,232,.22);
+        border-radius:16px;
+        background:rgba(5,22,45,.62);
+      }
+
+      .pi-player-awards-empty__icon{
+        font-size:28px;
+        flex:0 0 auto;
+      }
+
+      .pi-player-awards-empty__title{
+        display:block;
+        color:#f3f7ff;
+        font-size:16px;
+        font-weight:800;
+      }
+
+      .pi-player-awards-empty__text{
+        margin:4px 0 0;
+        color:#8399b8;
+        font-size:12px;
+        line-height:1.45;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   function graduatedPlayers() {
     const rows = WorldEngine.state?.highSchoolRosterLifecycle?.graduatedPlayers || [];
@@ -265,6 +409,49 @@
     );
   }
 
+  function renderProjectIcePlayerAwards(playerOrId, options = {}) {
+    installAwardStyles();
+    const listId = String(options?.listId || 'pp-awards-list');
+    const container = document.getElementById(listId);
+    if (!container) return false;
+
+    const awards = getPlayerAwardHistory(playerOrId);
+    container.classList.add('pi-player-awards');
+
+    if (!awards.length) {
+      container.innerHTML = `
+        <div class="pi-player-awards-empty">
+          <span class="pi-player-awards-empty__icon">🏆</span>
+          <div>
+            <strong class="pi-player-awards-empty__title">No Awards Yet</strong>
+            <p class="pi-player-awards-empty__text">Individual awards and championships will appear here throughout your career.</p>
+          </div>
+        </div>`;
+      return true;
+    }
+
+    container.innerHTML = awards.map(award => {
+      const championship = award?.championship === true || award?.teamAward === true || String(award?.awardId || '') === 'high-school-champion';
+      const title = String(award?.title || award?.name || award?.awardName || 'Career Honor');
+      const season = String(award?.seasonLabel || award?.season || award?.year || '');
+      const level = String(award?.level || 'High School');
+      const team = String(award?.team || '').trim();
+      const meta = [season, level, team].filter(Boolean).join(' · ');
+      const eyebrow = championship ? 'Team Championship' : 'Career Honor';
+
+      return `
+        <article class="pi-player-award-card${championship ? ' pi-player-award-card--championship' : ''}">
+          <div class="pi-player-award-card__icon" aria-hidden="true">🏆</div>
+          <div class="pi-player-award-card__copy">
+            <span class="pi-player-award-card__eyebrow">${escapeHtml(eyebrow)}</span>
+            <strong class="pi-player-award-card__title">${escapeHtml(title)}</strong>
+            ${meta ? `<span class="pi-player-award-card__meta">${escapeHtml(meta)}</span>` : ''}
+          </div>
+        </article>`;
+    }).join('');
+    return true;
+  }
+
   const originalSave = typeof WorldEngine.save === 'function'
     ? WorldEngine.save.bind(WorldEngine)
     : null;
@@ -293,6 +480,8 @@
 
   WorldEngine.reconcilePlayerAwardHistory = reconcilePlayerAwardHistory;
   WorldEngine.getPlayerAwardHistory = getPlayerAwardHistory;
+  globalThis.renderProjectIcePlayerAwards = renderProjectIcePlayerAwards;
 
+  installAwardStyles();
   reconcilePlayerAwardHistory();
 })();
