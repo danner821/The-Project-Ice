@@ -139,8 +139,26 @@
       setCell(currentRow, headers.get(label), value);
     });
 
+    /*
+     * High-school-season-stat-history owns the Career footer once it is
+     * installed because that footer must total every archived season plus the
+     * active season. This scope overlay owns only the ACTIVE season row.
+     *
+     * The previous implementation wrote the current season's scoped values
+     * into the footer after the history projector had already calculated the
+     * career total. The Player-tab mutation observer then repeated that write,
+     * which is why the Career row always mirrored sophomore-year stats instead
+     * of accumulating freshman + sophomore.
+     *
+     * Keep the legacy footer overlay only when the season-history system is not
+     * available (migration/very early boot). Otherwise there must be one owner
+     * for career totals.
+     */
+    const historyOwnsCareerFooter =
+      typeof WorldEngine.getHighSchoolSeasonStatRows === 'function';
+
     const footerRow = document.getElementById(footId)?.querySelector('tr');
-    if (footerRow) {
+    if (footerRow && !historyOwnsCareerFooter) {
       Object.entries(values).forEach(([label, value]) => {
         setCell(footerRow, headers.get(label), value);
       });
