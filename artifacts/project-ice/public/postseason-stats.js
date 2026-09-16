@@ -23,11 +23,19 @@
     const a=result?.away?.score??result?.teams?.away?.score??result?.boxScore?.away?.score??event?.awayScore;
     return Number.isFinite(Number(h))&&Number.isFinite(Number(a));
   }
+  function completedGame(event){
+    const result=resultFor(event),status=String(event?.status||'').toLowerCase();
+    return event?.played===true||event?.completed===true||status==='final'||hasFinalScore(event,result)||Boolean(result);
+  }
   function completedPlayoffGames(){
+    return (WorldEngine.state?.schedule||[]).filter(event=>event?.isPlayoff===true&&completedGame(event));
+  }
+  function completedRegularGames(){
     return (WorldEngine.state?.schedule||[]).filter(event=>{
-      if(event?.isPlayoff!==true)return false;
-      const result=resultFor(event),status=String(event?.status||'').toLowerCase();
-      return event?.played===true||event?.completed===true||status==='final'||hasFinalScore(event,result)||Boolean(result);
+      if(event?.isPlayoff===true)return false;
+      if(event?.travelTournament===true||event?.type==='travel-game')return false;
+      if(!event?.homeTeamId||!event?.awayTeamId)return false;
+      return completedGame(event);
     });
   }
   const side=(result,key)=>result?.[key]||result?.teams?.[key]||result?.boxScore?.[key]||null;
@@ -57,6 +65,49 @@
     return out;
   }
 
+  function rebuildRegularSpecialTeams(){
+    const totals={};
+    const ensure=id=>{
+      id=String(id||'');
+      if(!id)return null;
+      return totals[id]||(totals[id]={teamId:id,powerPlayGoals:0,powerPlayOpportunities:0,penaltyKillGoalsAgainst:0,penaltyKillOpportunities:0});
+    };
+
+    for(const event of completedRegularGames()){
+      const result=resultFor(event);if(!result)continue;
+      const homeSide=side(result,'home'),awaySide=side(result,'away');
+      const homeId=String(result?.homeTeamId||homeSide?.teamId||event?.homeTeamId||'');
+      const awayId=String(result?.awayTeamId||awaySide?.teamId||event?.awayTeamId||'');
+      const home=ensure(homeId),away=ensure(awayId);if(!home||!away)continue;
+
+      const homePpg=Math.max(0,num(homeSide?.powerPlayGoals));
+      const homePpo=Math.max(0,num(homeSide?.powerPlayOpportunities));
+      const awayPpg=Math.max(0,num(awaySide?.powerPlayGoals));
+      const awayPpo=Math.max(0,num(awaySide?.powerPlayOpportunities));
+
+      home.powerPlayGoals+=homePpg;
+      home.powerPlayOpportunities+=homePpo;
+      away.powerPlayGoals+=awayPpg;
+      away.powerPlayOpportunities+=awayPpo;
+
+      // A team's PK opportunities/goals against are exactly the opponent's PP opportunities/goals.
+      home.penaltyKillOpportunities+=awayPpo;
+      home.penaltyKillGoalsAgainst+=awayPpg;
+      away.penaltyKillOpportunities+=homePpo;
+      away.penaltyKillGoalsAgainst+=homePpg;
+    }
+
+    for(const team of WorldEngine.state?.teams||[]){
+      const t=totals[String(team?.teamId||'')]||{powerPlayGoals:0,powerPlayOpportunities:0,penaltyKillGoalsAgainst:0,penaltyKillOpportunities:0};
+      team.powerPlayGoals=t.powerPlayGoals;
+      team.powerPlayOpportunities=t.powerPlayOpportunities;
+      team.penaltyKillGoalsAgainst=t.penaltyKillGoalsAgainst;
+      team.penaltyKillOpportunities=t.penaltyKillOpportunities;
+    }
+
+    return totals;
+  }
+
   function rebuild(){
     const games=completedPlayoffGames(),players=WorldEngine.getAllWorldPlayers?.()||[],byId=new Map(players.map(p=>[idOf(p),p]).filter(x=>x[0]));
     const collected=new Map(),teamStats={};
@@ -80,12 +131,11 @@
       if(winner===String(homeId)){h.wins++;a.losses++;}else if(winner===String(awayId)){a.wins++;h.losses++;}
     }
 
-    // Only overwrite players for whom the stored playoff box scores actually contain lines.
-    // This prevents a UI refresh from erasing valid postseason stats when an older result has only a final score.
     for(const [id,stats] of collected){const p=byId.get(id)||WorldEngine.getPlayerById?.(id);if(p)p.postseasonStats=stats;}
     const state=WorldEngine.state;state.postseason=state.postseason||{};state.postseason.highSchool=state.postseason.highSchool||{};
     state.postseason.highSchool.statistics={rebuiltAt:new Date().toISOString(),completedGameIds:games.map(e=>e.gameId||e.eventId||e.id).filter(Boolean),teams:teamStats};
-    return {success:true,completedGames:games.length,playerLines:collected.size,players:players.length,teams:Object.keys(teamStats).length};
+    const regularSpecialTeams=rebuildRegularSpecialTeams();
+    return {success:true,completedGames:games.length,playerLines:collected.size,players:players.length,teams:Object.keys(teamStats).length,regularSpecialTeams};
   }
 
   function resolvePlayer(v){return v&&typeof v==='object'?v:WorldEngine.getPlayerById?.(v)||null;}
@@ -96,10 +146,10 @@
   function getTeamStatsByScope(teamId,scope='regularSeason'){
     rebuild();const t=WorldEngine.getTeamById?.(teamId);if(!t)return null;const po=WorldEngine.state?.postseason?.highSchool?.statistics?.teams?.[String(teamId)]||{teamId:String(teamId||''),gamesPlayed:0,wins:0,losses:0,goalsFor:0,goalsAgainst:0,shotsFor:0,shotsAgainst:0,powerPlayGoals:0,powerPlayOpportunities:0};
     const s=String(scope||'').toLowerCase();if(s==='playoffs'||s==='postseason')return clone(po);
-    return {teamId:t.teamId,wins:Math.max(0,num(t.wins)-num(po.wins)),losses:Math.max(0,num(t.losses)-num(po.losses)),overtimeLosses:Math.max(0,num(t.overtimeLosses)),goalsFor:Math.max(0,num(t.goalsFor)-num(po.goalsFor)),goalsAgainst:Math.max(0,num(t.goalsAgainst)-num(po.goalsAgainst)),points:Math.max(0,num(t.points)-num(po.wins)*2)};
+    return {teamId:t.teamId,wins:Math.max(0,num(t.wins)-num(po.wins)),losses:Math.max(0,num(t.losses)-num(po.losses)),overtimeLosses:Math.max(0,num(t.overtimeLosses)),goalsFor:Math.max(0,num(t.goalsFor)-num(po.goalsFor)),goalsAgainst:Math.max(0,num(t.goalsAgainst)-num(po.goalsAgainst)),points:Math.max(0,num(t.points)-num(po.wins)*2),powerPlayGoals:num(t.powerPlayGoals),powerPlayOpportunities:num(t.powerPlayOpportunities),penaltyKillGoalsAgainst:num(t.penaltyKillGoalsAgainst),penaltyKillOpportunities:num(t.penaltyKillOpportunities)};
   }
 
-  WorldEngine.rebuildHighSchoolPostseasonStats=rebuild;WorldEngine.getPlayerStatsByScope=getPlayerStatsByScope;WorldEngine.getTeamStatsByScope=getTeamStatsByScope;WorldEngine.getHighSchoolPostseasonStatistics=()=>{rebuild();return WorldEngine.state?.postseason?.highSchool?.statistics||null;};
+  WorldEngine.rebuildHighSchoolPostseasonStats=rebuild;WorldEngine.rebuildRegularSeasonSpecialTeams=rebuildRegularSpecialTeams;WorldEngine.getPlayerStatsByScope=getPlayerStatsByScope;WorldEngine.getTeamStatsByScope=getTeamStatsByScope;WorldEngine.getHighSchoolPostseasonStatistics=()=>{rebuild();return WorldEngine.state?.postseason?.highSchool?.statistics||null;};
   const adv=WorldEngine.advanceToDate?.bind(WorldEngine);if(adv)WorldEngine.advanceToDate=function(...args){const r=adv(...args);rebuild();return r;};
   const fin=WorldEngine.finalizeLiveGameSimulation?.bind(WorldEngine);if(fin)WorldEngine.finalizeLiveGameSimulation=function(...args){const r=fin(...args);rebuild();return r;};
   rebuild();
