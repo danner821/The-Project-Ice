@@ -7,7 +7,7 @@
   if (WorldEngine.__seasonDevelopmentSnapshotInstalled === true) return;
   WorldEngine.__seasonDevelopmentSnapshotInstalled = true;
 
-  const VERSION = 2;
+  const VERSION = 3;
 
   const clone = value => value == null ? value : structuredClone(value);
   const idOf = player => String(player?.playerId || player?.id || '');
@@ -59,19 +59,6 @@
     return clone(player?.attributes || {});
   }
 
-  function snapshotRecord(player) {
-    return {
-      version: VERSION,
-      seasonId: seasonId(),
-      schoolYear: schoolYear(),
-      capturedAt: currentDate(),
-      playerId: idOf(player),
-      overall: Number(player?.overall || 0),
-      potential: player?.potential || null,
-      attributes: attributesOf(player),
-    };
-  }
-
   function root() {
     const world = WorldEngine.state;
     if (!world) return null;
@@ -85,6 +72,66 @@
         ? world.history.seasonOpeningDevelopment
         : {};
     return world.history.seasonOpeningDevelopment;
+  }
+
+  function orderedSnapshots() {
+    const store = root();
+    return Object.values(store || {})
+      .filter(record =>
+        record &&
+        Number.isFinite(Number(record.overall))
+      )
+      .sort((a, b) =>
+        String(a?.capturedAt || '').localeCompare(String(b?.capturedAt || '')) ||
+        String(a?.seasonId || '').localeCompare(String(b?.seasonId || ''))
+      );
+  }
+
+  function careerOpeningOverall(player = careerPlayer()) {
+    const world = WorldEngine.state;
+    const gamePlayer = typeof Game !== 'undefined' ? Game?.player : null;
+
+    const explicitCandidates = [
+      player?.startingOverall,
+      world?.player?.startingOverall,
+      gamePlayer?.startingOverall,
+    ];
+
+    for (const candidate of explicitCandidates) {
+      const value = Number(candidate);
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+
+    const snapshots = orderedSnapshots();
+    for (const record of snapshots) {
+      const savedCareerOpening = Number(record?.careerOpeningOverall);
+      if (Number.isFinite(savedCareerOpening) && savedCareerOpening > 0) {
+        return savedCareerOpening;
+      }
+    }
+
+    const earliest = snapshots[0];
+    const earliestOverall = Number(earliest?.overall);
+    if (Number.isFinite(earliestOverall) && earliestOverall > 0) {
+      return earliestOverall;
+    }
+
+    const current = Number(player?.overall);
+    return Number.isFinite(current) ? current : 0;
+  }
+
+  function snapshotRecord(player) {
+    return {
+      version: VERSION,
+      seasonId: seasonId(),
+      schoolYear: schoolYear(),
+      capturedAt: currentDate(),
+      playerId: idOf(player),
+      overall: Number(player?.overall || 0),
+      careerOpeningOverall: careerOpeningOverall(player),
+      potential: player?.potential || null,
+      attributes: attributesOf(player),
+    };
   }
 
   function syncLegacySeasonBaseline(player, record) {
@@ -114,6 +161,17 @@
     }
   }
 
+  function repairCareerOpening(record, player) {
+    if (!record || typeof record !== 'object') return false;
+    const canonical = careerOpeningOverall(player);
+    const existing = Number(record.careerOpeningOverall);
+    if (!Number.isFinite(canonical) || canonical <= 0) return false;
+    if (Number.isFinite(existing) && existing === canonical) return false;
+    record.careerOpeningOverall = canonical;
+    record.version = VERSION;
+    return true;
+  }
+
   function capture(options = {}) {
     const player = careerPlayer();
     const key = seasonId();
@@ -127,7 +185,9 @@
     }
 
     if (store[key] && options.force !== true) {
+      const repaired = repairCareerOpening(store[key], player);
       syncLegacySeasonBaseline(player, store[key]);
+      if (repaired && options.save !== false) WorldEngine.save?.();
       return {
         captured: false,
         reason: 'already-captured',
@@ -153,41 +213,24 @@
     return record ? clone(record) : null;
   }
 
-  function orderedSnapshots() {
-    const store = root();
-    return Object.values(store || {})
-      .filter(record =>
-        record &&
-        Number.isFinite(Number(record.overall))
-      )
-      .sort((a, b) =>
-        String(a?.capturedAt || '').localeCompare(String(b?.capturedAt || '')) ||
-        String(a?.seasonId || '').localeCompare(String(b?.seasonId || ''))
-      );
-  }
-
   function growthSummary() {
     const player = careerPlayer();
     if (!player) return null;
 
     const currentOverall = Number(player.overall) || 0;
     const currentOpening = get();
-    const snapshots = orderedSnapshots();
-    const careerOpening = snapshots[0] || currentOpening || null;
-
-    if (!currentOpening || !careerOpening) return null;
+    if (!currentOpening) return null;
 
     const seasonOpeningOverall =
       Number(currentOpening.overall) || currentOverall;
-    const careerOpeningOverall =
-      Number(careerOpening.overall) || currentOverall;
+    const originalCareerOverall = careerOpeningOverall(player) || currentOverall;
 
     return {
       currentOverall,
       seasonOpeningOverall,
-      careerOpeningOverall,
+      careerOpeningOverall: originalCareerOverall,
       seasonGrowth: currentOverall - seasonOpeningOverall,
-      careerGrowth: currentOverall - careerOpeningOverall,
+      careerGrowth: currentOverall - originalCareerOverall,
     };
   }
 
