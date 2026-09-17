@@ -67,7 +67,11 @@
   }
 
   function normalizeFilmStudyEvent(event) {
-    if (!event || String(event.type || event.eventType || '').toLowerCase() !== 'recovery') return false;
+    if (!event) return false;
+    const identifiers = [event.type, event.eventType, event.eventKey]
+      .map(value => String(value || '').trim().toLowerCase());
+    const isRecovery = identifiers.some(value => value === 'recovery' || value === 'recovery-sleep');
+    if (!isRecovery) return false;
     let changed = false;
     const set = (key, value) => {
       if (event[key] !== value) {
@@ -234,7 +238,37 @@
   }
 
   normalizeCatalog();
+
+  /*
+   * Canonical schedule boundary: every regular-season schedule generated for
+   * a fresh or returning HS year leaves WorldEngine already expressed as Film
+   * Study instead of relying on a later UI repaint to rename Recovery.
+   */
+  const originalCreateHighSchoolCareerSchedule =
+    typeof WorldEngine.createHighSchoolCareerSchedule === 'function'
+      ? WorldEngine.createHighSchoolCareerSchedule.bind(WorldEngine)
+      : null;
+
+  if (originalCreateHighSchoolCareerSchedule && !WorldEngine.__filmStudyScheduleFactoryWrapped) {
+    WorldEngine.createHighSchoolCareerSchedule = (...args) => {
+      const schedule = originalCreateHighSchoolCareerSchedule(...args);
+      if (Array.isArray(schedule)) {
+        for (const event of schedule) normalizeFilmStudyEvent(event);
+      }
+      return schedule;
+    };
+    WorldEngine.__filmStudyScheduleFactoryWrapped = true;
+  }
+
   normalizeSchedule({ save: true });
+
+  /* Returning-year transitions rebuild the schedule in-place during the same
+   * browser session. Reconcile immediately from the lifecycle event instead of
+   * waiting for a refresh or polling loop. */
+  window.addEventListener('projectice:next-high-school-season-started', () => {
+    normalizeSchedule({ save: true });
+  });
+
   if (typeof COMPLETE_SCREENS !== 'undefined') COMPLETE_SCREENS['film-study'] = openFilmStudy;
   WorldEngine.syncFilmStudyEvents = normalizeSchedule;
   window.ProjectIceFilmStudy = { open: openFilmStudy, sync: normalizeSchedule };

@@ -101,6 +101,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/career-timeline.js')) scripts.push('    <script src="/career-timeline.js"></script>');
     if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js"></script>');
     if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js"></script>');
+    if (!html.includes('/film-study-event.js')) scripts.push('    <script src="/film-study-event.js"></script>');
     if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js"></script>');
     if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js"></script>');
     if (!html.includes('/standings-season-label.js')) scripts.push('    <script src="/standings-season-label.js"></script>');

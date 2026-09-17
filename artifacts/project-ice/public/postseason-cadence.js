@@ -305,16 +305,4 @@
 
   syncCadence({ save: true });
 
-  /*
-   * Film Study is the player-facing replacement for Recovery. This cadence
-   * module is part of every career boot already, so load the focused runtime
-   * once without adding another Vite ownership layer.
-   */
-  if (!document.getElementById('pi-film-study-runtime')) {
-    const script = document.createElement('script');
-    script.id = 'pi-film-study-runtime';
-    script.src = '/film-study-event.js';
-    script.defer = true;
-    document.head.appendChild(script);
-  }
 })();
