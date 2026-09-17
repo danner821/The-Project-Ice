@@ -23014,6 +23014,22 @@ document
     }
 
     /*
+     * Existing tryout and future dedicated event routes.
+     */
+    if (
+      def.completeScreen &&
+      COMPLETE_SCREENS[
+        def.completeScreen
+      ]
+    ) {
+      COMPLETE_SCREENS[
+        def.completeScreen
+      ]();
+
+      return;
+    }
+
+    /*
      * Canonical Practice completion.
      */
     const {
@@ -23058,22 +23074,6 @@ document
         def,
         completion
       );
-
-      return;
-    }
-
-    /*
-     * Existing tryout and future dedicated event routes.
-     */
-    if (
-      def.completeScreen &&
-      COMPLETE_SCREENS[
-        def.completeScreen
-      ]
-    ) {
-      COMPLETE_SCREENS[
-        def.completeScreen
-      ]();
 
       return;
     }
