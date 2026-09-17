@@ -171,7 +171,7 @@
     const style = document.createElement('style');
     style.id = 'pi-film-study-styles';
     style.textContent = `
-      #pi-film-study-screen{position:fixed;inset:0;z-index:10050;overflow-y:auto;background:radial-gradient(circle at 50% -10%,rgba(45,86,165,.24),transparent 42%),#060b16;color:#f4f7ff;padding:max(22px,env(safe-area-inset-top)) 18px max(34px,env(safe-area-inset-bottom))}.pi-film-study__shell{width:min(100%,520px);margin:0 auto}.pi-film-study__back{appearance:none;border:0;background:transparent;color:#9fb0ce;font:inherit;padding:8px 0 18px}.pi-film-study__hero{border:1px solid rgba(108,146,214,.22);background:linear-gradient(180deg,rgba(18,31,57,.94),rgba(10,18,34,.94));border-radius:22px;padding:22px;box-shadow:0 18px 55px rgba(0,0,0,.28)}.pi-film-study__eyebrow{margin:0 0 8px;color:#779be0;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.pi-film-study__title{margin:0;font-size:28px;line-height:1.05}.pi-film-study__copy{margin:12px 0 0;color:#aebbd1;line-height:1.55;font-size:14px}.pi-film-study__choices{display:grid;gap:12px;margin-top:16px}.pi-film-study__choice{width:100%;text-align:left;color:inherit;border:1px solid rgba(119,155,224,.18);background:rgba(15,26,47,.82);border-radius:18px;padding:16px;display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:start}.pi-film-study__choice:active{transform:scale(.99);background:rgba(24,42,75,.9)}.pi-film-study__icon{width:40px;height:40px;display:grid;place-items:center;border-radius:12px;background:rgba(76,119,201,.13);font-size:20px}.pi-film-study__choice strong{display:block;font-size:16px;margin-bottom:5px}.pi-film-study__choice span{display:block;color:#9eacc3;font-size:13px;line-height:1.4}.pi-film-study__reward{margin-top:8px;color:#79a7ff!important;font-size:12px!important;font-weight:700}
+      #pi-film-study-screen{position:fixed;inset:0;z-index:10050;overflow-y:auto;background:radial-gradient(circle at 50% -10%,rgba(45,86,165,.24),transparent 42%),#060b16;color:#f4f7ff;padding:max(22px,env(safe-area-inset-top)) 18px max(34px,env(safe-area-inset-bottom))}.pi-film-study__shell{width:min(100%,520px);margin:0 auto}.pi-film-study__back{appearance:none;border:0;background:transparent;color:#9fb0ce;font:inherit;padding:8px 0 18px}.pi-film-study__hero{border:1px solid rgba(108,146,214,.22);background:linear-gradient(180deg,rgba(18,31,57,.94),rgba(10,18,34,.94));border-radius:22px;padding:22px;box-shadow:0 18px 55px rgba(0,0,0,.28)}.pi-film-study__eyebrow{margin:0 0 8px;color:#779be0;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.pi-film-study__title{margin:0;font-size:28px;line-height:1.05}.pi-film-study__copy{margin:12px 0 0;color:#aebbd1;line-height:1.55;font-size:14px}.pi-film-study__choices{display:grid;gap:12px;margin-top:16px}.pi-film-study__choice{width:100%;text-align:left;color:inherit;border:1px solid rgba(119,155,224,.18);background:rgba(15,26,47,.82);border-radius:18px;padding:16px;display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:start}.pi-film-study__choice:active{transform:scale(.99);background:rgba(24,42,75,.9)}.pi-film-study__choice .pi-film-study__icon{width:40px;height:40px;display:grid;place-items:center;text-align:center;line-height:1;border-radius:12px;background:rgba(76,119,201,.13);font-size:20px}.pi-film-study__choice strong{display:block;font-size:16px;margin-bottom:5px}.pi-film-study__choice span{display:block;color:#9eacc3;font-size:13px;line-height:1.4}.pi-film-study__reward{margin-top:8px;color:#79a7ff!important;font-size:12px!important;font-weight:700}
     `;
     document.head.appendChild(style);
   }
@@ -215,21 +215,63 @@
         const choice = choices.find(item => item.key === button.dataset.filmChoice);
         if (!choice) return;
         const eventId = event.eventId || event.id;
-        const base = WorldEngine.completeRecoveryEvent?.(eventId, { save: false }) || { success: true, applied: false };
         const totalXP = applyFocusXP(player, choice, event);
-        event.completed = true; event.isCompleted = true; event.played = true; event.status = 'completed';
-        event.filmStudyFocus = choice.key; event.filmStudyFocusLabel = choice.title; event.filmStudyRewards = { ...choice.rewards };
+
+        event.completed = true;
+        event.isCompleted = true;
+        event.played = true;
+        event.status = 'completed';
+        event.completedAt = event.date;
+        event.filmStudyFocus = choice.key;
+        event.filmStudyFocusLabel = choice.title;
+        event.filmStudyRewards = { ...choice.rewards };
+        event.result = {
+          type: 'film-study',
+          focus: choice.key,
+          focusLabel: choice.title,
+          xp: { attributes: { ...choice.rewards } },
+        };
+
+        const season = WorldEngine.state?.season;
+        if (season && typeof season === 'object') {
+          if (!Array.isArray(season.processedDates)) season.processedDates = [];
+          if (event.date && !season.processedDates.includes(event.date)) {
+            season.processedDates.push(event.date);
+            season.processedDates.sort((a, b) => String(a).localeCompare(String(b)));
+          }
+          if (!Array.isArray(season.completedEventIds)) season.completedEventIds = [];
+          const canonicalId = event.id || event.eventId || event.canonicalEventId || eventId;
+          if (canonicalId && !season.completedEventIds.some(id => String(id) === String(canonicalId))) {
+            season.completedEventIds.push(canonicalId);
+          }
+          season.lastProcessedDate = event.date || season.lastProcessedDate || null;
+          if (event.date) season.currentDate = event.date;
+        }
+        if (WorldEngine.state?.player && event.date) WorldEngine.state.player.currentDate = event.date;
+
         await WorldEngine.save?.();
         root.remove();
         refreshCareerUI?.();
         const result = {
-          ...(base?.result && typeof base.result === 'object' ? base.result : base),
-          success: true, eventType: 'film-study', focus: choice.key, focusLabel: choice.title,
-          xp: { ...((base?.result?.xp || base?.xp) || {}), attributes: { ...choice.rewards }, general: totalXP },
+          success: true,
+          eventType: 'film-study',
+          focus: choice.key,
+          focusLabel: choice.title,
+          totalXP,
+          xp: { attributes: { ...choice.rewards } },
           coachNote: `Film review complete: ${choice.title}.`,
         };
+        const resultEvent = {
+          ...event,
+          type: 'film-study',
+          eventType: 'film-study',
+          eventKey: 'film-study',
+          label: 'Film Study',
+          shortLabel: 'Film Study',
+          icon: '🎥',
+        };
         if (typeof EventResultsSystem !== 'undefined' && EventResultsSystem?.open) {
-          EventResultsSystem.open(event, { success: true, result, date: event.date, coachNote: result.coachNote });
+          EventResultsSystem.open(resultEvent, { success: true, result, date: event.date, coachNote: result.coachNote });
         } else {
           showScreen?.('hub');
         }
