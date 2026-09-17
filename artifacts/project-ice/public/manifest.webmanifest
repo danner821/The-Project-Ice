@@ -1,0 +1,19 @@
+{
+  "name": "Project Ice",
+  "short_name": "Project Ice",
+  "description": "Live the hockey life.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#07152f",
+  "theme_color": "#07152f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/project-ice-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
