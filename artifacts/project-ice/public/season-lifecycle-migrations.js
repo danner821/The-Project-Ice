@@ -189,5 +189,7 @@
   }
 
   observeActiveCareer();
-  window.setInterval(observeActiveCareer, 250);
+  window.addEventListener('projectice:postseason-state-ready', observeActiveCareer);
+  window.addEventListener('projectice:next-high-school-season-started', observeActiveCareer);
+  window.addEventListener('projectice:player-season-recap-complete', observeActiveCareer);
 })();

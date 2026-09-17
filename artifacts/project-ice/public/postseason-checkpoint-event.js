@@ -124,7 +124,9 @@
        */
       WorldEngine.reconcileHighSchoolPostseason?.({ save: false });
       normalizeCheckpoint({ save: false });
-      return originalAdvance(targetDate, options);
+      const result = originalAdvance(targetDate, options);
+      window.dispatchEvent(new CustomEvent('projectice:career-date-advanced'));
+      return result;
     };
   }
 
@@ -132,7 +134,10 @@
 
   normalizeCheckpoint({ save: true });
 
-  window.setInterval(() => {
+  window.addEventListener('projectice:postseason-state-ready', () => {
+    normalizeCheckpoint({ save: false });
+  });
+  window.addEventListener('projectice:next-high-school-season-started', () => {
     normalizeCheckpoint({ save: true });
-  }, 500);
+  });
 })();

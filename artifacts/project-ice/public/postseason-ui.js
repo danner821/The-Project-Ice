@@ -191,5 +191,7 @@
 
   injectStyles();
   sync();
-  window.setInterval(sync, 250);
+  window.addEventListener('projectice:postseason-state-ready', sync);
+  window.addEventListener('projectice:career-date-advanced', sync);
+  window.addEventListener('projectice:next-high-school-season-started', sync);
 })();
