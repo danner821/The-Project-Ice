@@ -1,12 +1,12 @@
 # Project Ice — Pre-Playthrough Codebase Audit
 
-Audit date: 2026-09-08
+Audit date: 2026-09-16
 
 ## Purpose
 
-This audit is the hardening pass immediately before the first full Freshman → Senior high-school career playthrough.
+This audit is the final hardening record immediately before the first full Freshman → Senior high-school career playthrough.
 
-The goal is not to redesign working systems. It is to verify the current code against the locked Project Ice architecture, remove obvious pre-alpha debris, repair lifecycle bugs that would corrupt a multi-year career, and identify items that are better tuned naturally during the full playthrough.
+The goal is not to redesign working systems. It is to verify the current code against the locked Project Ice architecture, remove obvious pre-alpha debris, repair lifecycle bugs that would corrupt a multi-year career, and leave balance/pacing tuning to the real playthrough.
 
 ## Runtime source of truth
 
@@ -18,39 +18,41 @@ Canonical owners remain:
 - focused runtime modules — lifecycle, postseason, Travel, history, rankings, coach meetings and compatibility repairs.
 - IndexedDB — canonical full career persistence.
 
-The React `src/` tree is still dormant Replit scaffold, not the gameplay runtime.
+The React `src/` tree remains dormant Replit scaffold, not the gameplay runtime.
 
 ## Current architecture status
 
-### High-school multi-year lifecycle — implemented and actively hardened
+### High-school multi-year lifecycle — implemented and hardened for playthrough
 
-The canonical timeline is:
+Canonical timeline:
 - Freshman: 2023–24
 - Sophomore: 2024–25
 - Junior: 2025–26
 - Senior: 2026–27
 
-The annual loop now includes:
+Annual loop:
 Regular Season → Postseason → Champion → Awards → Travel → Offseason → League Season Recap → Player Season Recap → New Season Cutscene → Roster Rollover → Returning Varsity Tryouts → Next Season.
+
+The architecture is now at the point where the next meaningful validation is a completely fresh four-year career, not another feature batch.
 
 ### Permanent history — implemented
 
 Completed seasons are frozen before annual mutation. League History can reopen archived season recaps. Awards retain stable player identities and persist onto player profiles.
 
 Known non-blocking QA item:
-- one archived generated-player profile path has previously failed to display its frozen historical statistics even though the archive/award itself is correct. This was explicitly deferred for observation during the real playthrough unless it becomes broader than the isolated case.
+- one archived generated-player profile path has previously failed to display its frozen historical statistics even though the archive/award itself is correct. Continue to watch this during the real playthrough and only escalate if it proves broader than the isolated case.
 
 ### Prospect model — implemented / calibrated
 
-The public Top 100 now uses the calibrated V2 model rather than a simple OVR/potential sort. It includes ability, potential, performance, development trajectory, scouting/exposure, competition context and draft readiness, with separate goalie/skater performance logic, two-week publications and controlled rank movement.
+The public Top 100 uses the calibrated V2 model rather than a simple OVR/potential sort. It includes ability, potential, performance, development trajectory, scouting/exposure, competition context and draft readiness, with separate goalie/skater performance logic, two-week publications and controlled rank movement.
 
-Public reputation tiers (Local / Regional / National / Elite / Generational) are coordinated with the published rankings without becoming aliases for rank. Generational status is intentionally rare.
+Public reputation tiers (Local / Regional / National / Elite / Generational) are coordinated with published rankings without becoming aliases for rank. Generational status remains intentionally rare.
 
 ### Coach / role immersion — implemented
 
 Recurring contextual coach meetings occur during the HS season. Meetings read the player's current role, coach trust, form, overall and special-teams context, then create short-term objectives.
 
-The role loop now supports:
+The role loop supports:
 - trust/consistency objectives
 - promotion reviews
 - role-security warnings
@@ -58,9 +60,9 @@ The role loop now supports:
 - persisted coach-role history
 - canonical NPC lineup reconciliation after a career-player role change
 
-Objective targets will still need feel/balance tuning during the real playthrough.
+Objective targets remain a playthrough tuning item, not an architectural blocker.
 
-## Critical findings repaired in this audit
+## Critical findings repaired before playthrough
 
 ### 1. Returning-player sophomore statistics stayed at zero — FIXED
 
@@ -71,8 +73,8 @@ Root cause:
 - standings advanced because team/schedule result application succeeded, while player stat application correctly refused what looked like a duplicate.
 
 Repairs:
-- `appliedGameIds` is now reset with other current-season stat state during HS roster rollover.
-- new-season HS game IDs are normalized to include the canonical season identity before the new season is played.
+- `appliedGameIds` resets with current-season stat state during HS roster rollover.
+- new-season HS game IDs include canonical season identity before the new season is played.
 
 This restores the intended invariant: game-result idempotency is per unique game, while player career history remains permanent.
 
@@ -85,21 +87,66 @@ The calendar projection now:
 - rebuilds Home/Schedule projections directly from `world.schedule`
 - performs a final boundary sync after annual integrity work finishes
 
-The player should no longer need an extra click or simulated day to see the new season.
+The player no longer needs an extra click or simulated day to see the new season.
 
 ### 3. Yearly HS game IDs were not season-scoped — FIXED
 
-The roadmap requires all yearly lifecycle/game IDs to include season identity. The base schedule generator's reusable IDs are now normalized at the annual boundary to include the active `seasonId` before any game can be resolved.
+All yearly HS lifecycle/game IDs are normalized to include active season identity before game resolution.
 
-### 4. Coach role change could leave NPC lineup state stale — FIXED
+### 4. Travel tournament/game identity was not strongly season-scoped — FIXED
+
+Travel identity normalization now scopes tournament series/game identifiers to the active season. This closes the same class of cross-year collision risk that previously affected HS regular-season statistics.
+
+### 5. Coach role change could leave NPC lineup state stale — FIXED
 
 Promotion/demotion changed the career player's reserved slot, but the canonical NPC lineup manager was not guaranteed to re-run immediately afterwards.
 
-A reconciliation runtime now re-runs team roster management once after an approved promotion or demotion so the career player's new slot is reserved and NPCs are re-sorted around it rather than leaving duplicate slot ownership.
+A reconciliation runtime now re-runs team roster management after approved role movement so the career player's new slot is reserved and NPCs are sorted around it rather than leaving duplicate slot ownership.
 
-### 5. Obsolete user-specific dev-save cleanup still loaded on every boot — REMOVED FROM RUNTIME
+### 6. Obsolete user-specific dev-save cleanup still loaded on every boot — REMOVED FROM RUNTIME
 
 A dated one-off cleanup module targeted specific old dev saves by player name/date. Its migration purpose is over and it no longer belongs in the live runtime stack. The file may remain in repository history, but Vite no longer injects it.
+
+### 7. Recovery conflicted with the no-fatigue design — REPLACED WITH FILM STUDY
+
+Recovery has been replaced by interactive Film Study across regular and returning HS seasons.
+
+Film Study now:
+- appears as the canonical event instead of Recovery
+- offers Offensive Reads / Defensive Details / Special Teams choices
+- routes through its dedicated interaction before generic event completion
+- grants focused individual attribute XP
+- does not grant Recovery-era morale or injury-risk effects
+- persists/completes through the normal event flow
+
+The underlying normalization is handled at the schedule/lifecycle boundary rather than by a cosmetic rename.
+
+### 8. Three permanent polling loops ran every 250–500ms — REMOVED
+
+The following permanent loops were removed:
+- postseason checkpoint normalization
+- postseason UI sync
+- season lifecycle migration observation
+
+They were replaced with explicit lifecycle/UI events and wrapped state transitions. This removes constant mobile work without changing simulation logic.
+
+The bounded loader retry in `player-season-recap-loader.js` remains because it self-terminates and is not permanent polling.
+
+### 9. Broad MutationObserver audit — ONE CLEARLY REDUNDANT OBSERVER REMOVED
+
+The active MutationObserver inventory was reviewed rather than mechanically reduced.
+
+Removed:
+- the full-document Travel season-identity observer that watched `document.documentElement` only to detect the Travel tournament engine. The canonical loader already exposes an explicit engine `load` lifecycle event, so the broad observer was redundant.
+
+Retained intentionally:
+- Schedule observer scoped to the Schedule presentation root
+- player stat-scope refresh observer
+- Travel presentation observers
+- Travel stat-history/profile presentation observer
+- other observers whose ownership is still tied to DOM creation/replacement
+
+No broad observer purge was performed immediately before the four-year test. Further consolidation should happen only when the playthrough identifies a concrete failure or measurable performance problem.
 
 ## Multi-year integrity checks reviewed
 
@@ -125,7 +172,7 @@ Canonical scope separation remains:
 
 Travel must not contaminate HS regular-season/playoff totals.
 
-The newly repaired annual `appliedGameIds` lifecycle is a required regression check for sophomore, junior and senior seasons.
+The annual `appliedGameIds` lifecycle remains a required regression watch through sophomore, junior and senior seasons.
 
 ### Awards / history
 - awards remain stable-player-ID facts
@@ -139,6 +186,7 @@ The newly repaired annual `appliedGameIds` lifecycle is a required regression ch
 - recurring coach meetings project into Home/Schedule
 - returning tryouts remain blocking player-interaction events
 - new-season calendar projection rebuilds directly after rollover
+- Film Study is canonical across HS schedules
 
 ### Prospect rankings
 - expired draft classes are removed from active HS rosters before new-season rankings rebuild
@@ -148,61 +196,69 @@ The newly repaired annual `appliedGameIds` lifecycle is a required regression ch
 ### Persistence
 - IndexedDB remains canonical
 - annual changes save after boundary integrity work
-- lightweight Continue Career preview must remain presentation only
+- lightweight Continue Career preview remains presentation only
 
-## Remaining pre-playthrough cleanup / watch items
+### Mobile/runtime performance
+- permanent 250–500ms polling has been removed
+- one clearly redundant broad full-document observer has been removed
+- remaining MutationObservers are retained where they still own real presentation synchronization
+- large-scale wrapper/module consolidation is deferred until after the real playthrough unless a blocking failure appears
 
-### P1 — verify repaired sophomore stat accumulation live
-Before starting a fresh four-year career, use the sophomore dev shortcut, simulate at least one regular-season game, and verify:
+## Remaining watch items for the full playthrough
+
+### P1 — annual stat identity regression
+Across sophomore, junior and senior seasons verify:
 - team standings advance
 - skater GP/G/A/PTS advance
 - goalie GP/W/L/SV% advance
 - Full Stats / Team Leaders / player profiles agree
-- reload does not duplicate those totals
+- reload does not duplicate totals
 
-This is the final live validation for the stat-ID repair.
+### P1 — Travel yearly continuity
+Travel identity is now season-scoped, but the fresh four-year career is the real proof. Verify Travel history, current Travel schedule, series results and statistics never confuse two seasons.
 
-### P1 — Travel yearly identity should be watched closely
-The HS yearly game-ID collision is now fixed. Travel tournament series currently use reusable human-readable series IDs internally (`travel-qf-*`, `travel-sf-*`, etc.). Travel state is replaced between seasons, so this is not currently proven to corrupt statistics, but the roadmap's stronger rule is that yearly tournament/game identity should also be season-specific.
+### P2 — archived generated-player profile edge case
+Watch the previously isolated case where a historical generated-player profile did not display frozen stats. Do not patch preemptively unless reproduced.
 
-Before senior completion, verify Travel history and current Travel schedule never confuse two seasons. If any collision appears, season-scope the Travel tournament identity rather than patching individual screens.
+### P2 — transition UI legacy refresh work
+The next-season cutscene still contains legacy hidden tab refresh behavior in `hardRefreshRolloverUI()`. Canonical calendar sync now owns Schedule correctness, so some of this may eventually be removable.
 
-### P2 — transition UI still performs legacy hidden tab refreshes
-The next-season cutscene contains a legacy `hardRefreshRolloverUI()` helper that opens Schedule → League → Home behind the cutscene. Canonical calendar sync now makes this unnecessary for Schedule correctness.
+Do not refactor it before the fresh playthrough unless it produces an actual transition problem.
 
-It is not currently a correctness blocker, but it is a likely source of avoidable work during rollover. Remove/refactor only with immediate transition regression testing because this path touches several presentation systems at once.
+### P2 — runtime module count / wrapper layering
+The project intentionally moved focused systems out of `game.js` / `world.js`, but several feature areas still layer wrappers around common functions. Prefer one owner per responsibility when a proven problem justifies consolidation.
 
-### P2 — runtime module count is high
-The project has intentionally moved new systems out of `game.js` / `world.js`, which is good, but several feature areas now use layered wrappers around the same functions. Continue to prefer one canonical owner per responsibility and retire narrow repair wrappers when their behavior can safely be consolidated.
-
-Do not perform a broad rewrite immediately before the full playthrough.
+Do not perform a broad rewrite before the full playthrough.
 
 ### P2 — coach objective balance
 The objective plumbing is functional. Point/win targets and promotion thresholds should be tuned from the real Freshman → Senior experience rather than overfitted through diagnostics.
 
 ### P3 — dev controls
-Dev shortcuts remain useful for the pre-alpha hardening pass. They should not be removed until the full HS QA run is complete.
+Dev shortcuts remain useful for diagnosis during the pre-alpha QA cycle. Do not remove them until the full HS QA run is complete.
 
-## Pre-playthrough hard gate
+## Final pre-playthrough gate
 
-Do not begin the fresh HS playthrough until all of these pass:
-
+Completed:
 1. App boots without runtime error.
-2. Sophomore dev shortcut creates the 2024–25 season correctly.
-3. New Schedule immediately shows the 2024–25 calendar without extra navigation.
-4. At least one sophomore game produces non-zero player statistics.
-5. Stats survive reload without duplication.
-6. Current Top 100 contains only eligible active draft classes.
-7. Contextual coach meeting opens and creates an objective.
-8. Promotion/demotion diagnostics leave a valid lineup with one career player and no duplicate role slot.
-9. Fresh New Career still begins on the canonical 2023–24 Freshman timeline.
+2. Sophomore/returning-year lifecycle has been exercised in dev testing.
+3. New Schedule projects the returning-season calendar correctly.
+4. Returning-season player statistics were repaired and live tested during hardening.
+5. Current Top 100/coach/role systems are functional.
+6. Film Study replacement is live validated.
+7. Permanent 250–500ms polling loops are removed and normal navigation/event flow is live validated.
+8. Broad MutationObserver audit is complete and the clearly redundant full-document observer is removed.
 
-Once those pass, start a completely new career and use the four-year playthrough itself as the next QA phase.
+Remaining before New Career:
+9. Refresh authoritative roadmap/audit to the current state. COMPLETE with this update.
+10. Perform one final static integrity check of the resulting runtime stack.
+
+If the static integrity check passes, stop building and create the fresh career.
 
 ## During the full playthrough
 
 Tune/fix one issue at a time while watching:
 - progression pace and XP
+- Film Study/Training cadence and reward feel
 - coach objective difficulty/frequency
 - lineup movement
 - scouting exposure and ranking movement
