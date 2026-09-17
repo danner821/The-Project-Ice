@@ -1,0 +1,88 @@
+name: Final Project Ice Integrity Gate
+
+on:
+  push:
+    paths:
+      - '.github/final-project-ice-integrity.trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse all live public JavaScript
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' file; do
+            node --check "$file"
+            count=$((count+1))
+          done < <(find artifacts/project-ice/public -maxdepth 1 -type f -name '*.js' -print0 | sort -z)
+          echo "Parsed $count public runtime JS files successfully."
+          test "$count" -gt 0
+      - name: Verify Vite runtime module references exist
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path('artifacts/project-ice')
+          text = (root / 'vite.config.ts').read_text()
+          refs = sorted(set(re.findall(r"html\.includes\('/([^']+\.js)'\)", text)))
+          missing = [name for name in refs if not (root / 'public' / name).exists()]
+          print(f'Vite injects {len(refs)} public runtime modules.')
+          if missing:
+              raise SystemExit('Missing injected runtime files: ' + ', '.join(missing))
+          PY
+      - name: Verify hardening invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          pub = Path('artifacts/project-ice/public')
+          permanent_pollers = {
+              'postseason-checkpoint-event.js': 'setInterval(',
+              'postseason-ui.js': 'setInterval(',
+              'season-lifecycle-migrations.js': 'setInterval(',
+          }
+          for name, needle in permanent_pollers.items():
+              text = (pub / name).read_text()
+              if needle in text:
+                  raise SystemExit(f'Permanent polling regression in {name}')
+          travel = (pub / 'travel-season-id-integrity.js').read_text()
+          if 'observer.observe(document.documentElement' in travel:
+              raise SystemExit('Broad Travel identity observer regression detected')
+          film = (pub / 'film-study-event.js').read_text()
+          required = ['Offensive Reads', 'Defensive Details', 'Special Teams', 'projectice:next-high-school-season-started']
+          missing = [item for item in required if item not in film]
+          if missing:
+              raise SystemExit('Film Study integrity missing: ' + ', '.join(missing))
+          roadmap = (Path('artifacts/project-ice/PROJECT_ICE_ROADMAP.md')).read_text()
+          audit = (Path('artifacts/project-ice/PROJECT_ICE_AUDIT.md')).read_text()
+          if 'Updated: 2026-09-16' not in roadmap:
+              raise SystemExit('Roadmap is not at current hardening checkpoint')
+          if 'Audit date: 2026-09-16' not in audit:
+              raise SystemExit('Audit is not at current hardening checkpoint')
+          print('Hardening invariants verified.')
+          PY
+      - name: Verify critical canonical runtime files
+        run: |
+          test -f artifacts/project-ice/public/world.js
+          test -f artifacts/project-ice/public/game.js
+          test -f artifacts/project-ice/public/film-study-event.js
+          test -f artifacts/project-ice/public/high-school-next-season-transition.js
+          test -f artifacts/project-ice/public/high-school-season-archive.js
+          test -f artifacts/project-ice/public/travel-season-id-integrity.js
+          test -f artifacts/project-ice/PROJECT_ICE_ROADMAP.md
+          test -f artifacts/project-ice/PROJECT_ICE_AUDIT.md
+      - name: Clean up one-time gate
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git rm .github/workflows/final-project-ice-integrity.yml .github/final-project-ice-integrity.trigger
+          git commit -m 'Complete final Project Ice integrity gate'
+          git push
