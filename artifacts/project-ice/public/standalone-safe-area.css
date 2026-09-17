@@ -32,13 +32,29 @@ body {
 }
 
 /*
- * iOS is reporting an oversized bottom safe-area value in this installed
- * web-app shell. Keep the nav compact and let the shell background continue
- * behind the home indicator instead of turning that inset into nav padding.
+ * Keep iOS-reported safe-area values out of the flex sizing for the career
+ * navigation. The nav gets one explicit compact height and the shell itself
+ * continues behind the system home-indicator area.
  */
 #hub-screen .hub-nav {
-  padding-bottom: 14px !important;
+  flex: 0 0 72px !important;
+  height: 72px !important;
+  min-height: 72px !important;
+  max-height: 72px !important;
+  padding: 6px 0 8px !important;
+  margin: 0 !important;
   background: #040814;
+  align-items: stretch;
+}
+
+#hub-screen .hub-nav__tab {
+  height: 100%;
+  padding: 4px 2px !important;
+}
+
+/* Do not let an anomalous iOS bottom inset inflate the scrollable hub content. */
+#hub-screen .hub-content {
+  padding-bottom: 20px !important;
 }
 
 /* Arena remains full-bleed; only the scoreboard clears the status area. */
