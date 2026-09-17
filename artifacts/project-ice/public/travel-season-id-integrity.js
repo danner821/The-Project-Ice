@@ -122,17 +122,17 @@
   }
 
   const engine = document.getElementById('pi-travel-tournament-engine-loader');
-  if (engine) engine.addEventListener('load', installHooks);
+  if (engine) {
+    if (engine.dataset.loaded === 'true') installHooks();
+    else engine.addEventListener('load', installHooks, { once: true });
+  }
 
-  const observer = new MutationObserver(() => {
-    installHooks();
-    if (
-      typeof WorldEngine.ensureTravelTournamentProgression === 'function' &&
-      typeof WorldEngine.syncCareerTravelSchedule === 'function'
-    ) observer.disconnect();
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-
+  /*
+   * travel-hockey-season-ui.js is loaded earlier in the canonical Vite stack
+   * and creates the engine loader synchronously. The previous documentElement
+   * MutationObserver watched every DOM insertion only to discover that known
+   * script. Use the loader lifecycle directly instead.
+   */
   installHooks();
   window.addEventListener('projectice:next-high-school-season-started', normalizeTravelIdentity);
 
