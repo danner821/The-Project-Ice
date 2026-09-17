@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MODULE_VERSION = 3;
+  const MODULE_VERSION = 4;
   const WINDOW_DAYS = 7;
   const MIN_EVENTS_PER_WINDOW = 2;
 
@@ -105,26 +105,29 @@
 
     event.type = type;
     event.eventType = type;
-    event.eventKey = practice ? 'practice-systems' : 'recovery';
-    event.label = practice ? 'Playoff Practice' : 'Recovery Session';
-    event.shortLabel = practice ? 'Practice' : 'Recovery';
-    event.icon = practice ? '🏒' : '😴';
-    event.location = practice ? 'Team Rink' : 'Training Facility';
+    event.eventKey = practice ? 'practice-systems' : 'film-study';
+    event.label = practice ? 'Playoff Practice' : 'Playoff Film Study';
+    event.shortLabel = practice ? 'Practice' : 'Film Study';
+    event.icon = practice ? '🏒' : '🎥';
+    event.location = practice ? 'Team Rink' : 'Video Room';
     event.objective = practice
       ? 'Stay sharp and prepare for the next playoff test.'
-      : 'Reset physically and mentally between postseason games.';
+      : 'Review the last game and sharpen one detail before the next postseason test.';
     event.description = practice
       ? 'A focused postseason team session built around systems, execution, and preparation.'
-      : 'A postseason recovery day focused on resetting before the next test.';
-    event.focus = practice ? 'systems' : null;
+      : 'A focused postseason video session built around the last game and the next opponent.';
+    event.focus = practice ? 'systems' : 'film-study';
+
+    if (!practice) {
+      event.completeScreen = 'film-study';
+    }
 
     /*
-     * Match the canonical high-school event contract from world.js.
-     * Practice is an interactive career event and must stop a multi-day sim
-     * before the calendar can continue. Recovery remains a normal quick event
-     * that can still be entered directly from Home/Schedule.
+     * Practice and Film Study are both intentional career interactions.
+     * Film Study replaces passive Recovery and must stop a multi-day sim so
+     * the player can choose a focus before continuing.
      */
-    event.requiresPlayerInteraction = practice;
+    event.requiresPlayerInteraction = true;
     event.cadenceVersion = MODULE_VERSION;
     return event;
   }
@@ -173,7 +176,7 @@
       if (
         event.type !== desiredType ||
         Number(event.cadenceVersion) !== MODULE_VERSION ||
-        (desiredType === 'practice' && event.requiresPlayerInteraction !== true)
+        event.requiresPlayerInteraction !== true
       ) {
         applyEventPresentation(event, desiredType);
         changed = true;
@@ -260,6 +263,7 @@
       minimumCareerEventsPerSevenDays: MIN_EVENTS_PER_WINDOW,
       gamesEveryOtherDay: true,
       adaptiveAroundKnownCareerGames: true,
+      filmStudyReplacesRecovery: true,
     };
 
     const previousCadence = post.cadence || {};
@@ -267,7 +271,8 @@
       Number(previousCadence.version) !== nextCadence.version ||
       Number(previousCadence.minimumCareerEventsPerSevenDays) !== MIN_EVENTS_PER_WINDOW ||
       previousCadence.gamesEveryOtherDay !== true ||
-      previousCadence.adaptiveAroundKnownCareerGames !== true
+      previousCadence.adaptiveAroundKnownCareerGames !== true ||
+      previousCadence.filmStudyReplacesRecovery !== true
     ) {
       post.cadence = {
         ...previousCadence,
@@ -299,4 +304,17 @@
   WorldEngine.syncHighSchoolPostseasonCadence = syncCadence;
 
   syncCadence({ save: true });
+
+  /*
+   * Film Study is the player-facing replacement for Recovery. This cadence
+   * module is part of every career boot already, so load the focused runtime
+   * once without adding another Vite ownership layer.
+   */
+  if (!document.getElementById('pi-film-study-runtime')) {
+    const script = document.createElement('script');
+    script.id = 'pi-film-study-runtime';
+    script.src = '/film-study-event.js';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
 })();
