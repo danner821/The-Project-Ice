@@ -1,0 +1,29 @@
+name: Fix Film Study Begin Route
+
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_film_study_begin_route.py'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply dedicated event route ordering fix
+        run: python .github/scripts/fix_film_study_begin_route.py
+      - name: Static check
+        run: node --check artifacts/project-ice/public/game.js
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Route dedicated events before generic completion' || exit 0
+          git push
