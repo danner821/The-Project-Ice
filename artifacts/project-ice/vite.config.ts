@@ -19,6 +19,13 @@ const runtimeModulesPlugin = {
   transformIndexHtml(html: string) {
     const scripts: string[] = [];
 
+    if (!html.includes('/standalone-safe-area.css')) {
+      html = html.replace(
+        '</head>',
+        '    <link rel="stylesheet" href="/standalone-safe-area.css" />\n  </head>',
+      );
+    }
+
     if (!html.includes('/disable-game-zoom.js')) scripts.push('    <script src="/disable-game-zoom.js"></script>');
     if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
     if (!html.includes('/career-time.js')) scripts.push('    <script src="/career-time.js"></script>');
