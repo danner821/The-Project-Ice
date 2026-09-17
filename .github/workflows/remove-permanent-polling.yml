@@ -1,0 +1,42 @@
+name: Remove Permanent Polling
+
+on:
+  push:
+    paths:
+      - '.github/scripts/remove_permanent_polling.py'
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Replace permanent polling with lifecycle events
+        run: python .github/scripts/remove_permanent_polling.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/postseason-checkpoint-event.js
+          node --check artifacts/project-ice/public/postseason-ui.js
+          node --check artifacts/project-ice/public/season-lifecycle-migrations.js
+          python - <<'PY'
+          from pathlib import Path
+          bad=[]
+          for p in Path('artifacts/project-ice/public').glob('*.js'):
+              text=p.read_text(errors='ignore')
+              if 'window.setInterval(sync, 250)' in text or 'window.setInterval(observeActiveCareer, 250)' in text or 'normalizeCheckpoint({ save: true });\n  }, 500)' in text:
+                  bad.append(str(p))
+          if bad:
+              raise SystemExit('Permanent polling remains: ' + ', '.join(bad))
+          PY
+      - name: Commit hardening
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Replace permanent polling with lifecycle events' || exit 0
+          git push
