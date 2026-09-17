@@ -1,0 +1,59 @@
+/* ============================================================
+   PROJECT ICE — iOS standalone safe-area shell
+   Applies only when Project Ice is launched as an installed web app.
+   Keeps gameplay/layout CSS unchanged in normal browser/Replit testing.
+   ============================================================ */
+
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    background: #040814;
+  }
+
+  /*
+   * In iOS standalone mode, sizing these two full-screen shells with fixed
+   * viewport edges is more reliable than relying on 100dvh around the
+   * translucent status/home-indicator areas.
+   */
+  #hub-screen,
+  #arena-screen {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  /*
+   * The refreshed Hub header replaced the older safe-area-aware top padding.
+   * Put the safe area on the Hub shell so every tab (Home, Schedule, Player,
+   * Team, League) starts below the iPhone status area consistently.
+   */
+  #hub-screen {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: 0;
+  }
+
+  #hub-screen .hub-info-bar--refreshed {
+    padding-top: 15px;
+  }
+
+  /* Extend the navigation treatment through the home-indicator safe area. */
+  #hub-screen .hub-nav {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+    background: #040814;
+  }
+
+  /*
+   * Arena visuals stay full bleed, but the hanging scoreboard must clear the
+   * translucent iOS status area.
+   */
+  #arena-screen .arena__scoreboard {
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+  }
+}
