@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/scripts/replace_recovery_with_film_study.py'
       - '.github/workflows/replace-recovery-with-film-study.yml'
+      - 'artifacts/project-ice/public/film-study-event.js'
 permissions:
   contents: write
 jobs:
