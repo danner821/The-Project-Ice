@@ -1,0 +1,33 @@
+name: Replace Recovery With Film Study
+on:
+  push:
+    paths:
+      - '.github/scripts/replace_recovery_with_film_study.py'
+      - '.github/workflows/replace-recovery-with-film-study.yml'
+permissions:
+  contents: write
+jobs:
+  film-study:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Film Study replacement
+        run: python .github/scripts/replace_recovery_with_film_study.py
+      - name: Validate JavaScript
+        run: |
+          node --check artifacts/project-ice/public/film-study-event.js
+          node --check artifacts/project-ice/public/postseason-cadence.js
+          node --check artifacts/project-ice/public/game.js
+          node --check artifacts/project-ice/public/world.js
+      - name: Verify Film Study runtime injection
+        run: grep -q '/film-study-event.js' artifacts/project-ice/vite.config.ts
+      - name: Commit Film Study runtime
+        run: |
+          git config user.name 'Project Ice Bot'
+          git config user.email 'actions@github.com'
+          git add artifacts/project-ice/public/film-study-event.js artifacts/project-ice/public/postseason-cadence.js artifacts/project-ice/vite.config.ts
+          git commit -m 'Replace Recovery with interactive Film Study' || exit 0
+          git pull --rebase origin main
+          git push origin main
