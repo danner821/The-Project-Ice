@@ -1,7 +1,7 @@
 # Project Ice — Authoritative Roadmap
 
-Updated: 2026-09-03
-Authoritative planning checkpoint: Phase 3.5 multi-year HS lifecycle
+Updated: 2026-09-16
+Authoritative planning checkpoint: pre-playthrough hardening complete; final static integrity check next
 
 This file is the planning source of truth. Always use the latest code and this roadmap before making architectural decisions. Do not silently fall back to older phase ordering.
 
@@ -14,21 +14,14 @@ Phase 2 — Home / Career Hub Refresh
 Status: COMPLETE / LIVE VALIDATED
 
 Phase 3 — Complete High School Season Lifecycle
-Status: ACTIVE
+Status: IMPLEMENTED / PRE-PLAYTHROUGH HARDENING COMPLETE
 
-Completed/live-validated Phase 3 systems:
-- 3.1 Postseason Foundation
-- 3.2 Playoff Presentation + Statistics
-- 3.3 Championship + Awards
-- 3.4 Travel Hockey
-- 3.5 offseason entry and two canonical Training events per seven days
-
-Current mini-phase:
-- Phase 3.5A — Canonical Time + Birthdates
+Phase 4 — Full Fresh-Career HS Playthrough / QA
+Status: NEXT, after one final static integrity check
 
 The HS yearly rhythm is locked as:
 
-Regular Season → Playoff Preparation → Playoffs → Champion → Awards → Travel Tryouts → Summer Travel Tournament → Offseason Development → League Season Recap → Career Player Season Recap → Next Season Cutscene → Returning Tryouts → Next HS Season
+Regular Season → Playoff Preparation → Playoffs → Champion → Awards → Travel Tryouts → Summer Travel Tournament → Offseason Development → League Season Recap → Career Player Season Recap → Next Season Cutscene → Returning Varsity Tryouts → Next HS Season
 
 This lifecycle repeats through freshman, sophomore, junior and senior seasons.
 
@@ -44,6 +37,8 @@ Locked rules:
 - HS integration replaces generated roster slots rather than enlarging rosters.
 - Current Project Ice team and factual real-world biography/team snapshot remain separate concepts.
 - Player-facing potential stays visible.
+- Public prospect rankings use the calibrated V2 model rather than a simple OVR/potential sort.
+- Public reputation tiers remain related to, but distinct from, ranking position.
 
 ---
 
@@ -55,7 +50,7 @@ The Home dashboard, weekly calendar, current objective, Next Big Moment, Last Ga
 ---
 
 # Phase 3 — Complete High School Season Lifecycle
-Status: ACTIVE
+Status: IMPLEMENTED / PRE-PLAYTHROUGH HARDENING COMPLETE
 
 Goal: make all four HS years function as one persistent living career world with permanent history, aging, roster turnover, recurring seasons and reusable lifecycle systems.
 
@@ -97,9 +92,7 @@ Implemented:
 ### Permanent award identity rule
 Awards are permanent player career facts, not temporary season-screen text.
 
-Every award record must retain the winner's stable playerId. A player's profile must aggregate their awards across every completed season. If a player wins League MVP as a freshman, that award must still appear on that player's profile as a sophomore, junior, senior and later in their career.
-
-Season rollover, stat resets, roster movement and graduation must never detach an award from its winner.
+Every award record retains the winner's stable playerId. A player's profile aggregates awards across completed seasons. Season rollover, stat resets, roster movement and graduation must never detach an award from its winner.
 
 ## Phase 3.4 — Travel Hockey
 Status: COMPLETE / LIVE VALIDATED
@@ -116,14 +109,12 @@ Implemented:
 - Travel Champion + Tournament MVP
 - background tournament continuation after career-player elimination
 - Travel closeout into normal offseason
+- season-scoped Travel tournament/game identity protection
 
 Travel remains a separate statistical namespace from HS league history, while the Travel Champion and Tournament MVP may be referenced on that year's overall season recap.
 
 ## Phase 3.5 — Multi-Year HS Lifecycle
-Status: ACTIVE
-
-### 3.5A — Canonical Time + Birthdates
-Status: ACTIVE / NEXT IMPLEMENTATION
+Status: IMPLEMENTED / HARDENED
 
 Canonical HS timeline:
 - Freshman: 2023–24
@@ -131,108 +122,29 @@ Canonical HS timeline:
 - Junior: 2025–26
 - Senior: 2026–27
 
-Requirements:
-- eliminate conflicting fresh-career 2026/2027 hardcodes
-- one canonical season identity contract
-- every player has a persistent birthDate/effective birth date
-- age is derived from birthdate + current game date and changes naturally on birthdays
-- school class is separate from age
-- preserve factual real-prospect DOBs when known
-- if a sourced prospect only has birth year, retain that factual source value and track an internal deterministic effective date rather than pretending an exact factual birthday is known
-- generated players receive deterministic believable birthdates consistent with their current age/class
-- existing progressed/dev saves must not be rewound by the fresh-career timeline migration
+Implemented lifecycle architecture:
+- canonical time/season identity
+- birthdate/effective-birthdate age model
+- permanent season archive and League History
+- League Season Recap
+- Career Player Season Recap
+- Next Season Cutscene
+- reusable annual HS world rollover
+- Returning Varsity Tryouts
+- fresh yearly HS schedule generation
+- season-scoped game identity
+- recurring coach/role objectives
+- current-season stats reset only after archival
+- permanent player, award and historical identity preservation
 
-### 3.5B — Permanent Season Archive + League History
-Status: PLANNED
+### Annual archive rule
+Before the living world mutates for a new year, the completed season is frozen into the canonical yearly history owner. The archive preserves season identity, standings, champion, playoff results, awards, leaders, career-player results, team result, records/history and relevant Travel references.
 
-Before the living world mutates for a new year, freeze the completed season into one immutable canonical archive, e.g. `world.history.highSchoolSeasons`.
+### Annual rollover rule
+One reusable annual service handles each HS transition. Seniors graduate from active HS rosters but remain historical identities; younger classes advance; incoming players fill the new class; roster sizes stay stable; AI lineups recalculate; the career player remains with the same school unless a future explicit transfer system is designed.
 
-Every archived season preserves:
-- season identity/year
-- final standings
-- champion and runner-up
-- complete playoff bracket/series/results
-- league awards and Playoff MVP, with stable playerIds
-- top league leaders
-- career-player regular-season and playoff results
-- career-player team and final role
-- relevant team result
-- relevant records/history
-- Travel Champion and Tournament MVP references
-
-League → History must list every completed season and allow the exact historical Season Recap to be reopened forever.
-
-Do not create separate competing history owners for standings, champion, awards, etc. The yearly season archive is the canonical historical owner; existing one-off history structures become compatibility inputs where needed.
-
-### 3.5C — League Season Recap
-Status: PLANNED
-
-At the Aug. 31 end-of-offseason checkpoint, screen one shows the completed season from the immutable archive:
-- champion
-- final standings
-- top 3 in the four canonical headline stat categories used by League Leaders
-- award winners
-- Playoff MVP
-- Travel Champion
-- Travel Tournament MVP
-
-This exact screen must remain reopenable later from League History.
-
-### 3.5D — Career Player Season Recap
-Status: PLANNED
-
-Screen two summarizes the career player's year:
-- team and final lineup role
-- Regular Season stats
-- Playoff stats
-- Travel level/stats/result
-- team finish
-- awards/honors
-- opening OVR → ending OVR
-- each attribute that actually increased
-- meaningful scouting/prospect/reputation/potential movement when applicable
-- meaningful milestones only; avoid clutter
-
-A season-opening development snapshot must be saved so growth is measured from actual beginning/end state rather than reverse-engineered from XP.
-
-### 3.5E — Next Season Cutscene
-Status: PLANNED
-
-After Continue on the career recap:
-- leave normal Hub presentation
-- cinematic school-year completion beat
-- announce the next class, e.g. Sophomore Season
-- announce next season label
-- transition to September 1
-- perform yearly world rollover behind this presentation
-
-### 3.5F — Annual HS World Rollover
-Status: PLANNED
-
-One reusable annual service must handle every transition; do not build separate sophomore/junior/senior hacks.
-
-Requirements:
-- archive old season BEFORE mutation/reset
-- seniors graduate from active HS rosters but remain persistent historical identities
-- juniors → seniors
-- sophomores → juniors
-- freshmen → sophomores
-- incoming freshmen/prospects enter
-- roster sizes remain stable
-- real prospects continue using persistent identities
-- AI lineups recalculate from the new roster
-- career-player program/team remains the same unless a future explicit transfer system is designed
-- current-season standings/stats/award races reset only after archive
-- all yearly lifecycle/game IDs must include season/tournament identity to prevent collisions
-
-### 3.5G — Returning Varsity Tryouts
-Status: PLANNED
-
-Project Ice high-school hockey is Varsity-only. JV is not a live gameplay level.
-
-Returning-year tryouts reuse the existing freshman tryout presentation/drills but answer a different question:
-- the player is already returning to the same Varsity program
-- tryouts determine lineup role, not whether they make JV/Varsity
+### Returning Varsity Tryouts
+High-school hockey is Varsity-only. Returning-year tryouts determine lineup role, not whether the player makes JV/Varsity.
 
 Role outcomes:
 - Forward: Lines 1–4
@@ -240,38 +152,49 @@ Role outcomes:
 
 Evaluation considers current attributes, drill performance, prior-season performance, coach trust, development/context and competition from the changed roster. Career-player placement remains contextual rather than pure OVR sorting.
 
-Use the same relative calendar timing as the canonical freshman-year tryout event after the September 1 return.
-
-### 3.5H — New Season Generation
-Status: PLANNED
-
-After returning tryouts:
-- generate a fresh HS schedule for the new year
-- recalculate rosters/lineups/team strength
-- reset only new-season statistical containers
-- preserve all historical seasons, player career history, awards, records and Travel history
-- generate unique yearly Travel tournament/game IDs
-
 ## Phase 3.6 — Reusable Four-Year HS Loop
-Status: PLANNED
+Status: IMPLEMENTED / AWAITING FULL FRESH-CAREER VALIDATION
 
-Exit condition:
-- the same annual lifecycle can progress Freshman → Sophomore → Junior → Senior without year-specific hacks
-- senior-year Travel is the final HS gameplay chapter
-- all four years remain visible in permanent history
+The runtime is designed to progress Freshman → Sophomore → Junior → Senior without year-specific gameplay forks. The remaining proof is the real four-year playthrough, not more feature construction.
+
+### Pre-playthrough hardening completed 2026-09-16
+- Replaced Recovery with interactive Film Study in the no-fatigue design.
+- Film Study is canonical across new and returning HS seasons.
+- Dedicated Film Study choice flow routes before generic event completion.
+- Film Study rewards only focused attribute XP; Recovery morale/injury effects no longer leak through.
+- Removed the three permanent 250–500ms polling loops and replaced them with lifecycle/UI events.
+- Audited MutationObservers and removed the clearly redundant full-document Travel identity observer.
+- Broad wrapper/module consolidation was intentionally deferred until the playthrough exposes a real failure.
 
 ---
 
 # Phase 4 — Full Fresh-Career HS Playthrough / QA
-Status: PLANNED / HARD GATE BEFORE NHL
+Status: NEXT / HARD GATE BEFORE NHL
 
-After Phase 3.6, start a completely new career and personally play the entire HS career:
+Before pressing New Career, perform one final static integrity check of the resulting runtime stack. If that passes, stop feature building and begin the real playthrough.
+
+Create a completely new career and personally play the entire HS career:
 - Freshman season through Travel/offseason
 - Sophomore season through Travel/offseason
 - Junior season through Travel/offseason
 - Senior season through final Travel
 
 During this playthrough, repair bugs, pacing issues, balance issues, presentation problems and small desired changes one at a time against the real career.
+
+Primary QA watch list:
+- progression pace and attribute XP
+- coach objective difficulty/frequency
+- lineup movement and role security
+- scouting exposure, reputation and ranking movement
+- game/stat realism
+- standings and award races
+- postseason and Travel flow
+- annual archive correctness
+- roster turnover and graduation
+- age/draft-class progression
+- history/profile presentation
+- mobile responsiveness/performance
+- no stale events or duplicate identities across years
 
 Hard exit gate:
 - DO NOT begin Draft/NHL implementation until one newly created career reaches the end of senior-year Travel with correct four-year history and no blocking lifecycle failures.
@@ -322,8 +245,9 @@ Only after the full HS playthrough/audit:
 - Archetype is primarily a player-facing label; development comes from saved development profile/personality/potential/context.
 - Potential stays player-facing.
 - No fatigue mechanic.
+- Recovery is not a live gameplay event; Film Study fills that career-interaction slot.
 - Career-player lineup role is contextual; AI/NPC lineup ordering is primarily ability-based.
-- Practice/recovery/Training are quick career events, not separate playable minigames.
+- Practice, Training and Film Study are quick career events, not separate playable minigames.
 - Play Game, Sim Game and background games share one canonical hockey simulation engine.
 - Real prospects use persistent identities and coexist with generated depth.
 - Real prospect draft classes remain factual.
@@ -332,6 +256,7 @@ Only after the full HS playthrough/audit:
 - Archive before mutating the living world.
 - Annual rollover is generic and reusable across all four HS years.
 - New systems read/write canonical World Engine state and persist through IndexedDB.
+- Prefer lifecycle events and explicit owners over permanent polling or broad DOM observation.
 - Prefer root-cause architecture and small focused commits over stacked display/timing patches.
 - Always reference the latest code and this roadmap before making architectural decisions.
 - If roadmap order changes later, explain why before implementation.
