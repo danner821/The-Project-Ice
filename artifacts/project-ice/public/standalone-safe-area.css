@@ -1,8 +1,5 @@
 /* ============================================================
    PROJECT ICE — iOS safe-area shell
-   The values below are harmless in a normal browser because the
-   env(safe-area-inset-*) variables resolve to 0 there, while installed
-   iPhone web apps receive the real status/home-indicator insets.
    ============================================================ */
 
 html,
@@ -13,10 +10,6 @@ body {
   background: #040814;
 }
 
-/*
- * Keep the two full-screen shells tied to the actual app viewport instead of
- * relying on 100dvh around iOS's translucent status/home-indicator regions.
- */
 #hub-screen,
 #arena-screen {
   position: fixed;
@@ -27,10 +20,7 @@ body {
   max-height: none;
 }
 
-/*
- * Every Career Hub tab shares this shell. The refreshed identity/header and
- * full calendar therefore clear the status bar from the same source.
- */
+/* Career Hub: clear the iPhone status area without changing tab content flow. */
 #hub-screen {
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
@@ -42,16 +32,16 @@ body {
 }
 
 /*
- * Fill the home-indicator region with the navigation treatment rather than
- * exposing the page/background color below the nav.
+ * iOS is reporting an oversized bottom safe-area value in this installed
+ * web-app shell. Keep the nav compact and let the shell background continue
+ * behind the home indicator instead of turning that inset into nav padding.
  */
 #hub-screen .hub-nav {
-  bottom: 0;
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+  padding-bottom: 14px !important;
   background: #040814;
 }
 
-/* Arena remains full-bleed; only the hanging scoreboard clears the status bar. */
+/* Arena remains full-bleed; only the scoreboard clears the status area. */
 #arena-screen .arena__scoreboard {
   top: calc(env(safe-area-inset-top, 0px) + 10px);
 }
