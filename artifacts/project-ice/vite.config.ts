@@ -26,6 +26,7 @@ const runtimeModulesPlugin = {
       );
     }
 
+    if (!html.includes('/ios-viewport-shell.js')) scripts.push('    <script src="/ios-viewport-shell.js"></script>');
     if (!html.includes('/disable-game-zoom.js')) scripts.push('    <script src="/disable-game-zoom.js"></script>');
     if (!html.includes('/career-persistence.js')) scripts.push('    <script src="/career-persistence.js"></script>');
     if (!html.includes('/career-time.js')) scripts.push('    <script src="/career-time.js"></script>');
