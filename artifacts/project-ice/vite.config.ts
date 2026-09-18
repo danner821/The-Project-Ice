@@ -22,7 +22,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/standalone-safe-area.css')) {
       html = html.replace(
         '</head>',
-        '    <link rel="stylesheet" href="/standalone-safe-area.css" />\n  </head>',
+        '    <link rel="stylesheet" href="/standalone-safe-area.css?v=20260917-1" />\n  </head>',
       );
     }
 
