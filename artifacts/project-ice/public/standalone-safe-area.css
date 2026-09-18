@@ -23,7 +23,7 @@ body {
   max-height: none;
 }
 
-/* Career Hub: clear the iPhone status area without changing tab content flow. */
+/* Career Hub: keep the top clear of the iPhone status/Dynamic Island area. */
 #hub-screen {
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
@@ -35,18 +35,23 @@ body {
 }
 
 /*
- * Keep iOS-reported safe-area values out of the flex sizing for the career
- * navigation. The nav gets one explicit compact height and the shell itself
- * continues behind the system home-indicator area.
+ * Pin the career tabs to the physical bottom of the app window instead of
+ * leaving them in the Hub's flex flow. This lets the game content use the
+ * extra vertical space while the tabs remain reachable.
  */
 #hub-screen .hub-nav {
-  flex: 0 0 72px !important;
-  height: 72px !important;
-  min-height: 72px !important;
-  max-height: 72px !important;
-  padding: 6px 0 8px !important;
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  height: 74px !important;
+  min-height: 74px !important;
+  max-height: 74px !important;
+  padding: 5px 0 7px !important;
   margin: 0 !important;
   background: #040814;
+  border-top: 1px solid rgba(28, 52, 96, 0.5);
   align-items: stretch;
 }
 
@@ -55,9 +60,13 @@ body {
   padding: 4px 2px !important;
 }
 
-/* Do not let an anomalous iOS bottom inset inflate the scrollable hub content. */
+/*
+ * Because the nav now overlays the shell, reserve just enough scroll padding
+ * for the final content to be brought above it. The content itself can extend
+ * behind the nav while scrolling, so more of the Hub is visible at once.
+ */
 #hub-screen .hub-content {
-  padding-bottom: 20px !important;
+  padding-bottom: 92px !important;
 }
 
 /* Arena remains full-bleed; only the scoreboard clears the status area. */
