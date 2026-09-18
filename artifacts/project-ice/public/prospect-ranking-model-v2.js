@@ -332,6 +332,23 @@
         },
       };
     }
+
+    /*
+     * A publication is canonical world state, not a presentation cache.
+     * Persist rebuilt V2 rankings once an official career is loaded so merely
+     * closing/reopening the app cannot republish the same date differently.
+     */
+    const hasOfficialCareer = Boolean(
+      world?.player?.playerId ||
+      world?.player?.id ||
+      WorldEngine.getCareerPlayer?.()
+    );
+    if (hasOfficialCareer && typeof WorldEngine.save === 'function') {
+      Promise.resolve(WorldEngine.save()).catch(error => {
+        console.warn('[Project Ice] Could not persist V2 prospect publication:', error);
+      });
+    }
+
     return rows;
   }
 
