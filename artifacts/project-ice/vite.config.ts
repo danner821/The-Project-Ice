@@ -103,7 +103,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/regular-season-game-event-presentation.js')) scripts.push('    <script src="/regular-season-game-event-presentation.js"></script>');
     if (!html.includes('/high-school-tryout-polish.js')) scripts.push('    <script src="/high-school-tryout-polish.js"></script>');
     if (!html.includes('/player-profile-default-collapse.js')) scripts.push('    <script src="/player-profile-default-collapse.js"></script>');
-    if (!html.includes('/prospect-ranking-model-v2.js')) scripts.push('    <script src="/prospect-ranking-model-v2.js?v=20260917-rank-stability-1"></script>');
+    if (!html.includes('/prospect-ranking-model-v2.js')) scripts.push('    <script src="/prospect-ranking-model-v2.js?v=20260918-rank-freeze-1"></script>');
     if (!html.includes('/prospect-reputation-calibration.js')) scripts.push('    <script src="/prospect-reputation-calibration.js"></script>');
     if (!html.includes('/coach-meeting-foundation.js')) scripts.push('    <script src="/coach-meeting-foundation.js"></script>');
     if (!html.includes('/coach-meeting-immersion.js')) scripts.push('    <script src="/coach-meeting-immersion.js"></script>');
