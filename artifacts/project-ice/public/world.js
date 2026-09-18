@@ -2727,7 +2727,11 @@ const WorldEngine = (() => {
 
       potentialAccuracy:
         player.potentialAccuracy ||
-        generatePotentialAccuracy(),
+        getPotentialAccuracyFromConfidence(
+          player.development?.potentialConfidence ??
+          player.potentialConfidence ??
+          50
+        ),
 
       /*
        * Visible direction of the player's current potential
