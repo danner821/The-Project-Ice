@@ -226,7 +226,29 @@
     return Math.min(18, limit);
   }
 
-  function buildRankingSnapshot() {
+  function buildRankingSnapshot(options = {}) {
+    const world = state();
+    const key = publicationKey();
+    const existing = Array.isArray(world?.prospectRankings) ? world.prospectRankings : [];
+    const samePublicationRows =
+      existing.length > 0 &&
+      existing.every(row =>
+        Number(row?.modelVersion) === VERSION &&
+        Number(row?.modelRevision) === REVISION &&
+        String(row?.publicationKey || '') === key
+      );
+
+    /*
+     * Publishing rankings is a state transition, not a read operation.
+     * If this exact 14-day publication already exists, never run the
+     * stabilization algorithm again merely because the app reloaded.
+     * Re-running it with the current ranks as "previous" ranks causes the
+     * board to drift toward the raw ordering on every reopen.
+     */
+    if (samePublicationRows && options.force !== true) {
+      return existing;
+    }
+
     const universe = prospectUniverse();
     const previous = priorRankMap();
     const raw = universe.map(player => {
@@ -266,7 +288,6 @@
       String(a.playerId).localeCompare(String(b.playerId))
     );
 
-    const key = publicationKey();
     const rows = stabilized.slice(0, TOP_LIMIT).map((entry, index) => {
       const rank = index + 1;
       const prev = entry.previousRank;
@@ -309,7 +330,6 @@
       profile.lastRankedPublication = key;
     }
 
-    const world = state();
     if (world) {
       world.prospectRankings = rows;
       world.prospectRankingModelV2 = {
@@ -360,20 +380,58 @@
     const world = state();
     const key = publicationKey();
     const existing = Array.isArray(world?.prospectRankings) ? world.prospectRankings : [];
-    const valid = existing.length > 0 &&
-      existing.every(row => Number(row?.modelVersion) === VERSION && Number(row?.modelRevision) === REVISION) &&
-      String(world?.prospectRankingModelV2?.publicationKey || '') === key &&
-      Number(world?.prospectRankingModelV2?.revision) === REVISION;
-    if (valid) return existing;
+
+    /*
+     * The rows themselves are the canonical published board.
+     * Older saves can be missing the companion metadata object even though
+     * the saved V2 rows are valid. Treating missing metadata as permission to
+     * republish was the reload-rank drift bug.
+     */
+    const samePublicationRows =
+      existing.length > 0 &&
+      existing.every(row =>
+        Number(row?.modelVersion) === VERSION &&
+        Number(row?.modelRevision) === REVISION &&
+        String(row?.publicationKey || '') === key
+      );
+
+    if (samePublicationRows) {
+      if (
+        String(world?.prospectRankingModelV2?.publicationKey || '') !== key ||
+        Number(world?.prospectRankingModelV2?.revision) !== REVISION
+      ) {
+        world.prospectRankingModelV2 = {
+          ...(world.prospectRankingModelV2 || {}),
+          version: VERSION,
+          revision: REVISION,
+          publicationKey: key,
+          publishedAt: world?.prospectRankingModelV2?.publishedAt || currentDate() || null,
+          universeSize: world?.prospectRankingModelV2?.universeSize || prospectUniverse().length,
+          topLimit: TOP_LIMIT,
+          publicationCadenceDays: 14,
+          movementPolicy: 'tiered-evidence-capped',
+        };
+        if (typeof WorldEngine.save === 'function') {
+          Promise.resolve(WorldEngine.save()).catch(error => {
+            console.warn('[Project Ice] Could not repair prospect publication metadata:', error);
+          });
+        }
+      }
+      return existing;
+    }
+
     return buildRankingSnapshot();
   }
 
   WorldEngine.getLegacyProspectRankings = baseGetRankings;
   WorldEngine.getProspectRankings = getProspectRankingsV2;
-  WorldEngine.rebuildProspectRankingModelV2 = buildRankingSnapshot;
+  WorldEngine.rebuildProspectRankingModelV2 = () => buildRankingSnapshot({ force: true });
   WorldEngine.getProspectRankingModelV2 = () => state()?.prospectRankingModelV2 || null;
 
-  /* Force one canonical publication on load so old weekly/raw rankings cannot
-     remain the visible Top 100 once this runtime is installed. */
-  getProspectRankingsV2();
+  /*
+   * Do not publish during script evaluation. game.js loads IndexedDB on
+   * DOMContentLoaded, so publishing here would run against the temporary
+   * pre-load default world. The first real rankings read happens after the
+   * selected career has loaded.
+   */
 })();
