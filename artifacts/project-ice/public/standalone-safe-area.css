@@ -43,12 +43,18 @@ body {
   position: fixed !important;
   left: 0;
   right: 0;
-  bottom: 0;
+  /*
+   * iOS keeps a reserved home-indicator region below the layout viewport.
+   * Do not resize the Hub to fight that. Instead, intentionally let the
+   * navigation extend into that reserved region so the tab row sits at the
+   * physical bottom of the installed app.
+   */
+  bottom: -28px !important;
   z-index: 1000;
-  height: 74px !important;
-  min-height: 74px !important;
-  max-height: 74px !important;
-  padding: 5px 0 7px !important;
+  height: 100px !important;
+  min-height: 100px !important;
+  max-height: 100px !important;
+  padding: 5px 0 33px !important;
   margin: 0 !important;
   background: #040814;
   border-top: 1px solid rgba(28, 52, 96, 0.5);
@@ -66,7 +72,7 @@ body {
  * behind the nav while scrolling, so more of the Hub is visible at once.
  */
 #hub-screen .hub-content {
-  padding-bottom: 92px !important;
+  padding-bottom: 76px !important;
 }
 
 /* Arena remains full-bleed; only the scoreboard clears the status area. */
