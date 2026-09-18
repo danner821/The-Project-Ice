@@ -382,20 +382,25 @@
     const existing = Array.isArray(world?.prospectRankings) ? world.prospectRankings : [];
 
     /*
-     * The rows themselves are the canonical published board.
-     * Older saves can be missing the companion metadata object even though
-     * the saved V2 rows are valid. Treating missing metadata as permission to
-     * republish was the reload-rank drift bug.
+     * A saved board is already a publication. On reload, never republish it
+     * just because older rows are missing V2 metadata. If the in-game date has
+     * not advanced to a new publication window, adopt the saved ordering and
+     * stamp the missing metadata in place. Actual scouting-week processing or
+     * an explicit rebuild is what is allowed to create a new ordering.
      */
-    const samePublicationRows =
+    const storedKey = String(world?.prospectRankingModelV2?.publicationKey || '');
+    const canAdoptExisting =
       existing.length > 0 &&
-      existing.every(row =>
-        Number(row?.modelVersion) === VERSION &&
-        Number(row?.modelRevision) === REVISION &&
-        String(row?.publicationKey || '') === key
-      );
+      (!storedKey || storedKey === key);
 
-    if (samePublicationRows) {
+    if (canAdoptExisting) {
+      for (const row of existing) {
+        row.modelVersion = VERSION;
+        row.modelRevision = REVISION;
+        row.publicationKey = key;
+      }
+
+      const samePublicationRows = true;
       if (
         String(world?.prospectRankingModelV2?.publicationKey || '') !== key ||
         Number(world?.prospectRankingModelV2?.revision) !== REVISION
