@@ -3181,6 +3181,15 @@ function ensureCareerScheduleEventsOnLoad() {
      */
     ensureCareerScheduleEventsOnLoad();
 
+    /*
+     * Film Study owns the former Recovery slot. The Film Study runtime is
+     * installed before IndexedDB finishes loading, so run its canonical
+     * schedule reconciliation again after the saved world has been restored.
+     */
+    if (typeof WorldEngine.syncFilmStudyEvents === 'function') {
+      WorldEngine.syncFilmStudyEvents({ save: true });
+    }
+
     refreshScheduleEvents();
 
     // ── Route based on career stage ───────────────────────────
