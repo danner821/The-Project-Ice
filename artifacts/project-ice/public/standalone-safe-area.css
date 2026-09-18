@@ -13,9 +13,12 @@ body {
 #hub-screen,
 #arena-screen {
   position: fixed;
-  inset: 0;
-  width: auto;
-  height: auto;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: auto;
+  width: 100%;
+  height: var(--project-ice-viewport-height, 100dvh);
   min-height: 0;
   max-height: none;
 }
