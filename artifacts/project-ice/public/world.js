@@ -40150,7 +40150,12 @@ case 'career-defense':
         }
 
         if (!player.potentialAccuracy) {
-          player.potentialAccuracy = generatePotentialAccuracy();
+          player.potentialAccuracy =
+            getPotentialAccuracyFromConfidence(
+              player.development?.potentialConfidence ??
+              player.potentialConfidence ??
+              50
+            );
         }
 
         /*
