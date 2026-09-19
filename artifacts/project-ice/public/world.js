@@ -41992,7 +41992,8 @@ case 'career-defense':
     const malformedFreshBootstrap =
       isOfficial &&
       gamesPlayed === 0 &&
-      (currentDate.startsWith('2022-') || populatedRosterCount < expectedRosterCount);
+      currentDate.startsWith('2022-') &&
+      populatedRosterCount < expectedRosterCount;
 
     if (!malformedFreshBootstrap) return false;
 
@@ -42092,12 +42093,22 @@ case 'career-defense':
 
   async function selectCareerSave(careerId) {
     if (!careerId) return false;
+
     bindActiveCareerId(careerId);
-    const loaded = await load();
-    if (loaded) {
-      repairMalformedFreshCareerIfNeeded();
-    }
-    return loaded;
+
+    /*
+     * Selecting an existing career must be a pure load.
+     *
+     * The old malformed-fresh-career repair called
+     * finalizeFreshCareerAfterTryouts(), which rebuilds the season at the
+     * opening date. On legitimate early careers with 0 GP, that migration
+     * could falsely trigger after every reopen and silently roll the save back
+     * to September 2 while regenerating scouting state.
+     *
+     * Historical repair code may remain available for explicit migrations,
+     * but ordinary Continue Career must never reset an already-saved world.
+     */
+    return await load();
   }
 
   async function beginNewCareerSave() {
