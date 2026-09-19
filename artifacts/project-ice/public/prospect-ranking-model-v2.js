@@ -482,62 +482,20 @@
 
   function getProspectRankingsV2() {
     const world = state();
-    if (!world) return [];
-
-    const token = publicationSourceToken();
-    const ledger =
-      world.prospectPublicationLedger &&
-      typeof world.prospectPublicationLedger === 'object'
-        ? world.prospectPublicationLedger
-        : null;
 
     /*
-     * Same simulated scouting state = exact same publication.
-     * Restore from the immutable ledger if any unrelated startup code touched
-     * the live ranking array or player publicRank fields.
+     * IMPORTANT: this is a READ API.
+     *
+     * Rankings are persistent simulation output. Opening the Player tab,
+     * Prospects screen, Team screen, Travel systems, or reopening the app must
+     * never recalculate, reconcile, stamp, or save a ranking publication.
+     *
+     * Legitimate rank movement is produced only by explicit simulation /
+     * season-transition publishers.
      */
-    if (
-      ledger &&
-      Number(ledger.version) === 1 &&
-      String(ledger.sourceToken || '') === token &&
-      Array.isArray(ledger.rows) &&
-      ledger.rows.length > 0
-    ) {
-      const frozenRows = structuredClone(ledger.rows);
-
-      if (
-        rowsFingerprint(world.prospectRankings) !==
-        String(ledger.fingerprint || rowsFingerprint(frozenRows))
-      ) {
-        world.prospectRankings = structuredClone(frozenRows);
-      }
-
-      syncFrozenRowsToPlayerProfiles(frozenRows);
-      return frozenRows;
-    }
-
-    /*
-     * A different source token means the career actually processed new
-     * scouting state (or crossed a season boundary). At that point the board
-     * currently owned by WorldEngine is legitimate new simulation output and
-     * becomes the next frozen publication.
-     */
-    let rows = Array.isArray(world.prospectRankings)
+    return Array.isArray(world?.prospectRankings)
       ? world.prospectRankings
       : [];
-
-    /*
-     * Brand-new careers / season boundaries can have no published board yet.
-     * Build exactly once, then freeze it. Reads after this never rebuild.
-     */
-    if (rows.length === 0) {
-      rows = baseGetRankings ? baseGetRankings() : [];
-      if (!Array.isArray(rows) || rows.length === 0) {
-        rows = buildRankingSnapshot({ force: true });
-      }
-    }
-
-    return freezePublication(rows, token);
   }
 
   function rebuildProspectRankingModelV2() {
