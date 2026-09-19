@@ -40186,8 +40186,6 @@ case 'career-defense':
       );
     });
 
-    save();
-    
     if (
       !Array.isArray(WorldEngine.state.schedule) ||
       WorldEngine.state.schedule.length === 0
@@ -40200,7 +40198,11 @@ case 'career-defense':
         );
     }
 
-    WorldEngine.save();
+    /*
+     * One canonical save is enough. Returning the promise lets startup await
+     * migrations before publishing/reconciling rankings.
+     */
+    return WorldEngine.save();
   }
   // ── Seed news headlines ─────────────────────────────────────
   // Stored newest-first. Future simulation systems add real
@@ -40794,89 +40796,105 @@ case 'career-defense':
   // Call load() in init(); if no stored world exists it silently
   // falls back to defaults.
 
-  async function save() {
-    const worldSnapshot =
-      structuredClone(_state);
+  /*
+   * IndexedDB saves used to run concurrently. During startup, roster
+   * migrations, ranking reconciliation, Film Study normalization, and the
+   * final init save could all enqueue writes at nearly the same time. An
+   * older snapshot could therefore finish after a newer one and silently
+   * overwrite canonical state. Keep every world write strictly ordered.
+   */
+  let _saveQueue = Promise.resolve(true);
 
-    /*
-     * Primary save: IndexedDB.
-     */
-    try {
-      const database =
-        await openWorldDatabase();
+  function save() {
+    _saveQueue = _saveQueue
+      .catch(() => true)
+      .then(async () => {
+        /*
+         * Snapshot when this queued write actually begins, not when it was
+         * requested. That guarantees later startup mutations are included
+         * instead of preserving stale state in an already-captured object.
+         */
+        const worldSnapshot =
+          structuredClone(_state);
 
-      await new Promise(
-        (resolve, reject) => {
-          const transaction =
-            database.transaction(
-              WORLD_STORE_NAME,
-              'readwrite'
-            );
+        try {
+          const database =
+            await openWorldDatabase();
 
-          const store =
-            transaction.objectStore(
-              WORLD_STORE_NAME
-            );
+          await new Promise(
+            (resolve, reject) => {
+              const transaction =
+                database.transaction(
+                  WORLD_STORE_NAME,
+                  'readwrite'
+                );
+
+              const store =
+                transaction.objectStore(
+                  WORLD_STORE_NAME
+                );
+
+              const activeCareerId = getActiveCareerId();
+
+              store.put({
+                id:
+                  getWorldRecordId(activeCareerId),
+
+                savedAt:
+                  new Date()
+                    .toISOString(),
+
+                world:
+                  worldSnapshot,
+              });
+
+              transaction.oncomplete =
+                () => {
+                  resolve();
+                };
+
+              transaction.onerror =
+                () => {
+                  reject(
+                    transaction.error ||
+                    new Error(
+                      'Project Ice world save transaction failed.'
+                    )
+                  );
+                };
+
+              transaction.onabort =
+                () => {
+                  reject(
+                    transaction.error ||
+                    new Error(
+                      'Project Ice world save transaction was aborted.'
+                    )
+                  );
+                };
+            }
+          );
+
+          database.close();
 
           const activeCareerId = getActiveCareerId();
+          const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
+          if (activeCareerId && activeCareerId !== pendingCareerId) {
+            upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
+          }
 
-          store.put({
-            id:
-              getWorldRecordId(activeCareerId),
+          return true;
+        } catch (error) {
+          console.error(
+            '[WorldEngine] IndexedDB save failed:',
+            error
+          );
 
-            savedAt:
-              new Date()
-                .toISOString(),
-
-            world:
-              worldSnapshot,
-          });
-
-          transaction.oncomplete =
-            () => {
-              resolve();
-            };
-
-          transaction.onerror =
-            () => {
-              reject(
-                transaction.error ||
-                new Error(
-                  'Project Ice world save transaction failed.'
-                )
-              );
-            };
-
-          transaction.onabort =
-            () => {
-              reject(
-                transaction.error ||
-                new Error(
-                  'Project Ice world save transaction was aborted.'
-                )
-              );
-            };
+          return false;
         }
-      );
+      });
 
-      database.close();
-
-      const activeCareerId = getActiveCareerId();
-      const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
-      if (activeCareerId && activeCareerId !== pendingCareerId) {
-        upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
-      }
-    } catch (error) {
-      console.error(
-        '[WorldEngine] IndexedDB save failed:',
-        error
-      );
-
-      return false;
-    }
-
-
-    return true;
+    return _saveQueue;
   }
 
   /**
