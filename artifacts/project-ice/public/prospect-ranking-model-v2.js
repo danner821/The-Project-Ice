@@ -376,61 +376,178 @@
     ? WorldEngine.getProspectRankings.bind(WorldEngine)
     : null;
 
-  function getProspectRankingsV2() {
+  /*
+   * ============================================================
+   * IMMUTABLE SCOUTING PUBLICATIONS
+   * ============================================================
+   *
+   * Rankings are an output of career simulation, not a derived UI value.
+   * Closing/reopening the app must therefore be a pure read.
+   *
+   * A publication may change only when its source token changes:
+   *   - a scouting week is legitimately processed, or
+   *   - the high-school season identity changes.
+   *
+   * Every other caller receives the exact frozen ordering that was already
+   * published, even if some startup/migration code mutates prospect data.
+   */
+  function publicationSourceToken() {
+    const world = state() || {};
+    const seasonId = String(
+      world?.season?.seasonId ||
+      world?.season?.id ||
+      world?.currentSeason ||
+      seasonStartYear() ||
+      'season'
+    );
+
+    const scoutingWeeks = Array.isArray(world?.livingWorld?.scoutingProcessedWeeks)
+      ? world.livingWorld.scoutingProcessedWeeks
+      : [];
+
+    const lastScoutingWeek = scoutingWeeks.length
+      ? String(scoutingWeeks[scoutingWeeks.length - 1])
+      : 'pre-scouting';
+
+    return `${seasonId}|${lastScoutingWeek}`;
+  }
+
+  function rowsFingerprint(rows = []) {
+    return (Array.isArray(rows) ? rows : [])
+      .map(row => `${String(row?.playerId || '')}:${Number(row?.rank) || 0}`)
+      .join('|');
+  }
+
+  function syncFrozenRowsToPlayerProfiles(rows = []) {
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const player = WorldEngine.getPlayerById?.(row?.playerId);
+      if (!player || typeof player !== 'object') continue;
+
+      const profile = player.scoutingProfile || (player.scoutingProfile = {});
+      const rank = Number(row?.rank) || null;
+
+      profile.publicRank = rank;
+      profile.previousRank =
+        Number(row?.previousRank) > 0
+          ? Number(row.previousRank)
+          : profile.previousRank || null;
+      profile.rankChange = Number(row?.rankChange) || 0;
+      profile.trend = row?.trend || profile.trend || 'even';
+      profile.lastRankedPublication =
+        row?.publicationKey ||
+        profile.lastRankedPublication ||
+        publicationKey();
+    }
+  }
+
+  function freezePublication(rows, token, options = {}) {
     const world = state();
-    const key = publicationKey();
-    const existing = Array.isArray(world?.prospectRankings) ? world.prospectRankings : [];
+    if (!world) return [];
 
-    /*
-     * A saved board is already a publication. On reload, never republish it
-     * just because older rows are missing V2 metadata. If the in-game date has
-     * not advanced to a new publication window, adopt the saved ordering and
-     * stamp the missing metadata in place. Actual scouting-week processing or
-     * an explicit rebuild is what is allowed to create a new ordering.
-     */
-    const storedKey = String(world?.prospectRankingModelV2?.publicationKey || '');
-    const canAdoptExisting =
-      existing.length > 0 &&
-      (!storedKey || storedKey === key);
+    const safeRows = structuredClone(Array.isArray(rows) ? rows : []);
 
-    if (canAdoptExisting) {
-      for (const row of existing) {
-        row.modelVersion = VERSION;
-        row.modelRevision = REVISION;
-        row.publicationKey = key;
-      }
+    world.prospectRankings = safeRows;
+    world.prospectPublicationLedger = {
+      version: 1,
+      sourceToken: token,
+      publicationKey: publicationKey(),
+      seasonId: String(
+        world?.season?.seasonId ||
+        world?.season?.id ||
+        world?.currentSeason ||
+        ''
+      ),
+      scoutingWeek:
+        Array.isArray(world?.livingWorld?.scoutingProcessedWeeks) &&
+        world.livingWorld.scoutingProcessedWeeks.length
+          ? String(world.livingWorld.scoutingProcessedWeeks[
+              world.livingWorld.scoutingProcessedWeeks.length - 1
+            ])
+          : null,
+      frozenAtDate: currentDate() || null,
+      fingerprint: rowsFingerprint(safeRows),
+      rows: structuredClone(safeRows),
+    };
 
-      const samePublicationRows = true;
-      if (
-        String(world?.prospectRankingModelV2?.publicationKey || '') !== key ||
-        Number(world?.prospectRankingModelV2?.revision) !== REVISION
-      ) {
-        world.prospectRankingModelV2 = {
-          ...(world.prospectRankingModelV2 || {}),
-          version: VERSION,
-          revision: REVISION,
-          publicationKey: key,
-          publishedAt: world?.prospectRankingModelV2?.publishedAt || currentDate() || null,
-          universeSize: world?.prospectRankingModelV2?.universeSize || prospectUniverse().length,
-          topLimit: TOP_LIMIT,
-          publicationCadenceDays: 14,
-          movementPolicy: 'tiered-evidence-capped',
-        };
-        if (typeof WorldEngine.save === 'function') {
-          Promise.resolve(WorldEngine.save()).catch(error => {
-            console.warn('[Project Ice] Could not repair prospect publication metadata:', error);
-          });
-        }
-      }
-      return existing;
+    syncFrozenRowsToPlayerProfiles(safeRows);
+
+    if (options.save !== false && typeof WorldEngine.save === 'function') {
+      Promise.resolve(WorldEngine.save()).catch(error => {
+        console.warn('[Project Ice] Could not persist frozen scouting publication:', error);
+      });
     }
 
-    return buildRankingSnapshot();
+    return safeRows;
+  }
+
+  function getProspectRankingsV2() {
+    const world = state();
+    if (!world) return [];
+
+    const token = publicationSourceToken();
+    const ledger =
+      world.prospectPublicationLedger &&
+      typeof world.prospectPublicationLedger === 'object'
+        ? world.prospectPublicationLedger
+        : null;
+
+    /*
+     * Same simulated scouting state = exact same publication.
+     * Restore from the immutable ledger if any unrelated startup code touched
+     * the live ranking array or player publicRank fields.
+     */
+    if (
+      ledger &&
+      Number(ledger.version) === 1 &&
+      String(ledger.sourceToken || '') === token &&
+      Array.isArray(ledger.rows) &&
+      ledger.rows.length > 0
+    ) {
+      const frozenRows = structuredClone(ledger.rows);
+
+      if (
+        rowsFingerprint(world.prospectRankings) !==
+        String(ledger.fingerprint || rowsFingerprint(frozenRows))
+      ) {
+        world.prospectRankings = structuredClone(frozenRows);
+      }
+
+      syncFrozenRowsToPlayerProfiles(frozenRows);
+      return frozenRows;
+    }
+
+    /*
+     * A different source token means the career actually processed new
+     * scouting state (or crossed a season boundary). At that point the board
+     * currently owned by WorldEngine is legitimate new simulation output and
+     * becomes the next frozen publication.
+     */
+    let rows = Array.isArray(world.prospectRankings)
+      ? world.prospectRankings
+      : [];
+
+    /*
+     * Brand-new careers / season boundaries can have no published board yet.
+     * Build exactly once, then freeze it. Reads after this never rebuild.
+     */
+    if (rows.length === 0) {
+      rows = baseGetRankings ? baseGetRankings() : [];
+      if (!Array.isArray(rows) || rows.length === 0) {
+        rows = buildRankingSnapshot({ force: true });
+      }
+    }
+
+    return freezePublication(rows, token);
+  }
+
+  function rebuildProspectRankingModelV2() {
+    const rows = buildRankingSnapshot({ force: true });
+    return freezePublication(rows, publicationSourceToken());
   }
 
   WorldEngine.getLegacyProspectRankings = baseGetRankings;
   WorldEngine.getProspectRankings = getProspectRankingsV2;
-  WorldEngine.rebuildProspectRankingModelV2 = () => buildRankingSnapshot({ force: true });
+  WorldEngine.rebuildProspectRankingModelV2 = rebuildProspectRankingModelV2;
   WorldEngine.getProspectRankingModelV2 = () => state()?.prospectRankingModelV2 || null;
 
   /*
