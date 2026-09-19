@@ -249,7 +249,22 @@
         }
         if (WorldEngine.state?.player && event.date) WorldEngine.state.player.currentDate = event.date;
 
-        await WorldEngine.save?.();
+        const durableSave =
+          await WorldEngine.save?.();
+
+        if (durableSave !== true) {
+          console.error(
+            '[Project Ice] Film Study completed in memory but durable save verification failed.'
+          );
+
+          window.alert(
+            'Project Ice could not verify this career save. Keep the app open and retry before closing.'
+          );
+
+          root.dataset.completing = '0';
+          return;
+        }
+
         root.remove();
         refreshCareerUI?.();
         const result = {
