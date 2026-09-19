@@ -1622,7 +1622,7 @@ function renderTrainingOptions() {
     .forEach(button => {
       button.addEventListener(
         'click',
-        () => {
+        async () => {
           const trainingKey =
             button.dataset
               .trainingKey;
@@ -1707,6 +1707,32 @@ function renderTrainingOptions() {
            * the career-player UI/save representation.
            */
           syncCareerPlayerWithWorld();
+
+          const durableTrainingSave =
+            await WorldEngine.save?.();
+
+          if (durableTrainingSave !== true) {
+            console.error(
+              '[Project Ice] Training completed in memory but durable save verification failed.'
+            );
+
+            window.alert(
+              'Project Ice could not verify this career save. Keep the app open and retry before closing.'
+            );
+
+            trainingOptions
+              .querySelectorAll(
+                '[data-training-key]'
+              )
+              .forEach(
+                trainingButton => {
+                  trainingButton.disabled =
+                    false;
+                }
+              );
+
+            return;
+          }
 
           saveCareerPreview();
 
@@ -22924,7 +22950,7 @@ bindPregameSimButton();
 // into an existing dedicated event screen.
 document
   .getElementById('btn-ev-begin')
-  .addEventListener('click', () => {
+  .addEventListener('click', async () => {
     const def =
       EventSystem.getCurrentDef();
 
@@ -23067,25 +23093,58 @@ document
 
         syncCareerPlayerWithWorld();
 
-      Game.player.currentDate =
-        WorldEngine.state.season
-          ?.currentDate ||
-        completion.date ||
-        Game.player.currentDate;
+        Game.player.currentDate =
+          WorldEngine.state.season
+            ?.currentDate ||
+          completion.date ||
+          Game.player.currentDate;
 
-      saveCareerPreview();
+        /*
+         * A completed career event is not allowed to present as finished until
+         * the canonical IndexedDB world has been written and read back
+         * successfully. This protects iPhone app closes/reopens from rolling
+         * the career back a day.
+         */
+        const durableSave =
+          await WorldEngine.save?.();
 
-      refreshCareerUI();
+        if (durableSave !== true) {
+          console.error(
+            '[Project Ice] Event completed in memory but durable save verification failed.',
+            {
+              eventId:
+                def?.id ||
+                def?.eventId ||
+                null,
+              date:
+                WorldEngine.state
+                  ?.season
+                  ?.currentDate ||
+                completion.date ||
+                null,
+            }
+          );
 
-      refreshScheduleEvents();
+          window.alert(
+            'Project Ice could not verify this career save. Keep the app open and try the event again before closing.'
+          );
 
-      EventResultsSystem.open(
-        def,
-        completion
-      );
+          return;
+        }
 
-      return;
-    }
+        saveCareerPreview();
+
+        refreshCareerUI();
+
+        refreshScheduleEvents();
+
+        EventResultsSystem.open(
+          def,
+          completion
+        );
+
+        return;
+      }
 
     const toast =
       document.getElementById(
