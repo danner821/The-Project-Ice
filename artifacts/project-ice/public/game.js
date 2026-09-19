@@ -24371,18 +24371,6 @@ async function init() {
   await WorldEngine.ensureGeneratedRosters();
 
   /*
-   * Rankings are persistent career state. Resolve the active publication only
-   * after IndexedDB and roster migrations are finished, then wait for that
-   * exact world snapshot to be committed before the title screen is usable.
-   * This prevents an app close/reopen from rebuilding the same publication
-   * against a slightly different transient startup world.
-   */
-  if (typeof WorldEngine.getProspectRankings === 'function') {
-    WorldEngine.getProspectRankings();
-    await WorldEngine.save?.();
-  }
-
-  /*
    * Careers created before the IndexedDB migration may have lost
    * their small localStorage preview when the old giant world hit
    * the storage quota. Recover it from the canonical world.
