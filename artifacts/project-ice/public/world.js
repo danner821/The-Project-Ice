@@ -58,8 +58,27 @@ const WorldEngine = (() => {
     return `career-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
 
+  let _boundCareerId = null;
+
   function getActiveCareerId() {
-    return localStorage.getItem(ACTIVE_CAREER_ID_KEY) || null;
+    return (
+      _boundCareerId ||
+      localStorage.getItem(ACTIVE_CAREER_ID_KEY) ||
+      null
+    );
+  }
+
+  function bindActiveCareerId(careerId) {
+    _boundCareerId = careerId || null;
+
+    if (careerId) {
+      localStorage.setItem(
+        ACTIVE_CAREER_ID_KEY,
+        careerId
+      );
+    }
+
+    return _boundCareerId;
   }
 
   function getWorldRecordId(careerId = getActiveCareerId()) {
@@ -40895,18 +40914,106 @@ case 'career-defense':
    * overwrite canonical state. Keep every world write strictly ordered.
    */
   let _saveQueue = Promise.resolve(true);
+  let _saveRevision = 0;
+
+  function createPersistentWorldSnapshot() {
+    try {
+      return structuredClone(_state);
+    } catch (structuredCloneError) {
+      /*
+       * World state is data, never runtime behavior. If a late-loaded module
+       * accidentally attached a function/symbol to the world, do not let that
+       * silently disable every future career save. Strip non-persistent values
+       * and keep the canonical data graph saveable.
+       */
+      console.warn(
+        '[WorldEngine] structuredClone failed; using serializable world snapshot.',
+        structuredCloneError
+      );
+
+      const seen = new WeakSet();
+
+      return JSON.parse(
+        JSON.stringify(
+          _state,
+          (key, value) => {
+            if (
+              typeof value === 'function' ||
+              typeof value === 'symbol'
+            ) {
+              return undefined;
+            }
+
+            if (
+              value &&
+              typeof value === 'object'
+            ) {
+              if (seen.has(value)) {
+                return undefined;
+              }
+              seen.add(value);
+            }
+
+            return value;
+          }
+        )
+      );
+    }
+  }
 
   function save() {
+    const requestedCareerId =
+      getActiveCareerId();
+
+    if (!requestedCareerId) {
+      console.error(
+        '[WorldEngine] Refusing to save because no active career is bound.'
+      );
+      return Promise.resolve(false);
+    }
+
+    const requestedRecordId =
+      getWorldRecordId(
+        requestedCareerId
+      );
+
     _saveQueue = _saveQueue
-      .catch(() => true)
+      .catch(error => {
+        console.error(
+          '[WorldEngine] Previous queued save failed:',
+          error
+        );
+        return false;
+      })
       .then(async () => {
-        /*
-         * Snapshot when this queued write actually begins, not when it was
-         * requested. That guarantees later startup mutations are included
-         * instead of preserving stale state in an already-captured object.
-         */
+        const revision =
+          ++_saveRevision;
+
         const worldSnapshot =
-          structuredClone(_state);
+          createPersistentWorldSnapshot();
+
+        worldSnapshot.persistence =
+          {
+            ...(
+              worldSnapshot.persistence &&
+              typeof worldSnapshot.persistence === 'object'
+                ? worldSnapshot.persistence
+                : {}
+            ),
+            careerId:
+              requestedCareerId,
+            recordId:
+              requestedRecordId,
+            revision,
+            currentDate:
+              worldSnapshot?.season?.currentDate ||
+              worldSnapshot?.player?.currentDate ||
+              worldSnapshot?.currentDate ||
+              null,
+          };
+
+        const savedAt =
+          new Date().toISOString();
 
         try {
           const database =
@@ -40920,58 +41027,149 @@ case 'career-defense':
                   'readwrite'
                 );
 
-              const store =
-                transaction.objectStore(
+              transaction
+                .objectStore(
                   WORLD_STORE_NAME
-                );
-
-              const activeCareerId = getActiveCareerId();
-
-              store.put({
-                id:
-                  getWorldRecordId(activeCareerId),
-
-                savedAt:
-                  new Date()
-                    .toISOString(),
-
-                world:
-                  worldSnapshot,
-              });
+                )
+                .put({
+                  id:
+                    requestedRecordId,
+                  careerId:
+                    requestedCareerId,
+                  revision,
+                  savedAt,
+                  world:
+                    worldSnapshot,
+                });
 
               transaction.oncomplete =
-                () => {
-                  resolve();
-                };
+                () => resolve();
 
               transaction.onerror =
-                () => {
-                  reject(
-                    transaction.error ||
-                    new Error(
-                      'Project Ice world save transaction failed.'
-                    )
-                  );
-                };
+                () => reject(
+                  transaction.error ||
+                  new Error(
+                    'Project Ice world save transaction failed.'
+                  )
+                );
 
               transaction.onabort =
-                () => {
-                  reject(
-                    transaction.error ||
-                    new Error(
-                      'Project Ice world save transaction was aborted.'
-                    )
-                  );
-                };
+                () => reject(
+                  transaction.error ||
+                  new Error(
+                    'Project Ice world save transaction was aborted.'
+                  )
+                );
             }
           );
 
+          /*
+           * Do not report success until the exact record we just wrote can be
+           * read back with the same revision/date. This turns silent save
+           * failures or wrong-career writes into a visible false result.
+           */
+          const verifiedRecord =
+            await new Promise(
+              (resolve, reject) => {
+                const transaction =
+                  database.transaction(
+                    WORLD_STORE_NAME,
+                    'readonly'
+                  );
+
+                const request =
+                  transaction
+                    .objectStore(
+                      WORLD_STORE_NAME
+                    )
+                    .get(
+                      requestedRecordId
+                    );
+
+                request.onsuccess =
+                  () => resolve(
+                    request.result ||
+                    null
+                  );
+
+                request.onerror =
+                  () => reject(
+                    request.error ||
+                    new Error(
+                      'Project Ice save verification read failed.'
+                    )
+                  );
+              }
+            );
+
           database.close();
 
-          const activeCareerId = getActiveCareerId();
-          const pendingCareerId = localStorage.getItem(PENDING_CAREER_ID_KEY);
-          if (activeCareerId && activeCareerId !== pendingCareerId) {
-            upsertCareerSaveMetadata(activeCareerId, worldSnapshot);
+          const verified =
+            Boolean(
+              verifiedRecord &&
+              String(
+                verifiedRecord.id ||
+                ''
+              ) ===
+                String(
+                  requestedRecordId
+                ) &&
+              Number(
+                verifiedRecord.revision
+              ) ===
+                revision &&
+              String(
+                verifiedRecord?.world
+                  ?.persistence
+                  ?.careerId ||
+                ''
+              ) ===
+                String(
+                  requestedCareerId
+                ) &&
+              String(
+                verifiedRecord?.world
+                  ?.persistence
+                  ?.currentDate ||
+                ''
+              ) ===
+                String(
+                  worldSnapshot
+                    ?.persistence
+                    ?.currentDate ||
+                  ''
+                )
+            );
+
+          if (!verified) {
+            console.error(
+              '[WorldEngine] Save verification failed.',
+              {
+                requestedCareerId,
+                requestedRecordId,
+                revision,
+                expectedDate:
+                  worldSnapshot
+                    ?.persistence
+                    ?.currentDate ||
+                  null,
+                verifiedRecord,
+              }
+            );
+            return false;
+          }
+
+          if (
+            requestedCareerId &&
+            requestedCareerId !==
+              localStorage.getItem(
+                PENDING_CAREER_ID_KEY
+              )
+          ) {
+            upsertCareerSaveMetadata(
+              requestedCareerId,
+              worldSnapshot
+            );
           }
 
           return true;
@@ -40994,6 +41192,13 @@ case 'career-defense':
    * @returns {boolean} true if a stored world was found and loaded.
    */
   async function load() {
+    bindActiveCareerId(
+      localStorage.getItem(
+        ACTIVE_CAREER_ID_KEY
+      ) ||
+      null
+    );
+
     /*
      * ============================================================
      * PRIMARY LOAD — INDEXEDDB
@@ -41857,7 +42062,7 @@ case 'career-defense':
       careerId = createCareerSaveId();
     }
 
-    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    bindActiveCareerId(careerId);
     localStorage.removeItem(PENDING_CAREER_ID_KEY);
 
     _state = buildDefaults();
@@ -41887,7 +42092,7 @@ case 'career-defense':
 
   async function selectCareerSave(careerId) {
     if (!careerId) return false;
-    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    bindActiveCareerId(careerId);
     const loaded = await load();
     if (loaded) {
       repairMalformedFreshCareerIfNeeded();
@@ -41960,7 +42165,7 @@ case 'career-defense':
     }
 
     const careerId = createCareerSaveId();
-    localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+    bindActiveCareerId(careerId);
     localStorage.setItem(PENDING_CAREER_ID_KEY, careerId);
 
     _state = buildDefaults();
