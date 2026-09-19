@@ -132,9 +132,14 @@
      */
     world.prospectRankings = [];
 
-    const rebuilt = typeof WorldEngine.getProspectRankings === 'function'
-      ? WorldEngine.getProspectRankings()
-      : [];
+    /*
+     * A season boundary is a legitimate simulation event, so publishing a new
+     * board is explicit here. Ordinary getters are intentionally read-only.
+     */
+    const rebuilt =
+      typeof WorldEngine.rebuildProspectRankingModelV2 === 'function'
+        ? WorldEngine.rebuildProspectRankingModelV2()
+        : [];
 
     return Array.isArray(rebuilt) ? rebuilt : [];
   }
