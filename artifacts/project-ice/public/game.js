@@ -24368,7 +24368,7 @@ function recoverCareerPreviewFromWorld() {
 async function init() {
   await WorldEngine.load();
 
-  WorldEngine.ensureGeneratedRosters();
+  await WorldEngine.ensureGeneratedRosters();
 
   /*
    * Rankings are persistent career state. Resolve the active publication only
