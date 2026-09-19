@@ -37839,7 +37839,22 @@ case 'career-defense':
     }));
   }
 
-  function ensureProspectRankingsInitialized() {
+  /*
+   * ============================================================
+   * SCOUTING PUBLICATION OWNERSHIP
+   * ============================================================
+   *
+   * Prospect rankings are simulation state.
+   *
+   * READ paths must NEVER create or rewrite a ranking board. The only code
+   * allowed to publish rankings is an explicit simulation/career lifecycle
+   * transition:
+   *   - initial career publication after tryouts
+   *   - processScoutingWeek(...)
+   *   - explicit season-boundary rebuild
+   */
+
+  function publishInitialProspectRankings() {
     if (Array.isArray(_state.prospectRankings) && _state.prospectRankings.length > 0) {
       return _state.prospectRankings;
     }
@@ -37849,21 +37864,59 @@ case 'career-defense':
       _state?.player?.currentDate ||
       _state?.currentDate ||
       null;
-    const weekKey = date ? getLivingWorldWeekKey(normalizeLivingWorldDateKey(date)) : null;
-    const snapshot = buildCanonicalProspectRankingSnapshot(weekKey || 'bootstrap');
 
-    _state.prospectRankings = snapshot;
+    const weekKey =
+      date
+        ? getLivingWorldWeekKey(
+            normalizeLivingWorldDateKey(date)
+          )
+        : 'career-start';
 
-    if (snapshot.length > 0) {
-      const rankById = new Map(
-        snapshot.map(row => [String(row.playerId || ''), Number(row.rank) || 0])
+    const snapshot =
+      buildCanonicalProspectRankingSnapshot(
+        weekKey || 'career-start'
       );
+
+    _state.prospectRankings =
+      Array.isArray(snapshot)
+        ? snapshot
+        : [];
+
+    if (_state.prospectRankings.length > 0) {
+      const rankById =
+        new Map(
+          _state.prospectRankings.map(row => [
+            String(row?.playerId || ''),
+            Number(row?.rank) || 0,
+          ])
+        );
+
       getScoutingProspectUniverse().forEach(player => {
-        const id = String(player?.id || player?.playerId || '');
-        const rank = rankById.get(id) || 0;
+        const id =
+          String(
+            player?.id ||
+            player?.playerId ||
+            ''
+          );
+
+        const rank =
+          rankById.get(id) ||
+          0;
+
         if (!rank) return;
-        const profile = player.scoutingProfile || (player.scoutingProfile = createDefaultScoutingProfile());
-        if (!(Number(profile.publicRank) > 0)) profile.publicRank = rank;
+
+        const profile =
+          player.scoutingProfile ||
+          (
+            player.scoutingProfile =
+              createDefaultScoutingProfile()
+          );
+
+        profile.publicRank = rank;
+        profile.previousRank = null;
+        profile.rankChange = 0;
+        profile.lastRankedWeek =
+          weekKey || 'career-start';
       });
     }
 
@@ -37872,18 +37925,26 @@ case 'career-defense':
 
   function getProspectRankForPlayer(playerOrId) {
     const player =
-      playerOrId && typeof playerOrId === 'object'
+      playerOrId &&
+      typeof playerOrId === 'object'
         ? playerOrId
         : null;
 
-    const ids = new Set(
-      (player
-        ? [player.sourcePlayerId, player.playerId, player.id, player.prospectId]
-        : [playerOrId]
-      )
-        .filter(Boolean)
-        .map(value => String(value))
-    );
+    const ids =
+      new Set(
+        (
+          player
+            ? [
+                player.sourcePlayerId,
+                player.playerId,
+                player.id,
+                player.prospectId,
+              ]
+            : [playerOrId]
+        )
+          .filter(Boolean)
+          .map(value => String(value))
+      );
 
     if (player?.isCareerPlayer === true) {
       [
@@ -37892,32 +37953,62 @@ case 'career-defense':
         'career-player',
       ]
         .filter(Boolean)
-        .forEach(value => ids.add(String(value)));
+        .forEach(value =>
+          ids.add(String(value))
+        );
     }
 
-    if (ids.size === 0) return null;
+    if (ids.size === 0) {
+      return null;
+    }
 
-    const rankings = ensureProspectRankingsInitialized();
+    /*
+     * PURE READ:
+     * Never bootstrap, rebuild, normalize, or save from this resolver.
+     */
+    const rankings =
+      Array.isArray(_state.prospectRankings)
+        ? _state.prospectRankings
+        : [];
 
-    const row = rankings.find(entry => {
-      const rowIds = [
-        entry?.sourcePlayerId,
-        entry?.playerId,
-        entry?.id,
-        entry?.prospectId,
-      ]
-        .filter(Boolean)
-        .map(value => String(value));
+    const row =
+      rankings.find(entry => {
+        const rowIds = [
+          entry?.sourcePlayerId,
+          entry?.playerId,
+          entry?.id,
+          entry?.prospectId,
+        ]
+          .filter(Boolean)
+          .map(value =>
+            String(value)
+          );
 
-      return rowIds.some(id => ids.has(id));
-    });
+        return rowIds.some(id =>
+          ids.has(id)
+        );
+      });
 
-    const rank = Number(row?.rank || 0);
-    return Number.isFinite(rank) && rank > 0 ? rank : null;
+    const rank =
+      Number(row?.rank || 0);
+
+    return (
+      Number.isFinite(rank) &&
+      rank > 0
+    )
+      ? rank
+      : null;
   }
 
   function getProspectRankings() {
-    return ensureProspectRankingsInitialized();
+    /*
+     * PURE READ:
+     * UI, badges, Travel adapters, and startup code receive only the already
+     * published board. Asking for rankings cannot publish rankings.
+     */
+    return Array.isArray(_state.prospectRankings)
+      ? _state.prospectRankings
+      : [];
   }
 
   function processScoutingWeek(dateString) {
@@ -41654,6 +41745,14 @@ case 'career-defense':
 
     setCurrentDate('2026-09-02', { save: false });
     refreshTeamRosterManagement(canonicalPlayer.teamId, { save: false });
+
+    /*
+     * Career creation is a legitimate publication event.
+     * Establish the first scouting board exactly once here; after this, reads
+     * remain side-effect free until simulation processes a scouting week.
+     */
+    publishInitialProspectRankings();
+
     save();
 
     return canonicalPlayer;
@@ -45089,6 +45188,7 @@ case 'career-defense':
       getCareerRosterPlayerFromWorldState(),
     getAllWorldPlayers,
     getScoutingProspectUniverse,
+    publishInitialProspectRankings,
     getProspectRankings,
     getProspectRankForPlayer,
     getExternalProspects: () => ensureExternalProspectWorld(),
