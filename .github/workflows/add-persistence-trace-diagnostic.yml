@@ -1,0 +1,33 @@
+name: Add Persistence Trace Diagnostic
+
+on:
+  push:
+    paths:
+      - '.github/scripts/add_persistence_trace_diagnostic.py'
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Add persistence tracing
+        run: python .github/scripts/add_persistence_trace_diagnostic.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/public/persistence-trace-debug.js
+          grep -q "projectice_persistence_trace_v1" artifacts/project-ice/public/world.js
+          grep -q "SAVE TRACE" artifacts/project-ice/public/persistence-trace-debug.js
+      - name: Commit diagnostic
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Instrument canonical career persistence path' || exit 0
+          git push
