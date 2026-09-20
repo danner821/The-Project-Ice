@@ -40916,6 +40916,35 @@ case 'career-defense':
   let _saveQueue = Promise.resolve(true);
   let _saveRevision = 0;
 
+  const PERSISTENCE_TRACE_KEY = 'projectice_persistence_trace_v1';
+
+  function tracePersistence(type, details = {}) {
+    try {
+      const existing = JSON.parse(localStorage.getItem(PERSISTENCE_TRACE_KEY) || '[]');
+      const trace = Array.isArray(existing) ? existing : [];
+      trace.push({
+        at: new Date().toISOString(),
+        type,
+        activeCareerId: getActiveCareerId(),
+        seasonDate:
+          _state?.season?.currentDate ||
+          _state?.player?.currentDate ||
+          _state?.currentDate ||
+          null,
+        playerDate:
+          _state?.player?.currentDate ||
+          null,
+        ...details,
+      });
+      localStorage.setItem(
+        PERSISTENCE_TRACE_KEY,
+        JSON.stringify(trace.slice(-80))
+      );
+    } catch (_) {
+      /* Diagnostic tracing must never affect gameplay. */
+    }
+  }
+
   function createPersistentWorldSnapshot() {
     try {
       return structuredClone(_state);
@@ -40964,6 +40993,14 @@ case 'career-defense':
   function save() {
     const requestedCareerId =
       getActiveCareerId();
+
+    tracePersistence('save-requested', {
+      requestedCareerId,
+      requestedRecordId:
+        requestedCareerId
+          ? getWorldRecordId(requestedCareerId)
+          : null,
+    });
 
     if (!requestedCareerId) {
       console.error(
@@ -41014,6 +41051,20 @@ case 'career-defense':
 
         const savedAt =
           new Date().toISOString();
+
+        tracePersistence('save-snapshot', {
+          requestedCareerId,
+          requestedRecordId,
+          revision,
+          snapshotDate:
+            worldSnapshot?.season?.currentDate ||
+            worldSnapshot?.player?.currentDate ||
+            worldSnapshot?.currentDate ||
+            null,
+          snapshotPlayerDate:
+            worldSnapshot?.player?.currentDate ||
+            null,
+        });
 
         try {
           const database =
@@ -41141,6 +41192,26 @@ case 'career-defense':
                 )
             );
 
+          tracePersistence(
+            verified ? 'save-verified' : 'save-verification-failed',
+            {
+              requestedCareerId,
+              requestedRecordId,
+              revision,
+              expectedDate:
+                worldSnapshot?.persistence?.currentDate ||
+                null,
+              verifiedRecordDate:
+                verifiedRecord?.world?.season?.currentDate ||
+                verifiedRecord?.world?.player?.currentDate ||
+                verifiedRecord?.world?.currentDate ||
+                null,
+              verifiedRecordPlayerDate:
+                verifiedRecord?.world?.player?.currentDate ||
+                null,
+            }
+          );
+
           if (!verified) {
             console.error(
               '[WorldEngine] Save verification failed.',
@@ -41192,6 +41263,12 @@ case 'career-defense':
    * @returns {boolean} true if a stored world was found and loaded.
    */
   async function load() {
+    tracePersistence('load-start', {
+      localStorageActiveCareerId:
+        localStorage.getItem(ACTIVE_CAREER_ID_KEY) ||
+        null,
+    });
+
     bindActiveCareerId(
       localStorage.getItem(
         ACTIVE_CAREER_ID_KEY
@@ -41248,6 +41325,21 @@ case 'career-defense':
         );
 
       let resolvedRecord = storedRecord;
+
+      tracePersistence('load-exact-record-read', {
+        requestedRecordId: getWorldRecordId(),
+        found: Boolean(storedRecord?.world),
+        storedRecordId: storedRecord?.id || null,
+        storedRecordRevision: storedRecord?.revision ?? null,
+        storedRecordDate:
+          storedRecord?.world?.season?.currentDate ||
+          storedRecord?.world?.player?.currentDate ||
+          storedRecord?.world?.currentDate ||
+          null,
+        storedPlayerDate:
+          storedRecord?.world?.player?.currentDate ||
+          null,
+      });
 
       /*
        * STRICT CAREER RECORD AUTHORITY
@@ -41402,6 +41494,19 @@ case 'career-defense':
         localStorage.removeItem(
           WORLD_KEY
         );
+
+        tracePersistence('load-success', {
+          loadedRecordId: resolvedRecord?.id || null,
+          loadedRecordRevision: resolvedRecord?.revision ?? null,
+          loadedDate:
+            _state?.season?.currentDate ||
+            _state?.player?.currentDate ||
+            _state?.currentDate ||
+            null,
+          loadedPlayerDate:
+            _state?.player?.currentDate ||
+            null,
+        });
 
         return true;
       }
@@ -42226,6 +42331,11 @@ case 'career-defense':
   async function selectCareerSave(careerId) {
     if (!careerId) return false;
 
+    tracePersistence('select-career-requested', {
+      selectedCareerId: careerId,
+      selectedRecordId: getWorldRecordId(careerId),
+    });
+
     bindActiveCareerId(careerId);
 
     /*
@@ -42240,7 +42350,19 @@ case 'career-defense':
      * Historical repair code may remain available for explicit migrations,
      * but ordinary Continue Career must never reset an already-saved world.
      */
-    return await load();
+    const loaded = await load();
+
+    tracePersistence('select-career-finished', {
+      selectedCareerId: careerId,
+      loaded,
+      resultingDate:
+        _state?.season?.currentDate ||
+        _state?.player?.currentDate ||
+        _state?.currentDate ||
+        null,
+    });
+
+    return loaded;
   }
 
   async function beginNewCareerSave() {
