@@ -1,0 +1,33 @@
+name: Fix Travel Schedule Duplication
+
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_travel_schedule_duplication.py'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply Travel schedule dedupe fix
+        run: python .github/scripts/fix_travel_schedule_duplication.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "TRAVEL SCHEDULE IDENTITY" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "travelGameNumber" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+          grep -q "dedupeTravelCareerSchedule" artifacts/project-ice/public/travel-hockey-tournament-engine.js
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Stop Travel calendar games from duplicating' || exit 0
+          git push
