@@ -1,0 +1,32 @@
+name: Fix Lineup Leadership Badge Overflow
+
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_lineup_leadership_badge_overflow.py'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply lineup badge overflow fix
+        run: python .github/scripts/fix_lineup_leadership_badge_overflow.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/game.js
+          grep -q "lineup-player__name-text" artifacts/project-ice/public/game.js
+          grep -q "Leadership badges must never be ellipsized" artifacts/project-ice/public/style.css
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Keep C and A badges visible beside long lineup names' || exit 0
+          git push
