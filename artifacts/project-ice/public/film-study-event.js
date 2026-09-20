@@ -70,8 +70,12 @@
     if (!event) return false;
     const identifiers = [event.type, event.eventType, event.eventKey]
       .map(value => String(value || '').trim().toLowerCase());
-    const isRecovery = identifiers.some(value => value === 'recovery' || value === 'recovery-sleep');
-    if (!isRecovery) return false;
+    const isFilmStudySource = identifiers.some(value =>
+      value === 'recovery' ||
+      value === 'recovery-sleep' ||
+      value === 'film-study'
+    );
+    if (!isFilmStudySource) return false;
     let changed = false;
     const set = (key, value) => {
       if (event[key] !== value) {
@@ -79,6 +83,9 @@
         changed = true;
       }
     };
+    set('type', 'film-study');
+    set('eventType', 'film-study');
+    set('eventKey', 'film-study');
     set('label', event.isPlayoff ? 'Playoff Film Study' : 'Film Study');
     set('shortLabel', 'Film Study');
     set('icon', '🎥');
@@ -128,11 +135,16 @@
       if (exact) return exact;
     }
     const currentDate = WorldEngine.state?.season?.currentDate || WorldEngine.state?.player?.currentDate || WorldEngine.state?.currentDate || null;
-    return schedule.find(event =>
-      String(event?.date || '') === String(currentDate || '') &&
-      String(event?.type || event?.eventType || '').toLowerCase() === 'recovery' &&
-      event?.completed !== true && event?.isCompleted !== true
-    ) || null;
+    return schedule.find(event => {
+      const type = String(event?.type || event?.eventType || '').toLowerCase();
+      const key = String(event?.eventKey || '').toLowerCase();
+      return (
+        String(event?.date || '') === String(currentDate || '') &&
+        (type === 'film-study' || key === 'film-study') &&
+        event?.completed !== true &&
+        event?.isCompleted !== true
+      );
+    }) || null;
   }
 
   function applyFocusXP(player, choice, event) {
@@ -295,6 +307,109 @@
   }
 
   normalizeCatalog();
+
+  const dateKey = value => {
+    const text = String(value || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+  };
+
+  function currentCareerDate() {
+    return dateKey(
+      WorldEngine.state?.season?.currentDate ||
+      WorldEngine.state?.player?.currentDate ||
+      WorldEngine.state?.currentDate
+    );
+  }
+
+  function isPendingFilmStudy(event) {
+    if (!event) return false;
+    const type = String(event?.type || event?.eventType || '').toLowerCase();
+    const key = String(event?.eventKey || '').toLowerCase();
+
+    return Boolean(
+      (type === 'film-study' || key === 'film-study') &&
+      event?.completed !== true &&
+      event?.isCompleted !== true &&
+      event?.played !== true &&
+      String(event?.status || '').toLowerCase() !== 'completed' &&
+      event?.canceled !== true
+    );
+  }
+
+  function firstPendingFilmStudyBetween(startDate, targetDate) {
+    const start = dateKey(startDate);
+    const target = dateKey(targetDate);
+    if (!start || !target || target < start) return null;
+
+    const schedule = Array.isArray(WorldEngine.state?.schedule)
+      ? WorldEngine.state.schedule
+      : [];
+
+    return schedule
+      .filter(isPendingFilmStudy)
+      .filter(event => {
+        const date = dateKey(event?.date);
+        return Boolean(date && date >= start && date <= target);
+      })
+      .sort((a, b) =>
+        String(a?.date || '').localeCompare(String(b?.date || '')) ||
+        String(a?.eventId || a?.id || '').localeCompare(String(b?.eventId || b?.id || ''))
+      )[0] || null;
+  }
+
+  const originalAdvanceToDate =
+    typeof WorldEngine.advanceToDate === 'function'
+      ? WorldEngine.advanceToDate.bind(WorldEngine)
+      : null;
+
+  if (originalAdvanceToDate && !WorldEngine.__filmStudyBlockingAdvanceWrapped) {
+    WorldEngine.advanceToDate = function filmStudyAwareAdvance(targetDate, options = {}) {
+      normalizeSchedule({ save: false });
+
+      const start = currentCareerDate();
+      const target = dateKey(targetDate);
+      const blocker = firstPendingFilmStudyBetween(start, target);
+
+      if (!blocker) {
+        return originalAdvanceToDate(targetDate, options);
+      }
+
+      const blockDate = dateKey(blocker.date);
+      let baseResult = null;
+
+      if (start && blockDate && blockDate > start) {
+        baseResult = originalAdvanceToDate(blockDate, options);
+      }
+
+      const stillPending = isPendingFilmStudy(blocker);
+      if (!stillPending) {
+        return baseResult ?? originalAdvanceToDate(targetDate, options);
+      }
+
+      return {
+        ...(baseResult && typeof baseResult === 'object' ? baseResult : {}),
+        currentDate: blockDate || currentCareerDate(),
+        targetDate: target,
+        reachedTarget: false,
+        stopSimulation: true,
+        blockingDateResult: {
+          date: blockDate || currentCareerDate(),
+          stopSimulation: true,
+          blockingEventResult: {
+            event: blocker,
+            reason: 'film-study-awaiting-user-choice',
+          },
+        },
+        blockingEventResult: {
+          event: blocker,
+          reason: 'film-study-awaiting-user-choice',
+        },
+        reason: 'player-interaction-required',
+      };
+    };
+
+    WorldEngine.__filmStudyBlockingAdvanceWrapped = true;
+  }
 
   /*
    * Canonical schedule boundary: every regular-season schedule generated for
