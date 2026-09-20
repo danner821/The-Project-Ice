@@ -41250,6 +41250,81 @@ case 'career-defense':
       let resolvedRecord = storedRecord;
 
       /*
+       * STRICT CAREER RECORD AUTHORITY
+       * ------------------------------
+       * If localStorage says an active career exists, only that exact
+       * career:<id> IndexedDB record is allowed to load. The legacy default
+       * record is migration-only history and must never be used as a fallback
+       * for a missing active career record.
+       *
+       * Likewise, if the active-id key is missing but any career:* record
+       * already exists, do not clone the stale default world into a brand-new
+       * career. Continue Career will rebuild its list directly from IndexedDB
+       * and let the user choose the real career.
+       */
+      const activeCareerIdAtLoad = getActiveCareerId();
+
+      const careerRecordsAtLoad = await new Promise((resolve, reject) => {
+        const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
+        const request = transaction.objectStore(WORLD_STORE_NAME).getAll();
+
+        request.onsuccess = () => resolve(
+          (Array.isArray(request.result) ? request.result : []).filter(record =>
+            String(record?.id || '').startsWith('career:') &&
+            record?.world
+          )
+        );
+
+        request.onerror = () => reject(
+          request.error ||
+          new Error('Project Ice could not inspect career records during load.')
+        );
+      });
+
+      if (activeCareerIdAtLoad && !resolvedRecord?.world) {
+        console.warn(
+          '[WorldEngine] Refusing stale default fallback for missing active career record.',
+          {
+            activeCareerId: activeCareerIdAtLoad,
+            requestedRecordId: getWorldRecordId(activeCareerIdAtLoad),
+            availableCareerRecords: careerRecordsAtLoad.map(record => record.id),
+          }
+        );
+        database.close();
+        return false;
+      }
+
+      if (
+        !activeCareerIdAtLoad &&
+        resolvedRecord?.world &&
+        careerRecordsAtLoad.length > 0
+      ) {
+        console.warn(
+          '[WorldEngine] Legacy default record ignored because career-specific records already exist.',
+          {
+            availableCareerRecords: careerRecordsAtLoad.map(record => record.id),
+          }
+        );
+        database.close();
+        return false;
+      }
+
+      /*
+       * Once an exact career record has loaded successfully, the legacy
+       * default record has no remaining authority and only creates corruption
+       * risk. Delete it so future startup paths cannot resurrect it.
+       */
+      if (activeCareerIdAtLoad && resolvedRecord?.world) {
+        await new Promise((resolve, reject) => {
+          const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
+          transaction.objectStore(WORLD_STORE_NAME).delete(WORLD_RECORD_ID);
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        });
+      }
+
+      /*
        * Legacy single-world migration: preserve the user's existing
        * pre-multi-save career as the first selectable career slot.
        *
@@ -41259,7 +41334,7 @@ case 'career-defense':
        */
       if (!getActiveCareerId() && resolvedRecord?.world) {
         const careerId = createCareerSaveId();
-        localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
+        bindActiveCareerId(careerId);
 
         await new Promise((resolve, reject) => {
           const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
@@ -41279,40 +41354,15 @@ case 'career-defense':
         upsertCareerSaveMetadata(careerId, resolvedRecord.world);
       }
 
-      /* If a career-specific record is missing, fall back to the old default record once. */
-      if (!resolvedRecord?.world) {
-        const legacyRecord = await new Promise((resolve, reject) => {
-          const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
-          const request = transaction.objectStore(WORLD_STORE_NAME).get(WORLD_RECORD_ID);
-          request.onsuccess = () => resolve(request.result || null);
-          request.onerror = () => reject(request.error);
-        });
-
-        if (legacyRecord?.world) {
-          let careerId = getActiveCareerId();
-          if (!careerId) {
-            careerId = createCareerSaveId();
-            localStorage.setItem(ACTIVE_CAREER_ID_KEY, careerId);
-          }
-
-          await new Promise((resolve, reject) => {
-            const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
-            transaction.objectStore(WORLD_STORE_NAME).put({
-              ...legacyRecord,
-              id: getWorldRecordId(careerId),
-            });
-            transaction.oncomplete = resolve;
-            transaction.onerror = () => reject(transaction.error);
-            transaction.onabort = () => reject(transaction.error);
-          });
-
-          resolvedRecord = {
-            ...legacyRecord,
-            id: getWorldRecordId(careerId),
-          };
-          upsertCareerSaveMetadata(careerId, legacyRecord.world);
-        }
-      }
+      /*
+       * No generic legacy fallback is permitted here.
+       * At this point either:
+       *   - the exact active career record already loaded, or
+       *   - there is no authoritative career to load.
+       *
+       * The only allowed default -> career migration is the explicit
+       * zero-career-record migration above.
+       */
 
       database.close();
 

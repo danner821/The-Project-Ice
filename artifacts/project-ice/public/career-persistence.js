@@ -19,6 +19,7 @@
   const DB_VERSION = 1;
   const STORE_NAME = 'worlds';
   const RECORD_ID = 'default';
+  const ACTIVE_CAREER_ID_KEY = 'projectice_active_career_id_v1';
   const PREVIEW_SCHEMA_VERSION = 1;
 
   function openDatabase() {
@@ -36,21 +37,61 @@
     const database = await openDatabase();
 
     try {
-      return await new Promise((resolve, reject) => {
-        if (!database.objectStoreNames.contains(STORE_NAME)) {
-          resolve(null);
-          return;
-        }
+      if (!database.objectStoreNames.contains(STORE_NAME)) {
+        return null;
+      }
 
+      const activeCareerId =
+        localStorage.getItem(ACTIVE_CAREER_ID_KEY) ||
+        null;
+
+      const records = await new Promise((resolve, reject) => {
         const transaction = database.transaction(STORE_NAME, 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.get(RECORD_ID);
+        const request = transaction.objectStore(STORE_NAME).getAll();
 
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => resolve(
+          Array.isArray(request.result)
+            ? request.result
+            : []
+        );
+
         request.onerror = () => reject(
-          request.error || new Error('Could not read Project Ice world record.')
+          request.error ||
+          new Error('Could not read Project Ice world records.')
         );
       });
+
+      const careerRecords = records
+        .filter(record =>
+          String(record?.id || '').startsWith('career:') &&
+          record?.world
+        )
+        .sort((a, b) =>
+          String(b?.savedAt || '').localeCompare(String(a?.savedAt || ''))
+        );
+
+      if (activeCareerId) {
+        const exact = careerRecords.find(record =>
+          String(record.id) === `career:${activeCareerId}`
+        );
+
+        if (exact) {
+          return exact;
+        }
+      }
+
+      if (careerRecords.length > 0) {
+        return careerRecords[0];
+      }
+
+      /*
+       * The old default record is a migration source only. It is considered
+       * only when no career-specific record exists at all.
+       */
+      return records.find(record =>
+        String(record?.id || '') === RECORD_ID &&
+        record?.world
+      ) || null;
     } finally {
       database.close();
     }
