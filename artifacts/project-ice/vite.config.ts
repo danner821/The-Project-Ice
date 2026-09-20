@@ -107,7 +107,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/prospect-ranking-model-v2.js')) scripts.push('    <script src="/prospect-ranking-model-v2.js?v=20260919-readonly-rank-1"></script>');
     if (!html.includes('/prospect-reputation-calibration.js')) scripts.push('    <script src="/prospect-reputation-calibration.js"></script>');
     if (!html.includes('/coach-meeting-foundation.js')) scripts.push('    <script src="/coach-meeting-foundation.js"></script>');
-    if (!html.includes('/coach-meeting-immersion.js')) scripts.push('    <script src="/coach-meeting-immersion.js"></script>');
+    if (!html.includes('/coach-meeting-immersion.js')) scripts.push('    <script src="/coach-meeting-immersion.js?v=20260920-home-objective-release-1"></script>');
     if (!html.includes('/coach-meeting-runtime-fix.js')) scripts.push('    <script src="/coach-meeting-runtime-fix.js"></script>');
     if (!html.includes('/coach-objective-role-review.js')) scripts.push('    <script src="/coach-objective-role-review.js"></script>');
     if (!html.includes('/coach-role-security.js')) scripts.push('    <script src="/coach-role-security.js"></script>');
