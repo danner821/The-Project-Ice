@@ -1,0 +1,31 @@
+name: Fix Completed Coach Objective Home Override
+
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_completed_coach_objective_home_override.py'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply objective display ownership fix
+        run: python .github/scripts/fix_completed_coach_objective_home_override.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/coach-meeting-immersion.js
+          grep -q "objective.status !== 'active'" artifacts/project-ice/public/coach-meeting-immersion.js
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Release Home objective after coach objective completion' || exit 0
+          git push
