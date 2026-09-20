@@ -38262,6 +38262,111 @@ case 'career-defense':
     };
   }
 
+  function repairAwardNewsAccuracy(options = {}) {
+    const livingWorld = ensureLivingWorldState();
+
+    if (
+      !Array.isArray(_state.newsItems) ||
+      !Array.isArray(livingWorld?.awardRaceSnapshots) ||
+      livingWorld.awardRaceSnapshots.length === 0
+    ) {
+      return { changed: false, removed: 0 };
+    }
+
+    const snapshotsByDate = new Map();
+
+    for (const snapshot of livingWorld.awardRaceSnapshots) {
+      const date = normalizeLivingWorldDateKey(snapshot?.date);
+      if (date) snapshotsByDate.set(date, snapshot);
+    }
+
+    const contenderName = contender =>
+      `${contender?.firstName || ''} ${contender?.lastName || ''}`
+        .trim()
+        .toLowerCase();
+
+    const raceByLabel = (snapshot, label) =>
+      (snapshot?.races || []).find(race =>
+        String(race?.label || '')
+          .trim()
+          .toLowerCase() ===
+        String(label || '')
+          .trim()
+          .toLowerCase()
+      ) || null;
+
+    let removed = 0;
+
+    _state.newsItems = _state.newsItems.filter(item => {
+      if (String(item?.tag || '').toUpperCase() !== 'AWARDS') {
+        return true;
+      }
+
+      const itemDate = normalizeLivingWorldDateKey(item?.date);
+      const snapshot = snapshotsByDate.get(itemDate);
+      if (!snapshot) return true;
+
+      const headline = String(item?.headline || '').trim();
+
+      const topThreeMatch = headline.match(
+        /^(.+?) enters the top three in the (.+?) race\.$/i
+      );
+
+      if (topThreeMatch) {
+        const [, name, awardLabel] = topThreeMatch;
+        const race = raceByLabel(snapshot, awardLabel);
+        if (!race) return true;
+
+        const supported = (race.contenders || [])
+          .slice(0, 3)
+          .some(contender =>
+            contenderName(contender) ===
+            String(name).trim().toLowerCase()
+          );
+
+        if (!supported) {
+          removed += 1;
+          return false;
+        }
+
+        return true;
+      }
+
+      const leaderMatch = headline.match(
+        /^(.+?) moves into the lead for (.+?)\.$/i
+      );
+
+      if (leaderMatch) {
+        const [, name, awardLabel] = leaderMatch;
+        const race = raceByLabel(snapshot, awardLabel);
+        if (!race) return true;
+
+        const leader = race.contenders?.[0] || null;
+        const supported =
+          contenderName(leader) ===
+          String(name).trim().toLowerCase();
+
+        if (!supported) {
+          removed += 1;
+          return false;
+        }
+
+        return true;
+      }
+
+      return true;
+    });
+
+    if (removed > 0 && options.save === true) {
+      save();
+    }
+
+    return {
+      changed: removed > 0,
+      removed,
+    };
+  }
+
   function publishLivingWorldNewsForWeek(dateString, weekKey) {
     const normalizedDate = normalizeLivingWorldDateKey(dateString);
     const livingWorld = ensureLivingWorldState();
@@ -38306,9 +38411,25 @@ case 'career-defense':
     };
 
     /* Potential changes are rare by design, so every visible tier change is news. */
+    /*
+     * AWARD NEWS ACCURACY
+     *
+     * recentBeats is a rolling history. The previous filter admitted every
+     * historical beat whose date was <= the current week, then publishOnce()
+     * stamped those old beats with the NEW weekKey/date. That could re-announce
+     * an old top-three award entry weeks later even when the canonical award
+     * table no longer had that player in the top three.
+     *
+     * A weekly news pass may consume only beats belonging to that exact week.
+     */
     const weekBeats = (livingWorld.recentBeats || []).filter(beat => {
       const beatDate = normalizeLivingWorldDateKey(beat?.date);
-      return !beatDate || beatDate <= normalizedDate;
+      const beatWeek = String(
+        beat?.weekKey ||
+        (beatDate ? getLivingWorldWeekKey(beatDate) : '')
+      );
+
+      return beatWeek === String(weekKey);
     });
 
     weekBeats.forEach((beat, index) => {
@@ -41514,6 +41635,15 @@ case 'career-defense':
 
         _persistenceHydrated = true;
 
+        const awardNewsRepair =
+          repairAwardNewsAccuracy({
+            save: false,
+          });
+
+        if (awardNewsRepair.changed) {
+          await save();
+        }
+
         /*
          * IndexedDB is now authoritative.
          * Remove the obsolete giant localStorage world so it cannot
@@ -41590,6 +41720,10 @@ case 'career-defense':
       );
 
       _persistenceHydrated = true;
+
+      repairAwardNewsAccuracy({
+        save: false,
+      });
 
       /*
        * Immediately migrate the legacy world into IndexedDB.
