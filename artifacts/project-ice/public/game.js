@@ -12940,6 +12940,13 @@ function updateHubScreen() {
       rawPosition === 'G' ||
       rawPosition.includes('GOAL');
 
+    /*
+     * UPGRADE NOTIFICATION OWNERSHIP
+     *
+     * These keys must match the Player tab's visible primary ownership map.
+     * Category badges are derived from this helper, so an attribute must live
+     * in exactly one skater category here or one upgrade can light two headers.
+     */
     const skaterCategories = [
       {
         name: 'Shooting',
@@ -12958,7 +12965,6 @@ function updateHubScreen() {
           'puckControl',
           'deking',
           'handEye',
-          'offensiveAwareness',
         ],
       },
 
@@ -12989,8 +12995,6 @@ function updateHubScreen() {
           'bodyChecking',
           'strength',
           'durability',
-          'balance',
-          'endurance',
         ],
       },
 
@@ -12998,9 +13002,7 @@ function updateHubScreen() {
         name: 'Hockey IQ',
         keys: [
           'offensiveAwareness',
-          'defensiveAwareness',
           'poise',
-          'discipline',
           'faceoffs',
         ],
       },
