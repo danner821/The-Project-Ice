@@ -1,0 +1,33 @@
+name: Fix Award News Accuracy
+
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_award_news_accuracy.py'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply award news accuracy fix
+        run: python .github/scripts/fix_award_news_accuracy.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          grep -q "AWARD NEWS ACCURACY" artifacts/project-ice/public/world.js
+          grep -q "beatWeek === String(weekKey)" artifacts/project-ice/public/world.js
+          grep -q "repairAwardNewsAccuracy" artifacts/project-ice/public/world.js
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Keep award news synchronized with canonical weekly races' || exit 0
+          git push
