@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path('artifacts/project-ice')
 engine_path = ROOT / 'public' / 'travel-hockey-tournament-engine.js'
-vite_path = ROOT / 'vite.config.ts'
+season_ui_path = ROOT / 'public' / 'travel-hockey-season-ui.js'
 engine = engine_path.read_text(encoding='utf-8')
 
 anchor = """  function syncCareerTravelSchedule(state = travel()) {
@@ -116,16 +116,14 @@ engine = engine.replace(old, new, 1)
 
 engine_path.write_text(engine, encoding='utf-8')
 
-vite = vite_path.read_text(encoding='utf-8')
-old_line = """    if (!html.includes('/travel-hockey-tournament-engine.js')) scripts.push('    <script src="/travel-hockey-tournament-engine.js" id="pi-travel-tournament-engine-loader"></script>');
-"""
-new_line = """    if (!html.includes('/travel-hockey-tournament-engine.js')) scripts.push('    <script src="/travel-hockey-tournament-engine.js?v=20260920-schedule-dedupe-1" id="pi-travel-tournament-engine-loader"></script>');
-"""
-if old_line in vite:
-    vite = vite.replace(old_line, new_line, 1)
-elif 'travel-hockey-tournament-engine.js?v=20260920-schedule-dedupe-1' not in vite:
-    raise SystemExit('Travel tournament engine Vite anchor not found')
-vite_path.write_text(vite, encoding='utf-8')
+season_ui = season_ui_path.read_text(encoding='utf-8')
+old_loader = "  engine.src = '/travel-hockey-tournament-engine.js';"
+new_loader = "  engine.src = '/travel-hockey-tournament-engine.js?v=20260920-schedule-dedupe-1';"
+if old_loader in season_ui:
+    season_ui = season_ui.replace(old_loader, new_loader, 1)
+elif 'travel-hockey-tournament-engine.js?v=20260920-schedule-dedupe-1' not in season_ui:
+    raise SystemExit('Travel tournament engine dynamic-loader anchor not found')
+season_ui_path.write_text(season_ui, encoding='utf-8')
 
 Path('.github/scripts/fix_travel_schedule_duplication.py').unlink(missing_ok=True)
 Path('.github/workflows/fix-travel-schedule-duplication.yml').unlink(missing_ok=True)
