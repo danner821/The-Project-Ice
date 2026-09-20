@@ -40916,6 +40916,18 @@ case 'career-defense':
   let _saveQueue = Promise.resolve(true);
   let _saveRevision = 0;
 
+  /*
+   * No runtime is allowed to persist _state until that state has either:
+   *   1) been hydrated from the authoritative career record, or
+   *   2) been intentionally created by the user through New Career.
+   *
+   * Several feature runtimes initialize before game.js calls WorldEngine.load().
+   * Their harmless normalization saves used to serialize buildDefaults() into
+   * the still-bound active career id, overwriting a progressed save before the
+   * user even tapped Continue Career.
+   */
+  let _persistenceHydrated = false;
+
   const PERSISTENCE_TRACE_KEY = 'projectice_persistence_trace_v1';
 
   function tracePersistence(type, details = {}) {
@@ -40993,6 +41005,18 @@ case 'career-defense':
   function save() {
     const requestedCareerId =
       getActiveCareerId();
+
+    if (!_persistenceHydrated) {
+      tracePersistence('save-skipped-before-authoritative-load', {
+        requestedCareerId,
+        requestedRecordId:
+          requestedCareerId
+            ? getWorldRecordId(requestedCareerId)
+            : null,
+      });
+
+      return Promise.resolve(true);
+    }
 
     tracePersistence('save-requested', {
       requestedCareerId,
@@ -41263,6 +41287,8 @@ case 'career-defense':
    * @returns {boolean} true if a stored world was found and loaded.
    */
   async function load() {
+    _persistenceHydrated = false;
+
     tracePersistence('load-start', {
       localStorageActiveCareerId:
         localStorage.getItem(ACTIVE_CAREER_ID_KEY) ||
@@ -41486,6 +41512,8 @@ case 'career-defense':
           _state
         );
 
+        _persistenceHydrated = true;
+
         /*
          * IndexedDB is now authoritative.
          * Remove the obsolete giant localStorage world so it cannot
@@ -41560,6 +41588,8 @@ case 'career-defense':
       ensureCanonicalSeasonState(
         _state
       );
+
+      _persistenceHydrated = true;
 
       /*
        * Immediately migrate the legacy world into IndexedDB.
@@ -42305,6 +42335,7 @@ case 'career-defense':
 
     _state = buildDefaults();
     configureFreshCareerSeason('2026-09-02');
+    _persistenceHydrated = true;
 
     (_state.teams || []).forEach(team => {
       if (!Array.isArray(team.roster) || team.roster.length !== 20) {
@@ -42435,6 +42466,7 @@ case 'career-defense':
 
     _state = buildDefaults();
     configureFreshCareerSeason('2026-09-01');
+    _persistenceHydrated = true;
 
     return careerId;
   }
