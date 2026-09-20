@@ -36,6 +36,89 @@
 
   const dateKey = event => String(event?.date || '').slice(0, 10);
 
+  /*
+   * TRAVEL CALENDAR PROJECTION INTEGRITY
+   *
+   * Old Travel saves can contain repeated copies of the same completed game.
+   * Those copies may no longer share an identical eventId because Travel IDs
+   * are season-scoped after creation. The Schedule calendar should never
+   * render those historical duplicates as separate cards.
+   *
+   * Repair canonical state at the calendar boundary using the game identity
+   * that actually remains stable across those migrations: date + matchup +
+   * series/game number when available. This also cleans the current save so a
+   * reopen does not bring the stack back.
+   */
+  const travelCalendarIdentity = event => {
+    if (
+      event?.travelTournament !== true &&
+      String(event?.type || event?.eventType || '').toLowerCase() !== 'travel-game'
+    ) {
+      return null;
+    }
+
+    const date = dateKey(event);
+    const round = String(event?.travelRound || '');
+    const gameNumber = Number(event?.travelGameNumber || 0);
+    const home = String(event?.homeTeamId || '');
+    const away = String(event?.awayTeamId || '');
+    const series = String(event?.travelSeriesId || '');
+
+    if (date && home && away) {
+      return [
+        date,
+        home,
+        away,
+        round,
+        gameNumber || '',
+      ].join('::');
+    }
+
+    if (series && gameNumber > 0) {
+      return `${series}::g${gameNumber}`;
+    }
+
+    return String(
+      event?.canonicalEventId ||
+      event?.gameId ||
+      event?.eventId ||
+      event?.id ||
+      ''
+    ) || null;
+  };
+
+  function repairCanonicalTravelScheduleDuplicates() {
+    if (!Array.isArray(WorldEngine.state?.schedule)) return false;
+
+    const seen = new Set();
+    const next = [];
+    let changed = false;
+
+    for (const event of WorldEngine.state.schedule) {
+      const identity = travelCalendarIdentity(event);
+
+      if (!identity) {
+        next.push(event);
+        continue;
+      }
+
+      if (seen.has(identity)) {
+        changed = true;
+        continue;
+      }
+
+      seen.add(identity);
+      next.push(event);
+    }
+
+    if (changed) {
+      WorldEngine.state.schedule = next;
+      try { WorldEngine.save?.(); } catch (_) {}
+    }
+
+    return changed;
+  }
+
   const isGame = event => Boolean(
     event?.type === 'game' ||
     event?.type === 'travel-game' ||
@@ -217,6 +300,8 @@
    * dated career event that the player can actually interact with.
    */
   buildSeasonCalendarEvents = function buildCanonicalCareerCalendarEvents() {
+    repairCanonicalTravelScheduleDuplicates();
+
     const rawProjected = originalBuildSeasonCalendarEvents();
     const canonical = Array.isArray(WorldEngine.state?.schedule)
       ? WorldEngine.state.schedule
@@ -268,13 +353,25 @@
         ),
       }));
 
-    return [
+    const combined = [
       ...projected,
       ...additionalCareerEvents,
-    ].sort((a, b) =>
-      dateKey(a).localeCompare(dateKey(b)) ||
-      eventKey(a).localeCompare(eventKey(b))
-    );
+    ];
+
+    const seenTravel = new Set();
+
+    return combined
+      .filter(event => {
+        const identity = travelCalendarIdentity(event);
+        if (!identity) return true;
+        if (seenTravel.has(identity)) return false;
+        seenTravel.add(identity);
+        return true;
+      })
+      .sort((a, b) =>
+        dateKey(a).localeCompare(dateKey(b)) ||
+        eventKey(a).localeCompare(eventKey(b))
+      );
   };
 
   /*

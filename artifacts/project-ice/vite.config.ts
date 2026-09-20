@@ -100,7 +100,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/film-study-event.js')) scripts.push('    <script src="/film-study-event.js?v=20260919-blocking-1"></script>');
     if (!html.includes('/persistence-trace-debug.js')) scripts.push('    <script src="/persistence-trace-debug.js?v=20260919-trace-1"></script>');
     if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js?v=20260919-readonly-rank-1"></script>');
-    if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js"></script>');
+    if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js?v=20260920-travel-calendar-integrity-1"></script>');
     if (!html.includes('/standings-season-label.js')) scripts.push('    <script src="/standings-season-label.js"></script>');
     if (!html.includes('/regular-season-game-event-presentation.js')) scripts.push('    <script src="/regular-season-game-event-presentation.js"></script>');
     if (!html.includes('/high-school-tryout-polish.js')) scripts.push('    <script src="/high-school-tryout-polish.js"></script>');
