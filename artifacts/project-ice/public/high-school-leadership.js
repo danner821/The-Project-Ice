@@ -1,11 +1,4 @@
-from pathlib import Path
-
-ROOT = Path('artifacts/project-ice')
-PUBLIC = ROOT / 'public'
-module_path = PUBLIC / 'high-school-leadership.js'
-vite_path = ROOT / 'vite.config.ts'
-
-module = r"""'use strict';
+'use strict';
 
 /* global WorldEngine */
 
@@ -261,19 +254,3 @@ module = r"""'use strict';
 
   WorldEngine.syncHighSchoolLeadership = syncHighSchoolLeadership;
 })();
-"""
-module_path.write_text(module, encoding='utf-8')
-
-vite = vite_path.read_text(encoding='utf-8')
-anchor = """    if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
-"""
-line = """    if (!html.includes('/high-school-leadership.js')) scripts.push('    <script src="/high-school-leadership.js?v=20260920-1c2a-1"></script>');
-"""
-if line not in vite:
-    if anchor not in vite:
-        raise SystemExit('high-school roster rollover Vite anchor not found')
-    vite = vite.replace(anchor, anchor + line, 1)
-vite_path.write_text(vite, encoding='utf-8')
-
-Path('.github/scripts/fix_high_school_leadership.py').unlink(missing_ok=True)
-Path('.github/workflows/fix-high-school-leadership.yml').unlink(missing_ok=True)

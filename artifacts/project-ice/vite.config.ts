@@ -92,6 +92,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/league-history-recap-view.js')) scripts.push('    <script src="/league-history-recap-view.js"></script>');
     if (!html.includes('/league-history-player-links.js')) scripts.push('    <script src="/league-history-player-links.js"></script>');
     if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
+    if (!html.includes('/high-school-leadership.js')) scripts.push('    <script src="/high-school-leadership.js?v=20260920-1c2a-1"></script>');
     if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js"></script>');
     if (!html.includes('/career-timeline.js')) scripts.push('    <script src="/career-timeline.js"></script>');
     if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js"></script>');
