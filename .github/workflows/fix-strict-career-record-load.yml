@@ -1,0 +1,33 @@
+name: Fix Strict Career Record Load
+
+on:
+  push:
+    paths:
+      - '.github/scripts/fix_strict_career_record_load.py'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply strict career record fix
+        run: python .github/scripts/fix_strict_career_record_load.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/public/career-persistence.js
+          grep -q "Refusing stale default fallback for missing active career record" artifacts/project-ice/public/world.js
+          grep -q "careerRecords.length" artifacts/project-ice/public/career-persistence.js
+      - name: Commit fix
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Make career-specific IndexedDB records authoritative' || exit 0
+          git push
