@@ -200,8 +200,68 @@
     return match ? { roundKey, series: match } : null;
   }
 
+  function dedupeTravelCareerSchedule() {
+    if (!Array.isArray(WorldEngine.state?.schedule)) return false;
+
+    const seen = new Set();
+    const next = [];
+    let changed = false;
+
+    for (const event of WorldEngine.state.schedule) {
+      if (
+        event?.travelTournament !== true &&
+        String(event?.type || '') !== 'travel-game'
+      ) {
+        next.push(event);
+        continue;
+      }
+
+      const seriesId = String(event?.travelSeriesId || '');
+      const gameNumber = Number(event?.travelGameNumber || 0);
+
+      /*
+       * TRAVEL SCHEDULE IDENTITY
+       *
+       * Travel season IDs are normalized by travel-season-id-integrity.js.
+       * The old schedule sync looked up games only by eventId. Once the ID
+       * normalizer scoped that eventId, the next sync could no longer find it
+       * and pushed another copy of the same series/game number. Repeated Travel
+       * refreshes therefore stacked identical calendar cards on one date.
+       *
+       * The stable identity is the tournament series + game number.
+       */
+      const stableKey =
+        seriesId && gameNumber > 0
+          ? `${seriesId}::g${gameNumber}`
+          : String(
+              event?.canonicalEventId ||
+              event?.gameId ||
+              event?.eventId ||
+              event?.id ||
+              ''
+            );
+
+      if (stableKey && seen.has(stableKey)) {
+        changed = true;
+        continue;
+      }
+
+      if (stableKey) seen.add(stableKey);
+      next.push(event);
+    }
+
+    if (changed) {
+      WorldEngine.state.schedule = next;
+    }
+
+    return changed;
+  }
+
   function syncCareerTravelSchedule(state = travel()) {
     if (!state?.tournament || !Array.isArray(WorldEngine.state?.schedule)) return false;
+
+    dedupeTravelCareerSchedule();
+
     const schedule = WorldEngine.state.schedule;
     const active = careerSeries(state);
 
@@ -232,7 +292,14 @@
       if (!completedGame && seriesAlreadyWon && gameNumber > Number(series.gamesPlayed || 0)) continue;
 
       const eventId = `travel-career-${series.seriesId}-g${gameNumber}`;
-      const existing = WorldEngine.state.schedule.find(event => String(event?.eventId || event?.id || '') === eventId) || null;
+
+      const existing = WorldEngine.state.schedule.find(event =>
+        (
+          String(event?.travelSeriesId || '') === String(series.seriesId || '') &&
+          Number(event?.travelGameNumber || 0) === gameNumber
+        ) ||
+        String(event?.eventId || event?.id || '') === eventId
+      ) || null;
       const date = completedGame?.date || addDays(series.startDate, (gameNumber - 1) * 2);
       const homeTeamId = gameNumber % 2 === 1 ? series.teamAId : series.teamBId;
       const awayTeamId = gameNumber % 2 === 1 ? series.teamBId : series.teamAId;
@@ -274,7 +341,13 @@
       else WorldEngine.state.schedule.push(event);
     }
 
-    WorldEngine.state.schedule.sort((a,b) => String(a?.date || '').localeCompare(String(b?.date || '')));
+    dedupeTravelCareerSchedule();
+
+    WorldEngine.state.schedule.sort((a,b) =>
+      String(a?.date || '').localeCompare(String(b?.date || '')) ||
+      String(a?.eventId || a?.id || '').localeCompare(String(b?.eventId || b?.id || ''))
+    );
+
     return true;
   }
 

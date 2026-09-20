@@ -22,7 +22,7 @@
 
   const engine = document.createElement('script');
   engine.id = engineId;
-  engine.src = '/travel-hockey-tournament-engine.js';
+  engine.src = '/travel-hockey-tournament-engine.js?v=20260920-schedule-dedupe-1';
   engine.addEventListener('load', () => {
     engine.dataset.loaded = 'true';
     loadCanonical();
