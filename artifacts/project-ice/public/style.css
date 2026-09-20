@@ -14941,3 +14941,26 @@ body.full-news-open {
 .tp-roster-player-info > .pi-prospect-rank-badge {
   margin: 0;
 }
+
+
+/* Leadership badges must never be ellipsized by long lineup names. */
+.lineup-player__name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lineup-player__name-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineup-player__name > .tp-roster-leadership-badge,
+.lineup-player__name > .lineup-player__leadership {
+  flex: 0 0 auto;
+}

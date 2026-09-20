@@ -4264,7 +4264,7 @@ function buildTeamLineupMarkup(roster = []) {
 
         <span class="lineup-player__identity">
           <span class="lineup-player__name">
-            ${fullName}
+            <span class="lineup-player__name-text">${fullName}</span>
             ${getLeadershipBadge(player)}
           </span>
           ${getCanonicalProspectBadgeHtml(player)}
@@ -4467,7 +4467,7 @@ function buildTeamSpecialTeamsMarkup(
 
         <span class="lineup-player__identity">
           <span class="lineup-player__name">
-            ${fullName}
+            <span class="lineup-player__name-text">${fullName}</span>
             ${getLeadershipBadge(player)}
           </span>
           ${getCanonicalProspectBadgeHtml(player)}
@@ -16317,7 +16317,7 @@ function renderTeamTab(
           <span class="lineup-player__position">${position}</span>
           <span class="lineup-player__identity">
             <span class="lineup-player__name">
-              ${fullName}
+              <span class="lineup-player__name-text">${fullName}</span>
               ${leadershipBadge}
             </span>
             ${getCanonicalProspectBadgeHtml(player)}
