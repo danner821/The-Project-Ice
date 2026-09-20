@@ -47,6 +47,36 @@
       null;
   }
 
+  function careerQualifiedForPlayoffs(post, teamId) {
+    if (!post || !teamId) return false;
+
+    const frozen = Array.isArray(post.frozenStandings)
+      ? post.frozenStandings
+      : [];
+
+    const seed = frozen.find(item =>
+      String(item?.teamId || '') === String(teamId || '')
+    ) || null;
+
+    if (seed) {
+      return seed.qualified === true || Number(seed.seed) <= 6;
+    }
+
+    return WorldEngine.state?.season?.postseason?.qualified === true;
+  }
+
+  function removeCareerPostseasonEvents(world) {
+    if (!world || !Array.isArray(world.schedule)) return false;
+
+    const before = world.schedule.length;
+
+    world.schedule = world.schedule.filter(event =>
+      event?.postseasonCareerEvent !== true
+    );
+
+    return world.schedule.length !== before;
+  }
+
   function isCareerPlayoffGame(event, teamId) {
     if (!event || event?.isPlayoff !== true || event?.type !== 'game') return false;
     return String(event.homeTeamId || '') === String(teamId || '') ||
@@ -245,6 +275,23 @@
 
     const teamId = careerTeamId();
     if (!teamId) return false;
+
+    /*
+     * Postseason cadence belongs only to teams that actually qualified.
+     * The league postseason is global, so post.initialized can be true even
+     * when the career player's team finished outside the six-team field.
+     * In that case, remove any stale playoff Practice / Film Study events and
+     * do not create new ones.
+     */
+    if (!careerQualifiedForPlayoffs(post, teamId)) {
+      const changed = removeCareerPostseasonEvents(world);
+
+      if (changed && options.save !== false) {
+        WorldEngine.save?.();
+      }
+
+      return changed;
+    }
 
     let changed = reconcileExistingCadence(world, teamId);
 

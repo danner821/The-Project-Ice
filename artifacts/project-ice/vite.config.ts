@@ -35,7 +35,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/season-development-snapshot.js')) scripts.push('    <script src="/season-development-snapshot.js"></script>');
     if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
     if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
-    if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js"></script>');
+    if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js?v=20260920-nonqualifier-cadence-1"></script>');
     if (!html.includes('/schedule-open-day-fix.js')) scripts.push('    <script src="/schedule-open-day-fix.js"></script>');
     if (!html.includes('/postseason-trigger.js')) scripts.push('    <script src="/postseason-trigger.js"></script>');
     if (!html.includes('/postseason-checkpoint-event.js')) scripts.push('    <script src="/postseason-checkpoint-event.js"></script>');
