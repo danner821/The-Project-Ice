@@ -41483,71 +41483,153 @@ case 'career-defense':
   async function recoverLegacyDefaultCareerRecord() {
     try {
       const database = await openWorldDatabase();
+
       const records = await new Promise((resolve, reject) => {
         const transaction = database.transaction(WORLD_STORE_NAME, 'readonly');
         const request = transaction.objectStore(WORLD_STORE_NAME).getAll();
-        request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
-        request.onerror = () => reject(request.error);
+
+        request.onsuccess = () =>
+          resolve(
+            Array.isArray(request.result)
+              ? request.result
+              : []
+          );
+
+        request.onerror = () =>
+          reject(request.error);
       });
 
+      /*
+       * CRITICAL PERSISTENCE RULE
+       * -------------------------
+       * The old "default" record is migration-only history.
+       *
+       * Once any official career-specific record exists, the default record
+       * is NEVER allowed to overwrite, repair, merge into, or otherwise
+       * compete with that career. The previous implementation compared a
+       * heuristic "fidelity" score and could decide that the stale opening-day
+       * default world was "better" than the live career, then copy September 2
+       * back over the career every time Continue Career listed saves.
+       *
+       * That explains both observed symptoms:
+       *   - Sept. 3 completion verified successfully, then reopened on Sept. 2
+       *   - scouting rank changed again because the stale world was restored
+       *
+       * Legacy migration is now permitted only when ZERO career:* records
+       * exist at all.
+       */
+      const careerRecords = records.filter(record =>
+        String(record?.id || '').startsWith('career:') &&
+        record?.world
+      );
+
+      if (careerRecords.length > 0) {
+        database.close();
+        return null;
+      }
+
       const legacyRecord = records.find(record =>
-        String(record?.id || '') === WORLD_RECORD_ID && record?.world
+        String(record?.id || '') === WORLD_RECORD_ID &&
+        record?.world
       );
-      const legacyWorld = legacyRecord?.world || null;
-      const legacyPlayer = getWorldCareerPlayer(legacyWorld);
-      const legacyOfficial = Boolean(
-        legacyWorld && legacyPlayer &&
-        (legacyPlayer?.stage === 'hub' || legacyPlayer?.tryoutsComplete === true ||
-         (legacyPlayer?.firstName && legacyPlayer?.teamId && Number(legacyPlayer?.overall) > 0))
-      );
+
+      const legacyWorld =
+        legacyRecord?.world ||
+        null;
+
+      const legacyPlayer =
+        getWorldCareerPlayer(
+          legacyWorld
+        );
+
+      const legacyOfficial =
+        Boolean(
+          legacyWorld &&
+          legacyPlayer &&
+          (
+            legacyPlayer?.stage === 'hub' ||
+            legacyPlayer?.tryoutsComplete === true ||
+            (
+              legacyPlayer?.firstName &&
+              legacyPlayer?.teamId &&
+              Number(
+                legacyPlayer?.overall
+              ) > 0
+            )
+          )
+        );
 
       if (!legacyOfficial) {
         database.close();
         return null;
       }
 
-      const careerRecords = records.filter(record =>
-        String(record?.id || '').startsWith('career:') && record?.world
-      );
-      const matching = careerRecords
-        .filter(record => sameCareerIdentity(record.world, legacyWorld))
-        .sort((a, b) => getCareerWorldFidelity(b.world) - getCareerWorldFidelity(a.world));
+      const targetCareerId =
+        createCareerSaveId();
 
-      const legacyFidelity = getCareerWorldFidelity(legacyWorld);
-      const bestMatching = matching[0] || null;
-      const bestMatchingFidelity = bestMatching ? getCareerWorldFidelity(bestMatching.world) : -1;
-
-      let targetCareerId;
-      if (bestMatching && legacyFidelity > bestMatchingFidelity) {
-        targetCareerId = String(bestMatching.id).slice('career:'.length);
-      } else if (bestMatching) {
-        database.close();
-        return buildCareerSaveMetadata(
-          String(bestMatching.id).slice('career:'.length),
-          bestMatching.world
+      const recoveredWorld =
+        JSON.parse(
+          JSON.stringify(
+            legacyWorld
+          )
         );
-      } else {
-        targetCareerId = createCareerSaveId();
-      }
 
-      const recoveredWorld = JSON.parse(JSON.stringify(legacyWorld));
       await new Promise((resolve, reject) => {
-        const transaction = database.transaction(WORLD_STORE_NAME, 'readwrite');
-        transaction.objectStore(WORLD_STORE_NAME).put({
-          id: getWorldRecordId(targetCareerId),
-          world: recoveredWorld,
-          savedAt: new Date().toISOString(),
-        });
-        transaction.oncomplete = resolve;
-        transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(transaction.error);
+        const transaction =
+          database.transaction(
+            WORLD_STORE_NAME,
+            'readwrite'
+          );
+
+        transaction
+          .objectStore(
+            WORLD_STORE_NAME
+          )
+          .put({
+            id:
+              getWorldRecordId(
+                targetCareerId
+              ),
+            world:
+              recoveredWorld,
+            savedAt:
+              new Date()
+                .toISOString(),
+          });
+
+        transaction.oncomplete =
+          resolve;
+
+        transaction.onerror =
+          () =>
+            reject(
+              transaction.error
+            );
+
+        transaction.onabort =
+          () =>
+            reject(
+              transaction.error
+            );
       });
+
       database.close();
 
-      upsertCareerSaveMetadata(targetCareerId, recoveredWorld);
-      return buildCareerSaveMetadata(targetCareerId, recoveredWorld);
+      upsertCareerSaveMetadata(
+        targetCareerId,
+        recoveredWorld
+      );
+
+      return buildCareerSaveMetadata(
+        targetCareerId,
+        recoveredWorld
+      );
     } catch (error) {
-      console.warn('[WorldEngine] Could not recover legacy exact career record:', error);
+      console.warn(
+        '[WorldEngine] Could not recover legacy exact career record:',
+        error
+      );
+
       return null;
     }
   }
