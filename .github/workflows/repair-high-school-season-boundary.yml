@@ -1,0 +1,39 @@
+name: Repair High School Season Boundary
+
+on:
+  push:
+    paths:
+      - '.github/scripts/repair_high_school_season_boundary.py'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply season-boundary integrity repair
+        run: python .github/scripts/repair_high_school_season_boundary.py
+      - name: Static checks
+        run: |
+          node --check artifacts/project-ice/public/high-school-next-season-transition.js
+          node --check artifacts/project-ice/public/high-school-season-boundary-integrity.js
+          node --check artifacts/project-ice/public/high-school-season-stat-history.js
+          node --check artifacts/project-ice/public/awards-ceremony.js
+          node --check artifacts/project-ice/public/high-school-season-archive.js
+          node --check artifacts/project-ice/public/player-award-history.js
+          grep -q "SEASON BOUNDARY TRANSACTION" artifacts/project-ice/public/high-school-next-season-transition.js
+          grep -q "repairInterruptedSeasonBoundary" artifacts/project-ice/public/high-school-season-boundary-integrity.js
+          grep -q "Preserve explicit season identity" artifacts/project-ice/public/high-school-season-stat-history.js
+          grep -q "film-study" artifacts/project-ice/public/high-school-next-season-transition.js
+      - name: Commit repair
+        run: |
+          git config user.name 'Project Ice Actions'
+          git config user.email 'actions@github.com'
+          git add -A
+          git commit -m 'Make high school season transitions atomic and repairable' || exit 0
+          git push
