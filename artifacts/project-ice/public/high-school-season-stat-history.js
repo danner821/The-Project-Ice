@@ -87,29 +87,61 @@
     const history = rawHistory(player);
     const currentStart = seasonStartYear();
     if (!Number.isFinite(currentStart) || !history.length) return history;
-    const currentGrade = gradeOf(player, currentStart);
-    let changed = false;
 
-    history.forEach((row, index) => {
-      const distance = history.length - index;
-      const rowStart = currentStart - distance;
-      const rowGrade = currentGrade ? currentGrade - distance : null;
-      const identity = seasonIdentity(rowStart);
-      const updates = {
-        version: VERSION,
-        seasonId: identity.seasonId,
-        seasonLabel: shortLabel(rowStart),
-        seasonStartYear: rowStart,
-        grade: rowGrade >= 9 && rowGrade <= 12 ? rowGrade : row?.grade,
-        level: rowGrade >= 9 && rowGrade <= 12 ? CLASS_ABBR[rowGrade] : (row?.level || 'HS'),
-      };
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined && row[key] !== value) { row[key] = value; changed = true; }
+    /*
+     * A Project Ice career begins in 2023-24. Historical rows may only describe
+     * seasons that are actually complete: 2023 <= startYear < active startYear.
+     * The old normalizer derived row years from history.length, so duplicate
+     * captures could manufacture 2022-23 / future rows and make one freshman
+     * season appear three times. Normalize by each row's own season identity,
+     * discard impossible rows, and keep one snapshot per completed year.
+     */
+    const parseStart = row => {
+      const explicit = Number(row?.seasonStartYear);
+      if (Number.isFinite(explicit)) return explicit;
+      const fromId = String(row?.seasonId || '').match(/hs-(\d{4})-/);
+      if (fromId) return Number(fromId[1]);
+      const fromLabel = String(row?.seasonLabel || '').match(/^(\d{2}|\d{4})-/);
+      if (fromLabel) {
+        const raw = Number(fromLabel[1]);
+        return raw < 100 ? 2000 + raw : raw;
+      }
+      return null;
+    };
+
+    const byYear = new Map();
+    for (const row of history) {
+      const rowStart = parseStart(row);
+      if (!Number.isFinite(rowStart)) continue;
+      if (rowStart < 2023 || rowStart >= currentStart) continue;
+      byYear.set(rowStart, row);
+    }
+
+    const cleaned = [...byYear.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([rowStart, row]) => {
+        const identity = seasonIdentity(rowStart);
+        const draftYear = Number(player?.draftYear);
+        const rowGrade = Number.isFinite(draftYear)
+          ? 13 - (draftYear - rowStart)
+          : Number(row?.grade);
+        return {
+          ...row,
+          version: VERSION,
+          seasonId: identity.seasonId,
+          seasonLabel: shortLabel(rowStart),
+          seasonStartYear: rowStart,
+          grade: rowGrade >= 9 && rowGrade <= 12 ? rowGrade : row?.grade,
+          level: rowGrade >= 9 && rowGrade <= 12 ? CLASS_ABBR[rowGrade] : (row?.level || 'HS'),
+        };
       });
-    });
 
-    if (changed) WorldEngine.save?.();
-    return history;
+    const changed = JSON.stringify(history) !== JSON.stringify(cleaned);
+    if (changed) {
+      player.highSchoolSeasonHistory = cleaned;
+      WorldEngine.save?.();
+    }
+    return player.highSchoolSeasonHistory;
   }
 
   function captureCompletedSeason() {
