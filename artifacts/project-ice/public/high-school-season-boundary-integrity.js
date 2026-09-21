@@ -15,7 +15,7 @@
     : null;
   if (!base) return;
 
-  const REPAIR_VERSION = 3;
+  const REPAIR_VERSION = 4;
   const playerId = player => String(player?.playerId || player?.id || '');
 
   function enforceActiveDraftClassInvariant() {
@@ -63,6 +63,167 @@
       canonicalIntegrityRepair: true,
     });
     return true;
+  }
+
+  function gradeFromLabel(value) {
+    const text = String(value || '').toLowerCase();
+    if (text.includes('freshman') || text === 'fr') return 9;
+    if (text.includes('sophomore') || text === 'so') return 10;
+    if (text.includes('junior') || text === 'jr') return 11;
+    if (text.includes('senior') || text === 'sr') return 12;
+    return null;
+  }
+
+  function priorSeasonGradeEvidence(player, priorStartYear) {
+    if (!player) return null;
+
+    const histories = [
+      ...(Array.isArray(player.highSchoolSeasonHistory) ? player.highSchoolSeasonHistory : []),
+      ...(Array.isArray(player.seasonHistory) ? player.seasonHistory : []),
+    ];
+
+    for (const row of histories) {
+      const rowStart = Number(row?.seasonStartYear);
+      const label = String(row?.seasonLabel || '');
+      const labelStart = /^\d{2}-\d{2}$/.test(label)
+        ? 2000 + Number(label.slice(0, 2))
+        : Number(label.match(/^(\d{4})-/)?.[1]);
+
+      if (rowStart !== priorStartYear && labelStart !== priorStartYear) continue;
+
+      const explicit = Number(row?.grade);
+      if (explicit >= 9 && explicit <= 12) return explicit;
+
+      const fromLevel = gradeFromLabel(
+        row?.level || row?.schoolYear || row?.classLevel || row?.year
+      );
+      if (fromLevel) return fromLevel;
+    }
+
+    const playerKey = playerId(player);
+    const archives = WorldEngine.state?.history?.highSchoolSeasons || [];
+    const priorArchive = archives.find(record =>
+      Number(record?.identity?.startYear) === Number(priorStartYear)
+    );
+
+    const awards = Array.isArray(priorArchive?.leagueAwards)
+      ? priorArchive.leagueAwards
+      : [];
+
+    for (const award of awards) {
+      if (String(award?.playerId || '') !== playerKey) continue;
+      const fromAward = gradeFromLabel(award?.classLabel);
+      if (fromAward) return fromAward;
+    }
+
+    return null;
+  }
+
+  function repairNpcClassProgressionAndGraduates(startYear) {
+    const world = WorldEngine.state;
+    if (!world || !Number.isFinite(Number(startYear))) return false;
+
+    const priorStartYear = Number(startYear) - 1;
+    const expired = [];
+    let changed = false;
+
+    for (const team of world.teams || []) {
+      for (const player of team?.roster || []) {
+        if (!player || player?.isCareerPlayer === true) continue;
+
+        const priorGrade = priorSeasonGradeEvidence(player, priorStartYear);
+        const draftYear = Number(player?.draftYear);
+
+        if (
+          priorGrade === 12 ||
+          (Number.isFinite(draftYear) && draftYear < Number(startYear) + 1)
+        ) {
+          expired.push({
+            playerId: playerId(player),
+            teamId: String(team?.teamId || ''),
+            seasonId: `hs-${priorStartYear}-${startYear}`,
+            player: structuredClone(player),
+          });
+          continue;
+        }
+
+        let expectedGrade = null;
+
+        if (priorGrade >= 9 && priorGrade <= 11) {
+          expectedGrade = priorGrade + 1;
+        } else if (Number.isFinite(draftYear)) {
+          const inferred = 13 - (draftYear - Number(startYear));
+          if (inferred >= 9 && inferred <= 12) expectedGrade = inferred;
+        }
+
+        if (!(expectedGrade >= 9 && expectedGrade <= 12)) continue;
+
+        const names = { 9:'Freshman', 10:'Sophomore', 11:'Junior', 12:'Senior' };
+        const expectedName = names[expectedGrade];
+        const expectedDraftYear = Number(startYear) + (13 - expectedGrade);
+
+        if (
+          Number(player.grade) !== expectedGrade ||
+          String(player.schoolYear || '') !== expectedName ||
+          String(player.classLevel || '') !== expectedName ||
+          String(player.year || '') !== expectedName ||
+          Number(player.draftYear) !== expectedDraftYear
+        ) {
+          player.grade = expectedGrade;
+          player.schoolYear = expectedName;
+          player.classLevel = expectedName;
+          player.year = expectedName;
+          player.draftYear = expectedDraftYear;
+
+          const expectedAge = 14 + (expectedGrade - 9);
+          const age = Number(player.age);
+          if (
+            !Number.isFinite(age) ||
+            Math.abs(age - expectedAge) >= 2 ||
+            String(player?.birthDatePrecision || '').startsWith('generated')
+          ) {
+            player.age = expectedAge;
+          }
+
+          changed = true;
+        }
+      }
+    }
+
+    if (expired.length > 0 && typeof WorldEngine.applyHighSchoolRosterRollover === 'function') {
+      const lifecycle = world.highSchoolRosterLifecycle = world.highSchoolRosterLifecycle || {};
+      lifecycle.pendingGraduatingSeasonId = `hs-${priorStartYear}-${startYear}`;
+      lifecycle.pendingGraduates = expired;
+
+      WorldEngine.applyHighSchoolRosterRollover({
+        seasonId: String(world?.season?.seasonId || `hs-${startYear}-${Number(startYear)+1}`),
+        careerYearIndex: Math.max(0, Number(startYear) - 2023),
+        schoolYear: world?.season?.schoolYear || world?.player?.schoolYear || null,
+        startDate: String(world?.season?.currentDate || world?.currentDate || `${startYear}-09-01`),
+        canonicalIntegrityRepair: true,
+      });
+
+      changed = true;
+    }
+
+    /*
+     * Ranking-only bridge prospects from a completed draft class are historical
+     * context, not active Top-100 candidates in the following HS season.
+     */
+    if (Array.isArray(world.externalProspects)) {
+      const before = world.externalProspects.length;
+      world.externalProspects = world.externalProspects.filter(player => {
+        const year = Number(
+          player?.draftYear ||
+          player?.scoutingProfile?.draftYear ||
+          player?.development?.draftYear
+        );
+        return !Number.isFinite(year) || year >= Number(startYear) + 1;
+      });
+      if (world.externalProspects.length !== before) changed = true;
+    }
+
+    return changed;
   }
 
   function ensureSeasonScopedHighSchoolGameIds() {
@@ -278,6 +439,7 @@
     });
 
     enforceActiveDraftClassInvariant();
+    repairNpcClassProgressionAndGraduates(startYear);
 
     /*
      * A transition that was saved before its rollover listeners completed can
