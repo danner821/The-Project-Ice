@@ -10,8 +10,12 @@
   const base = typeof WorldEngine.runNextHighSchoolSeasonTransition === 'function'
     ? WorldEngine.runNextHighSchoolSeasonTransition.bind(WorldEngine)
     : null;
+  const baseLoad = typeof WorldEngine.load === 'function'
+    ? WorldEngine.load.bind(WorldEngine)
+    : null;
   if (!base) return;
 
+  const REPAIR_VERSION = 3;
   const playerId = player => String(player?.playerId || player?.id || '');
 
   function enforceActiveDraftClassInvariant() {
@@ -254,12 +258,15 @@
 
     const currentDate = String(world?.season?.currentDate || world?.currentDate || '').slice(0,10);
     const startYear = Number(currentDate.slice(0,4));
-    const careerYearIndex = Number(world?.season?.careerYearIndex);
+    const explicitCareerYearIndex = Number(world?.season?.careerYearIndex);
+    const careerYearIndex = Number.isFinite(explicitCareerYearIndex)
+      ? explicitCareerYearIndex
+      : (Number.isFinite(startYear) ? Math.max(0, startYear - 2023) : NaN);
     if (!Number.isFinite(startYear) || startYear <= 2023 || !Number.isFinite(careerYearIndex)) return false;
 
     const seasonId = String(world?.season?.seasonId || world?.season?.id || `hs-${startYear}-${startYear+1}`);
     world.seasonBoundaryIntegrityRepairs = world.seasonBoundaryIntegrityRepairs || {};
-    if (world.seasonBoundaryIntegrityRepairs[seasonId] === 2) return false;
+    if (Number(world.seasonBoundaryIntegrityRepairs[seasonId]) >= REPAIR_VERSION) return false;
 
     const earlySeptember = currentDate >= `${startYear}-09-01` && currentDate <= `${startYear}-09-15`;
     if (!earlySeptember) return false;
@@ -328,7 +335,7 @@
     rebuildProspectRankingsAtSeasonBoundary();
     try { WorldEngine.syncCareerCalendarProjection?.(currentDate); } catch (_) {}
 
-    world.seasonBoundaryIntegrityRepairs[seasonId] = 2;
+    world.seasonBoundaryIntegrityRepairs[seasonId] = REPAIR_VERSION;
     WorldEngine.save?.();
     return true;
   }
@@ -407,19 +414,31 @@
   WorldEngine.repairEarlyHighSchoolSeasonBoundaryState = repairEarlySeasonBoundaryState;
   WorldEngine.runNextHighSchoolSeasonTransition = runNextHighSchoolSeasonTransitionWithIntegrity;
 
-  /*
-   * Crash recovery: if a save was written after seeding the new season but
-   * before final boundary integrity completed, resume the same transaction on
-   * next launch. Old affected saves marked complete too early are repaired by
-   * the early-season invariant pass instead.
-   */
-  setTimeout(() => {
+  async function runBoundaryRecoveryAfterHydration() {
     const recap = WorldEngine.state?.seasonTransition?.recap;
     if (recap?.playerRecapAcknowledged === true && recap?.nextSeasonTransitionComplete !== true) {
-      Promise.resolve(WorldEngine.runNextHighSchoolSeasonTransition({ force:true, recovery:true }))
-        .catch(error => console.error('[Project Ice] Season-transition recovery failed:', error));
+      try {
+        await WorldEngine.runNextHighSchoolSeasonTransition({ force:true, recovery:true });
+      } catch (error) {
+        console.error('[Project Ice] Season-transition recovery failed:', error);
+      }
       return;
     }
     repairEarlySeasonBoundaryState();
-  }, 0);
+  }
+
+  /*
+   * IMPORTANT: runtime modules load before init() calls WorldEngine.load().
+   * The previous repair used setTimeout(0), which ran against the blank
+   * pre-hydration state and therefore never touched the IndexedDB career.
+   * Wrap load so repair executes only AFTER the authoritative save is hydrated.
+   */
+  if (baseLoad && WorldEngine.__seasonBoundaryLoadWrapped !== true) {
+    WorldEngine.__seasonBoundaryLoadWrapped = true;
+    WorldEngine.load = async function loadWithSeasonBoundaryRecovery(...args) {
+      const result = await baseLoad(...args);
+      await runBoundaryRecoveryAfterHydration();
+      return result;
+    };
+  }
 })();
