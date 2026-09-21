@@ -172,12 +172,13 @@
 
   function resetCurrentSeasonStats(player) {
     if (!player || typeof player !== 'object') return;
-    const zero = ['gamesPlayed','gp','goals','g','assists','a','points','pts','plusMinus','pim','penaltyMinutes','shots','shotsOnGoal','sog','wins','w','losses','l','overtimeLosses','otl','goalsAgainst','ga','saves','shotsAgainst','shutouts','so'];
+    const zero = ['gamesPlayed','gp','goals','g','assists','a','points','pts','plusMinus','pim','penaltyMinutes','shots','shotsOnGoal','sog','wins','w','losses','l','overtimeLosses','otl','goalsAgainst','ga','saves','shotsAgainst','shutouts','so','savePercentage','goalsAgainstAverage','gamesStarted','minutesPlayed'];
     zero.forEach(key => { if (key in player) player[key] = 0; });
-    for (const bucket of ['stats','regularSeasonStats','playoffStats']) {
+    for (const bucket of ['stats','regularSeasonStats','playoffStats','seasonStats','postseasonStats']) {
       if (!player[bucket] || typeof player[bucket] !== 'object') continue;
       Object.keys(player[bucket]).forEach(key => { if (typeof player[bucket][key] === 'number') player[bucket][key] = 0; });
     }
+    player.appliedGameIds = [];
   }
 
   function advanceReturningClasses(identity) {
@@ -224,6 +225,9 @@
     world.standings = [];
     world.leagueLeaders = null;
     world.currentAwardRaces = null;
+    if (world.livingWorld && typeof world.livingWorld === 'object') {
+      world.livingWorld.currentAwardRaces = [];
+    }
   }
 
   function shiftScheduleToSeason(schedule, targetYear) {
@@ -251,7 +255,7 @@
       const type = String(event?.type || event?.eventType || '').toLowerCase();
       const key = String(event?.eventKey || '').toLowerCase();
       const sameDay = String(event?.date || '') === String(identity.tryoutDate);
-      const filler = ['practice','recovery','training','off','rest'].includes(type);
+      const filler = ['practice','recovery','film-study','training','off','rest'].includes(type);
       return !type.includes('tryout') && !key.includes('tryout') && !(sameDay && filler);
     });
     world.schedule.push({
@@ -292,6 +296,22 @@
   function seedNextSeasonIdentity(identity) {
     const world = state();
     if (!world || !identity) return false;
+    const recap = recapState();
+
+    /*
+     * SEASON BOUNDARY TRANSACTION
+     *
+     * Seeding is idempotent. If the app is interrupted after the new-season
+     * state exists, reopening must never advance classes or reset the year a
+     * second time.
+     */
+    if (
+      recap?.nextSeasonStateSeeded === identity.seasonId &&
+      String(world?.season?.seasonId || '') === String(identity.seasonId)
+    ) {
+      return true;
+    }
+
     const archive = activeArchive();
     world.currentSeason = identity.label;
     world.currentYear = identity.startYear;
@@ -312,10 +332,11 @@
     repairSyntheticDevBirthdate(identity, archive);
     WorldEngine.syncPlayerAges?.(world, identity.startDate);
     for (const team of world.teams || []) { try { WorldEngine.refreshTeamRosterManagement?.(team.teamId, { save: false }); } catch (_) {} }
-    const recap = recapState();
     if (recap) {
-      recap.nextSeasonTransitionComplete = true;
-      recap.nextSeasonTransitionCompletedAt = identity.startDate;
+      recap.nextSeasonTransitionComplete = false;
+      recap.nextSeasonTransitionCompletedAt = null;
+      recap.nextSeasonStateSeeded = identity.seasonId;
+      recap.nextSeasonTransitionStage = 'state-seeded';
       recap.nextSeasonId = identity.seasonId;
       recap.nextCareerYearIndex = identity.careerYearIndex;
     }
@@ -345,14 +366,38 @@
     await phase(root, `<div class="pi-ns-kicker">Project Ice</div><div class="pi-ns-title">${completedYear} Year Complete</div><div class="pi-ns-sub">One chapter closes.</div>`, 1300);
     await phase(root, `<div class="pi-ns-kicker">Year ${identity.careerYearIndex + 1}</div><div class="pi-ns-title">${identity.schoolYear} Season</div><div class="pi-ns-sub">${identity.label}</div><div class="pi-ns-line"></div><div class="pi-ns-date">A new season begins</div>`, 1650);
     seedNextSeasonIdentity(identity);
+
+    /*
+     * Finish the canonical season-start lifecycle BEFORE the first durable save
+     * of the new year. The old order saved a half-transitioned world and only
+     * dispatched graduation/stat-reset listeners after the cutscene.
+     */
+    const detail = {
+      seasonId: identity.seasonId,
+      careerYearIndex: identity.careerYearIndex,
+      schoolYear: identity.schoolYear,
+      startDate: identity.startDate,
+      tryoutDate: identity.tryoutDate,
+    };
+
+    const recapAfterSeed = recapState();
+    if (recapAfterSeed?.nextSeasonLifecycleDispatched !== identity.seasonId) {
+      window.dispatchEvent(new CustomEvent('projectice:next-high-school-season-started', { detail }));
+      recapAfterSeed.nextSeasonLifecycleDispatched = identity.seasonId;
+      recapAfterSeed.nextSeasonTransitionStage = 'lifecycle-dispatched';
+    }
+
     await WorldEngine.save?.();
-    hardRefreshRolloverUI(identity);
+
+    /*
+     * Avoid repainting three Hub tabs underneath the full-screen transition.
+     * That mid-cutscene refresh was unnecessary and could stall the iPhone UI.
+     */
     await phase(root, `<div class="pi-ns-kicker">Back to School</div><div class="pi-ns-title">September 1</div><div class="pi-ns-sub">${identity.startYear} · ${identity.schoolYear} season</div><div class="pi-ns-line"></div><div class="pi-ns-date">Returning tryouts are next</div>`, 1350);
     root.classList.remove('is-visible');
     await wait(460);
     root.remove();
     hardRefreshRolloverUI(identity);
-    window.dispatchEvent(new CustomEvent('projectice:next-high-school-season-started', { detail: { seasonId: identity.seasonId, careerYearIndex: identity.careerYearIndex, schoolYear: identity.schoolYear, startDate: identity.startDate, tryoutDate: identity.tryoutDate } }));
     return true;
   }
 
