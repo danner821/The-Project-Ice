@@ -251,7 +251,7 @@
       const type = String(event?.type || event?.eventType || '').toLowerCase();
       const key = String(event?.eventKey || '').toLowerCase();
       const sameDay = String(event?.date || '') === String(identity.tryoutDate);
-      const filler = ['practice','recovery','training','off','rest'].includes(type);
+      const filler = ['practice','recovery','film-study','training','off','rest'].includes(type);
       return !type.includes('tryout') && !key.includes('tryout') && !(sameDay && filler);
     });
     world.schedule.push({
@@ -293,6 +293,20 @@
     const world = state();
     if (!world || !identity) return false;
     const archive = activeArchive();
+    const recap = recapState();
+
+    /*
+     * The transition is resumable. If the app was closed after the new season
+     * was seeded but before rollover/integrity listeners finished, never apply
+     * class advancement or stat resets a second time. Continue from the seeded
+     * world and let the boundary-integrity layer finish the transaction.
+     */
+    const alreadySeeded = Boolean(
+      recap?.nextSeasonSeededSeasonId === identity.seasonId &&
+      String(world?.season?.seasonId || world?.season?.id || '') === String(identity.seasonId)
+    );
+    if (alreadySeeded) return true;
+
     world.currentSeason = identity.label;
     world.currentYear = identity.startYear;
     world.currentWeek = 1;
@@ -312,10 +326,11 @@
     repairSyntheticDevBirthdate(identity, archive);
     WorldEngine.syncPlayerAges?.(world, identity.startDate);
     for (const team of world.teams || []) { try { WorldEngine.refreshTeamRosterManagement?.(team.teamId, { save: false }); } catch (_) {} }
-    const recap = recapState();
     if (recap) {
-      recap.nextSeasonTransitionComplete = true;
-      recap.nextSeasonTransitionCompletedAt = identity.startDate;
+      recap.nextSeasonTransitionComplete = false;
+      recap.nextSeasonTransitionStarted = true;
+      recap.nextSeasonTransitionStartedAt = recap.nextSeasonTransitionStartedAt || identity.startDate;
+      recap.nextSeasonSeededSeasonId = identity.seasonId;
       recap.nextSeasonId = identity.seasonId;
       recap.nextCareerYearIndex = identity.careerYearIndex;
     }
@@ -333,6 +348,9 @@
   }
 
   async function runTransition(options = {}) {
+    if (WorldEngine.__nextHighSchoolSeasonTransitionInFlight === true) return false;
+    WorldEngine.__nextHighSchoolSeasonTransitionInFlight = true;
+    try {
     const recap = recapState();
     if (!recap || recap.playerRecapAcknowledged !== true) return false;
     if (recap.nextSeasonTransitionComplete === true && options.force !== true) return false;
@@ -354,6 +372,9 @@
     hardRefreshRolloverUI(identity);
     window.dispatchEvent(new CustomEvent('projectice:next-high-school-season-started', { detail: { seasonId: identity.seasonId, careerYearIndex: identity.careerYearIndex, schoolYear: identity.schoolYear, startDate: identity.startDate, tryoutDate: identity.tryoutDate } }));
     return true;
+    } finally {
+      WorldEngine.__nextHighSchoolSeasonTransitionInFlight = false;
+    }
   }
 
   function gradeFor(score) {
@@ -509,7 +530,12 @@
   } catch (_) {}
 
   window.addEventListener('projectice:player-season-recap-complete', () => {
-    runTransition({ force: true }).catch(error => {
+    /*
+     * Always enter through the public method. The season-boundary integrity
+     * runtime wraps this method after load and owns graduation, stat-history,
+     * prospect-board rebuilds and final transaction completion.
+     */
+    Promise.resolve(WorldEngine.runNextHighSchoolSeasonTransition?.({ force: true })).catch(error => {
       console.error('[Project Ice] Next-season transition failed:', error);
       alert(`Next-season transition failed: ${error?.message || error}`);
     });
