@@ -13,6 +13,315 @@
   if (!base) return;
 
   const playerId = player => String(player?.playerId || player?.id || '');
+  const BOUNDARY_INTEGRITY_VERSION = 2;
+
+  const dateKey = value => {
+    const text = String(value || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+  };
+
+  const addDays = (value, days) => {
+    const key = dateKey(value);
+    if (!key) return null;
+    const date = new Date(key + 'T00:00:00Z');
+    date.setUTCDate(date.getUTCDate() + Number(days || 0));
+    return date.toISOString().slice(0, 10);
+  };
+
+  function recapState() {
+    const world = WorldEngine.state;
+    if (!world) return null;
+    world.seasonTransition =
+      world.seasonTransition && typeof world.seasonTransition === 'object'
+        ? world.seasonTransition
+        : {};
+    world.seasonTransition.recap =
+      world.seasonTransition.recap && typeof world.seasonTransition.recap === 'object'
+        ? world.seasonTransition.recap
+        : {};
+    return world.seasonTransition.recap;
+  }
+
+  function currentSeasonStartYear() {
+    return Number(
+      WorldEngine.state?.season?.seasonStartYear ||
+      String(
+        WorldEngine.state?.season?.currentDate ||
+        WorldEngine.state?.currentDate ||
+        ''
+      ).slice(0, 4)
+    ) || null;
+  }
+
+  function hasCompletedCurrentSeasonGame() {
+    const startYear = currentSeasonStartYear();
+    if (!Number.isFinite(startYear)) return false;
+    const seasonStart = String(startYear) + '-09-01';
+
+    return (WorldEngine.state?.schedule || []).some(event => {
+      const type = String(event?.type || event?.eventType || '').toLowerCase();
+      const isGame = type === 'game' || Boolean(event?.homeTeamId && event?.awayTeamId);
+      const date = dateKey(event?.date);
+      const done =
+        event?.played === true ||
+        event?.completed === true ||
+        event?.isCompleted === true ||
+        String(event?.status || '').toLowerCase() === 'final';
+      return Boolean(isGame && date && date >= seasonStart && done);
+    });
+  }
+
+  function zeroCurrentSeasonStats(player) {
+    if (!player || typeof player !== 'object') return;
+
+    const zeroKeys = [
+      'gamesPlayed','gp','goals','g','assists','a','points','pts','plusMinus',
+      'pim','penaltyMinutes','shots','shotsOnGoal','sog','wins','w','losses','l',
+      'overtimeLosses','otl','goalsAgainst','ga','saves','shotsAgainst',
+      'shutouts','so','savePercentage','goalsAgainstAverage','gamesStarted',
+      'minutesPlayed','powerPlayGoals','powerPlayPoints','shorthandedGoals',
+      'gameWinningGoals'
+    ];
+
+    for (const key of zeroKeys) {
+      if (key in player) player[key] = 0;
+    }
+
+    for (const bucket of [
+      'stats',
+      'regularSeasonStats',
+      'playoffStats',
+      'seasonStats',
+      'postseasonStats',
+    ]) {
+      if (!player[bucket] || typeof player[bucket] !== 'object') continue;
+      for (const key of Object.keys(player[bucket])) {
+        if (typeof player[bucket][key] === 'number') player[bucket][key] = 0;
+      }
+    }
+
+    player.appliedGameIds = [];
+  }
+
+  function zeroCurrentSeasonWorldState() {
+    const world = WorldEngine.state;
+    if (!world) return false;
+
+    const seen = new Set();
+    const reset = player => {
+      if (!player || typeof player !== 'object') return;
+      const id = playerId(player) || player;
+      if (seen.has(id)) return;
+      seen.add(id);
+      zeroCurrentSeasonStats(player);
+    };
+
+    for (const team of world.teams || []) {
+      for (const player of team?.roster || []) reset(player);
+      for (const key of ['wins','losses','overtimeLosses','points','goalsFor','goalsAgainst']) {
+        team[key] = 0;
+      }
+    }
+
+    reset(world.player);
+
+    if (typeof Game !== 'undefined' && Game?.player) {
+      zeroCurrentSeasonStats(Game.player);
+    }
+
+    world.standings = [];
+    world.leagueLeaders = null;
+    world.currentAwardRaces = null;
+
+    if (world.livingWorld && typeof world.livingWorld === 'object') {
+      world.livingWorld.currentAwardRaces = [];
+    }
+
+    return true;
+  }
+
+  function canonicalGradeFromDraftYear(player, startYear) {
+    const draftYear = Number(player?.draftYear);
+    if (!Number.isFinite(draftYear) || !Number.isFinite(startYear)) return null;
+    const grade = 13 - (draftYear - startYear);
+    return grade >= 9 && grade <= 12 ? grade : null;
+  }
+
+  function normalizeFreshmanFlags() {
+    const startYear = currentSeasonStartYear();
+    if (!Number.isFinite(startYear)) return false;
+    let changed = false;
+
+    for (const team of WorldEngine.state?.teams || []) {
+      for (const player of team?.roster || []) {
+        if (!player || player?.isCareerPlayer === true) continue;
+        const explicit = Number(player?.grade);
+        const grade =
+          canonicalGradeFromDraftYear(player, startYear) ||
+          (explicit >= 9 && explicit <= 12 ? explicit : null);
+        if (!grade) continue;
+
+        const freshman = grade === 9;
+        if (player.isFreshman !== freshman) {
+          player.isFreshman = freshman;
+          changed = true;
+        }
+      }
+    }
+
+    return changed;
+  }
+
+  function ensureReturningTryout() {
+    const world = WorldEngine.state;
+    const startYear = currentSeasonStartYear();
+    if (!world || !Number.isFinite(startYear) || startYear <= 2023) return false;
+
+    const index = Math.max(0, startYear - 2023);
+    const identity = WorldEngine.getHighSchoolSeasonIdentity?.(index) || {
+      seasonId: 'hs-' + startYear + '-' + (startYear + 1),
+      tryoutDate: startYear + '-09-02',
+    };
+
+    const schedule = Array.isArray(world.schedule) ? world.schedule : [];
+    const tryouts = schedule.filter(event =>
+      event?.returningYearTryout === true ||
+      String(event?.eventKey || '') === 'returning-varsity-tryouts'
+    );
+
+    const completed = tryouts.find(event =>
+      event?.completed === true ||
+      event?.played === true ||
+      event?.isCompleted === true
+    );
+
+    if (completed) return false;
+
+    const current = dateKey(
+      world?.season?.currentDate ||
+      world?.player?.currentDate ||
+      world?.currentDate
+    ) || (startYear + '-09-01');
+
+    let targetDate = dateKey(identity.tryoutDate) || (startYear + '-09-02');
+
+    if (targetDate < current) {
+      targetDate = addDays(current, 1) || current;
+    }
+
+    const firstGameDate = schedule
+      .filter(event => {
+        const type = String(event?.type || event?.eventType || '').toLowerCase();
+        return type === 'game' && dateKey(event?.date) && dateKey(event.date) >= current;
+      })
+      .map(event => dateKey(event.date))
+      .sort()[0] || null;
+
+    if (firstGameDate && targetDate >= firstGameDate) {
+      targetDate = current;
+    }
+
+    const fillerTypes = new Set([
+      'practice','recovery','film-study','training','off','rest',
+    ]);
+
+    world.schedule = schedule.filter(event => {
+      if (tryouts.includes(event)) return false;
+      const type = String(event?.type || event?.eventType || '').toLowerCase();
+      const sameDay = dateKey(event?.date) === targetDate;
+      return !(sameDay && fillerTypes.has(type));
+    });
+
+    const canonicalId = 'returning-varsity-tryouts:' + identity.seasonId;
+
+    world.schedule.push({
+      id: canonicalId,
+      eventId: 'tryout-freshman',
+      canonicalEventId: canonicalId,
+      type: 'tryout',
+      eventType: 'tryout',
+      eventKey: 'returning-varsity-tryouts',
+      label: 'Varsity Tryouts',
+      shortLabel: 'Tryouts',
+      icon: '🥅',
+      date: targetDate,
+      location: 'Home Rink',
+      objective: 'Earn your role for the new season.',
+      description: 'You already belong to the program. This year, tryouts determine where you fit in the lineup.',
+      requiresPlayerInteraction: true,
+      isCareerEvent: true,
+      preseasonEvent: true,
+      returningYearTryout: true,
+      completed: false,
+      isCompleted: false,
+      played: false,
+      status: 'scheduled',
+      recoveredAtSeasonBoundary: true,
+    });
+
+    world.schedule.sort((a, b) =>
+      String(a?.date || '').localeCompare(String(b?.date || '')) ||
+      String(a?.eventId || a?.id || '').localeCompare(String(b?.eventId || b?.id || ''))
+    );
+
+    if (world.season) {
+      world.season.completedEventIds = Array.isArray(world.season.completedEventIds)
+        ? world.season.completedEventIds.filter(id =>
+            String(id) !== 'tryout-freshman' &&
+            !String(id).includes('returning-varsity-tryouts')
+          )
+        : [];
+    }
+
+    return true;
+  }
+
+  function normalizeAllStatHistories() {
+    if (typeof WorldEngine.normalizeHighSchoolSeasonStatHistory !== 'function') {
+      return false;
+    }
+
+    const seen = new Set();
+    const players = [];
+
+    const add = player => {
+      if (!player || typeof player !== 'object') return;
+      const id = playerId(player) || player;
+      if (seen.has(id)) return;
+      seen.add(id);
+      players.push(player);
+    };
+
+    for (const player of WorldEngine.getAllWorldPlayers?.() || []) add(player);
+    for (const team of WorldEngine.state?.teams || []) {
+      for (const player of team?.roster || []) add(player);
+    }
+    add(WorldEngine.state?.player);
+
+    for (const player of players) {
+      WorldEngine.normalizeHighSchoolSeasonStatHistory(player);
+    }
+
+    return true;
+  }
+
+  function markBoundaryComplete() {
+    const recap = recapState();
+    const world = WorldEngine.state;
+    if (!recap || !world) return;
+
+    recap.nextSeasonTransitionComplete = true;
+    recap.nextSeasonTransitionCompletedAt =
+      world?.season?.currentDate ||
+      world?.currentDate ||
+      null;
+    recap.nextSeasonTransitionStage = 'complete';
+    recap.boundaryIntegrityVersion = BOUNDARY_INTEGRITY_VERSION;
+    recap.boundaryIntegritySeasonId =
+      world?.season?.seasonId ||
+      world?.season?.id ||
+      null;
+  }
 
   function enforceActiveDraftClassInvariant() {
     const world = WorldEngine.state;
@@ -177,6 +486,9 @@
     );
 
     enforceActiveDraftClassInvariant();
+    normalizeFreshmanFlags();
+    ensureReturningTryout();
+    normalizeAllStatHistories();
     ensureSeasonScopedHighSchoolGameIds();
     rebuildProspectRankingsAtSeasonBoundary();
 
@@ -192,13 +504,126 @@
       );
     } catch (_) {}
 
+    markBoundaryComplete();
+
     const saveResult = WorldEngine.save?.();
     if (saveResult && typeof saveResult.then === 'function') await saveResult;
     return transitioned;
   }
 
+  async function repairInterruptedSeasonBoundary(options = {}) {
+    const world = WorldEngine.state;
+    const recap = recapState();
+    const startYear = currentSeasonStartYear();
+
+    if (
+      !world ||
+      !recap ||
+      !Number.isFinite(startYear) ||
+      startYear <= 2023
+    ) {
+      return { repaired: false, reason: 'not-returning-season' };
+    }
+
+    const seasonId = String(
+      world?.season?.seasonId ||
+      world?.season?.id ||
+      ''
+    );
+
+    if (
+      Number(recap.boundaryIntegrityVersion || 0) >= BOUNDARY_INTEGRITY_VERSION &&
+      String(recap.boundaryIntegritySeasonId || '') === seasonId
+    ) {
+      return { repaired: false, reason: 'boundary-already-verified' };
+    }
+
+    /*
+     * Never zero a season after a real current-year game has been played.
+     * This migration is only for the interrupted preseason transition window.
+     */
+    if (hasCompletedCurrentSeasonGame()) {
+      return { repaired: false, reason: 'season-already-in-progress' };
+    }
+
+    const index = Math.max(0, startYear - 2023);
+
+    WorldEngine.normalizeCanonicalHighSchoolTimeline?.(
+      world,
+      {
+        careerYearIndex: index,
+        reconcileRosters: false,
+        save: false,
+      }
+    );
+
+    enforceActiveDraftClassInvariant();
+
+    /*
+     * The interrupted save can have new-season identity but old-season stat
+     * mirrors because the lifecycle event never ran. Repair those mirrors only
+     * while the new season still has zero completed games.
+     */
+    zeroCurrentSeasonWorldState();
+    normalizeFreshmanFlags();
+    normalizeAllStatHistories();
+    ensureReturningTryout();
+    ensureSeasonScopedHighSchoolGameIds();
+    rebuildProspectRankingsAtSeasonBoundary();
+
+    try {
+      WorldEngine.reconcilePlayerAwardHistory?.();
+    } catch (_) {}
+
+    try {
+      WorldEngine.syncHighSchoolLeadership?.({ save: false });
+    } catch (_) {}
+
+    try {
+      WorldEngine.syncCareerCalendarProjection?.(
+        world?.season?.currentDate || null
+      );
+    } catch (_) {}
+
+    markBoundaryComplete();
+
+    const saveResult = WorldEngine.save?.();
+    if (saveResult && typeof saveResult.then === 'function') {
+      await saveResult;
+    }
+
+    try { refreshCareerUI?.(); } catch (_) {}
+
+    return {
+      repaired: true,
+      reason: 'interrupted-season-boundary-repaired',
+      seasonId,
+      startYear,
+      source: options.source || null,
+    };
+  }
+
+  const baseSelectCareerSave =
+    typeof WorldEngine.selectCareerSave === 'function'
+      ? WorldEngine.selectCareerSave.bind(WorldEngine)
+      : null;
+
+  if (
+    baseSelectCareerSave &&
+    WorldEngine.selectCareerSave.__seasonBoundaryRepairWrapped !== true
+  ) {
+    const wrappedSelectCareerSave = async function(...args) {
+      const result = await baseSelectCareerSave(...args);
+      await repairInterruptedSeasonBoundary({ source: 'career-load' });
+      return result;
+    };
+    wrappedSelectCareerSave.__seasonBoundaryRepairWrapped = true;
+    WorldEngine.selectCareerSave = wrappedSelectCareerSave;
+  }
+
   WorldEngine.enforceActiveHighSchoolDraftClassInvariant = enforceActiveDraftClassInvariant;
   WorldEngine.ensureSeasonScopedHighSchoolGameIds = ensureSeasonScopedHighSchoolGameIds;
   WorldEngine.rebuildProspectRankingsAtSeasonBoundary = rebuildProspectRankingsAtSeasonBoundary;
+  WorldEngine.repairInterruptedSeasonBoundary = repairInterruptedSeasonBoundary;
   WorldEngine.runNextHighSchoolSeasonTransition = runNextHighSchoolSeasonTransitionWithIntegrity;
 })();
