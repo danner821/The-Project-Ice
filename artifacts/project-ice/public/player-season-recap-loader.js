@@ -61,6 +61,20 @@
   });
 
   window.addEventListener('projectice:player-season-recap-complete', async () => {
+    /*
+     * The transition runtime is part of the normal Vite stack and owns its own
+     * player-season-recap-complete listener. Calling it again from this loader
+     * created two concurrent season transitions: NPC classes advanced twice,
+     * reset/rollover listeners raced each other, and a half-transition could be
+     * persisted if the app was closed during the cutscene.
+     *
+     * Only invoke manually when this loader truly had to lazy-load the runtime
+     * after the event was already dispatched.
+     */
+    if (typeof WorldEngine.runNextHighSchoolSeasonTransition === 'function') {
+      return;
+    }
+
     const loaded = await ensureNextSeasonTransitionRuntime();
     if (!loaded) {
       console.error('[Project Ice] Next-season transition runtime failed to load.');
