@@ -93,13 +93,13 @@ const runtimeModulesPlugin = {
     if (!html.includes('/league-history-player-links.js')) scripts.push('    <script src="/league-history-player-links.js"></script>');
     if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
     if (!html.includes('/high-school-leadership.js')) scripts.push('    <script src="/high-school-leadership.js?v=20260920-1c2a-1"></script>');
-    if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js"></script>');
+    if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/career-timeline.js')) scripts.push('    <script src="/career-timeline.js"></script>');
-    if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js"></script>');
-    if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js"></script>');
+    if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js?v=20260920-season-transition-2"></script>');
+    if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/film-study-event.js')) scripts.push('    <script src="/film-study-event.js?v=20260919-blocking-1"></script>');
     if (!html.includes('/persistence-trace-debug.js')) scripts.push('    <script src="/persistence-trace-debug.js?v=20260919-trace-1"></script>');
-    if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js?v=20260919-readonly-rank-1"></script>');
+    if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js?v=20260920-travel-calendar-integrity-1"></script>');
     if (!html.includes('/standings-season-label.js')) scripts.push('    <script src="/standings-season-label.js"></script>');
     if (!html.includes('/regular-season-game-event-presentation.js')) scripts.push('    <script src="/regular-season-game-event-presentation.js"></script>');
