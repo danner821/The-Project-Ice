@@ -86,6 +86,7 @@
       team: award?.team || null,
       teamId: award?.teamId || null,
       playerId: String(award?.playerId || ''),
+      classLabel: award?.classLabel || null,
       date: record?.date || record?.archivedAt || null,
     };
   }
@@ -109,15 +110,75 @@
     return true;
   }
 
+  function freshmanWinnerIsEligible(winner = {}) {
+    const title = String(
+      winner?.title ||
+      winner?.name ||
+      winner?.awardName ||
+      ''
+    ).toLowerCase();
+
+    const awardId = String(
+      winner?.awardId ||
+      winner?.id ||
+      ''
+    ).toLowerCase();
+
+    const freshmanAward =
+      awardId === 'freshman' ||
+      awardId === 'freshman_of_year' ||
+      title.includes('freshman of the year');
+
+    if (!freshmanAward) return true;
+
+    const label = String(winner?.classLabel || '').trim().toLowerCase();
+    if (!label) return true;
+
+    return label.includes('freshman');
+  }
+
+  function removePlayerAwardByKey(player, key) {
+    const awards = player?.history?.awards;
+    if (!Array.isArray(awards)) return false;
+
+    const before = awards.length;
+
+    player.history.awards = awards.filter(item =>
+      String(
+        item?.key ||
+        ((item?.seasonLabel || item?.season || '') + ':' +
+          (item?.awardId || item?.title || item?.name || ''))
+      ) !== String(key)
+    );
+
+    return player.history.awards.length !== before;
+  }
+
   function reconcileAwardRecord(record, winners) {
     let changed = false;
+
     for (const winner of winners || []) {
       const playerId = String(winner?.playerId || '');
       if (!playerId) continue;
+
       const player = playerById(playerId);
       if (!player) continue;
-      if (upsertPlayerAward(player, normalizedAward(record, winner))) changed = true;
+
+      const normalized = normalizedAward(record, winner);
+
+      /*
+       * Old worlds could leave isFreshman=true on an older player. If the
+       * frozen award record itself says the winner was not a freshman, remove
+       * the impossible award instead of copying it forward forever.
+       */
+      if (!freshmanWinnerIsEligible(winner)) {
+        if (removePlayerAwardByKey(player, normalized.key)) changed = true;
+        continue;
+      }
+
+      if (upsertPlayerAward(player, normalized)) changed = true;
     }
+
     return changed;
   }
 
