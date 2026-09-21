@@ -15,7 +15,7 @@
     : null;
   if (!base) return;
 
-  const REPAIR_VERSION = 4;
+  const REPAIR_VERSION = 5;
   const playerId = player => String(player?.playerId || player?.id || '');
 
   function enforceActiveDraftClassInvariant() {
@@ -100,7 +100,58 @@
       if (fromLevel) return fromLevel;
     }
 
+    /*
+     * Award history is authoritative class evidence when a damaged rollover
+     * already corrupted the player's current grade/draftYear. In particular,
+     * winning Freshman of the Year in 2023-24 proves that player's prior grade
+     * was 9 even if the current save incorrectly says Junior.
+     */
+    const personalAwards = [
+      ...(Array.isArray(player.awards) ? player.awards : []),
+      ...(Array.isArray(player.awardHistory) ? player.awardHistory : []),
+      ...(Array.isArray(player?.history?.awards) ? player.history.awards : []),
+    ];
+
+    for (const award of personalAwards) {
+      const title = String(award?.title || award?.name || award?.awardName || '').toLowerCase();
+      const seasonLabel = String(
+        award?.seasonLabel || award?.season || award?.year || award?.seasonId || ''
+      );
+      const seasonStart = /^\d{2}-\d{2}$/.test(seasonLabel)
+        ? 2000 + Number(seasonLabel.slice(0, 2))
+        : Number(seasonLabel.match(/(\d{4})/)?.[1]);
+
+      if (
+        Number.isFinite(seasonStart) &&
+        seasonStart !== Number(priorStartYear)
+      ) continue;
+
+      if (title.includes('freshman of the year')) return 9;
+
+      const fromAwardClass = gradeFromLabel(
+        award?.classLabel || award?.schoolYear || award?.classLevel || award?.level
+      );
+      if (fromAwardClass) return fromAwardClass;
+    }
+
     const playerKey = playerId(player);
+    const fullName = `${player?.firstName || ''} ${player?.lastName || ''}`
+      .trim()
+      .toLowerCase();
+    const team = (WorldEngine.state?.teams || []).find(row =>
+      String(row?.teamId || '') === String(player?.teamId || '')
+    ) || null;
+    const teamLabels = new Set(
+      [
+        team?.abbreviation,
+        team?.teamName,
+        team?.name,
+        `${team?.schoolName || ''} ${team?.teamName || ''}`.trim(),
+      ]
+        .filter(Boolean)
+        .map(value => String(value).trim().toLowerCase())
+    );
+
     const archives = WorldEngine.state?.history?.highSchoolSeasons || [];
     const priorArchive = archives.find(record =>
       Number(record?.identity?.startYear) === Number(priorStartYear)
@@ -111,7 +162,19 @@
       : [];
 
     for (const award of awards) {
-      if (String(award?.playerId || '') !== playerKey) continue;
+      const awardPlayerId = String(award?.playerId || '');
+      const awardName = String(award?.playerName || '').trim().toLowerCase();
+      const awardTeam = String(award?.team || award?.teamName || '').trim().toLowerCase();
+
+      const idMatch = Boolean(playerKey && awardPlayerId && awardPlayerId === playerKey);
+      const nameMatch = Boolean(fullName && awardName && awardName === fullName);
+      const teamMatch = !awardTeam || teamLabels.size === 0 || teamLabels.has(awardTeam);
+
+      if (!idMatch && !(nameMatch && teamMatch)) continue;
+
+      const title = String(award?.title || '').toLowerCase();
+      if (title.includes('freshman of the year')) return 9;
+
       const fromAward = gradeFromLabel(award?.classLabel);
       if (fromAward) return fromAward;
     }
