@@ -87,26 +87,87 @@
     const history = rawHistory(player);
     const currentStart = seasonStartYear();
     if (!Number.isFinite(currentStart) || !history.length) return history;
-    const currentGrade = gradeOf(player, currentStart);
+
+    /*
+     * Preserve explicit season identity.
+     *
+     * The previous normalizer recomputed EVERY saved row from its array index.
+     * A freshly captured 2023-24 row was therefore rewritten to 2022-23; the
+     * next idempotent capture then added 2023-24 again. Each new season could
+     * make the same stat line appear another time.
+     */
+    const CANONICAL_FIRST_START = 2023;
+    const normalized = [];
+    const seenYears = new Set();
     let changed = false;
 
-    history.forEach((row, index) => {
-      const distance = history.length - index;
-      const rowStart = currentStart - distance;
-      const rowGrade = currentGrade ? currentGrade - distance : null;
+    const source = history.map((row, index) => ({ row, index }));
+
+    for (const entry of source) {
+      const row = entry.row && typeof entry.row === 'object' ? entry.row : {};
+      let rowStart = Number(row?.seasonStartYear);
+
+      if (!Number.isFinite(rowStart)) {
+        const distance = source.length - entry.index;
+        rowStart = currentStart - distance;
+        changed = true;
+      }
+
+      if (
+        rowStart < CANONICAL_FIRST_START ||
+        rowStart >= currentStart ||
+        seenYears.has(rowStart)
+      ) {
+        changed = true;
+        continue;
+      }
+
+      seenYears.add(rowStart);
+
       const identity = seasonIdentity(rowStart);
+      const draftYear = Number(player?.draftYear);
+      const gradeByDraft =
+        Number.isFinite(draftYear)
+          ? 13 - (draftYear - rowStart)
+          : null;
+      const savedGrade = Number(row?.grade);
+      const grade =
+        gradeByDraft >= 9 && gradeByDraft <= 12
+          ? gradeByDraft
+          : savedGrade >= 9 && savedGrade <= 12
+            ? savedGrade
+            : null;
+
       const updates = {
         version: VERSION,
         seasonId: identity.seasonId,
         seasonLabel: shortLabel(rowStart),
         seasonStartYear: rowStart,
-        grade: rowGrade >= 9 && rowGrade <= 12 ? rowGrade : row?.grade,
-        level: rowGrade >= 9 && rowGrade <= 12 ? CLASS_ABBR[rowGrade] : (row?.level || 'HS'),
+        grade: grade || row?.grade,
+        level: grade ? CLASS_ABBR[grade] : (row?.level || 'HS'),
       };
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined && row[key] !== value) { row[key] = value; changed = true; }
-      });
-    });
+
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined && row[key] !== value) {
+          row[key] = value;
+          changed = true;
+        }
+      }
+
+      normalized.push(row);
+    }
+
+    normalized.sort((a, b) =>
+      Number(a?.seasonStartYear || 0) - Number(b?.seasonStartYear || 0)
+    );
+
+    if (
+      normalized.length !== history.length ||
+      normalized.some((row, index) => row !== history[index])
+    ) {
+      history.splice(0, history.length, ...normalized);
+      changed = true;
+    }
 
     if (changed) WorldEngine.save?.();
     return history;
