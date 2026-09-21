@@ -15,7 +15,7 @@
     : null;
   if (!base) return;
 
-  const REPAIR_VERSION = 5;
+  const REPAIR_VERSION = 6;
   const playerId = player => String(player?.playerId || player?.id || '');
 
   function enforceActiveDraftClassInvariant() {
@@ -77,34 +77,11 @@
   function priorSeasonGradeEvidence(player, priorStartYear) {
     if (!player) return null;
 
-    const histories = [
-      ...(Array.isArray(player.highSchoolSeasonHistory) ? player.highSchoolSeasonHistory : []),
-      ...(Array.isArray(player.seasonHistory) ? player.seasonHistory : []),
-    ];
-
-    for (const row of histories) {
-      const rowStart = Number(row?.seasonStartYear);
-      const label = String(row?.seasonLabel || '');
-      const labelStart = /^\d{2}-\d{2}$/.test(label)
-        ? 2000 + Number(label.slice(0, 2))
-        : Number(label.match(/^(\d{4})-/)?.[1]);
-
-      if (rowStart !== priorStartYear && labelStart !== priorStartYear) continue;
-
-      const explicit = Number(row?.grade);
-      if (explicit >= 9 && explicit <= 12) return explicit;
-
-      const fromLevel = gradeFromLabel(
-        row?.level || row?.schoolYear || row?.classLevel || row?.year
-      );
-      if (fromLevel) return fromLevel;
-    }
-
     /*
-     * Award history is authoritative class evidence when a damaged rollover
-     * already corrupted the player's current grade/draftYear. In particular,
-     * winning Freshman of the Year in 2023-24 proves that player's prior grade
-     * was 9 even if the current save incorrectly says Junior.
+     * Evidence priority matters. A season award with an explicit class meaning
+     * (especially Freshman of the Year) is stronger than a stat-history grade
+     * because the damaged double-transition can already have rewritten those
+     * history rows to the wrong class.
      */
     const personalAwards = [
       ...(Array.isArray(player.awards) ? player.awards : []),
@@ -113,10 +90,21 @@
     ];
 
     for (const award of personalAwards) {
-      const title = String(award?.title || award?.name || award?.awardName || '').toLowerCase();
+      const title = String(
+        award?.name ||
+        award?.title ||
+        award?.awardName ||
+        ''
+      ).toLowerCase();
+
       const seasonLabel = String(
-        award?.seasonLabel || award?.season || award?.year || award?.seasonId || ''
+        award?.seasonLabel ||
+        award?.season ||
+        award?.year ||
+        award?.seasonId ||
+        ''
       );
+
       const seasonStart = /^\d{2}-\d{2}$/.test(seasonLabel)
         ? 2000 + Number(seasonLabel.slice(0, 2))
         : Number(seasonLabel.match(/(\d{4})/)?.[1]);
@@ -129,7 +117,10 @@
       if (title.includes('freshman of the year')) return 9;
 
       const fromAwardClass = gradeFromLabel(
-        award?.classLabel || award?.schoolYear || award?.classLevel || award?.level
+        award?.classLabel ||
+        award?.schoolYear ||
+        award?.classLevel ||
+        award?.level
       );
       if (fromAwardClass) return fromAwardClass;
     }
@@ -138,9 +129,11 @@
     const fullName = `${player?.firstName || ''} ${player?.lastName || ''}`
       .trim()
       .toLowerCase();
+
     const team = (WorldEngine.state?.teams || []).find(row =>
       String(row?.teamId || '') === String(player?.teamId || '')
     ) || null;
+
     const teamLabels = new Set(
       [
         team?.abbreviation,
@@ -164,19 +157,71 @@
     for (const award of awards) {
       const awardPlayerId = String(award?.playerId || '');
       const awardName = String(award?.playerName || '').trim().toLowerCase();
-      const awardTeam = String(award?.team || award?.teamName || '').trim().toLowerCase();
+      const awardTeam = String(
+        award?.team ||
+        award?.teamName ||
+        ''
+      ).trim().toLowerCase();
 
-      const idMatch = Boolean(playerKey && awardPlayerId && awardPlayerId === playerKey);
-      const nameMatch = Boolean(fullName && awardName && awardName === fullName);
-      const teamMatch = !awardTeam || teamLabels.size === 0 || teamLabels.has(awardTeam);
+      const idMatch = Boolean(
+        playerKey &&
+        awardPlayerId &&
+        awardPlayerId === playerKey
+      );
+
+      const nameMatch = Boolean(
+        fullName &&
+        awardName &&
+        awardName === fullName
+      );
+
+      const teamMatch =
+        !awardTeam ||
+        teamLabels.size === 0 ||
+        teamLabels.has(awardTeam);
 
       if (!idMatch && !(nameMatch && teamMatch)) continue;
 
-      const title = String(award?.title || '').toLowerCase();
+      const title = String(
+        award?.name ||
+        award?.title ||
+        ''
+      ).toLowerCase();
+
       if (title.includes('freshman of the year')) return 9;
 
       const fromAward = gradeFromLabel(award?.classLabel);
       if (fromAward) return fromAward;
+    }
+
+    /*
+     * Stat history is useful only after immutable award evidence has had the
+     * first chance to resolve the prior class.
+     */
+    const histories = [
+      ...(Array.isArray(player.highSchoolSeasonHistory) ? player.highSchoolSeasonHistory : []),
+      ...(Array.isArray(player.seasonHistory) ? player.seasonHistory : []),
+    ];
+
+    for (const row of histories) {
+      const rowStart = Number(row?.seasonStartYear);
+      const label = String(row?.seasonLabel || '');
+      const labelStart = /^\d{2}-\d{2}$/.test(label)
+        ? 2000 + Number(label.slice(0, 2))
+        : Number(label.match(/^(\d{4})-/)?.[1]);
+
+      if (rowStart !== priorStartYear && labelStart !== priorStartYear) continue;
+
+      const explicit = Number(row?.grade);
+      if (explicit >= 9 && explicit <= 12) return explicit;
+
+      const fromLevel = gradeFromLabel(
+        row?.level ||
+        row?.schoolYear ||
+        row?.classLevel ||
+        row?.year
+      );
+      if (fromLevel) return fromLevel;
     }
 
     return null;
