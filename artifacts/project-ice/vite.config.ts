@@ -57,10 +57,10 @@ const runtimeModulesPlugin = {
     if (!html.includes('/home-postseason-awareness.js')) scripts.push('    <script src="/home-postseason-awareness.js"></script>');
     if (!html.includes('/home-postseason-polish.js')) scripts.push('    <script src="/home-postseason-polish.js"></script>');
     if (!html.includes('/championship-checkpoint.js')) scripts.push('    <script src="/championship-checkpoint.js"></script>');
-    if (!html.includes('/awards-ceremony.js')) scripts.push('    <script src="/awards-ceremony.js"></script>');
+    if (!html.includes('/awards-ceremony.js')) scripts.push('    <script src="/awards-ceremony.js?v=20260920-freshman-eligibility-1"></script>');
     if (!html.includes('/freshman-award-race-migration.js')) scripts.push('    <script src="/freshman-award-race-migration.js"></script>');
     if (!html.includes('/award-race-stale-snapshot-bridge.js')) scripts.push('    <script src="/award-race-stale-snapshot-bridge.js"></script>');
-    if (!html.includes('/player-award-history.js')) scripts.push('    <script src="/player-award-history.js"></script>');
+    if (!html.includes('/player-award-history.js')) scripts.push('    <script src="/player-award-history.js?v=20260920-freshman-eligibility-1"></script>');
     if (!html.includes('/player-awards-style.js')) scripts.push('    <script src="/player-awards-style.js"></script>');
     if (!html.includes('/awards-calendar-event.js')) scripts.push('    <script src="/awards-calendar-event.js"></script>');
     if (!html.includes('/league-awards-history.js')) scripts.push('    <script src="/league-awards-history.js"></script>');
@@ -87,19 +87,19 @@ const runtimeModulesPlugin = {
 
     /* Phase 3.5: post-Travel offseason development + season transition. */
     if (!html.includes('/offseason-development-cadence.js')) scripts.push('    <script src="/offseason-development-cadence.js"></script>');
-    if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js"></script>');
+    if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js?v=20260920-freshman-eligibility-1"></script>');
     if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js"></script>');
     if (!html.includes('/league-history-recap-view.js')) scripts.push('    <script src="/league-history-recap-view.js"></script>');
     if (!html.includes('/league-history-player-links.js')) scripts.push('    <script src="/league-history-player-links.js"></script>');
     if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
     if (!html.includes('/high-school-leadership.js')) scripts.push('    <script src="/high-school-leadership.js?v=20260920-1c2a-1"></script>');
-    if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js"></script>');
+    if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js?v=20260920-history-v2-1"></script>');
     if (!html.includes('/career-timeline.js')) scripts.push('    <script src="/career-timeline.js"></script>');
     if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js"></script>');
-    if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js"></script>');
+    if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js?v=20260920-boundary-v2-1"></script>');
     if (!html.includes('/film-study-event.js')) scripts.push('    <script src="/film-study-event.js?v=20260919-blocking-1"></script>');
     if (!html.includes('/persistence-trace-debug.js')) scripts.push('    <script src="/persistence-trace-debug.js?v=20260919-trace-1"></script>');
-    if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js?v=20260919-readonly-rank-1"></script>');
+    if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js?v=20260920-boundary-v2-1"></script>');
     if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js?v=20260920-travel-calendar-integrity-1"></script>');
     if (!html.includes('/standings-season-label.js')) scripts.push('    <script src="/standings-season-label.js"></script>');
     if (!html.includes('/regular-season-game-event-presentation.js')) scripts.push('    <script src="/regular-season-game-event-presentation.js"></script>');
