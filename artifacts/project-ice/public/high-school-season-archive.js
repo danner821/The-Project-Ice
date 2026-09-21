@@ -248,8 +248,20 @@
   }
 
   function isFreshman(player) {
+    const grade = Number(player?.grade);
+    if (grade >= 9 && grade <= 12) return grade === 9;
+
     const level = classLabel(player).toLowerCase();
-    return player?.isFreshman === true || level.includes('freshman') || Number(player?.grade) === 9;
+    if (
+      level.includes('freshman') ||
+      level.includes('sophomore') ||
+      level.includes('junior') ||
+      level.includes('senior')
+    ) {
+      return level.includes('freshman');
+    }
+
+    return player?.isFreshman === true;
   }
 
   function leagueAwardWinners(post) {
@@ -316,7 +328,7 @@
       makeAward(byAssists[0], 'playmaker', 'Playmaker Award'),
       makeAward(defense[0] || byPoints[0], 'defenseman', 'Best Defenseman'),
       makeAward(bySave[0], 'goalie', 'Goaltender of the Year'),
-      makeAward(freshmanRanked[0] || byPoints[0], 'freshman', 'Freshman of the Year'),
+      makeAward(freshmanRanked[0], 'freshman', 'Freshman of the Year'),
       makeAward(playoffRanked[0] || byPoints[0], 'playoff-mvp', 'Playoff MVP', 'playoffs'),
       makeAward(byPoints[0], 'mvp', 'League MVP'),
     ].filter(Boolean);
