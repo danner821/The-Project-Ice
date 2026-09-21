@@ -70,9 +70,20 @@
   }
 
   function isFreshman(player) {
-    const level = classLabel(player).toLowerCase();
     const grade = Number(player?.grade);
-    return player?.isFreshman === true || level.includes('freshman') || grade === 9;
+    if (grade >= 9 && grade <= 12) return grade === 9;
+
+    const level = classLabel(player).toLowerCase();
+    if (
+      level.includes('freshman') ||
+      level.includes('sophomore') ||
+      level.includes('junior') ||
+      level.includes('senior')
+    ) {
+      return level.includes('freshman');
+    }
+
+    return player?.isFreshman === true;
   }
 
   function ranked(entries, score) {
