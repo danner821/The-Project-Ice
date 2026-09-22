@@ -68,6 +68,23 @@
   }
 
   function regularSeasonEndDate() {
+    /*
+     * Postseason belongs to the LEAGUE, not only the career team.
+     * Always prefer the Season Lifecycle's canonical league-wide end date.
+     *
+     * The previous fallback used the career team's last completed game. For a
+     * non-qualifier (or any team whose final game was earlier than the league
+     * finale), that could move the checkpoint to the wrong week and let a long
+     * simulation pass the real postseason boundary without ever presenting the
+     * "Head Into Playoffs" flow.
+     */
+    const canonicalLeagueEnd =
+      dateKey(WorldEngine.getHighSchoolRegularSeasonEndDate?.());
+
+    if (canonicalLeagueEnd) {
+      return canonicalLeagueEnd;
+    }
+
     const schedule = Array.isArray(WorldEngine.state?.schedule)
       ? WorldEngine.state.schedule
       : [];
@@ -83,25 +100,14 @@
       return explicitFinales[explicitFinales.length - 1];
     }
 
-    const teamId = careerTeamId();
-    const careerGames = regular.filter(game =>
-      teamId && (
-        String(game.homeTeamId) === String(teamId) ||
-        String(game.awayTeamId) === String(teamId)
-      )
-    );
-
-    const completedCareerDates = careerGames
-      .filter(isFinal)
+    const allRegularDates = regular
       .map(game => dateKey(game.date))
       .filter(Boolean)
       .sort();
 
-    if (completedCareerDates.length) {
-      return completedCareerDates[completedCareerDates.length - 1];
-    }
-
-    return WorldEngine.getHighSchoolRegularSeasonEndDate?.() || null;
+    return allRegularDates.length
+      ? allRegularDates[allRegularDates.length - 1]
+      : null;
   }
 
   function desiredCheckpointDate() {
@@ -184,6 +190,13 @@
   }
 
   WorldEngine.ensureHighSchoolPostseasonCheckpoint = ensureCheckpointState;
+
+  /*
+   * Repair saves that are already sitting on/past the postseason checkpoint.
+   * This is especially important for non-qualifiers because they have no
+   * career playoff game to naturally force another stop.
+   */
+  ensureCheckpointState({ save: true });
 
   WorldEngine.advanceToDate = function postseasonAwareAdvance(targetDate, options = {}) {
     const requestedTarget = dateKey(targetDate);
