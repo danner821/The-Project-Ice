@@ -143,7 +143,28 @@
 
   function findLiveTravelEntry(player) {
     const state = travelState();
-    if (!state || !Array.isArray(state.teams) || !player) return null;
+
+    /*
+     * A live Travel stat row may only come from an actual current tournament.
+     *
+     * After the HS season transition, travelHockey intentionally keeps parts
+     * of the prior Travel world (including teams/rosters) around while
+     * clearing state.tournament. The old code treated those stale roster
+     * copies as a new live Travel season and stamped them with the CURRENT HS
+     * date. That turned a June 2024 tournament into a fake 24-25 row with the
+     * exact same stats.
+     *
+     * Archived tournaments already own historical Travel stats. If there is
+     * no current tournament, there is no live Travel row.
+     */
+    if (
+      !state?.tournament ||
+      !Array.isArray(state.teams) ||
+      !player
+    ) {
+      return null;
+    }
+
     const ids = [player?.sourcePlayerId, player?.playerId, player?.id].filter(Boolean).map(String);
     const name = norm(nameOf(player));
 
