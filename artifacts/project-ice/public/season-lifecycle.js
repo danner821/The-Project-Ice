@@ -175,13 +175,28 @@
     const world = state();
     if (!Array.isArray(world.schedule)) world.schedule = [];
     const ids = new Set(world.schedule.map(gameId));
+    const addedDates = new Set();
     let added = 0;
     for (const game of games.filter(Boolean)) {
       if (!gameId(game) || ids.has(gameId(game))) continue;
       world.schedule.push(game);
       ids.add(gameId(game));
+      if (key(game?.date)) addedDates.add(key(game.date));
       added += 1;
     }
+
+    /*
+     * A recovered/late-created postseason can add games onto calendar dates
+     * the regular Season Engine already passed as empty days. Reopen only
+     * those exact dates. Existing game/event idempotency guards keep previously
+     * completed work from being applied twice, while the new playoff game is
+     * allowed to resolve normally.
+     */
+    if (addedDates.size && Array.isArray(world?.season?.processedDates)) {
+      world.season.processedDates =
+        world.season.processedDates.filter(date => !addedDates.has(key(date)));
+    }
+
     world.schedule.sort((a, b) =>
       String(a?.date || '').localeCompare(String(b?.date || '')) || gameId(a).localeCompare(gameId(b))
     );
