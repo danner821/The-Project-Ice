@@ -13239,6 +13239,22 @@ function updateHubScreen() {
     const currentOverall =
       Number(player.overall) || 0;
 
+    /*
+     * Growth has a dedicated canonical owner in
+     * season-development-snapshot.js. Always consume that summary when it is
+     * available instead of recalculating from legacy startingOverall /
+     * seasonStartingOverall fields here.
+     *
+     * This matters immediately after an attribute upgrade: this function is
+     * called synchronously to repaint the Development card, and the old local
+     * calculation was overwriting the correct season/career growth values
+     * until the user left the Player tab and returned.
+     */
+    const canonicalGrowthSummary =
+      typeof WorldEngine.getHighSchoolGrowthSummary === 'function'
+        ? WorldEngine.getHighSchoolGrowthSummary()
+        : null;
+
     const startingOverall =
       Number(
         player.startingOverall
@@ -13247,25 +13263,28 @@ function updateHubScreen() {
     const careerGrowth =
       Number.isFinite(
         Number(
-          development
-            .totalOverallGrowth
+          canonicalGrowthSummary?.careerGrowth
         )
       )
         ? Number(
-            development
-              .totalOverallGrowth
+            canonicalGrowthSummary.careerGrowth
           )
-        : Math.max(
-            0,
-            currentOverall -
-            startingOverall
-          );
+        : Number.isFinite(
+            Number(
+              development
+                .totalOverallGrowth
+            )
+          )
+          ? Number(
+              development
+                .totalOverallGrowth
+            )
+          : Math.max(
+              0,
+              currentOverall -
+              startingOverall
+            );
 
-    /*
-     * Until season-transition snapshots exist, current overall
-     * growth is also the safest first-season growth value.
-     * Later seasons will use the saved season-start overall.
-     */
     const seasonStartingOverall =
       Number(
         development
@@ -13273,8 +13292,16 @@ function updateHubScreen() {
       ) || startingOverall;
 
     const seasonGrowth =
-      currentOverall -
-      seasonStartingOverall;
+      Number.isFinite(
+        Number(
+          canonicalGrowthSummary?.seasonGrowth
+        )
+      )
+        ? Number(
+            canonicalGrowthSummary.seasonGrowth
+          )
+        : currentOverall -
+          seasonStartingOverall;
 
     const formatGrowth =
       value => {
