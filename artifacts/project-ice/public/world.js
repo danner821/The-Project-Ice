@@ -2900,6 +2900,17 @@ const WorldEngine = (() => {
     }
 
     /*
+     * The career starts as a freshman in Project Ice's opening 2023-24
+     * high-school season, making the career player part of the 2027 draft
+     * class. Older saves could retain a stale 2026 value from the retired
+     * class bootstrap. Repair that value at the canonical player layer so
+     * scouting, rankings, profiles, and future NHL-port logic all agree.
+     */
+    if (player.isCareerPlayer === true) {
+      player.draftYear = 2027;
+    }
+
+    /*
      * Preserve an existing nationality.
      * Players from older saves receive one once during migration.
      */
