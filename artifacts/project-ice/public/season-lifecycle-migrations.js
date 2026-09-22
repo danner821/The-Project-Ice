@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MIGRATION_VERSION = 2;
+  const MIGRATION_VERSION = 3;
   let lastObservedPostseason = null;
   let lastObservedVersion = null;
 
@@ -47,6 +47,156 @@
         hasScore
       );
     });
+  }
+
+  function isFinalGame(game) {
+    const hasScore =
+      game?.homeScore !== null &&
+      game?.homeScore !== undefined &&
+      game?.awayScore !== null &&
+      game?.awayScore !== undefined &&
+      Number.isFinite(Number(game.homeScore)) &&
+      Number.isFinite(Number(game.awayScore));
+
+    return Boolean(
+      game?.played === true ||
+      game?.completed === true ||
+      String(game?.status || '').toLowerCase() === 'final' ||
+      hasScore
+    );
+  }
+
+  function regularSeasonGamesThrough(endDate) {
+    const limit = dateKey(endDate);
+    if (!limit) return [];
+
+    return (WorldEngine.state?.schedule || []).filter(game => {
+      const date = dateKey(game?.date);
+      return Boolean(
+        date &&
+        date <= limit &&
+        game?.isPlayoff !== true &&
+        game?.homeTeamId &&
+        game?.awayTeamId
+      );
+    });
+  }
+
+  function allRegularSeasonGamesFinal(endDate) {
+    const games = regularSeasonGamesThrough(endDate);
+    return games.length > 0 && games.every(isFinalGame);
+  }
+
+  function recoveryLedger(world) {
+    world.history =
+      world.history && typeof world.history === 'object'
+        ? world.history
+        : {};
+    world.history.recoveryMigrations =
+      world.history.recoveryMigrations &&
+      typeof world.history.recoveryMigrations === 'object'
+        ? world.history.recoveryMigrations
+        : {};
+    return world.history.recoveryMigrations;
+  }
+
+  function recoverMissedPostseasonBoundary() {
+    const world = WorldEngine.state || {};
+    const post = world?.postseason?.highSchool || null;
+
+    if (
+      post?.initialized ||
+      hasAdvancedBeyondPostseason(world) ||
+      hasPlayedPlayoffGame()
+    ) {
+      return false;
+    }
+
+    const now = currentDate();
+    const endDate =
+      dateKey(WorldEngine.getHighSchoolRegularSeasonEndDate?.()) ||
+      null;
+    const checkpointDate = addDays(endDate, 7);
+
+    if (
+      !now ||
+      !endDate ||
+      !checkpointDate ||
+      now <= checkpointDate ||
+      !allRegularSeasonGamesFinal(endDate)
+    ) {
+      return false;
+    }
+
+    const ledger = recoveryLedger(world);
+    const seasonId = String(
+      world?.season?.seasonId ||
+      world?.season?.id ||
+      world?.currentSeason ||
+      ''
+    );
+    const recoveryKey = `postseason-boundary-recovery-v1:${seasonId}`;
+
+    /*
+     * This is an explicit integrity recovery, not a normal time-travel feature.
+     * Keep all completed results, stats, standings, XP, news and processed-week
+     * guards exactly as saved. Only move the canonical clock back to the missed
+     * checkpoint so the postseason handoff can occur in the proper order.
+     */
+    const fromDate = now;
+    WorldEngine.setCurrentDate?.(checkpointDate, { save: false });
+
+    if (world.season) {
+      world.season.lastProcessedDate = checkpointDate;
+      world.season.phase = 'regular-season';
+    }
+
+    const initialized =
+      WorldEngine.initializeHighSchoolPostseason?.({
+        regularSeasonEndDate: endDate,
+        save: false,
+      }) || null;
+
+    if (!initialized?.initialized) {
+      WorldEngine.setCurrentDate?.(fromDate, { save: false });
+      return false;
+    }
+
+    initialized.checkpointAcknowledged = false;
+    initialized.checkpointAcknowledgedAt = null;
+    initialized.status = 'break';
+
+    if (world.season?.postseason) {
+      world.season.postseason.started = false;
+      world.season.postseason.completed = false;
+      world.season.phase = 'postseason-break';
+    }
+
+    ledger[recoveryKey] = {
+      version: 1,
+      seasonId,
+      fromDate,
+      toDate: checkpointDate,
+      regularSeasonEndDate: endDate,
+      repairedAt: new Date().toISOString(),
+      reason: 'missed-postseason-checkpoint',
+    };
+
+    WorldEngine.save?.();
+
+    window.dispatchEvent(
+      new CustomEvent('projectice:postseason-state-ready')
+    );
+    window.dispatchEvent(
+      new CustomEvent('projectice:career-date-advanced')
+    );
+
+    console.info(
+      '[SeasonLifecycle] Recovered missed postseason boundary.',
+      ledger[recoveryKey]
+    );
+
+    return true;
   }
 
   /*
@@ -138,6 +288,11 @@
       return;
     }
 
+    if (recoverMissedPostseasonBoundary()) {
+      migrate();
+      return;
+    }
+
     WorldEngine.reconcileHighSchoolPostseason?.({ save: true });
     migrate();
   }
@@ -188,6 +343,7 @@
     }
   }
 
+  recoverMissedPostseasonBoundary();
   observeActiveCareer();
   window.addEventListener('projectice:postseason-state-ready', observeActiveCareer);
   window.addEventListener('projectice:next-high-school-season-started', observeActiveCareer);
