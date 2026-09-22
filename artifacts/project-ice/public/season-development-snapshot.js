@@ -7,7 +7,7 @@
   if (WorldEngine.__seasonDevelopmentSnapshotInstalled === true) return;
   WorldEngine.__seasonDevelopmentSnapshotInstalled = true;
 
-  const VERSION = 3;
+  const VERSION = 4;
 
   const clone = value => value == null ? value : structuredClone(value);
   const idOf = player => String(player?.playerId || player?.id || '');
@@ -88,21 +88,14 @@
   }
 
   function careerOpeningOverall(player = careerPlayer()) {
-    const world = WorldEngine.state;
-    const gamePlayer = typeof Game !== 'undefined' ? Game?.player : null;
-
-    const explicitCandidates = [
-      player?.startingOverall,
-      world?.player?.startingOverall,
-      gamePlayer?.startingOverall,
-    ];
-
-    for (const candidate of explicitCandidates) {
-      const value = Number(candidate);
-      if (Number.isFinite(value) && value > 0) return value;
-    }
-
+    /*
+     * Season-opening snapshots are the durable historical source of truth.
+     * startingOverall can be rewritten by later tryout/load flows, so it must
+     * never outrank an older verified opening snapshot when calculating
+     * career growth.
+     */
     const snapshots = orderedSnapshots();
+
     for (const record of snapshots) {
       const savedCareerOpening = Number(record?.careerOpeningOverall);
       if (Number.isFinite(savedCareerOpening) && savedCareerOpening > 0) {
@@ -114,6 +107,19 @@
     const earliestOverall = Number(earliest?.overall);
     if (Number.isFinite(earliestOverall) && earliestOverall > 0) {
       return earliestOverall;
+    }
+
+    const world = WorldEngine.state;
+    const gamePlayer = typeof Game !== 'undefined' ? Game?.player : null;
+    const explicitCandidates = [
+      player?.startingOverall,
+      world?.player?.startingOverall,
+      gamePlayer?.startingOverall,
+    ];
+
+    for (const candidate of explicitCandidates) {
+      const value = Number(candidate);
+      if (Number.isFinite(value) && value > 0) return value;
     }
 
     const current = Number(player?.overall);
@@ -174,7 +180,7 @@
 
   function capture(options = {}) {
     const player = careerPlayer();
-    const key = seasonId();
+    const key = String(options.seasonId || seasonId() || '');
     const store = root();
 
     if (!player || !key || !store) {
@@ -219,10 +225,42 @@
 
     const currentOverall = Number(player.overall) || 0;
     const currentOpening = get();
-    if (!currentOpening) return null;
+    const currentSchoolYear = schoolYear();
+
+    /*
+     * A small number of rollover saves captured the new-year event before the
+     * season identity finished advancing. In those saves, get() can return the
+     * prior year's opening snapshot (for example freshman 68 OVR while the
+     * player is already a sophomore). Detect that mismatch and use the most
+     * recent completed season's ending overall as the new season baseline.
+     */
+    const openingSchoolYear = String(currentOpening?.schoolYear || '');
+    const openingMatchesCurrentSeason =
+      currentOpening &&
+      (
+        !currentSchoolYear ||
+        !openingSchoolYear ||
+        openingSchoolYear === currentSchoolYear
+      );
+
+    const archives =
+      typeof WorldEngine.getHighSchoolSeasonArchives === 'function'
+        ? WorldEngine.getHighSchoolSeasonArchives()
+        : [];
+
+    const latestCompletedArchive =
+      Array.isArray(archives) && archives.length > 0
+        ? archives[archives.length - 1]
+        : null;
+
+    const previousSeasonEndingOverall =
+      Number(latestCompletedArchive?.careerPlayer?.overall) || 0;
 
     const seasonOpeningOverall =
-      Number(currentOpening.overall) || currentOverall;
+      openingMatchesCurrentSeason
+        ? (Number(currentOpening?.overall) || currentOverall)
+        : (previousSeasonEndingOverall || Number(currentOpening?.overall) || currentOverall);
+
     const originalCareerOverall = careerOpeningOverall(player) || currentOverall;
 
     return {
@@ -283,8 +321,16 @@
 
   window.addEventListener(
     'projectice:next-high-school-season-started',
-    () => {
-      capture({ save: true });
+    event => {
+      /*
+       * Use the transition payload's seasonId directly. This avoids an event
+       * ordering race where another listener has not yet copied the new season
+       * identity onto WorldEngine.state when this handler runs.
+       */
+      capture({
+        save: true,
+        seasonId: event?.detail?.seasonId || seasonId(),
+      });
       renderGrowthAfterCore();
     }
   );
