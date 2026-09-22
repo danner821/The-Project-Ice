@@ -15953,9 +15953,50 @@ ${
           overallAfter,
         });
 
-        syncCareerPlayerWithWorld();
+        /*
+         * Attribute upgrades only change development/attribute state.
+         *
+         * Do NOT run the entire Hub renderer from inside this delegated click
+         * handler. That broad refresh also repaints the Statistics table while
+         * the attribute DOM is being replaced, which can momentarily render
+         * from the lightweight/transitional Game.player snapshot (the bogus
+         * 22-23 / 1 GP row seen after upgrades). Navigating away/back fixes it
+         * because the normal Hub entry path rehydrates from the canonical
+         * roster player.
+         *
+         * Refresh only the pieces the upgrade actually changed and leave the
+         * already-correct statistics/history DOM untouched.
+         */
+        const refreshedPlayer =
+          syncCareerPlayerWithWorld() ||
+          canonicalPlayer;
+
         saveCareerPreview();
-        updateHubScreen();
+
+        const careerPlayerTab =
+          document.getElementById(
+            'hub-tab-player'
+          );
+
+        const careerOverallEl =
+          careerPlayerTab?.querySelector(
+            '.pp-header__ovr-value'
+          );
+
+        if (careerOverallEl) {
+          careerOverallEl.textContent =
+            Number(refreshedPlayer.overall) || 0;
+        }
+
+        renderCareerPlayerAttributes(
+          refreshedPlayer
+        );
+
+        updatePlayerDevelopmentCards(
+          refreshedPlayer
+        );
+
+        updatePlayerUpgradeNotification();
 
         return;
       }
