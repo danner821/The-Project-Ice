@@ -7,7 +7,7 @@
   if (WorldEngine.__seasonDevelopmentSnapshotInstalled === true) return;
   WorldEngine.__seasonDevelopmentSnapshotInstalled = true;
 
-  const VERSION = 4;
+  const VERSION = 5;
 
   const clone = value => value == null ? value : structuredClone(value);
   const idOf = player => String(player?.playerId || player?.id || '');
@@ -256,10 +256,47 @@
     const previousSeasonEndingOverall =
       Number(latestCompletedArchive?.careerPlayer?.overall) || 0;
 
-    const seasonOpeningOverall =
+    const snapshotSeasonOpeningOverall =
       openingMatchesCurrentSeason
         ? (Number(currentOpening?.overall) || currentOverall)
         : (previousSeasonEndingOverall || Number(currentOpening?.overall) || currentOverall);
+
+    /*
+     * Attribute upgrades already write permanent overall-increase
+     * accomplishments with the owning seasonId. That ledger is a better source
+     * for "This Season" than a stale rollover snapshot because it records the
+     * actual 70 -> 71 style OVR change when it happened.
+     *
+     * Older saves that predate those events still fall back to the snapshot.
+     */
+    const currentSeasonId = seasonId();
+    const currentSeasonOverallEvents =
+      (Array.isArray(player?.accomplishments) ? player.accomplishments : [])
+        .filter(entry =>
+          entry?.type === 'overall-increase' &&
+          String(entry?.seasonId || '') === String(currentSeasonId || '') &&
+          Number.isFinite(Number(entry?.previousOverall)) &&
+          Number.isFinite(Number(entry?.newOverall))
+        );
+
+    const eventSeasonGrowth =
+      currentSeasonOverallEvents.reduce(
+        (sum, entry) =>
+          sum +
+          Math.max(
+            0,
+            Number(entry.newOverall) - Number(entry.previousOverall)
+          ),
+        0
+      );
+
+    const seasonGrowth =
+      currentSeasonOverallEvents.length > 0
+        ? eventSeasonGrowth
+        : currentOverall - snapshotSeasonOpeningOverall;
+
+    const seasonOpeningOverall =
+      currentOverall - seasonGrowth;
 
     const originalCareerOverall = careerOpeningOverall(player) || currentOverall;
 
@@ -267,7 +304,7 @@
       currentOverall,
       seasonOpeningOverall,
       careerOpeningOverall: originalCareerOverall,
-      seasonGrowth: currentOverall - seasonOpeningOverall,
+      seasonGrowth,
       careerGrowth: currentOverall - originalCareerOverall,
     };
   }
