@@ -38109,6 +38109,103 @@ case 'career-defense':
       : [];
   }
 
+  function applyScoutingObservationConfidence(player = {}, {
+    observedGames = 0,
+    exposure = 0,
+    spotlightGames = 0,
+    migrateExisting = false,
+  } = {}) {
+    ensureCanonicalPlayerContract(player);
+
+    const profile =
+      player.scoutingProfile ||
+      (player.scoutingProfile = createDefaultScoutingProfile());
+
+    const development = player.development || (player.development = {});
+
+    /*
+     * SCOUTING CERTAINTY OWNERSHIP
+     *
+     * Potential certainty is a public scouting-confidence value, so actual
+     * scout observations must move it. The old weekly potential evaluator
+     * looked at gamesObserved, but scouting was processed after potential and
+     * on Monday it inspected the still-unplayed week ahead. In practice the
+     * career player could collect observed games while certainty stayed at 50.
+     *
+     * Each newly observed game now contributes a small, permanent evidence
+     * credit. Spotlight/exposure adds a modest bonus. A ledger prevents the
+     * same historical observations from being credited twice.
+     */
+    const totalObserved = Math.max(0, Number(profile.gamesObserved) || 0);
+    const totalExposure = Math.max(0, Number(profile.scoutingExposureScore) || 0);
+    const totalSpotlight = Math.max(0, Number(profile.spotlightGamesObserved) || 0);
+
+    const creditedObserved = Math.max(
+      0,
+      Number(profile.potentialConfidenceObservedGamesCredited) || 0
+    );
+    const creditedExposure = Math.max(
+      0,
+      Number(profile.potentialConfidenceExposureCredited) || 0
+    );
+    const creditedSpotlight = Math.max(
+      0,
+      Number(profile.potentialConfidenceSpotlightCredited) || 0
+    );
+
+    const gameCredit = migrateExisting
+      ? Math.max(0, totalObserved - creditedObserved)
+      : Math.max(0, Number(observedGames) || 0);
+
+    const exposureCredit = migrateExisting
+      ? Math.max(0, totalExposure - creditedExposure)
+      : Math.max(0, Number(exposure) || 0);
+
+    const spotlightCredit = migrateExisting
+      ? Math.max(0, totalSpotlight - creditedSpotlight)
+      : Math.max(0, Number(spotlightGames) || 0);
+
+    if (gameCredit <= 0 && exposureCredit <= 0 && spotlightCredit <= 0) {
+      return false;
+    }
+
+    const currentConfidence = Math.max(
+      25,
+      Math.min(
+        100,
+        Number(
+          development.potentialConfidence ??
+          player.potentialConfidence ??
+          50
+        ) || 50
+      )
+    );
+
+    const confidenceGain =
+      gameCredit * 2.4 +
+      Math.min(6, exposureCredit * 0.18) +
+      spotlightCredit * 1.15;
+
+    const nextConfidence = Math.max(
+      25,
+      Math.min(92, currentConfidence + confidenceGain)
+    );
+
+    development.potentialConfidence = Number(nextConfidence.toFixed(2));
+    development.potentialAccuracy =
+      getPotentialAccuracyFromConfidence(nextConfidence);
+
+    player.potentialConfidence = development.potentialConfidence;
+    player.potentialAccuracy = development.potentialAccuracy;
+
+    profile.evaluationAccuracy = development.potentialAccuracy;
+    profile.potentialConfidenceObservedGamesCredited = totalObserved;
+    profile.potentialConfidenceExposureCredited = totalExposure;
+    profile.potentialConfidenceSpotlightCredited = totalSpotlight;
+
+    return true;
+  }
+
   function processScoutingWeek(dateString) {
     const normalizedDate = normalizeLivingWorldDateKey(dateString);
     const weekStart = getWeekStartDate(normalizedDate);
@@ -38223,6 +38320,13 @@ case 'career-defense':
       profile.lastScoutedWeek = additionalObserved > 0
         ? weekKey
         : (profile.lastScoutedWeek || null);
+
+      applyScoutingObservationConfidence(player, {
+        observedGames: additionalObserved,
+        exposure: weeklyExposure,
+        spotlightGames,
+      });
+
       profile.evaluationAccuracy =
         player.development?.potentialAccuracy ||
         player.potentialAccuracy ||
@@ -39209,9 +39313,23 @@ case 'career-defense':
     if (!weekKey || livingWorld.processedWeeks.includes(weekKey)) {
       return livingWorld.weeklySnapshots.find(item => item?.weekKey === weekKey) || null;
     }
-    processPotentialWeek(normalizedDate);
+    /*
+     * Weekly scouting/potential must evaluate a completed week, not the Monday
+     * morning week that has not happened yet. Use Sunday (the prior day), then
+     * run scouting first so that week's observations are available to the
+     * potential-confidence evaluator immediately.
+     */
+    const livingWorldDate = livingWorldDateFromKey(normalizedDate);
+    const completedWeekDate = livingWorldDate
+      ? (() => {
+          const prior = new Date(livingWorldDate.getTime());
+          prior.setUTCDate(prior.getUTCDate() - 1);
+          return livingWorldDateKeyFromDate(prior);
+        })()
+      : normalizedDate;
 
-    processScoutingWeek(normalizedDate);
+    processScoutingWeek(completedWeekDate);
+    processPotentialWeek(completedWeekDate);
 
     const lineupSnapshot = processLivingWorldLineupMovement(normalizedDate, weekKey);
     const awardRaceSnapshot = buildLivingWorldAwardRaces(normalizedDate, weekKey);
@@ -41719,7 +41837,19 @@ case 'career-defense':
             save: false,
           });
 
-        if (awardNewsRepair.changed) {
+        let scoutingConfidenceMigrated = false;
+        for (const player of getAllWorldPlayers()) {
+          if (
+            Math.max(0, Number(player?.scoutingProfile?.gamesObserved) || 0) > 0
+          ) {
+            scoutingConfidenceMigrated =
+              applyScoutingObservationConfidence(player, {
+                migrateExisting: true,
+              }) || scoutingConfidenceMigrated;
+          }
+        }
+
+        if (awardNewsRepair.changed || scoutingConfidenceMigrated) {
           await save();
         }
 
@@ -41803,6 +41933,16 @@ case 'career-defense':
       repairAwardNewsAccuracy({
         save: false,
       });
+
+      for (const player of getAllWorldPlayers()) {
+        if (
+          Math.max(0, Number(player?.scoutingProfile?.gamesObserved) || 0) > 0
+        ) {
+          applyScoutingObservationConfidence(player, {
+            migrateExisting: true,
+          });
+        }
+      }
 
       /*
        * Immediately migrate the legacy world into IndexedDB.
