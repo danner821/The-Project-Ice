@@ -5352,7 +5352,12 @@ function renderProspectsScreen() {
         const badgeCls = posBadgeClass(player.position);
         const teamDisplay = player.teamAbbreviation || '—';
         const leagueDisplay = player.league || 'HS';
-        const draftYear = Number(player.draftYear) || '—';
+        const draftYear =
+          (
+            typeof WorldEngine?.getProjectIceProspectDraftYear === 'function'
+              ? WorldEngine.getProjectIceProspectDraftYear(player)
+              : Number(player.draftYear)
+          ) || '—';
         const rankChange = Number(player.rankChange) || 0;
         const trend =
           rankChange > 0
