@@ -9135,14 +9135,17 @@ function openPostgameSummary(gameId) {
                         ''
                       );
 
-                    const scoringTeamAbbreviation =
+                    const scoringTeamIsHome =
                       scoringTeamId ===
-                      homeTeamId
+                      homeTeamId;
+
+                    const scoringTeamAbbreviation =
+                      scoringTeamIsHome
                         ? homeAbbreviation
                         : awayAbbreviation;
 
                     return `
-                      <div class="postgame-scoring-play">
+                      <div class="postgame-scoring-play postgame-scoring-play--${scoringTeamIsHome ? 'home' : 'away'}">
                         <div class="postgame-scoring-play__time">
                           ${escapeScoringText(
                             play.formattedTime
@@ -9158,17 +9161,25 @@ function openPostgameSummary(gameId) {
                               )}
                             </strong>
 
-                            ${
-                              showStrengthBadge
-                                ? `
-                                  <span class="postgame-scoring-play__badge">
-                                    ${escapeScoringText(
-                                      strength
-                                    )}
-                                  </span>
-                                `
-                                : ''
-                            }
+                            <span class="postgame-scoring-play__tags">
+                              <span class="postgame-scoring-play__team-badge">
+                                ${escapeScoringText(
+                                  scoringTeamAbbreviation
+                                )}
+                              </span>
+
+                              ${
+                                showStrengthBadge
+                                  ? `
+                                    <span class="postgame-scoring-play__badge">
+                                      ${escapeScoringText(
+                                        strength
+                                      )}
+                                    </span>
+                                  `
+                                  : ''
+                              }
+                            </span>
                           </div>
 
                           <span class="postgame-scoring-play__assists">
