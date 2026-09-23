@@ -209,16 +209,40 @@
       trace = Array.isArray(parsed) ? parsed : [];
     } catch (_) {}
 
+    const liveWorld =
+      typeof WorldEngine !== 'undefined' ? WorldEngine : null;
+    const activeRecord = records.find(record =>
+      String(record?.id || '') === 'career:' +
+      String(localStorage.getItem(ACTIVE_KEY) || '')
+    );
+
+    const recoveryDiagnostic = {
+      latestAttempt: window.__projectIcePostseasonRecoveryStatus || null,
+      runtimeSeasonEndDate:
+        liveWorld?.getHighSchoolRegularSeasonEndDate?.() || null,
+      runtimeDate: dateOf(liveWorld?.state),
+      backupRecords: records
+        .filter(record => record?.recoveryBackup === true)
+        .map(record => ({
+          savedAt: record.savedAt || null,
+          seasonId: record?.world?.season?.seasonId || null,
+          date: dateOf(record.world),
+        })),
+      activeSaved: postseasonAudit(activeRecord?.world),
+      activeMemory: postseasonAudit(liveWorld?.state),
+    };
+
     const payload = {
       now: new Date().toISOString(),
       activeCareerId: localStorage.getItem(ACTIVE_KEY) || null,
       pendingCareerId: localStorage.getItem(PENDING_KEY) || null,
-      postseasonAudit: postseasonAudit(window.WorldEngine?.state),
+      recoveryDiagnostic,
+      postseasonAudit: postseasonAudit(liveWorld?.state),
       memory: {
-        date: dateOf(window.WorldEngine?.state),
-        playerDate: window.WorldEngine?.state?.player?.currentDate || null,
-        rosterCareerDate: careerPlayerDate(window.WorldEngine?.state),
-        filmStudySept2: filmStudyState(window.WorldEngine?.state),
+        date: dateOf(liveWorld?.state),
+        playerDate: liveWorld?.state?.player?.currentDate || null,
+        rosterCareerDate: careerPlayerDate(liveWorld?.state),
+        filmStudySept2: filmStudyState(liveWorld?.state),
       },
       indexedDB: records.map(record => ({
         id: record?.id || null,
@@ -254,7 +278,8 @@
           <strong style="font:800 16px/1 system-ui">Project Ice Save Trace</strong>
           <button type="button" data-close style="border:1px solid #36527d;background:#10213d;color:#fff;border-radius:12px;padding:8px 12px">Close</button>
         </div>
-        <p style="color:#8fb5f3;font-family:system-ui">Postseason integrity check (read-only). Screenshot the section below and send it before we alter the career save.</p>
+        <p style="color:#8fb5f3;font-family:system-ui">Read-only recovery blocker diagnosis. Send the diagnosis below; no gameplay progress will be changed by Save Trace.</p>
+        <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #8e6242;border-radius:12px;background:#201a17">${JSON.stringify(payload.recoveryDiagnostic, null, 2)}</pre>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify({memory:payload.postseasonAudit,savedActive:payload.indexedDB.find(record=>record.careerId===payload.activeCareerId)?.postseasonAudit||null},null,2)}</pre>
         <details><summary style="font:700 14px system-ui;color:#9fc4ff">Full persistence trace</summary>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:12px 0 0">${JSON.stringify(payload, null, 2)}</pre></details>
