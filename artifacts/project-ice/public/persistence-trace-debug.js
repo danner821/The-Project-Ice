@@ -58,7 +58,7 @@
     if (!world || typeof world !== 'object') return null;
     const dateKey = value => {
       const key = String(value || '').slice(0, 10);
-      return /^\\d{4}-\\d{2}-\\d{2}$/.test(key) ? key : null;
+      return /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : null;
     };
     const season = world.season || {};
     const post = world.postseason?.highSchool || null;
