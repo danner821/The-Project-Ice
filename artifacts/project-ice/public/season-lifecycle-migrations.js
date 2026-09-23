@@ -138,6 +138,14 @@
     }
   }
 
+  function recordRecoveryStatus(stage, details = {}) {
+    window.__projectIcePostseasonRecoveryStatus = {
+      stage,
+      at: new Date().toISOString(),
+      ...details,
+    };
+  }
+
   let recoveryInFlight = false;
   async function recoverMissedPostseasonBoundary() {
     if (recoveryInFlight) return false;
@@ -149,21 +157,48 @@
     const seasonId = String(
       world?.season?.seasonId || world?.season?.id || world?.currentSeason || ''
     );
+    const guard = {
+      seasonId,
+      now,
+      endDate,
+      checkpointDate,
+      alreadyPastCheckpoint: Boolean(now && checkpointDate && now > checkpointDate),
+      advancedBeyond: hasAdvancedBeyondPostseason(world),
+      playedPlayoffGame: hasPlayedPlayoffGame(),
+      checkpointAcknowledged: post?.checkpointAcknowledged === true,
+      hasChampion: Boolean(post?.championTeamId),
+      allRegularFinal: allRegularSeasonGamesFinal(endDate),
+      seasonPhase: world.season?.phase || null,
+      travelStatus: world.travelHockey?.status || null,
+      travelTryoutResult: Boolean(world.travelHockey?.tryoutResult),
+      teamCount: world.teams?.length ?? null,
+    };
     if (
       !seasonId || !now || !endDate || !checkpointDate ||
-      now <= checkpointDate ||
-      hasAdvancedBeyondPostseason(world) ||
-      hasPlayedPlayoffGame() ||
-      post?.checkpointAcknowledged === true ||
-      post?.championTeamId ||
-      !allRegularSeasonGamesFinal(endDate)
-    ) return false;
+      !guard.alreadyPastCheckpoint ||
+      guard.advancedBeyond ||
+      guard.playedPlayoffGame ||
+      guard.checkpointAcknowledged ||
+      guard.hasChampion ||
+      !guard.allRegularFinal
+    ) {
+      recordRecoveryStatus('blocked-by-guard', guard);
+      return false;
+    }
 
     /* Ensure that only a finished, complete current-season league is rewound. */
     const games = regularSeasonGamesThrough(endDate);
     const expected = (world.teams?.length || 0) *
       (Number(world.season?.regularSeason?.gamesPerTeam) || 28) / 2;
-    if (expected < 1 || games.length !== expected) return false;
+    if (expected < 1 || games.length !== expected) {
+      recordRecoveryStatus('blocked-by-schedule-count', {
+        ...guard, foundGames: games.length, expectedGames: expected,
+      });
+      return false;
+    }
+    recordRecoveryStatus('eligible-awaiting-backup', {
+      ...guard, foundGames: games.length, expectedGames: expected,
+    });
 
     recoveryInFlight = true;
     try {
@@ -186,6 +221,9 @@
             regularSeasonEndDate: endDate, save: false,
           });
       if (!initialized?.initialized) {
+        recordRecoveryStatus('initialization-failed', {
+          ...guard, reason: initialized?.reason || null,
+        });
         console.warn('[SeasonLifecycle] Postseason recovery not ready.', initialized);
         return false;
       }
@@ -216,6 +254,7 @@
         if (saved === false) throw new Error('Repaired save failed');
         window.dispatchEvent(new CustomEvent('projectice:postseason-state-ready'));
         window.dispatchEvent(new CustomEvent('projectice:career-date-advanced'));
+        recordRecoveryStatus('recovered', { ...guard, backupId, newDate: checkpointDate });
         console.info('[SeasonLifecycle] Restored missed postseason boundary.', ledger[entryId]);
         return true;
       } catch (error) {
@@ -230,6 +269,7 @@
         throw error;
       }
     } catch (error) {
+      recordRecoveryStatus('backup-or-save-failed', { ...guard, error: String(error?.message || error) });
       console.error('[SeasonLifecycle] Recovery withheld; backup/save failure.', error);
       return false;
     } finally {
@@ -332,6 +372,7 @@
 
     /* Never create a new live bracket inside a career that is already later. */
     if (!post?.initialized && hasAdvancedBeyondPostseason(world)) {
+      recordRecoveryStatus('blocked-by-advanced-state', { phase: world.season?.phase, travelStatus: world.travelHockey?.status });
       return;
     }
 
