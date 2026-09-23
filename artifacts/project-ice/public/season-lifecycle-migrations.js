@@ -344,6 +344,22 @@
     migrate();
   }
 
+  /*
+   * iPhone standalone startup calls WorldEngine.load() directly before the
+   * title screen. Cover that path as well as Continue Career's selectCareerSave.
+   * The latter uses its original lexical load(), so each path runs once.
+   */
+  const originalLoad = typeof WorldEngine.load === 'function'
+    ? WorldEngine.load.bind(WorldEngine)
+    : null;
+  if (originalLoad) {
+    WorldEngine.load = async (...args) => {
+      const loaded = await originalLoad(...args);
+      if (loaded) await reconcileLoadedCareer();
+      return loaded;
+    };
+  }
+
   const originalSelectCareerSave =
     typeof WorldEngine.selectCareerSave === 'function'
       ? WorldEngine.selectCareerSave.bind(WorldEngine)
