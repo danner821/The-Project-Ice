@@ -48,6 +48,99 @@
     };
   }
 
+  /*
+   * Read-only postseason integrity diagnostic. The May 2025 non-qualifier
+   * checkpoint regression can originate from a missing bracket, an old
+   * acknowledged bracket, unfinished league games, or a mismatched season.
+   * Inspect the SAVED world rather than attempting another blind clock reset.
+   */
+  function postseasonAudit(world) {
+    if (!world || typeof world !== 'object') return null;
+    const dateKey = value => {
+      const key = String(value || '').slice(0, 10);
+      return /^\\d{4}-\\d{2}-\\d{2}$/.test(key) ? key : null;
+    };
+    const season = world.season || {};
+    const post = world.postseason?.highSchool || null;
+    const date = dateOf(world);
+    const startYear = Number(season.seasonStartYear) || null;
+    const seasonEnd = startYear ? `${startYear + 1}-08-31` : null;
+    const seasonStart = startYear ? `${startYear}-09-01` : null;
+    const regular = (Array.isArray(world.schedule) ? world.schedule : [])
+      .filter(game => {
+        const d = dateKey(game?.date);
+        return Boolean(
+          d && game?.homeTeamId && game?.awayTeamId &&
+          game?.isPlayoff !== true &&
+          game?.travelTournament !== true &&
+          game?.type !== 'travel-game' &&
+          (!seasonStart || d >= seasonStart) &&
+          (!seasonEnd || d <= seasonEnd)
+        );
+      });
+    const final = game => {
+      const hasScore = game?.homeScore != null && game?.awayScore != null &&
+        Number.isFinite(Number(game.homeScore)) &&
+        Number.isFinite(Number(game.awayScore));
+      return game?.played === true || game?.completed === true ||
+        String(game?.status || '').toLowerCase() === 'final' || hasScore;
+    };
+    const pending = regular.filter(game => !final(game));
+    const dates = regular.map(game => dateKey(game.date)).filter(Boolean).sort();
+    const playoffs = (Array.isArray(world.schedule) ? world.schedule : [])
+      .filter(game => game?.isPlayoff === true && game?.type === 'game');
+    const travel = world.travelHockey || {};
+    const activeRecovery = Object.entries(world.history?.recoveryMigrations || {})
+      .filter(([key]) => key.includes(String(season.seasonId || season.id || '')))
+      .map(([key, record]) => ({
+        key,
+        from: record?.fromDate || null,
+        to: record?.toDate || null,
+      }));
+    return {
+      date,
+      seasonId: season.seasonId || season.id || null,
+      schoolYear: season.schoolYear || null,
+      phase: season.phase || null,
+      regularSeason: season.regularSeason || null,
+      seasonPostseason: season.postseason || null,
+      games: {
+        total: regular.length,
+        final: regular.length - pending.length,
+        pending: pending.length,
+        pendingExamples: pending.slice(0, 5).map(game => ({
+          date: game.date, id: game.id || game.gameId,
+          home: game.homeTeamId, away: game.awayTeamId,
+          status: game.status || null,
+        })),
+        firstDate: dates[0] || null,
+        lastDate: dates[dates.length - 1] || null,
+      },
+      postseason: post ? {
+        initialized: post.initialized ?? null,
+        version: post.version ?? null,
+        status: post.status || null,
+        endDate: post.regularSeasonEndDate || null,
+        checkpointDate: post.checkpointDate || null,
+        acknowledged: post.checkpointAcknowledged ?? null,
+        acknowledgedAt: post.checkpointAcknowledgedAt || null,
+        playoffStartDate: post.playoffStartDate || null,
+        qualifiers: post.qualifiers?.length ?? null,
+        roundOne: post.bracket?.rounds?.roundOne?.length ?? null,
+        champion: post.championTeamId || null,
+      } : null,
+      playoffScheduleGames: playoffs.length,
+      playedPlayoffGames: playoffs.filter(final).length,
+      travel: {
+        status: travel.status || null,
+        tryoutResult: Boolean(travel.tryoutResult),
+        placementLevel: travel.placementLevel || null,
+        completed: travel.completed === true,
+      },
+      recovery: activeRecovery,
+    };
+  }
+
   async function readRecords() {
     return await new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -120,6 +213,7 @@
       now: new Date().toISOString(),
       activeCareerId: localStorage.getItem(ACTIVE_KEY) || null,
       pendingCareerId: localStorage.getItem(PENDING_KEY) || null,
+      postseasonAudit: postseasonAudit(window.WorldEngine?.state),
       memory: {
         date: dateOf(window.WorldEngine?.state),
         playerDate: window.WorldEngine?.state?.player?.currentDate || null,
@@ -134,6 +228,7 @@
         date: dateOf(record?.world),
         playerDate: record?.world?.player?.currentDate || null,
         rosterCareerDate: careerPlayerDate(record?.world),
+        postseasonAudit: postseasonAudit(record?.world),
         filmStudySept2: filmStudyState(record?.world),
       })),
       trace: trace.slice(-35),
@@ -159,8 +254,10 @@
           <strong style="font:800 16px/1 system-ui">Project Ice Save Trace</strong>
           <button type="button" data-close style="border:1px solid #36527d;background:#10213d;color:#fff;border-radius:12px;padding:8px 12px">Close</button>
         </div>
-        <p style="color:#8fb5f3;font-family:system-ui">Screenshot this entire diagnostic after the rollback. It contains record IDs, dates, revisions, Film Study state, and the last persistence operations.</p>
-        <pre style="white-space:pre-wrap;word-break:break-word;margin:0">${JSON.stringify(payload, null, 2)}</pre>
+        <p style="color:#8fb5f3;font-family:system-ui">Postseason integrity check (read-only). Screenshot the section below and send it before we alter the career save.</p>
+        <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify({memory:payload.postseasonAudit,savedActive:payload.indexedDB.find(record=>record.careerId===payload.activeCareerId)?.postseasonAudit||null},null,2)}</pre>
+        <details><summary style="font:700 14px system-ui;color:#9fc4ff">Full persistence trace</summary>
+        <pre style="white-space:pre-wrap;word-break:break-word;margin:12px 0 0">${JSON.stringify(payload, null, 2)}</pre></details>
       </div>
     `;
 
