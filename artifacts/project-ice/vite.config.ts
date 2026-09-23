@@ -34,10 +34,10 @@ const runtimeModulesPlugin = {
     if (!html.includes('/canonical-high-school-timeline.js')) scripts.push('    <script src="/canonical-high-school-timeline.js"></script>');
     if (!html.includes('/season-development-snapshot.js')) scripts.push('    <script src="/season-development-snapshot.js"></script>');
     if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
-    if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js"></script>');
+    if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js?v=20260922-postseason-audit-2"></script>');
     if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js?v=20260920-nonqualifier-cadence-1"></script>');
     if (!html.includes('/schedule-open-day-fix.js')) scripts.push('    <script src="/schedule-open-day-fix.js"></script>');
-    if (!html.includes('/postseason-trigger.js')) scripts.push('    <script src="/postseason-trigger.js"></script>');
+    if (!html.includes('/postseason-trigger.js')) scripts.push('    <script src="/postseason-trigger.js?v=20260922-postseason-audit-2"></script>');
     if (!html.includes('/postseason-checkpoint-event.js')) scripts.push('    <script src="/postseason-checkpoint-event.js"></script>');
     if (!html.includes('/postseason-ui.js')) scripts.push('    <script src="/postseason-ui.js"></script>');
     if (!html.includes('/postseason-polish.js')) scripts.push('    <script src="/postseason-polish.js"></script>');
@@ -98,7 +98,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/film-study-event.js')) scripts.push('    <script src="/film-study-event.js?v=20260919-blocking-1"></script>');
-    if (!html.includes('/persistence-trace-debug.js')) scripts.push('    <script src="/persistence-trace-debug.js?v=20260919-trace-1"></script>');
+    if (!html.includes('/persistence-trace-debug.js')) scripts.push('    <script src="/persistence-trace-debug.js?v=20260922-postseason-audit-2"></script>');
     if (!html.includes('/high-school-season-boundary-integrity.js')) scripts.push('    <script src="/high-school-season-boundary-integrity.js?v=20260920-season-transition-6"></script>');
     if (!html.includes('/career-calendar-projection.js')) scripts.push('    <script src="/career-calendar-projection.js?v=20260920-travel-calendar-integrity-1"></script>');
     if (!html.includes('/standings-season-label.js')) scripts.push('    <script src="/standings-season-label.js"></script>');
