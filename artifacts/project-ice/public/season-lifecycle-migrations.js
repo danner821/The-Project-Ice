@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MIGRATION_VERSION = 3;
+  const MIGRATION_VERSION = 4;
   let lastObservedPostseason = null;
   let lastObservedVersion = null;
 
@@ -100,103 +100,141 @@
     return world.history.recoveryMigrations;
   }
 
-  function recoverMissedPostseasonBoundary() {
+  /*
+   * First preserve an independent IndexedDB copy of the fully hydrated
+   * original world. Never write a repaired career unless its backup commits.
+   */
+  async function backupBeforeRecovery(world, seasonId) {
+    const careerId = WorldEngine.getActiveCareerId?.();
+    if (!careerId) throw new Error('Recovery requires a loaded career');
+    const backupId = 'recovery-backup:postseason:' + careerId + ':' + seasonId;
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open('projectice_database', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const previous = await new Promise((resolve, reject) => {
+        const request = db.transaction('worlds', 'readonly')
+          .objectStore('worlds').get(backupId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      if (previous?.world) return backupId;
+      const snapshot = structuredClone(world);
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('worlds', 'readwrite');
+        tx.objectStore('worlds').add({
+          id: backupId, recoveryBackup: true,
+          careerId, savedAt: new Date().toISOString(), world: snapshot,
+        });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+      return backupId;
+    } finally {
+      db.close();
+    }
+  }
+
+  let recoveryInFlight = false;
+  async function recoverMissedPostseasonBoundary() {
+    if (recoveryInFlight) return false;
     const world = WorldEngine.state || {};
     const post = world?.postseason?.highSchool || null;
-
-    if (
-      post?.initialized ||
-      hasAdvancedBeyondPostseason(world) ||
-      hasPlayedPlayoffGame()
-    ) {
-      return false;
-    }
-
     const now = currentDate();
-    const endDate =
-      dateKey(WorldEngine.getHighSchoolRegularSeasonEndDate?.()) ||
-      null;
+    const endDate = dateKey(WorldEngine.getHighSchoolRegularSeasonEndDate?.());
     const checkpointDate = addDays(endDate, 7);
-
-    if (
-      !now ||
-      !endDate ||
-      !checkpointDate ||
-      now <= checkpointDate ||
-      !allRegularSeasonGamesFinal(endDate)
-    ) {
-      return false;
-    }
-
-    const ledger = recoveryLedger(world);
     const seasonId = String(
-      world?.season?.seasonId ||
-      world?.season?.id ||
-      world?.currentSeason ||
-      ''
+      world?.season?.seasonId || world?.season?.id || world?.currentSeason || ''
     );
-    const recoveryKey = `postseason-boundary-recovery-v1:${seasonId}`;
+    if (
+      !seasonId || !now || !endDate || !checkpointDate ||
+      now <= checkpointDate ||
+      hasAdvancedBeyondPostseason(world) ||
+      hasPlayedPlayoffGame() ||
+      post?.checkpointAcknowledged === true ||
+      post?.championTeamId ||
+      !allRegularSeasonGamesFinal(endDate)
+    ) return false;
 
-    /*
-     * This is an explicit integrity recovery, not a normal time-travel feature.
-     * Keep all completed results, stats, standings, XP, news and processed-week
-     * guards exactly as saved. Only move the canonical clock back to the missed
-     * checkpoint so the postseason handoff can occur in the proper order.
-     */
-    const fromDate = now;
-    WorldEngine.setCurrentDate?.(checkpointDate, { save: false });
+    /* Ensure that only a finished, complete current-season league is rewound. */
+    const games = regularSeasonGamesThrough(endDate);
+    const expected = (world.teams?.length || 0) *
+      (Number(world.season?.regularSeason?.gamesPerTeam) || 28) / 2;
+    if (expected < 1 || games.length !== expected) return false;
 
-    if (world.season) {
-      world.season.lastProcessedDate = checkpointDate;
-      world.season.phase = 'regular-season';
-    }
+    recoveryInFlight = true;
+    try {
+      const backupId = await backupBeforeRecovery(world, seasonId);
+      if (WorldEngine.state !== world || currentDate() !== now ||
+          hasAdvancedBeyondPostseason(world) || hasPlayedPlayoffGame()) return false;
 
-    const initialized =
-      WorldEngine.initializeHighSchoolPostseason?.({
-        regularSeasonEndDate: endDate,
-        save: false,
-      }) || null;
+      const previousPost = world.postseason?.highSchool || null;
+      const previousSeason = structuredClone(world.season);
+      const previousSchedule = structuredClone(world.schedule);
+      const previousStandings = structuredClone(world.standings || []);
+      const previousDate = world.currentDate;
+      const previousYear = world.currentYear;
+      const previousWeek = world.currentWeek;
+      const previousPlayerDate = world.player?.currentDate;
 
-    if (!initialized?.initialized) {
-      WorldEngine.setCurrentDate?.(fromDate, { save: false });
+      const initialized = previousPost?.initialized
+        ? previousPost
+        : WorldEngine.initializeHighSchoolPostseason?.({
+            regularSeasonEndDate: endDate, save: false,
+          });
+      if (!initialized?.initialized) {
+        console.warn('[SeasonLifecycle] Postseason recovery not ready.', initialized);
+        return false;
+      }
+
+      try {
+        WorldEngine.setCurrentDate(checkpointDate, { save: false });
+        world.season.regularSeason.started = true;
+        world.season.regularSeason.completed = true;
+        world.season.lastProcessedDate = checkpointDate;
+        world.season.phase = 'postseason-break';
+        initialized.version = Math.max(4, Number(initialized.version) || 0);
+        initialized.regularSeasonEndDate = endDate;
+        initialized.checkpointDate = checkpointDate;
+        initialized.checkpointAcknowledged = false;
+        initialized.checkpointAcknowledgedAt = null;
+        initialized.status = 'break';
+        world.season.postseason.started = false;
+        world.season.postseason.completed = false;
+
+        const ledger = recoveryLedger(world);
+        const entryId = 'postseason-boundary-recovery-v2:' + seasonId;
+        ledger[entryId] = {
+          version: 2, seasonId, backupId, fromDate: now,
+          toDate: checkpointDate, regularSeasonEndDate: endDate,
+          repairedAt: new Date().toISOString(),
+        };
+        const saved = await WorldEngine.save?.();
+        if (saved === false) throw new Error('Repaired save failed');
+        window.dispatchEvent(new CustomEvent('projectice:postseason-state-ready'));
+        window.dispatchEvent(new CustomEvent('projectice:career-date-advanced'));
+        console.info('[SeasonLifecycle] Restored missed postseason boundary.', ledger[entryId]);
+        return true;
+      } catch (error) {
+        world.postseason.highSchool = previousPost;
+        world.season = previousSeason;
+        world.schedule = previousSchedule;
+        world.standings = previousStandings;
+        world.currentDate = previousDate;
+        world.currentYear = previousYear;
+        world.currentWeek = previousWeek;
+        if (world.player) world.player.currentDate = previousPlayerDate;
+        throw error;
+      }
+    } catch (error) {
+      console.error('[SeasonLifecycle] Recovery withheld; backup/save failure.', error);
       return false;
+    } finally {
+      recoveryInFlight = false;
     }
-
-    initialized.checkpointAcknowledged = false;
-    initialized.checkpointAcknowledgedAt = null;
-    initialized.status = 'break';
-
-    if (world.season?.postseason) {
-      world.season.postseason.started = false;
-      world.season.postseason.completed = false;
-      world.season.phase = 'postseason-break';
-    }
-
-    ledger[recoveryKey] = {
-      version: 1,
-      seasonId,
-      fromDate,
-      toDate: checkpointDate,
-      regularSeasonEndDate: endDate,
-      repairedAt: new Date().toISOString(),
-      reason: 'missed-postseason-checkpoint',
-    };
-
-    WorldEngine.save?.();
-
-    window.dispatchEvent(
-      new CustomEvent('projectice:postseason-state-ready')
-    );
-    window.dispatchEvent(
-      new CustomEvent('projectice:career-date-advanced')
-    );
-
-    console.info(
-      '[SeasonLifecycle] Recovered missed postseason boundary.',
-      ledger[recoveryKey]
-    );
-
-    return true;
   }
 
   /*
@@ -223,10 +261,19 @@
       world?.season?.postseason?.completed === true ||
       post?.status === 'complete' ||
       Boolean(post?.championTeamId) ||
-      travel?.tryoutResult ||
-      travel?.placementLevel ||
-      travel?.completed === true ||
-      travel?.tournament?.closeoutAcknowledged === true
+      /*
+       * Prior-season Travel tryout results survive rollover, but an inactive
+       * Travel state is not evidence that this season's playoffs happened.
+       */
+      (
+        String(travel?.status || '').toLowerCase() !== 'inactive' &&
+        (
+          Boolean(travel?.tryoutResult) ||
+          Boolean(travel?.placementLevel) ||
+          travel?.completed === true ||
+          travel?.tournament?.closeoutAcknowledged === true
+        )
+      )
     );
   }
 
@@ -279,7 +326,7 @@
     return true;
   }
 
-  function reconcileLoadedCareer() {
+  async function reconcileLoadedCareer() {
     const world = WorldEngine.state || {};
     const post = world?.postseason?.highSchool || null;
 
@@ -288,7 +335,7 @@
       return;
     }
 
-    if (recoverMissedPostseasonBoundary()) {
+    if (await recoverMissedPostseasonBoundary()) {
       migrate();
       return;
     }
@@ -306,8 +353,10 @@
     WorldEngine.selectCareerSave = async (...args) => {
       const loaded = await originalSelectCareerSave(...args);
       if (loaded) {
-        reconcileLoadedCareer();
-        window.setTimeout(reconcileLoadedCareer, 0);
+        await reconcileLoadedCareer();
+        window.setTimeout(() => {
+          reconcileLoadedCareer().catch(error => console.error('[SeasonLifecycle] Reconciliation failed.', error));
+        }, 0);
       }
       return loaded;
     };
@@ -343,7 +392,7 @@
     }
   }
 
-  recoverMissedPostseasonBoundary();
+  /* Recovery only runs after authoritative career hydration above. */
   observeActiveCareer();
   window.addEventListener('projectice:postseason-state-ready', observeActiveCareer);
   window.addEventListener('projectice:next-high-school-season-started', observeActiveCareer);
