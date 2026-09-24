@@ -505,6 +505,7 @@
    * resolves, then repaint Home/Schedule from the corrected canonical event.
    * The repair is idempotent and does not advance time or award XP.
    */
+  let playerRecapResumeInFlight = false;
   function reconcileHydratedSeasonRecap() {
     if (!isEligibleOffseason()) return false;
     const event = ensureCheckpointEvent({ save: true });
@@ -516,6 +517,33 @@
     }
     if (shouldBlockAtCheckpoint()) {
       requestAnimationFrame(() => renderLeagueSeasonRecap({ force: true }));
+    } else {
+      /*
+       * If the player closed the app after acknowledging the League Recap
+       * but before completing the Player Recap, reopen the pending second
+       * screen on hydration. Previously the lazy loader only listened for
+       * the click event, which is not replayed after restarting the iPhone.
+       * Do not invoke a next-season transition here; that remains the
+       * boundary-integrity runtime's responsibility.
+       */
+      const recap = recapState();
+      if (
+        recap?.leagueRecapAcknowledged === true &&
+        recap?.playerRecapAcknowledged !== true &&
+        !playerRecapResumeInFlight
+      ) {
+        playerRecapResumeInFlight = true;
+        Promise.resolve(WorldEngine.ensurePlayerSeasonRecapRuntime?.())
+          .then(loaded => {
+            if (loaded || typeof WorldEngine.renderPlayerSeasonRecap === 'function') {
+              requestAnimationFrame(() => WorldEngine.renderPlayerSeasonRecap?.({ force: true }));
+            } else {
+              console.warn('[Season Recap] Player Recap runtime not ready on reload.');
+            }
+          })
+          .catch(error => console.error('[Season Recap] Player Recap resume failed:', error))
+          .finally(() => { playerRecapResumeInFlight = false; });
+      }
     }
     return true;
   }
