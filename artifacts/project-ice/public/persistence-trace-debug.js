@@ -410,15 +410,43 @@
     const incoming = summary(saved.world);
     const current = summary(live.world);
     const valid = d => /^\d{4}-\d{2}-\d{2}$/.test(d);
-    if (!valid(incoming.date) || !valid(current.date) ||
-        !incoming.seasonId || !current.seasonId ||
-        incoming.careerPlayers !== 1 || current.careerPlayers !== 1 ||
-        !incoming.playerId || incoming.playerId !== current.playerId ||
-        incoming.rosterCount < 1 || current.rosterCount < 1 ||
-        incoming.externalProspects === null ||
-        current.externalProspects === null) {
-      return blocked('World, roster, or career player identity failed validation.',
-        { incoming, current });
+    /* Fail closed, but tell the user exactly WHICH check failed. Dates,
+     * season labels and overall can match even if a legacy roster has a
+     * duplicate career-player marker or a changed player identifier.
+     * Never silently accept a different career identity.
+     */
+    const failures = [
+      !valid(incoming.date) ? 'BACKUP_DATE_INVALID' : null,
+      !valid(current.date) ? 'LIVE_DATE_INVALID' : null,
+      !incoming.seasonId ? 'BACKUP_SEASON_MISSING' : null,
+      !current.seasonId ? 'LIVE_SEASON_MISSING' : null,
+      incoming.careerPlayers !== 1 ? 'BACKUP_CAREER_MARKER_COUNT' : null,
+      current.careerPlayers !== 1 ? 'LIVE_CAREER_MARKER_COUNT' : null,
+      !incoming.playerId ? 'BACKUP_PLAYER_ID_MISSING' : null,
+      !current.playerId ? 'LIVE_PLAYER_ID_MISSING' : null,
+      incoming.playerId && current.playerId &&
+        incoming.playerId !== current.playerId ? 'CAREER_PLAYER_ID_CHANGED' : null,
+      incoming.rosterCount < 1 ? 'BACKUP_ROSTER_EMPTY' : null,
+      current.rosterCount < 1 ? 'LIVE_ROSTER_EMPTY' : null,
+      incoming.externalProspects === null ? 'BACKUP_EXTERNAL_PROSPECTS_MISSING' : null,
+      current.externalProspects === null ? 'LIVE_EXTERNAL_PROSPECTS_MISSING' : null
+    ].filter(Boolean);
+    if (failures.length) {
+      return blocked('World or career identity validation failed: ' +
+        failures.join(', ') + '.', {
+          failureCodes: failures,
+          comparison: {
+            samePlayerId: Boolean(incoming.playerId && current.playerId &&
+              incoming.playerId === current.playerId),
+            backupCareerMarkers: incoming.careerPlayers,
+            liveCareerMarkers: current.careerPlayers,
+            backupRoster: incoming.rosterCount,
+            liveRoster: current.rosterCount,
+            backupExternal: incoming.externalProspects,
+            liveExternal: current.externalProspects
+          },
+          incoming, current
+        });
     }
     const oldRevision = Number(saved.revision);
     const liveRevision = Number(live.revision);
@@ -716,6 +744,14 @@
         recoveryStatus.textContent = [
           'PREVIEW — ' + result.verdict,
           result.reason || '',
+          result.comparison ?
+            'Checks: player ID match=' + result.comparison.samePlayerId +
+            ' · career markers backup/live=' + result.comparison.backupCareerMarkers +
+            '/' + result.comparison.liveCareerMarkers +
+            ' · roster=' + result.comparison.backupRoster +
+            '/' + result.comparison.liveRoster +
+            ' · external prospects=' + result.comparison.backupExternal +
+            '/' + result.comparison.liveExternal : '',
           result.incoming ? 'Backup: ' + result.incoming.date + ' · ' +
             result.incoming.seasonId + ' · ' + result.incoming.overall + ' OVR' : '',
           result.current ? 'Current: ' + result.current.date + ' · ' +
@@ -723,7 +759,7 @@
           result.fileFingerprint ? 'SHA-256: ' + result.fileFingerprint : '',
           result.action || '',
           'LIVE CAREER UNCHANGED. This screen cannot perform restoration.'
-        ].filter(Boolean).join('\\n');
+        ].filter(Boolean).join('\n');
       } catch (error) {
         recoveryStatus.style.color = '#ffb47e';
         recoveryStatus.textContent = 'NOT VERIFIED — ' +
