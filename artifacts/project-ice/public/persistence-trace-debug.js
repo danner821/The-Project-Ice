@@ -231,6 +231,53 @@
   }
 
   /*
+   * Compare EVERY JSON-backed field, not just roster counts and potential.
+   * IndexedDB may preserve a JSON record perfectly while a handful of
+   * spot checks miss corrupted history, stats, XP or season metadata.
+   * Iterative traversal avoids recursion stack overflow on large careers;
+   * yielding periodically keeps Safari responsive during 56 MB checks.
+   */
+  async function verifyCompleteBackupRecord(expected, actual) {
+    const stack = [{ expected, actual, path: 'activeRecord' }];
+    let compared = 0;
+    while (stack.length) {
+      const entry = stack.pop();
+      const left = entry.expected;
+      const right = entry.actual;
+      const where = entry.path;
+      compared += 1;
+      if (Object.is(left, right)) continue;
+      if (left === null || right === null ||
+          typeof left !== typeof right || typeof left !== 'object' ||
+          Array.isArray(left) !== Array.isArray(right)) {
+        throw new Error('Full-record verification mismatch at ' + where);
+      }
+      if (Array.isArray(left) && left.length !== right.length) {
+        throw new Error('Array length mismatch at ' + where);
+      }
+      const keys = Object.keys(left);
+      if (keys.length !== Object.keys(right).length) {
+        throw new Error('Field count mismatch at ' + where);
+      }
+      for (let index = keys.length - 1; index >= 0; index -= 1) {
+        const key = keys[index];
+        if (!Object.prototype.hasOwnProperty.call(right, key)) {
+          throw new Error('Missing field at ' + where + '.' + key);
+        }
+        stack.push({
+          expected: left[key],
+          actual: right[key],
+          path: where + (Array.isArray(left) ? '[' + key + ']' : '.' + key)
+        });
+      }
+      if (compared % 25000 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+    return { verifiedFields: compared };
+  }
+
+  /*
    * An imported backup is tested ONLY against a unique disposable database.
    * This deliberately never opens projectice_database or writes localStorage.
    * The export remains the recovery source until an actual restore mechanism
@@ -323,7 +370,10 @@
           restoredCareer?.development?.potential !== careerPlayers[0].development?.potential) {
         throw new Error('Isolated restore verification found mismatched saved data.');
       }
+      const fullRecord = await verifyCompleteBackupRecord(original, restored);
       result = {
+        verifiedFields: fullRecord.verifiedFields,
+        fullRecordVerified: true,
         date: world.currentDate,
         season: world.season.seasonId,
         player: [careerPlayers[0].firstName, careerPlayers[0].lastName].filter(Boolean).join(' '),
@@ -728,7 +778,10 @@
             ' ') +
           result.player + ', ' + result.overall + ' OVR; ' + result.date +
           '; ' + result.rosterCount + ' roster players; ' + result.externalCount +
-          ' external prospects. Live career untouched.';
+          ' external prospects. Full record: ' +
+          (result.fullRecordVerified ? 'PASS (' + result.verifiedFields +
+            ' saved fields inspected).' : 'NOT VERIFIED.') +
+          ' Live career untouched.';
         verifyStatus.style.color = cleaned ? '#81e3ae' : '#f5c27d';
       } catch (error) {
         verifyStatus.textContent = 'NOT VERIFIED — ' + String(error?.message || error) +
