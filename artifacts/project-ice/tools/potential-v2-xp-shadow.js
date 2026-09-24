@@ -64,8 +64,16 @@ function proposal(player,attributeKey,options={}) {
   // Breakout discounts are gated by an outside, sustained-evidence evaluator.
   // Insufficient evidence => 0. A formal potential upgrade changes p immediately.
   const evidence=clamp(Number(options.breakoutEvidence)||0,0,1);
-  const easing=age<=22?.37:age<=27?.25:age<=32?.11:.04;
-  const discounted=1+(proximity-1)*(1-easing*evidence);
+  /*
+   * Severe early breakouts must not remain trapped by an obsolete low
+   * projection. A fully established breakout can eliminate the *extra*
+   * proximity charge for younger players, but not legacy XP cost or the
+   * attribute's normal rating-based progression expense. Older players
+   * receive much less relief and official promotions still provide a larger
+   * tier-wide cost reduction.
+   */
+  const easing=age<=22?1.2:age<=27?.84:age<=32?.36:.14;
+  const discounted=1+(proximity-1)*(1-Math.min(1,easing*evidence));
   const proposedCost=Math.max(25,Math.round(legacy*discounted));
   const currentXP=Math.max(0,Number(player?.development?.attributeXP?.[attributeKey])||0);
   return{
