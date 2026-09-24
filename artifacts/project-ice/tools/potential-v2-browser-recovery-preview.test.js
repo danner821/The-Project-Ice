@@ -34,6 +34,17 @@ assert.equal(result.newerLiveProgress,false);
 assert.equal(JSON.stringify(backup),baseline,'backup unchanged');
 assert.equal(JSON.stringify(live),JSON.stringify(make()),'live unchanged');
 assert.equal(assess(backup,make(9),activeId).verdict,'OLDER_BACKUP');
+const missingAlias=make();
+missingAlias.world.season.id='hs-2025-2026';
+delete missingAlias.world.season.seasonId;
+assert.equal(assess(backup,missingAlias,activeId).verdict,'SAME_RECOVERY_BASELINE',
+ 'season.id must validate a complete legacy save without seasonId');
+const resetOld={...backup,activeRecord:{...make(4),
+ savedAt:'2026-09-24T05:55:59.217Z'}};
+const resetLive={...make(1),savedAt:'2026-09-24T22:29:00.906Z'};
+assert.equal(assess(resetOld,resetLive,activeId).verdict,'REVISION_RESET_DETECTED');
+assert.equal(assess(resetOld,resetLive,activeId).readOnly,true);
+assert.equal(assess(resetOld,resetLive,activeId).restorePerformed,false);
 assert.equal(assess(backup,make(8,'2025-09-05'),activeId).verdict,'OLDER_BACKUP');
 assert.equal(assess(backup,make(8,'2025-09-04',{ovr:73}),activeId).verdict,'DIFFERENT_SAVE_STATE');
 assert.equal(assess(backup,make(8,'2025-09-04',{seasonId:'other'}),activeId).verdict,'DIFFERENT_SAVE_STATE');
@@ -71,4 +82,4 @@ assert.ok(source.includes("tx.oncomplete = () => {\n          db.close();\n     
 assert.ok(!/\.put\(|\.delete\(/.test(source.slice(end,
  source.indexOf('  function ensureButton()',end))),
  'preview stage exposes no IndexedDB restore/write action');
-console.log('PASS: source recovery preview including precise identity diagnostics and no-write checks');
+console.log('PASS: browser recovery preview, legacy season aliases, revision-reset detection and read-only checks');
