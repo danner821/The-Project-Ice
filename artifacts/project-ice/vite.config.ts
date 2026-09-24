@@ -88,7 +88,7 @@ const runtimeModulesPlugin = {
     /* Phase 3.5: post-Travel offseason development + season transition. */
     if (!html.includes('/offseason-development-cadence.js')) scripts.push('    <script src="/offseason-development-cadence.js"></script>');
     if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js"></script>');
-    if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js?v=20260923-safe-recap-1"></script>');
+    if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js?v=20260923-safe-recap-2"></script>');
     if (!html.includes('/league-history-recap-view.js')) scripts.push('    <script src="/league-history-recap-view.js"></script>');
     if (!html.includes('/league-history-player-links.js')) scripts.push('    <script src="/league-history-player-links.js"></script>');
     if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
