@@ -17,6 +17,7 @@ let over=proposal({...base,overall:78,potential:74,development:{...base.developm
 assert.ok(over.proposedCost>a.proposedCost,'over-projection growth more expensive');
 let eased=proposal({...base,overall:78},'wristShotPower',{breakoutEvidence:1});
 assert.ok(eased.proposedCost<over.proposedCost,'verified breakout eases XP penalty');
+assert.ok(eased.proposedCost<=eased.baselineCost*1.05,'established teen breakout nearly removes obsolete potential proximity penalty');
 assert.equal(eased.currentXP,100);
 let promoted=proposal({...base,overall:78,potential:84,development:{...base.development,potential:84}},'wristShotPower',{breakoutEvidence:1});
 assert.ok(promoted.proposedCost<eased.proposedCost,'potential promotion recalculates costs');
@@ -41,4 +42,4 @@ assert.equal(invalid.status,'unpriced-attribute');
 let career=careerPreview(base,['wristShotPower']);
 assert.equal(career.readOnly,true);
 assert.equal(career.attributes[0].currentXP,100);
-console.log('PASS 17 XP shadow assertions');
+console.log('PASS XP shadow assertions, including young-breakout safety');
