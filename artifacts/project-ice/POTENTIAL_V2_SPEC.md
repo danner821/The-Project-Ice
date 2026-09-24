@@ -1,9 +1,9 @@
 # Project Ice — Dynamic Potential 2.0
 
-Status: **design locked; implementation and migration gated by restore validation**.
+Status: **design locked; disposable iPhone restore/read-back/cleanup verified; live migration still gated by shadow evaluation and controlled recovery.**
 Baseline: career backup exported at game date 2025-09-04 (Junior 2025–26 preseason). **Never commit the backup to GitHub.**
 
-## Core model (48 agreed decisions across three questionnaire rounds)
+## Core model (approved decisions across initial choices and three questionnaire rounds)
 
 - One **dynamic actual potential rating**. No separately predetermined, immutable hidden ability ceiling. Visible role is derived consistently from the numerical rating; actual OVR can exceed the current projection.
 - **Scouting certainty** measures confidence in the *current projection*, not how good the player is. Sustained unexplained outperformance or underperformance lowers certainty before a potential change. A formal potential change resets certainty to **Medium**, regardless of direction. Subsequent consistent evidence and scout exposure can rebuild it toward High.
@@ -29,12 +29,12 @@ Baseline: career backup exported at game date 2025-09-04 (Junior 2025–26 prese
 - Export format: projectice-career-backup v1; active record id must equal career:<activeCareerId> and careerId must equal activeCareerId.
 - Backup date: 2025-09-04, current season hs-2025-2026, phase preseason; eight teams and 160 roster slots, comprising 148 generated HS players (including career player) and 12 real HS roster prospects; 191 external prospects.
 - Generated players with two archived HS histories: 148/148; with at least 10 games in both archived seasons: 141/148.
-- **Known canonical mismatch:** career player's top-level potential **74 / Medium / Rising**, but nested development potential **68 / High / Stable**. Do not silently pick a field and rewrite the save. Preserve both in the original backup. A read-only evidence audit found the career player's season production increased from 7 to 23 points over two 28-game seasons, with OVR 70→72. A candidate rating must be calibrated against position, deployment, competition and historical context before acceptance.
-- Static backup envelope validation and Node structured-serialization round-trip passed. Browser IndexedDB restore and iPhone restore have **not** passed; the unavailable browser test is not a pass.
+- **Known canonical mismatch:** career player's top-level potential **74 / Medium / Rising**, but nested development potential **68 / High / Stable**. Do not silently pick a field and rewrite the save. Preserve both in the original backup. A read-only evidence audit found the career player's season production increased from 7 to 23 points over two 28-game seasons, with OVR 70→72. A candidate rating must be calibrated against position, deployment, competition and historical context before acceptance. **108 generated players have stale development.currentAge=14 despite roster age 15–18**; retrospective scoring must use archived season ages and current roster age, not development.currentAge.
+- Static backup envelope validation and Node structured-serialization round-trip passed. On September 24, 2026, the user confirmed **PASS — isolated IndexedDB restore, read-back, and temporary database cleanup verified on iPhone**, 2025-09-04, 160 roster players, 191 external prospects. This verifies a disposable restore, not yet a production restore or complete app boot from imported data. Keep the original JSON backup.
 
 ## Implementation gates
 
-1. **Backup & isolated restore:** retain original JSON on user phone. Verify full envelope and that a disposable IndexedDB database can store and round-trip a 56 MB snapshot without affecting active storage. Test on iPhone before declaring restoration verified. Do not offer destructive restore without explicit confirmation and a newer-live-save warning.
+1. **Backup & isolated restore:** retain original JSON on user phone. Verify full envelope and that a disposable IndexedDB database can store and round-trip a 56 MB snapshot without affecting active storage. iPhone disposable restore has passed; next verify controlled full-game restoration separately before any mass migration. Do not offer destructive restore without explicit confirmation and a newer-live-save warning.
 2. **Read-only historical scorer:** compute position-, age- and competition-normalized evidence from available archived records. Output per-player proposed rating, role, confidence and trend, plus evidence strength, gaps and reasons for no change. No IndexedDB writes. Include career player and all eligible generated HS NPCs; exclude real-player records.
 3. **Review and calibration:** simulate elite teenage breakout, moderate growth, aging NHL Elite production, two years underperformance, goalie exceptional season, overlooked late bloomer, cap-85 HS case, limited exposure and zero-stat case. Review draft-class statistical distribution separately. Review historical proposed changes before write enablement.
 4. **One evaluator / XP integration:** implement canonical weekly potential engine and reconnect XP upgrade-cost function to canonical potential and earned breakout evidence. Test both manual career-player upgrades and NPC automatic upgrades. Ensure one weekly pass is idempotent and deterministic per season, player and date.
