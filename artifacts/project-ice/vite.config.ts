@@ -45,7 +45,7 @@ const runtimeModulesPlugin = {
     if (!html.includes('/postseason-game-canonical-bridge.js')) scripts.push('    <script src="/postseason-game-canonical-bridge.js"></script>');
     if (!html.includes('/postseason-event-polish.js')) scripts.push('    <script src="/postseason-event-polish.js"></script>');
     if (!html.includes('/pregame-sim-reset.js')) scripts.push('    <script src="/pregame-sim-reset.js"></script>');
-    if (!html.includes('/postseason-stats.js')) scripts.push('    <script src="/postseason-stats.js"></script>');
+    if (!html.includes('/postseason-stats.js')) scripts.push('    <script src="/postseason-stats.js?v=20260923-regular-league-leaders-1"></script>');
     if (!html.includes('/league-postseason.js')) scripts.push('    <script src="/league-postseason.js"></script>');
     if (!html.includes('/playoff-leaders.js')) scripts.push('    <script src="/playoff-leaders.js"></script>');
     if (!html.includes('/full-stats-scopes.js')) scripts.push('    <script src="/full-stats-scopes.js"></script>');
