@@ -3546,6 +3546,14 @@ const WorldEngine = (() => {
       seasonStartYear + 1;
 
     return {
+      /* Preserve established season metadata on ordinary Continue Career.
+       * The previous whitelist silently discarded seasonId, seasonLabel,
+       * currentYear, careerYearIndex and schoolYear on every reload.
+       * Canonical fields below continue to take precedence as before.
+       */
+      ...(source.season && typeof source.season === 'object'
+        ? source.season : {}),
+
       id:
         source.season?.id ||
         `season-${seasonStartYear}-${seasonEndYear}`,
@@ -3721,6 +3729,33 @@ const WorldEngine = (() => {
           source.season
             ?.lastProcessedWeek
         ) || 0,
+
+      /* Recover missing legacy aliases only from already-saved season and
+       * career metadata. Never infer the class year from calendar year
+       * alone, which could silently advance or rewind an older save.
+       */
+      seasonId:
+        source.season?.seasonId ||
+        source.season?.id ||
+        `season-${seasonStartYear}-${seasonEndYear}`,
+      seasonLabel:
+        source.season?.seasonLabel ||
+        source.season?.label ||
+        source.currentSeason ||
+        `${seasonStartYear}-${String(seasonEndYear).slice(-2)}`,
+      currentYear:
+        Number(source.season?.currentYear) ||
+        currentYear,
+      careerYearIndex:
+        Number.isInteger(Number(source.season?.careerYearIndex)) &&
+        source.season?.careerYearIndex != null
+          ? Number(source.season.careerYearIndex)
+          : Math.max(0, (Number(source.season?.careerYear) || 1) - 1),
+      schoolYear:
+        source.season?.schoolYear ||
+        source.player?.schoolYear ||
+        source.player?.year ||
+        null,
     };
   }
 
@@ -41884,6 +41919,18 @@ case 'career-defense':
           _state
         );
 
+        /* Never restart revisions from 1 when loading an existing career.
+         * A lower reset revision made a later, legitimate backup look
+         * older than an earlier export and concealed save replacement.
+         */
+        const loadedRevision = Math.max(
+          Number(resolvedRecord.revision) || 0,
+          Number(resolvedRecord.world?.persistence?.revision) || 0
+        );
+        if (Number.isSafeInteger(loadedRevision) && loadedRevision >= 0) {
+          _saveRevision = Math.max(_saveRevision, loadedRevision);
+        }
+
         _persistenceHydrated = true;
 
         const awardNewsRepair =
@@ -41981,6 +42028,12 @@ case 'career-defense':
       ensureCanonicalSeasonState(
         _state
       );
+
+      /* Preserve a migrated legacy revision before its first IndexedDB save. */
+      const legacyRevision = Number(_state?.persistence?.revision) || 0;
+      if (Number.isSafeInteger(legacyRevision) && legacyRevision >= 0) {
+        _saveRevision = Math.max(_saveRevision, legacyRevision);
+      }
 
       _persistenceHydrated = true;
 
