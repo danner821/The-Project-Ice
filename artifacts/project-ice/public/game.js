@@ -6171,10 +6171,22 @@ function renderLeagueAwardsPreview() {
    * Keep the legacy calculation below only as a migration/pre-first-week
    * fallback so the UI never becomes a second source of award truth.
    */
+  /*
+   * The stored weekly snapshot may contain playoff-inflated values from
+   * older builds. Read a fresh, side-effect-free REGULAR-SEASON award preview
+   * from the canonical World Engine rather than replaying stale ranks.
+   */
+  const liveRegularSeasonRaces =
+    typeof WorldEngine.previewRegularSeasonAwardRaces === 'function'
+      ? WorldEngine.previewRegularSeasonAwardRaces()
+      : null;
+
   const canonicalAwardRaces =
-    Array.isArray(WorldEngine.state?.livingWorld?.currentAwardRaces)
-      ? WorldEngine.state.livingWorld.currentAwardRaces
-      : [];
+    Array.isArray(liveRegularSeasonRaces)
+      ? liveRegularSeasonRaces
+      : Array.isArray(WorldEngine.state?.livingWorld?.currentAwardRaces)
+        ? WorldEngine.state.livingWorld.currentAwardRaces
+        : [];
 
   if (canonicalAwardRaces.length > 0) {
     const teams = Array.isArray(WorldEngine.state?.teams)
@@ -6342,10 +6354,26 @@ function renderLeagueAwardsPreview() {
       ? WorldEngine.state.teams
       : [];
 
-  const players =
+  const rawPlayers =
     typeof getLivePlayersFromTeams === 'function'
       ? getLivePlayersFromTeams(teams)
       : [];
+
+  const canScope =
+    typeof WorldEngine.getPlayerStatsByScope === 'function';
+  if (canScope) WorldEngine.rebuildHighSchoolPostseasonStats?.();
+  const players = canScope
+    ? rawPlayers.map(player => {
+        const canonicalPlayer =
+          WorldEngine.getPlayerById?.(player.playerId || player.id) || player;
+        const stats = WorldEngine.getPlayerStatsByScope(
+          canonicalPlayer, 'regularSeason', { skipRebuild: true }
+        );
+        return stats
+          ? { ...player, ...stats, seasonStats: stats }
+          : player;
+      })
+    : rawPlayers;
 
   const normalizePosition = player =>
     String(player?.position || '')
