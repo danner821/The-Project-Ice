@@ -139,8 +139,8 @@
   }
 
   function resolvePlayer(v){return v&&typeof v==='object'?v:WorldEngine.getPlayerById?.(v)||null;}
-  function getPlayerStatsByScope(v,scope='regularSeason'){
-    const p=resolvePlayer(v);if(!p)return null;rebuild();const po=p.postseasonStats||emptyFor(p),season=p.seasonStats||emptyFor(p),s=String(scope||'').toLowerCase();
+  function getPlayerStatsByScope(v,scope='regularSeason',options={}){
+    const p=resolvePlayer(v);if(!p)return null;if(options.skipRebuild!==true)rebuild();const po=p.postseasonStats||emptyFor(p),season=p.seasonStats||emptyFor(p),s=String(scope||'').toLowerCase();
     if(s==='playoffs'||s==='postseason')return clone(po);if(['total','combined','season'].includes(s))return clone(season);return subtract(season,po,goalie(p));
   }
   function getTeamStatsByScope(teamId,scope='regularSeason'){
