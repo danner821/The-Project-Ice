@@ -98,9 +98,24 @@ async function simulateAtomicRecovery(plan,adapter,{bootCandidate}={}) {
        candidateRevision:plan.candidateRevision});
    });
  } catch(e) {
-   result.status='TRANSACTION_ABORTED';
-   result.reason=String(e?.message||e);
-   return result;
+   /*
+    * A lost acknowledgment after commit is NOT proof of an abort. Re-read
+    * all three records before deciding. A fully committed transaction may
+    * still be recoverable, while partial/unknown state must stop safely.
+    */
+   const after=await adapter.get(key);
+   const backup=await adapter.get(rollbackKey);
+   const journal=await adapter.get(journalKey);
+   if(!isDeepStrictEqual(after,plan.candidate)||
+      !isDeepStrictEqual(backup,plan.baseline)||
+      journal?.state!=='PENDING_BOOT'){
+     result.status=isDeepStrictEqual(after,plan.baseline)&&
+       backup===null&&journal===null?
+         'TRANSACTION_ABORTED':'INDETERMINATE_STOP';
+     result.reason=String(e?.message||e);
+     return result;
+   }
+   result.commitAcknowledgmentLost=true;
  }
  const staged=await adapter.get(key);
  const retained=await adapter.get(rollbackKey);
