@@ -55,12 +55,49 @@
     state.seasonTransition.recap = state.seasonTransition.recap && typeof state.seasonTransition.recap === 'object'
       ? state.seasonTransition.recap
       : {};
-    return state.seasonTransition.recap;
+    const recap = state.seasonTransition.recap;
+    const currentSeasonId = String(state.season?.seasonId || state.season?.id || '');
+
+    /*
+     * Recap acknowledgements belong to ONE school year. Older careers kept
+     * freshman leagueRecapAcknowledged/playerRecapAcknowledged flags after
+     * successfully seeding sophomore year, making the following Aug 31 event
+     * appear DONE before the player had visited it. Repair that exact
+     * cross-year carryover only when the new year's Travel has really closed.
+     *
+     * Do not clear a recap in the middle of the old year's transition:
+     * preseason/active-season loads must retain those transaction guards.
+     */
+    if (
+      isEligibleOffseason() &&
+      currentSeasonId &&
+      recap.nextSeasonSeededSeasonId === currentSeasonId &&
+      recap.nextSeasonTransitionComplete === true &&
+      recap.recapSeasonId !== currentSeasonId &&
+      String(recap.archiveId || '') !== currentSeasonId
+    ) {
+      recap.leagueRecapAcknowledged = false;
+      recap.leagueRecapAcknowledgedAt = null;
+      recap.playerRecapAcknowledged = false;
+      recap.playerRecapAcknowledgedAt = null;
+      recap.archiveId = null;
+      recap.nextSeasonTransitionComplete = false;
+      recap.nextSeasonTransitionStarted = false;
+      recap.nextSeasonSeededSeasonId = null;
+      recap.nextSeasonTransitionStartedAt = null;
+      recap.nextSeasonTransitionCompletedAt = null;
+      delete recap.nextCareerYearIndex;
+      delete recap.nextSeasonId;
+      recap.recapSeasonId = currentSeasonId;
+      console.info('[Season Recap] Initialized recap for active school year:', currentSeasonId);
+    }
+    return recap;
   }
 
   function eventId() {
-    const archive = WorldEngine.getHighSchoolSeasonArchives?.()?.slice(-1)?.[0] || null;
-    const seasonId = archive?.identity?.seasonId || world()?.season?.seasonId || 'hs-season';
+    /* The live recap always belongs to the active season, never whichever
+       historical archive happens to be last in an incompletely hydrated save. */
+    const seasonId = world()?.season?.seasonId || world()?.season?.id || 'hs-season';
     return `${EVENT_KEY}:${seasonId}`;
   }
 
@@ -95,6 +132,7 @@
         seasonTransitionEvent: true,
         completed: acknowledged,
         played: acknowledged,
+        isCompleted: acknowledged,
         status: acknowledged ? 'completed' : 'scheduled',
       };
       state.schedule.push(event);
@@ -111,11 +149,13 @@
         isCareerEvent: true,
         offseasonEvent: true,
         seasonTransitionEvent: true,
+        completed: acknowledged,
+        played: acknowledged,
+        isCompleted: acknowledged,
+        status: acknowledged ? 'completed' : 'scheduled',
       });
-      if (acknowledged) {
-        event.completed = true;
-        event.played = true;
-        event.status = 'completed';
+      if (!acknowledged) {
+        delete event.completedAt;
       }
     }
 
@@ -207,8 +247,13 @@
 
   function activeArchive() {
     WorldEngine.ensureHighSchoolSeasonArchive?.({ save: false });
-    const archives = WorldEngine.getHighSchoolSeasonArchives?.() || [];
-    return archives[archives.length - 1] || null;
+    const seasonId = String(world()?.season?.seasonId || world()?.season?.id || '');
+    if (!seasonId) return null;
+    /* Never show last year's recap if this year's archive is not ready. */
+    return WorldEngine.getHighSchoolSeasonArchive?.(seasonId) ||
+      (WorldEngine.getHighSchoolSeasonArchives?.() || []).find(
+        archive => String(archive?.identity?.seasonId || archive?.archiveId || '') === seasonId
+      ) || null;
   }
 
   function renderLeagueSeasonRecap(options = {}) {
@@ -281,6 +326,7 @@
 
     root.querySelector('#pi-season-recap-continue')?.addEventListener('click', () => {
       recap.leagueRecapAcknowledged = true;
+      recap.recapSeasonId = String(world()?.season?.seasonId || world()?.season?.id || '');
       recap.leagueRecapAcknowledgedAt = currentDate() || checkpointDate();
       recap.archiveId = archive.archiveId || archive.identity?.seasonId || null;
 
