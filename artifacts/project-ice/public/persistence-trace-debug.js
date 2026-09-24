@@ -422,6 +422,235 @@
   }
 
   /*
+   * Disposable recovery PROTOCOL test: no user file needed.
+   * Uses a UNIQUE database, never DB_NAME, and never writes localStorage.
+   * Exercises atomic abort, journal + rollback + candidate staging, full
+   * read-back, boot rejection, compare-and-swap rollback and newer-progress
+   * protection. It is NOT a production restore or full game boot test.
+   */
+  async function testDisposableRecoveryProtocol() {
+    const name = 'projectice_recovery_protocol_disposable_' +
+      Date.now() + '_' + Math.random().toString(36).slice(2);
+    if (name === DB_NAME) throw new Error('Disposable database name invalid.');
+    const key = 'career:synthetic-recovery-test';
+    const backupKey = 'rollback:synthetic-recovery-test';
+    const journalKey = 'journal:synthetic-recovery-test';
+    const makeRoster = () => Array.from({ length: 8 }, (_, teamIndex) => ({
+      teamId: 'fixture-team-' + teamIndex,
+      roster: Array.from({ length: 20 }, (_, i) => ({
+        id: teamIndex === 0 && i === 0
+          ? 'fixture-career-player' : 'fixture-' + teamIndex + '-' + i,
+        isCareerPlayer: teamIndex === 0 && i === 0,
+        position: i === 19 ? 'G' : i % 2 ? 'D' : 'RW',
+        overall: teamIndex === 0 && i === 0 ? 72 : 55 + i,
+        potential: teamIndex === 0 && i === 0 ? 74 : 72,
+        development: {
+          potential: teamIndex === 0 && i === 0 ? 68 : 72,
+          attributeXP: { speed: 62 + i, passing: 15 },
+          attributeUpgradeCounts: { speed: 2 }
+        },
+        highSchoolSeasonHistory: [
+          { seasonStartYear: 2023, regularSeasonStats: { gamesPlayed: 28, points: 7 + i } },
+          { seasonStartYear: 2024, regularSeasonStats: { gamesPlayed: 28, points: 23 + i } }
+        ]
+      }))
+    }));
+    const live = {
+      id: key, careerId: 'synthetic-recovery-test', revision: 2,
+      savedAt: '2026-09-24T22:29:06Z',
+      world: {
+        currentDate: '2025-09-04',
+        season: { id: 'hs-2025-2026', seasonId: 'hs-2025-2026',
+          currentDate: '2025-09-04', schoolYear: 'Junior',
+          careerYearIndex: 2, phase: 'preseason' },
+        player: { id: 'fixture-career-player', potential: 74,
+          development: { potential: 68 } },
+        teams: makeRoster(),
+        externalProspects: Array.from({ length: 191 }, (_, i) => ({
+          id: 'real-fixture-' + i, realPlayer: true, potential: 90
+        }))
+      }
+    };
+    const candidate = structuredClone(live);
+    candidate.revision = 5;
+    candidate.world.persistence = {
+      careerId: live.careerId, recordId: key, revision: 5,
+      currentDate: '2025-09-04'
+    };
+    const journal = { id: journalKey, state: 'PENDING_BOOT',
+      careerId: live.careerId, rollbackKey: backupKey };
+    let database = null;
+    let opened = false;
+    const outcome = { abortedTransaction: false, atomicStage: false,
+      readBack: false, failedBootRollback: false,
+      newerProgressProtected: false, cleanup: 'not-started' };
+    const identical = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const read = (db, id) => new Promise((resolve, reject) => {
+      const tx = db.transaction('worlds', 'readonly');
+      const request = tx.objectStore('worlds').get(id);
+      let result = null;
+      request.onsuccess = () => { result = request.result ?? null; };
+      tx.oncomplete = () => resolve(result);
+      tx.onabort = tx.onerror = () =>
+        reject(tx.error || new Error('Disposable database read failed.'));
+    });
+    const write = (db, operation, expectAbort = false) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction('worlds', 'readwrite');
+        let abortExpected = false;
+        tx.oncomplete = () => expectAbort
+          ? reject(new Error('Expected transaction abort did not occur.'))
+          : resolve({ aborted: false });
+        tx.onabort = () => abortExpected && expectAbort
+          ? resolve({ aborted: true })
+          : reject(tx.error || new Error('Disposable transaction aborted.'));
+        tx.onerror = () => {};
+        try {
+          operation(tx.objectStore('worlds'), tx, () => {
+            abortExpected = true;
+            tx.abort();
+          });
+        } catch (error) {
+          try { tx.abort(); } catch (_) {}
+          reject(error);
+        }
+      });
+    const stage = db => write(db, (store, tx) => {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        if (!identical(request.result, live)) {
+          tx.abort();
+          return;
+        }
+        store.put({ ...live, id: backupKey });
+        store.put(candidate);
+        store.put(journal);
+      };
+    });
+    let completed = false;
+    try {
+      database = await new Promise((resolve, reject) => {
+        const req = indexedDB.open(name, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('worlds', { keyPath: 'id' });
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error('Disposable database open failed.'));
+      });
+      opened = true;
+      await write(database, store => store.put(live));
+      // An aborted multi-record write must have ZERO visible side effects.
+      const deliberatelyAborted = await write(database, (store, tx, abort) => {
+        store.put({ ...live, id: backupKey });
+        store.put(candidate);
+        store.put(journal);
+        abort();
+      }, true);
+      outcome.abortedTransaction = deliberatelyAborted.aborted &&
+        identical(await read(database, key), live) &&
+        await read(database, backupKey) === null &&
+        await read(database, journalKey) === null;
+      if (!outcome.abortedTransaction)
+        throw new Error('Atomic abort left partial disposable records.');
+      await stage(database);
+      const staged = await read(database, key);
+      const rollback = await read(database, backupKey);
+      const pending = await read(database, journalKey);
+      outcome.atomicStage = pending?.state === 'PENDING_BOOT';
+      outcome.readBack = outcome.atomicStage &&
+        identical(staged, candidate) &&
+        identical(rollback, { ...live, id: backupKey });
+      if (!outcome.readBack)
+        throw new Error('Atomic candidate/rollback/journal read-back mismatch.');
+      // Test the same canonical season fields the game requires. Deliberately
+      // reject boot to exercise the recovery path, NOT launch live gameplay.
+      const simulatedBoot = staged.world.season.currentDate === '2025-09-04' &&
+        staged.world.season.careerYearIndex === 2 &&
+        staged.world.teams[0].roster[0].development.attributeXP.speed === 62 &&
+        staged.world.externalProspects.length === 191;
+      if (!simulatedBoot)
+        throw new Error('Synthetic candidate failed season/XP boot guards.');
+      await write(database, (store, tx) => {
+        const currentReq = store.get(key);
+        const rollbackReq = store.get(backupKey);
+        let currentReady = false, backupReady = false;
+        let current, saved;
+        const finish = () => {
+          if (!currentReady || !backupReady) return;
+          if (!identical(current, candidate) ||
+              !identical(saved, { ...live, id: backupKey })) {
+            tx.abort();
+            return;
+          }
+          store.put(live);
+          store.put({ ...journal, state: 'ROLLED_BACK' });
+        };
+        currentReq.onsuccess = () => {
+          current = currentReq.result; currentReady = true; finish();
+        };
+        rollbackReq.onsuccess = () => {
+          saved = rollbackReq.result; backupReady = true; finish();
+        };
+      });
+      outcome.failedBootRollback =
+        identical(await read(database, key), live) &&
+        (await read(database, journalKey))?.state === 'ROLLED_BACK';
+      if (!outcome.failedBootRollback)
+        throw new Error('Rejected boot failed to restore the original record.');
+      await write(database, store => {
+        store.delete(backupKey);
+        store.delete(journalKey);
+      });
+      await stage(database);
+      const newer = { ...candidate, revision: 6,
+        world: { ...candidate.world, currentDate: '2025-09-05' } };
+      await write(database, store => store.put(newer));
+      // Simulate a stale recovery callback. It MUST refuse to replace a
+      // record that has advanced since the candidate was staged.
+      let staleRejected = false;
+      try {
+        await write(database, (store, tx) => {
+          const req = store.get(key);
+          req.onsuccess = () => {
+            if (!identical(req.result, candidate)) {
+              tx.abort();
+              return;
+            }
+            store.put(live);
+          };
+        });
+      } catch (_) { staleRejected = true; }
+      outcome.newerProgressProtected = staleRejected &&
+        identical(await read(database, key), newer);
+      if (!outcome.newerProgressProtected)
+        throw new Error('Stale rollback overwrote newer disposable gameplay.');
+      completed = true;
+    } finally {
+      if (database) database.close();
+      if (opened) {
+        outcome.cleanup = await new Promise(resolve => {
+          let done = false;
+          const finish = status => {
+            if (done) return;
+            done = true;
+            clearTimeout(timeout);
+            resolve(status);
+          };
+          const timeout = setTimeout(() => finish('pending'), 12000);
+          try {
+            const req = indexedDB.deleteDatabase(name);
+            req.onsuccess = () => finish('deleted');
+            req.onerror = () => finish('delete-error');
+            req.onblocked = () => {
+              if (database) database.close();
+            };
+          } catch (_) { finish('delete-error'); }
+        });
+      }
+    }
+    if (!completed) throw new Error('Isolated protocol test did not complete.');
+    return outcome;
+  }
+
+  /*
    * Restore PREVIEW ONLY. Uses a fresh persisted record rather than the
    * Save Trace panel's opening snapshot. It deliberately exposes NO code
    * path to write the active database or change the active-career key.
