@@ -48,6 +48,8 @@ const missing=make();delete missing.world.externalProspects;
 assert.equal(assess(backup,missing,activeId).verdict,'BLOCKED');
 assert.ok(source.includes('const freshRecords = await readRecords();'),
  'export must refresh the persisted snapshot before serializing');
+assert.ok(source.includes('activeCareerId: activeId,\n          activeRecord: latestRecord,'),
+ 'fresh export identity must come from the same latest saved record');
 assert.ok(source.includes('const currentRecords = await readRecords();'),
  'recovery preview must use the newest saved record');
 assert.ok(source.includes("tx.oncomplete = () => {\n          db.close();\n          resolve(records);"),
