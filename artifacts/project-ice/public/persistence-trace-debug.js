@@ -265,7 +265,7 @@
     let database = null;
     let opened = false;
     let result = null;
-    let cleanupError = null;
+    let cleanupStatus = 'not-started';
     try {
       database = await new Promise((resolve, reject) => {
         const request = indexedDB.open(testDbName, 1);
@@ -283,11 +283,19 @@
         tx.onerror = () => reject(tx.error || new Error('Disposable restore write failed.'));
         tx.onabort = () => reject(tx.error || new Error('Disposable restore aborted.'));
       });
+      /* Do not close the database until the entire read transaction completes.
+       * Resolving on request.onsuccess can race with Safari's transaction cleanup,
+       * leaving deleteDatabase temporarily blocked by our own connection.
+       */
       const restored = await new Promise((resolve, reject) => {
         const tx = database.transaction('worlds', 'readonly');
         const request = tx.objectStore('worlds').get(original.id);
-        request.onsuccess = () => resolve(request.result);
+        let record = null;
+        request.onsuccess = () => { record = request.result; };
         request.onerror = () => reject(request.error || new Error('Disposable restore read failed.'));
+        tx.oncomplete = () => resolve(record);
+        tx.onerror = () => reject(tx.error || new Error('Disposable restore transaction failed.'));
+        tx.onabort = () => reject(tx.error || new Error('Disposable restore transaction aborted.'));
       });
       const restoredRoster = (restored?.world?.teams || []).flatMap(team =>
         Array.isArray(team?.roster) ? team.roster : []
@@ -317,19 +325,40 @@
     } finally {
       if (database) database.close();
       if (opened) {
-        try {
-          await new Promise((resolve, reject) => {
+        /* onblocked is a progress event, NOT a failed deletion.
+         * iOS WebKit can fire it while the just-finished read transaction
+         * is releasing its connection. Keep the delete request alive and
+         * distinguish the restore verdict from disposable-db cleanup.
+         */
+        cleanupStatus = await new Promise(resolve => {
+          let finished = false;
+          let blocked = false;
+          const finish = status => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timeout);
+            resolve(status);
+          };
+          const timeout = setTimeout(
+            () => finish(blocked ? 'pending-blocked' : 'pending'),
+            12000
+          );
+          try {
             const request = indexedDB.deleteDatabase(testDbName);
-            request.onsuccess = resolve;
-            request.onerror = () => reject(request.error || new Error('Could not delete disposable test database.'));
-            request.onblocked = () => reject(new Error('Disposable test database deletion was blocked.'));
-          });
-        } catch (error) {
-          cleanupError = error;
-        }
+            request.onsuccess = () => finish('deleted');
+            request.onerror = () => finish('delete-error');
+            request.onblocked = () => {
+              blocked = true;
+              if (database) database.close();
+              /* Let Safari release the connection; don't abort the request. */
+            };
+          } catch (_) {
+            finish('delete-error');
+          }
+        });
       }
     }
-    if (cleanupError) throw cleanupError;
+    if (result) result.cleanupStatus = cleanupStatus;
     return result;
   }
 
@@ -518,11 +547,17 @@
       verifyStatus.textContent = 'Verifying backup in a separate disposable database. This may take a minute for a large career file…';
       try {
         const result = await testDownloadedBackup(selected);
-        verifyStatus.textContent = 'PASS — isolated restore, read-back, and cleanup completed. ' +
+        const cleaned = result.cleanupStatus === 'deleted';
+        verifyStatus.textContent = (cleaned
+          ? 'PASS — isolated restore, read-back, and temporary database cleanup verified. '
+          : 'PASS — isolated restore and read-back verified; temporary database cleanup ' +
+            (result.cleanupStatus === 'pending-blocked' ? 'is pending (iPhone browser blocked deletion).' :
+              result.cleanupStatus === 'pending' ? 'is still pending.' : 'could not be confirmed.') +
+            ' ') +
           result.player + ', ' + result.overall + ' OVR; ' + result.date +
           '; ' + result.rosterCount + ' roster players; ' + result.externalCount +
           ' external prospects. Live career untouched.';
-        verifyStatus.style.color = '#81e3ae';
+        verifyStatus.style.color = cleaned ? '#81e3ae' : '#f5c27d';
       } catch (error) {
         verifyStatus.textContent = 'NOT VERIFIED — ' + String(error?.message || error) +
           '. Live career was not overwritten; keep your original JSON backup.';
