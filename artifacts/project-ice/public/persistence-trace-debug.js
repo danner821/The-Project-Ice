@@ -362,6 +362,113 @@
     return result;
   }
 
+  /*
+   * Restore PREVIEW ONLY. Uses a fresh persisted record rather than the
+   * Save Trace panel's opening snapshot. It deliberately exposes NO code
+   * path to write the active database or change the active-career key.
+   */
+  function assessBackupForRecovery(backup, live, activeId) {
+    const blocked = (reason, details = {}) => ({
+      verdict: 'BLOCKED', reason, ...details,
+      readOnly: true, restorePerformed: false
+    });
+    const saved = backup?.activeRecord;
+    if (backup?.format !== 'projectice-career-backup' ||
+        backup?.version !== 1 || !activeId ||
+        backup.activeCareerId !== activeId ||
+        saved?.id !== 'career:' + activeId ||
+        saved?.careerId !== activeId) {
+      return blocked('Backup envelope or career ID is invalid.');
+    }
+    if (live?.id !== 'career:' + activeId ||
+        live?.careerId !== activeId) {
+      return blocked('Current active career does not match the backup.');
+    }
+    const summary = world => {
+      const roster = (world?.teams || []).flatMap(team =>
+        Array.isArray(team?.roster) ? team.roster : []
+      );
+      const career = roster.filter(p => p?.isCareerPlayer === true);
+      const date = String(dateOf(world) || '').slice(0, 10);
+      return {
+        date, seasonId: String(world?.season?.seasonId || ''),
+        rosterCount: roster.length, careerPlayers: career.length,
+        playerId: career[0]?.id || career[0]?.playerId || null,
+        overall: career[0]?.overall ?? null,
+        externalProspects: Array.isArray(world?.externalProspects)
+          ? world.externalProspects.length : null
+      };
+    };
+    const incoming = summary(saved.world);
+    const current = summary(live.world);
+    const valid = d => /^\\d{4}-\\d{2}-\\d{2}$/.test(d);
+    if (!valid(incoming.date) || !valid(current.date) ||
+        !incoming.seasonId || !current.seasonId ||
+        incoming.careerPlayers !== 1 || current.careerPlayers !== 1 ||
+        !incoming.playerId || incoming.playerId !== current.playerId ||
+        incoming.rosterCount < 1 || current.rosterCount < 1 ||
+        incoming.externalProspects === null ||
+        current.externalProspects === null) {
+      return blocked('World, roster, or career player identity failed validation.',
+        { incoming, current });
+    }
+    const oldRevision = Number(saved.revision);
+    const liveRevision = Number(live.revision);
+    if (!Number.isSafeInteger(oldRevision) ||
+        !Number.isSafeInteger(liveRevision) ||
+        oldRevision < 0 || liveRevision < 0) {
+      return blocked('A valid saved revision is required.',
+        { incoming, current });
+    }
+    const newer = liveRevision > oldRevision ||
+      current.date > incoming.date;
+    const divergence = liveRevision !== oldRevision ||
+      current.seasonId !== incoming.seasonId ||
+      current.overall !== incoming.overall ||
+      current.rosterCount !== incoming.rosterCount ||
+      current.externalProspects !== incoming.externalProspects;
+    return {
+      verdict: newer ? 'OLDER_BACKUP' :
+        divergence ? 'DIFFERENT_SAVE_STATE' : 'SAME_RECOVERY_BASELINE',
+      readOnly: true, restorePerformed: false,
+      newerLiveProgress: newer, differentSavedState: divergence,
+      incoming, current, oldRevision, liveRevision,
+      action: newer
+        ? 'Keep playing from the live career. Export a NEW backup before considering recovery.'
+        : 'Preview complete. Restore is NOT enabled; keep the original JSON and verify a fresh live backup.'
+    };
+  }
+
+  async function previewDownloadedBackup(file) {
+    if (!file || !/\\.json$/i.test(file.name || '') ||
+        file.size > 100 * 1024 * 1024) {
+      throw new Error('Select a valid Project Ice JSON backup (under 100 MB).');
+    }
+    const json = await file.text();
+    const parsed = JSON.parse(json);
+    const activeId = String(localStorage.getItem(ACTIVE_KEY) || '');
+    const currentRecords = await readRecords();
+    const current = currentRecords.find(r => r?.id === 'career:' + activeId);
+    const verdict = assessBackupForRecovery(parsed, current, activeId);
+    if (typeof window !== 'undefined' &&
+        typeof crypto !== 'undefined' && crypto.subtle) {
+      const bytes = new TextEncoder().encode(json);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      const hex = [...new Uint8Array(digest)]
+        .map(n => n.toString(16).padStart(2, '0')).join('');
+      verdict.fileFingerprint = hex;
+    }
+    const runtimeDate = dateOf(
+      typeof WorldEngine !== 'undefined' ? WorldEngine.state : null
+    );
+    if (verdict.verdict !== 'BLOCKED' &&
+        String(runtimeDate || '') > verdict.current.date) {
+      verdict.runtimeAheadOfDisk = true;
+      verdict.action = 'Runtime is ahead of its last saved snapshot. Export a fresh backup after the game saves.';
+    }
+    return verdict;
+  }
+
   function ensureButton() {
     if (document.getElementById('pi-save-trace-button')) return;
 
@@ -485,6 +592,12 @@
           <input data-backup-file type="file" accept=".json,application/json" style="display:none" />
           <button data-verify-backup type="button" style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#102b50;color:#fff;font:700 14px system-ui">Verify downloaded backup (isolated test)</button>
           <p data-verify-status style="font-size:12px;color:#abc3e9;margin:10px 0 0">Choose the JSON file in iPhone Files. The test uses a separate temporary database and will never overwrite your career.</p>
+          <div style="height:1px;background:#36527d;margin:14px 0"></div>
+          <strong style="display:block;font-size:14px;color:#dde9ff">Recovery comparison (read-only)</strong>
+          <p style="color:#abc3e9;font-size:13px">Compare a downloaded JSON backup with your latest saved career before considering recovery. This cannot restore or replace anything.</p>
+          <input data-recovery-file type="file" accept=".json,application/json" style="display:none" />
+          <button type="button" data-preview-recovery style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#102b50;color:#fff;font:700 14px system-ui">Compare backup with current career</button>
+          <p data-recovery-status style="white-space:pre-wrap;word-break:break-word;font-size:12px;color:#abc3e9;margin:10px 0 0">No restore writes are available.</p>
         </div>
         <h2 style="color:#9fc4ff;font:800 15px system-ui">Season transition — last recorded stages</h2>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonTransitionTrace, null, 2)}</pre>
@@ -497,10 +610,18 @@
       </div>
     `;
 
-    panel.querySelector('[data-export-career]')?.addEventListener('click', () => {
+    panel.querySelector('[data-export-career]')?.addEventListener('click', async () => {
       const status = panel.querySelector('[data-export-status]');
-      if (!activeRecord?.world || !payload.activeCareerId) {
-        if (status) status.textContent = 'Backup unavailable: the active career record could not be verified.';
+      let latestRecord = null;
+      try {
+        const freshRecords = await readRecords();
+        const activeId = localStorage.getItem(ACTIVE_KEY);
+        latestRecord = freshRecords.find(r => r?.id === 'career:' + activeId);
+        if (!latestRecord?.world || !activeId) {
+          throw new Error('Active career record not found in latest saved data.');
+        }
+      } catch (error) {
+        if (status) status.textContent = 'Export failed: ' + String(error?.message || error);
         return;
       }
       try {
@@ -509,20 +630,20 @@
           version: 1,
           exportedAt: new Date().toISOString(),
           activeCareerId: payload.activeCareerId,
-          activeRecord,
+          activeRecord: latestRecord,
         };
         const serialized = JSON.stringify(backup);
         const verified = JSON.parse(serialized);
         if (verified.format !== 'projectice-career-backup' ||
             verified.activeCareerId !== payload.activeCareerId ||
             !verified.activeRecord?.world ||
-            verified.activeRecord?.id !== activeRecord.id) {
+            verified.activeRecord?.id !== latestRecord.id) {
           throw new Error('Backup integrity check did not pass.');
         }
         const blob = new Blob([serialized], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement('a');
-        const date = String(dateOf(activeRecord.world) || 'undated').replace(/[^0-9-]/g, '');
+        const date = String(dateOf(latestRecord.world) || 'undated').replace(/[^0-9-]/g, '');
         anchor.href = url;
         anchor.download = 'project-ice-career-backup-' + date + '.json';
         anchor.style.display = 'none';
@@ -565,6 +686,40 @@
       } finally {
         fileInput.value = '';
         verifyButton.disabled = false;
+      }
+    });
+    const recoveryFile = panel.querySelector('[data-recovery-file]');
+    const recoveryButton = panel.querySelector('[data-preview-recovery]');
+    const recoveryStatus = panel.querySelector('[data-recovery-status]');
+    recoveryButton?.addEventListener('click', () => recoveryFile?.click());
+    recoveryFile?.addEventListener('change', async () => {
+      const file = recoveryFile.files?.[0];
+      if (!file) return;
+      recoveryButton.disabled = true;
+      recoveryStatus.textContent = 'Reading backup and current saved career. No changes will be made…';
+      try {
+        const result = await previewDownloadedBackup(file);
+        recoveryStatus.style.color = result.verdict === 'BLOCKED' ||
+          result.verdict === 'OLDER_BACKUP' || result.runtimeAheadOfDisk
+          ? '#ffb47e' : '#81e3ae';
+        recoveryStatus.textContent = [
+          'PREVIEW — ' + result.verdict,
+          result.reason || '',
+          result.incoming ? 'Backup: ' + result.incoming.date + ' · ' +
+            result.incoming.seasonId + ' · ' + result.incoming.overall + ' OVR' : '',
+          result.current ? 'Current: ' + result.current.date + ' · ' +
+            result.current.seasonId + ' · ' + result.current.overall + ' OVR' : '',
+          result.fileFingerprint ? 'SHA-256: ' + result.fileFingerprint : '',
+          result.action || '',
+          'LIVE CAREER UNCHANGED. This screen cannot perform restoration.'
+        ].filter(Boolean).join('\\n');
+      } catch (error) {
+        recoveryStatus.style.color = '#ffb47e';
+        recoveryStatus.textContent = 'NOT VERIFIED — ' +
+          String(error?.message || error) + '. Nothing was changed.';
+      } finally {
+        recoveryFile.value = '';
+        recoveryButton.disabled = false;
       }
     });
     panel.querySelector('[data-close]')?.addEventListener('click', () => panel.remove());
