@@ -246,6 +246,9 @@
       const right = entry.actual;
       const where = entry.path;
       compared += 1;
+      if (compared % 25000 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
       if (Object.is(left, right)) continue;
       if (left === null || right === null ||
           typeof left !== typeof right || typeof left !== 'object' ||
@@ -269,9 +272,6 @@
           actual: right[key],
           path: where + (Array.isArray(left) ? '[' + key + ']' : '.' + key)
         });
-      }
-      if (compared % 25000 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
     return { verifiedFields: compared };
