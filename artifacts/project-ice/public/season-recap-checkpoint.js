@@ -442,6 +442,51 @@
     renderLeagueSeasonRecap({ force: true });
   }, true);
 
+  /*
+   * Vite loads modules BEFORE the real iPhone career is hydrated. The
+   * one-time ensureCheckpointEvent call below therefore cannot repair an
+   * existing sophomore save on its own. Reconcile only AFTER load/select
+   * resolves, then repaint Home/Schedule from the corrected canonical event.
+   * The repair is idempotent and does not advance time or award XP.
+   */
+  function reconcileHydratedSeasonRecap() {
+    if (!isEligibleOffseason()) return false;
+    const event = ensureCheckpointEvent({ save: true });
+    if (!event) return false;
+    try {
+      WorldEngine.syncCareerCalendarProjection?.(currentDate());
+    } catch (error) {
+      console.warn('[Season Recap] Could not repaint the calendar:', error);
+    }
+    if (shouldBlockAtCheckpoint()) {
+      requestAnimationFrame(() => renderLeagueSeasonRecap({ force: true }));
+    }
+    return true;
+  }
+
+  const initialLoad = typeof WorldEngine.load === 'function'
+    ? WorldEngine.load.bind(WorldEngine)
+    : null;
+  if (initialLoad) {
+    WorldEngine.load = async (...args) => {
+      const result = await initialLoad(...args);
+      if (result) reconcileHydratedSeasonRecap();
+      return result;
+    };
+  }
+
+  const initialSelectCareerSave =
+    typeof WorldEngine.selectCareerSave === 'function'
+      ? WorldEngine.selectCareerSave.bind(WorldEngine)
+      : null;
+  if (initialSelectCareerSave) {
+    WorldEngine.selectCareerSave = async (...args) => {
+      const result = await initialSelectCareerSave(...args);
+      if (result) reconcileHydratedSeasonRecap();
+      return result;
+    };
+  }
+
   WorldEngine.ensureSeasonRecapCheckpointEvent = ensureCheckpointEvent;
   WorldEngine.renderLeagueSeasonRecap = renderLeagueSeasonRecap;
   WorldEngine.getSeasonRecapCheckpointDate = checkpointDate;
