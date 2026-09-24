@@ -336,6 +336,12 @@
           <button type="button" data-close style="border:1px solid #36527d;background:#10213d;color:#fff;border-radius:12px;padding:8px 12px">Close</button>
         </div>
         <p style="color:#8fb5f3;font-family:system-ui">Read-only recovery blocker diagnosis. Send the diagnosis below; no gameplay progress will be changed by Save Trace.</p>
+        <div style="margin-bottom:18px;padding:14px;border:1px solid #406eae;border-radius:14px;background:#0c203c;font-family:system-ui">
+          <strong style="display:block;font-size:15px">Career backup</strong>
+          <p style="color:#abc3e9;font-size:13px">Export a copy of the complete active IndexedDB career record. This does not save, overwrite, or advance your game. Keep the downloaded JSON file private.</p>
+          <button type="button" data-export-career ${activeRecord?.world ? '' : 'disabled'} style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#245fb2;color:white;font:700 14px system-ui">Download career backup (.json)</button>
+          <p data-export-status style="font-size:12px;color:#abc3e9;margin:10px 0 0">${activeRecord?.world ? 'Active career record found.' : 'Active career record unavailable — no backup can be exported.'}</p>
+        </div>
         <h2 style="color:#9fc4ff;font:800 15px system-ui">Season transition — last recorded stages</h2>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonTransitionTrace, null, 2)}</pre>
         <h2 style="color:#9fc4ff;font:800 15px system-ui">Season Recap — memory vs saved</h2>
@@ -347,6 +353,45 @@
       </div>
     `;
 
+    panel.querySelector('[data-export-career]')?.addEventListener('click', () => {
+      const status = panel.querySelector('[data-export-status]');
+      if (!activeRecord?.world || !payload.activeCareerId) {
+        if (status) status.textContent = 'Backup unavailable: the active career record could not be verified.';
+        return;
+      }
+      try {
+        const backup = {
+          format: 'projectice-career-backup',
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          activeCareerId: payload.activeCareerId,
+          activeRecord,
+        };
+        const serialized = JSON.stringify(backup);
+        const verified = JSON.parse(serialized);
+        if (verified.format !== 'projectice-career-backup' ||
+            verified.activeCareerId !== payload.activeCareerId ||
+            !verified.activeRecord?.world ||
+            verified.activeRecord?.id !== activeRecord.id) {
+          throw new Error('Backup integrity check did not pass.');
+        }
+        const blob = new Blob([serialized], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        const date = String(dateOf(activeRecord.world) || 'undated').replace(/[^0-9-]/g, '');
+        anchor.href = url;
+        anchor.download = 'project-ice-career-backup-' + date + '.json';
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        /* Keep the object URL alive for mobile Safari to finish the handoff. */
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        if (status) status.textContent = 'Export initiated. Verify the JSON file is present in iPhone Files before proceeding. Do not share it publicly.';
+      } catch (error) {
+        if (status) status.textContent = 'Backup export failed: ' + String(error?.message || error);
+      }
+    });
     panel.querySelector('[data-close]')?.addEventListener('click', () => panel.remove());
     document.body.appendChild(panel);
   }
