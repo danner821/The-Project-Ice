@@ -64,8 +64,37 @@
     const travel = travelState();
     if (!travel) return null;
 
+    /*
+     * A new high-school year can still carry last summer's Travel tryout
+     * result inside an inactive Travel object. Only after THIS year's awards
+     * are acknowledged should we start this summer's Travel cycle. Clear
+     * current-cycle fields, never archived Travel stats/history.
+     */
+    const activeSeasonId = String(
+      world.season?.seasonId || world.season?.id || ''
+    );
+    if (
+      String(travel.status || '').toLowerCase() === 'inactive' &&
+      travel.initializedSeasonId !== activeSeasonId
+    ) {
+      travel.tryoutResult = null;
+      travel.placementLevel = null;
+      travel.tryoutDate = null;
+      travel.awardsCeremonyDate = null;
+      travel.playerTeamId = null;
+      travel.playerTeamName = null;
+      travel.placementTeam = null;
+      travel.tournament = null;
+      travel.completed = false;
+      travel.currentSeasonComplete = false;
+    }
+
     if (!travel.version) travel.version = 1;
-    travel.status = travel.status || 'tryouts-pending';
+    travel.initializedSeasonId = activeSeasonId;
+    travel.status =
+      String(travel.status || '').toLowerCase() === 'inactive'
+        ? 'tryouts-pending'
+        : travel.status || 'tryouts-pending';
     travel.awardsCeremonyDate = awardsDate;
     travel.tryoutDate = travel.tryoutDate || tryoutDate;
     travel.levels = Array.isArray(travel.levels) && travel.levels.length
