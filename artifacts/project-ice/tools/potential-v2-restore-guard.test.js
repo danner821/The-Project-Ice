@@ -5,6 +5,7 @@ const id='c1',wid='career:'+id;
 function r(revision=4,date='2025-09-04',opts={}){
  const p={id:'career-player',isCareerPlayer:true,overall:opts.overall||72};
  return{id:opts.id||wid,careerId:opts.careerId||id,revision,
+   savedAt:opts.savedAt||'2026-09-24T01:00:00Z',
    world:{currentDate:date,season:{seasonId:opts.seasonId||'hs-2025-2026'},
      teams:[{roster:[p]}],externalProspects:[{}]}};
 }
@@ -20,6 +21,20 @@ assert.equal(x.wouldDiscardNewerProgress,false);
 assert.equal(JSON.stringify(backup),original);
 assert.equal(preview(backup,r(5),id).action,'STOP_AND_BACK_UP_CURRENT_LIVE_CAREER');
 assert.equal(preview(backup,r(4,'2025-09-05'),id).wouldDiscardNewerProgress,true);
+const resetLive=r(2,'2025-09-04',{savedAt:'2026-09-24T22:29:06Z'});
+const olderExport={...backup,activeRecord:{
+ ...backup.activeRecord,savedAt:'2026-09-24T05:56:01Z'
+}};
+const reset=preview(olderExport,resetLive,id);
+assert.equal(reset.revisionResetDetected,true,
+ 'a later same-date save can have a smaller revision after the old bug');
+assert.equal(reset.wouldDiscardNewerProgress,true,
+ 'recovery must protect later saved data despite lower revision');
+assert.equal(reset.action,'STOP_AND_BACK_UP_CURRENT_LIVE_CAREER');
+const earlierSameRevision=r(4,'2025-09-04',{savedAt:'2026-09-24T05:00:00Z'});
+assert.equal(preview(olderExport,earlierSameRevision,id).revisionResetDetected,false,
+ 'older timestamp with same revision is not a revision reset');
+
 assert.equal(preview(backup,r(4,'2025-09-04',{overall:74}),id).divergentSameDate,true);
 const oldAlias=r();oldAlias.world.season.id=oldAlias.world.season.seasonId;
 delete oldAlias.world.season.seasonId;
