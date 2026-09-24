@@ -43,6 +43,12 @@ assert.ok(eliteNoHistory.firstRapid!==null,'sustained extreme performance gets R
 assert.ok(eliteNoHistory.snapshots[12].proposal.confidence<85,'mismatch lowers scouting confidence');
 assert.equal(eliteNoHistory.moves.some(m=>m.to>=96),false,'no Franchise rise without two documented NHL seasons');
 assert.ok(eliteNoHistory.snapshots.every(s=>s.franchiseGate?.permitted===false),'Franchise historical gate stays closed');
+const shortSeasons=timeline(20,90,[
+  {seasonId:'a',level:'NHL',gamesPlayed:20,points:24},
+  {seasonId:'b',level:'NHL',gamesPlayed:22,points:28}
+]);
+assert.ok(shortSeasons.snapshots.every(s=>s.franchiseGate?.permitted===false),
+ 'short hot streaks are not two dominant NHL seasons');
 const eliteWithHistory=timeline(20,90,history);
 assert.ok(eliteWithHistory.snapshots.some(s=>s.franchiseGate?.permitted===true),'proven multi-season dominance permits review');
 assert.ok(eliteWithHistory.snapshots.some(s=>s.eligibleForReview),'permitted does not guarantee promotion');
