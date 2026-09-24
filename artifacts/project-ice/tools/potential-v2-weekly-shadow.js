@@ -10,13 +10,17 @@ const round=(n,d=3)=>Number(n.toFixed(d));
 const position=p=>String(p||'F').toUpperCase()==='G'?'G':
   ['D','LD','RD'].includes(String(p||'').toUpperCase())?'D':'F';
 const level=p=>String(p||'').toUpperCase().replace(/\s+/g,'').replace(/-/g,'');
-/* Distinguish Varsity, JV and travel tiers within their broad league. */
+/* Project Ice has only Varsity high-school competition. Missing legacy
+ * HS team-level labels normalize to Varsity; travel AA/AAA and post-HS
+ * leagues retain their own competition identities.
+ */
 const competition=p=>{
   const broad=level(p?.leagueLevel||p?.currentLeague||p?.league||p?.teamLevel||p?.level);
-  const teamTier=level(p?.teamLevel);
-  const division=level(p?.competitionTier||p?.division||
-    (teamTier&&teamTier!==broad?p.teamLevel:null)||p?.level||p?.teamLevel);
-  return broad+(division&&division!==broad?':'+division:'');
+  const teamTier=level(p?.competitionTier||p?.division||p?.teamLevel||p?.level);
+  if(broad==='HS'||broad==='HIGHSCHOOL'||broad==='VARSITY')return 'HS:VARSITY';
+  if(broad==='TRAVEL'||broad==='TRAVELHOCKEY')
+    return teamTier&&teamTier!==broad?'TRAVEL:'+teamTier:'';
+  return broad;
 };
 const tier=(p,pos)=>p>=96?'Franchise':p>=90?'Elite':
   position(pos)==='G'?(p>=84?'Starter':p>=79?'Fringe Starter':p>=74?'Backup':'AHL Starter'):
