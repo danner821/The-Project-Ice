@@ -103,9 +103,34 @@
     `).join('')}</div>`;
   }
 
-  function travelStats() {
-    const player = canonicalCareerPlayer();
-    return player?.travelStats || world()?.player?.travelStats || null;
+  function travelStats(archive) {
+    /*
+     * The archive freezes the summer's own stats before the next-season
+     * rollover clears the live travel world. Never use cumulative travel
+     * career totals or a later summer in a historical yearbook.
+     */
+    if (Number(archive?.travel?.playerStats?.gp ??
+      archive?.travel?.playerStats?.gamesPlayed ?? 0) > 0) {
+      return archive.travel.playerStats;
+    }
+    const career = canonicalCareerPlayer();
+    const season = archive?.identity || {};
+    const start = season.startYear ? `${season.startYear}-09-01` : null;
+    const end = season.endYear ? `${season.endYear}-08-31` : null;
+    const entries = WorldEngine.getPlayerTravelStats?.(career)?.entries || [];
+    const match = entries.filter(entry => {
+      const date = String(entry?.date || '').slice(0, 10);
+      return Boolean(start && end && date >= start && date <= end &&
+        Number(entry?.stats?.gp ?? entry?.stats?.gamesPlayed ?? 0) > 0);
+    });
+    if (!match.length) return null;
+    const total = { gp:0, g:0, a:0, pts:0, wins:0, losses:0,
+      shotsAgainst:0, saves:0, goalsAgainst:0 };
+    for (const entry of match) {
+      for (const key of Object.keys(total)) total[key] += Number(entry?.stats?.[key] || 0);
+    }
+    total.savePercentage = total.shotsAgainst > 0 ? total.saves / total.shotsAgainst : 0;
+    return total;
   }
 
   function travelTeamName(teamId) {
@@ -254,7 +279,7 @@
     const player = archive.careerPlayer;
     const travel = archive.travel || {};
     const currentTravel = world()?.travelHockey || {};
-    const travelTeamId = currentTravel.playerTeamId || currentTravel.placementTeamId || travel.mvpTeamId || null;
+    const travelTeamId = travel.playerTeamId || currentTravel.playerTeamId || currentTravel.placementTeamId || travel.mvpTeamId || null;
     const wasTravelChampion = Boolean(travel.championTeamId && travelTeamId && String(travel.championTeamId) === String(travelTeamId));
     const nextIndex = Math.min(3, Number(archive?.identity?.careerYearIndex || 0) + 1);
     const nextIdentity = WorldEngine.getHighSchoolSeasonIdentity?.(nextIndex) || null;
@@ -272,9 +297,11 @@
           <div class="pi-pr-summary">
             <div class="pi-pr-summary-item"><span>Team Finish</span><strong>${esc(teamFinishText(archive))}</strong></div>
             <div class="pi-pr-summary-item"><span>Final Role</span><strong>${esc(role)}</strong></div>
-            <div class="pi-pr-summary-item"><span>Potential</span><strong>${esc(player.potential || '—')}</strong></div>
+            <div class="pi-pr-summary-item"><span>Potential Rating</span><strong>${esc(player.potential ?? '—')}</strong></div>
           </div>
         </div>
+
+        <p class="pi-pr-note">Potential is your development outlook, not your current OVR or a guaranteed final rating.</p>
 
         <section class="pi-pr-card">
           <h2>High School Statistics</h2>
@@ -286,11 +313,11 @@
           <h2>Summer Travel Hockey</h2>
           <div class="pi-pr-travel-grid">
             <div class="pi-pr-travel-item"><span>Level</span><strong>${esc(travel.level || currentTravel.placementLevel || '—')}</strong></div>
-            <div class="pi-pr-travel-item"><span>Club</span><strong>${esc(travelTeamName(travelTeamId))}</strong></div>
+            <div class="pi-pr-travel-item"><span>Club</span><strong>${esc(travel.playerTeamName || travelTeamName(travelTeamId))}</strong></div>
             <div class="pi-pr-travel-item"><span>Tournament Result</span><strong>${wasTravelChampion ? 'Champion' : 'Completed'}</strong></div>
             <div class="pi-pr-travel-item"><span>Tournament MVP</span><strong>${String(travel.mvpPlayerId || '') === String(player.playerId || '') ? 'Winner' : '—'}</strong></div>
           </div>
-          <div class="pi-pr-scope"><div class="pi-pr-scope-label">Travel Stats</div>${statStrip(travelStats(), 'Travel')}</div>
+          <div class="pi-pr-scope"><div class="pi-pr-scope-label">Travel Stats</div>${statStrip(travelStats(archive), 'Travel')}</div>
         </section>
 
         <section class="pi-pr-card">
