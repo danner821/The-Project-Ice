@@ -34,7 +34,7 @@
     return ensureRuntime({
       method: 'renderPlayerSeasonRecap',
       selector: 'script[data-project-ice-player-recap-loader]',
-      src: '/player-season-recap.js',
+      src: '/player-season-recap.js?v=20260923-safe-recap-1',
       datasetKey: 'projectIcePlayerRecapLoader',
     });
   }
