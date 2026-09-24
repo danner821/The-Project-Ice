@@ -22,6 +22,13 @@ assert.equal(evaluate({...opts,previous:{...a.proposal}}).status,'already-evalua
 assert.equal(evaluate({...opts,weekKey:'2025-W43',previous:a.proposal}).reason,'NO_NEW_GAMES');
 assert.equal(evaluate({...opts,peers:[]}).reason,'INSUFFICIENT_SAME_LEVEL_TIER_PEERS');
 assert.equal(evaluate({...opts,player:{...career,development:{...career.development,potential:68}}}).reason,'UNRECONCILED_OR_MISSING_POTENTIAL');
+const JVPeers=peers.map(p=>({...p,teamLevel:'JV'}));
+const varsity={...career,teamLevel:'Varsity'};
+assert.equal(evaluate({...opts,player:varsity,peers:JVPeers}).reason,
+  'INSUFFICIENT_SAME_LEVEL_TIER_PEERS','JV must not benchmark Varsity');
+const varsityPeers=peers.map(p=>({...p,teamLevel:'Varsity'}));
+assert.equal(evaluate({...opts,player:varsity,peers:varsityPeers}).status,
+  'evaluated','Varsity must match Varsity');
 const realPeers=peers.map(p=>({...p,leagueLevel:'NHL'}));
 assert.equal(evaluate({...opts,peers:realPeers}).reason,'INSUFFICIENT_SAME_LEVEL_TIER_PEERS','no HS/NHL crossover');
 const low= {...career,seasonStats:{gamesPlayed:2,points:10,minutesPlayed:44}};
