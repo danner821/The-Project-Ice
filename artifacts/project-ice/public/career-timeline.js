@@ -155,9 +155,30 @@
 
   function seedCompletedSeasons(player) {
     const rows = Array.isArray(player?.highSchoolSeasonHistory) ? player.highSchoolSeasonHistory : [];
+    const today = currentDate();
+    const activeStart = seasonStartYear();
+    /*
+     * Legacy interrupted rollover saves may have captured NEXT season's
+     * stats before its first game. Never turn that future history row into
+     * a completed career milestone. Prune matching phantom timeline events
+     * previously saved by older versions, but preserve legitimate history
+     * and leave the underlying season-stat records to their own owner.
+     */
+    const timeline = historyRoot(player);
+    if (timeline && today) {
+      for (let i = timeline.length - 1; i >= 0; i -= 1) {
+        const event = timeline[i];
+        const year = Number(String(event?.key || '').match(/^hs-season-complete:(\\d{4})$/)?.[1]);
+        const finish = Number.isFinite(year) ? `${year + 1}-08-31` : null;
+        if (event?.source === 'high-school-season-history' && finish && finish > today && year >= activeStart) {
+          timeline.splice(i, 1);
+        }
+      }
+    }
     for (const row of rows) {
       const start = Number(row?.seasonStartYear);
       if (!Number.isFinite(start)) continue;
+      if (today && `${start + 1}-08-31` > today && start >= activeStart) continue;
       const grade = Number(row?.grade);
       const className = CLASS_BY_GRADE[grade] || row?.level || 'High School';
       const stats = row?.regularSeasonStats || {};
