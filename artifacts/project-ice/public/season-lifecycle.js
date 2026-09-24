@@ -61,10 +61,50 @@
     return world;
   }
 
+  /*
+   * A saved world can retain schedules from other high-school years (including
+   * the old 2026-27 dev bootstrap). Postseason must NEVER use a game from a
+   * different school year to determine the active season's finale or whether
+   * all active league games are complete.
+   *
+   * Prefer the explicit season ID over the calendar position. A career stuck
+   * past its own season boundary must still resolve the year in its saved
+   * season ID, not the year suggested by an accidentally advanced clock.
+   */
+  function activeSeasonBounds() {
+    const season = state()?.season || {};
+    const id = String(season.seasonId || season.id || '');
+    const match = id.match(/^hs-(\\d{4})-(\\d{4})$/);
+    const start = match
+      ? Number(match[1])
+      : Number(season.seasonStartYear);
+    if (!Number.isInteger(start) || start < 2020 || start > 2100) {
+      return null;
+    }
+    const end = match ? Number(match[2]) : start + 1;
+    if (end !== start + 1) return null;
+    return {
+      start: `${start}-09-01`,
+      endExclusive: `${end}-09-01`,
+    };
+  }
+
   function regularGames() {
-    return (state()?.schedule || []).filter(game =>
-      game?.isPlayoff !== true && game?.homeTeamId && game?.awayTeamId && key(game?.date)
-    );
+    const bounds = activeSeasonBounds();
+    if (!bounds) return [];
+    return (state()?.schedule || []).filter(game => {
+      const date = key(game?.date);
+      return Boolean(
+        date &&
+        date >= bounds.start &&
+        date < bounds.endExclusive &&
+        game?.isPlayoff !== true &&
+        game?.travelTournament !== true &&
+        game?.type !== 'travel-game' &&
+        game?.homeTeamId &&
+        game?.awayTeamId
+      );
+    });
   }
 
   function getRegularSeasonEndDate() {
