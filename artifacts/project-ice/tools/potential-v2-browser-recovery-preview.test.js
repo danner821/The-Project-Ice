@@ -44,6 +44,20 @@ assert.equal(assess(backup,{...live,id:'career:other'},activeId).verdict,'BLOCKE
 assert.equal(assess(backup,{...live,revision:null},activeId).verdict,'BLOCKED');
 const gone=make();gone.world.teams[0].roster=[];
 assert.equal(assess(backup,gone,activeId).verdict,'BLOCKED');
+assert.ok(assess(backup,gone,activeId).failureCodes.includes('LIVE_CAREER_MARKER_COUNT'),
+ 'diagnostic must identify a missing live career marker');
+const duplicated=make();
+duplicated.world.teams[0].roster.push({
+  id:'duplicate',isCareerPlayer:true,overall:72
+});
+assert.ok(assess(backup,duplicated,activeId).failureCodes.includes('LIVE_CAREER_MARKER_COUNT'),
+ 'diagnostic must identify duplicate career markers');
+const wrongPlayer=make();
+wrongPlayer.world.teams[0].roster[0].id='different-player';
+assert.ok(assess(backup,wrongPlayer,activeId).failureCodes.includes('CAREER_PLAYER_ID_CHANGED'),
+ 'diagnostic must identify changed roster player identity');
+assert.equal(assess(backup,wrongPlayer,activeId).comparison.samePlayerId,false,
+ 'diagnostic must not silently accept a different player ID');
 const missing=make();delete missing.world.externalProspects;
 assert.equal(assess(backup,missing,activeId).verdict,'BLOCKED');
 assert.ok(source.includes('const freshRecords = await readRecords();'),
@@ -57,4 +71,4 @@ assert.ok(source.includes("tx.oncomplete = () => {\n          db.close();\n     
 assert.ok(!/\.put\(|\.delete\(/.test(source.slice(end,
  source.indexOf('  function ensureButton()',end))),
  'preview stage exposes no IndexedDB restore/write action');
-console.log('PASS: 19 production-source recovery preview and no-write checks');
+console.log('PASS: source recovery preview including precise identity diagnostics and no-write checks');
