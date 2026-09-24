@@ -622,11 +622,13 @@
     panel.querySelector('[data-export-career]')?.addEventListener('click', async () => {
       const status = panel.querySelector('[data-export-status]');
       let latestRecord = null;
+      let activeId = null;
       try {
         const freshRecords = await readRecords();
-        const activeId = localStorage.getItem(ACTIVE_KEY);
+        activeId = localStorage.getItem(ACTIVE_KEY);
         latestRecord = freshRecords.find(r => r?.id === 'career:' + activeId);
-        if (!latestRecord?.world || !activeId) {
+        if (!latestRecord?.world || !activeId ||
+            latestRecord.careerId !== activeId) {
           throw new Error('Active career record not found in latest saved data.');
         }
       } catch (error) {
@@ -638,13 +640,13 @@
           format: 'projectice-career-backup',
           version: 1,
           exportedAt: new Date().toISOString(),
-          activeCareerId: payload.activeCareerId,
+          activeCareerId: activeId,
           activeRecord: latestRecord,
         };
         const serialized = JSON.stringify(backup);
         const verified = JSON.parse(serialized);
         if (verified.format !== 'projectice-career-backup' ||
-            verified.activeCareerId !== payload.activeCareerId ||
+            verified.activeCareerId !== activeId ||
             !verified.activeRecord?.world ||
             verified.activeRecord?.id !== latestRecord.id) {
           throw new Error('Backup integrity check did not pass.');
