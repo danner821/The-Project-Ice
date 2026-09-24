@@ -926,6 +926,11 @@
           <input data-recovery-file type="file" accept=".json,application/json" style="display:none" />
           <button type="button" data-preview-recovery style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#102b50;color:#fff;font:700 14px system-ui">Compare backup with current career</button>
           <p data-recovery-status style="white-space:pre-wrap;word-break:break-word;font-size:12px;color:#abc3e9;margin:10px 0 0">No restore writes are available.</p>
+          <div style="height:1px;background:#36527d;margin:14px 0"></div>
+          <strong style="display:block;font-size:14px;color:#dde9ff">Atomic recovery protocol test (disposable)</strong>
+          <p style="color:#abc3e9;font-size:13px">Tests transaction abort, rollback after failed boot, and protection of newer progress using synthetic players in a separately named temporary database. No backup file or live career writes.</p>
+          <button data-test-recovery-protocol type="button" style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#102b50;color:#fff;font:700 14px system-ui">Test isolated recovery protocol</button>
+          <p data-recovery-protocol-status style="white-space:pre-wrap;font-size:12px;color:#abc3e9;margin:10px 0 0">Not yet tested on this device.</p>
         </div>
         <h2 style="color:#9fc4ff;font:800 15px system-ui">Season transition — last recorded stages</h2>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonTransitionTrace, null, 2)}</pre>
@@ -1019,6 +1024,33 @@
       } finally {
         fileInput.value = '';
         verifyButton.disabled = false;
+      }
+    });
+    const protocolButton = panel.querySelector('[data-test-recovery-protocol]');
+    const protocolStatus = panel.querySelector('[data-recovery-protocol-status]');
+    protocolButton?.addEventListener('click', async () => {
+      protocolButton.disabled = true;
+      protocolStatus.textContent = 'Running synthetic isolated IndexedDB transactions; live career untouched…';
+      try {
+        const result = await testDisposableRecoveryProtocol();
+        const cleaned = result.cleanup === 'deleted';
+        protocolStatus.style.color = cleaned ? '#81e3ae' : '#f5c27d';
+        protocolStatus.textContent =
+          'PASS — atomic abort: ' + result.abortedTransaction +
+          '; candidate + rollback + journal: ' + result.atomicStage +
+          '; full read-back: ' + result.readBack +
+          '; failed-boot rollback: ' + result.failedBootRollback +
+          '; newer progress protected: ' + result.newerProgressProtected +
+          '; temporary database cleanup: ' + result.cleanup +
+          '. No live career or user backup changed.' +
+          (cleaned ? '' : ' Cleanup could not be confirmed; do not repeat until checked.');
+      } catch (error) {
+        protocolStatus.style.color = '#ffb47e';
+        protocolStatus.textContent = 'NOT VERIFIED — ' +
+          String(error?.message || error) +
+          '. Synthetic test only. Live career untouched.';
+      } finally {
+        protocolButton.disabled = false;
       }
     });
     const recoveryFile = panel.querySelector('[data-recovery-file]');
