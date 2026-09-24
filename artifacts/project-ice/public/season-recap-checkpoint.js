@@ -109,6 +109,33 @@
     if (!Array.isArray(state.schedule)) state.schedule = [];
 
     const id = eventId();
+
+    /*
+     * In older saves, the archive for the current year was not yet present
+     * when the new recap event was built. eventId() then reused last year's
+     * archive ID and relocated its already-completed recap to THIS August.
+     * Restore only that provably misdated historical event to its own Aug 31;
+     * preserve its completion record and leave all other calendar events
+     * untouched. The current year's recap receives its own distinct ID.
+     */
+    const activeEndYear = Number(String(state.season?.seasonId || '')
+      .match(/^hs-\\d{4}-(\\d{4})$/)?.[1]);
+    for (const prior of state.schedule) {
+      const priorId = String(prior?.eventId || prior?.id || '');
+      const previousSeason = priorId.match(/^high-school-season-recap:hs-\\d{4}-(\\d{4})$/);
+      const priorEndYear = Number(previousSeason?.[1]);
+      if (
+        priorId !== id &&
+        previousSeason &&
+        Number.isInteger(activeEndYear) &&
+        priorEndYear < activeEndYear &&
+        dateKey(prior?.date) === date
+      ) {
+        prior.date = `${priorEndYear}-08-31`;
+        console.info('[Season Recap] Restored prior-year recap calendar date:', priorId);
+      }
+    }
+
     let event = state.schedule.find(item => String(item?.eventId || item?.id || '') === id) || null;
     const acknowledged = recapState()?.leagueRecapAcknowledged === true;
 
