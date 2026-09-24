@@ -17271,7 +17271,16 @@ function renderHomeDashboard() {
   const devTitle = document.getElementById('home-development-title');
   const devDetail = document.getElementById('home-development-detail');
   const devOvr = document.getElementById('home-development-ovr');
-  const potential = player?.potentialRole || player?.potentialTier || player?.potential || Game.player?.potential;
+  // Use the same canonical development projection as the Player tab.
+  // player.potentialRole may be a stale legacy label after a season rollover.
+  const potential =
+    player?.development?.potentialRole ||
+    player?.potentialRole ||
+    player?.potentialTier ||
+    player?.potential ||
+    Game.player?.development?.potentialRole ||
+    Game.player?.potentialRole ||
+    Game.player?.potential;
   if (devTitle) devTitle.textContent = coachTrust >= 70 ? 'Role is trending up' : coachTrust < 45 ? 'Opportunity to earn more' : 'Development on track';
   if (devDetail) devDetail.textContent = potential ? `Potential: ${potential} · Keep stacking practices, games, and objectives.` : 'Keep stacking practices, games, and objectives to grow your attributes.';
   if (devOvr) devOvr.textContent = `${overall} OVR`;
