@@ -119,10 +119,10 @@
      * untouched. The current year's recap receives its own distinct ID.
      */
     const activeEndYear = Number(String(state.season?.seasonId || '')
-      .match(/^hs-\\d{4}-(\\d{4})$/)?.[1]);
+      .match(/^hs-\d{4}-(\d{4})$/)?.[1]);
     for (const prior of state.schedule) {
       const priorId = String(prior?.eventId || prior?.id || '');
-      const previousSeason = priorId.match(/^high-school-season-recap:hs-\\d{4}-(\\d{4})$/);
+      const previousSeason = priorId.match(/^high-school-season-recap:hs-\d{4}-(\d{4})$/);
       const priorEndYear = Number(previousSeason?.[1]);
       if (
         priorId !== id &&
