@@ -5847,8 +5847,41 @@ function renderLeagueLeadersPreview() {
   const players =
     getLivePlayersFromTeams(teams);
 
+  /*
+   * League Leaders is the REGULAR-SEASON leaderboard, including while
+   * league playoffs are underway. The live roster's top-level stats are
+   * cumulative (regular + playoffs); ranking those values inflates scoring
+   * and goalie totals as postseason games finish.
+   *
+   * Use the existing canonical scoped-stat source rather than mutating
+   * roster stats or subtracting postseason figures independently here.
+   * Rebuild playoff stats once, then read the regular-season slice for
+   * every player. These temporary view rows retain player identity so
+   * tapping a leader still opens the canonical player profile.
+   */
+  const scopedStatsAvailable =
+    typeof WorldEngine.getPlayerStatsByScope === 'function';
+
+  if (scopedStatsAvailable) {
+    WorldEngine.rebuildHighSchoolPostseasonStats?.();
+  }
+
+  const leaderPlayers = scopedStatsAvailable
+    ? players.map(player => {
+        const regularStats =
+          WorldEngine.getPlayerStatsByScope(
+            player,
+            'regularSeason',
+            { skipRebuild: true }
+          );
+        return regularStats
+          ? { ...player, ...regularStats, seasonStats: regularStats }
+          : player;
+      })
+    : players;
+
   const skaters =
-    players.filter(player => {
+    leaderPlayers.filter(player => {
       const position =
         String(player.position || '')
           .trim()
@@ -5861,7 +5894,7 @@ function renderLeagueLeadersPreview() {
     });
 
   const goalies =
-    players.filter(player => {
+    leaderPlayers.filter(player => {
       const position =
         String(player.position || '')
           .trim()
