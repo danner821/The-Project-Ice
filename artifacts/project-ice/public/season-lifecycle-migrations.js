@@ -5,7 +5,7 @@
 (() => {
   if (typeof WorldEngine === 'undefined') return;
 
-  const MIGRATION_VERSION = 4;
+  const MIGRATION_VERSION = 5;
   let lastObservedPostseason = null;
   let lastObservedVersion = null;
 
@@ -68,14 +68,25 @@
 
   function regularSeasonGamesThrough(endDate) {
     const limit = dateKey(endDate);
-    if (!limit) return [];
+    const season = WorldEngine.state?.season || {};
+    const match = String(season.seasonId || season.id || '').match(/^hs-(\d{4})-(\d{4})$/);
+    const year = match ? Number(match[1]) : Number(season.seasonStartYear);
+    const endYear = match ? Number(match[2]) : year + 1;
+    if (!limit || !Number.isInteger(year) || year < 2020 ||
+        year > 2100 || endYear !== year + 1) return [];
+    const start = `${year}-09-01`;
+    const endExclusive = `${endYear}-09-01`;
+    if (limit < start || limit >= endExclusive) return [];
 
     return (WorldEngine.state?.schedule || []).filter(game => {
       const date = dateKey(game?.date);
       return Boolean(
         date &&
+        date >= start &&
         date <= limit &&
         game?.isPlayoff !== true &&
+        game?.travelTournament !== true &&
+        game?.type !== 'travel-game' &&
         game?.homeTeamId &&
         game?.awayTeamId
       );
@@ -215,11 +226,18 @@
       const previousWeek = world.currentWeek;
       const previousPlayerDate = world.player?.currentDate;
 
-      const initialized = previousPost?.initialized
-        ? previousPost
-        : WorldEngine.initializeHighSchoolPostseason?.({
-            regularSeasonEndDate: endDate, save: false,
-          });
+      /*
+       * A partially initialized bracket from the old cross-year resolver may
+       * carry a 2027 date in a 2024-25 save. Replace only an unacknowledged,
+       * unplayed bracket AFTER the original world has been backed up.
+       */
+      const needsNewBracket = !previousPost?.initialized ||
+        dateKey(previousPost.regularSeasonEndDate) !== endDate;
+      const initialized = needsNewBracket
+        ? WorldEngine.initializeHighSchoolPostseason?.({
+            force: true, regularSeasonEndDate: endDate, save: false,
+          })
+        : previousPost;
       if (!initialized?.initialized) {
         recordRecoveryStatus('initialization-failed', {
           ...guard, reason: initialized?.reason || null,
