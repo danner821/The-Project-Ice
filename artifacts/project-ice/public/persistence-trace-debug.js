@@ -293,6 +293,7 @@
       pendingCareerId: localStorage.getItem(PENDING_KEY) || null,
       recoveryDiagnostic,
       seasonRecapDiagnostic: { activeMemory: seasonRecapAudit(liveWorld?.state), activeSaved: seasonRecapAudit(activeRecord?.world) },
+      seasonTransitionTrace: (() => { try { return JSON.parse(localStorage.getItem('projectice_transition_trace_v1') || '[]'); } catch (_) { return []; } })(),
       postseasonAudit: postseasonAudit(liveWorld?.state),
       memory: {
         date: dateOf(liveWorld?.state),
@@ -335,6 +336,8 @@
           <button type="button" data-close style="border:1px solid #36527d;background:#10213d;color:#fff;border-radius:12px;padding:8px 12px">Close</button>
         </div>
         <p style="color:#8fb5f3;font-family:system-ui">Read-only recovery blocker diagnosis. Send the diagnosis below; no gameplay progress will be changed by Save Trace.</p>
+        <h2 style="color:#9fc4ff;font:800 15px system-ui">Season transition — last recorded stages</h2>
+        <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonTransitionTrace, null, 2)}</pre>
         <h2 style="color:#9fc4ff;font:800 15px system-ui">Season Recap — memory vs saved</h2>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonRecapDiagnostic, null, 2)}</pre>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #8e6242;border-radius:12px;background:#201a17">${JSON.stringify(payload.recoveryDiagnostic, null, 2)}</pre>
