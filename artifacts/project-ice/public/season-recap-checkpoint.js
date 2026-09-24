@@ -62,8 +62,10 @@
      * Recap acknowledgements belong to ONE school year. Older careers kept
      * freshman leagueRecapAcknowledged/playerRecapAcknowledged flags after
      * successfully seeding sophomore year, making the following Aug 31 event
-     * appear DONE before the player had visited it. Repair that exact
-     * cross-year carryover only when the new year's Travel has really closed.
+     * appear DONE before the player had visited it. Legacy saves may retain
+     * nextSeasonId but lose nextSeasonSeededSeasonId, so accept either marker
+     * only when both recap acknowledgements are demonstrably from the prior
+     * school year and the new year's Travel has really closed.
      *
      * Do not clear a recap in the middle of the old year's transition:
      * preseason/active-season loads must retain those transaction guards.
@@ -71,10 +73,24 @@
     if (
       isEligibleOffseason() &&
       currentSeasonId &&
-      recap.nextSeasonSeededSeasonId === currentSeasonId &&
       recap.nextSeasonTransitionComplete === true &&
       recap.recapSeasonId !== currentSeasonId &&
-      String(recap.archiveId || '') !== currentSeasonId
+      String(recap.archiveId || '') !== currentSeasonId &&
+      /*
+       * Legacy iPhone saves can lose nextSeasonSeededSeasonId while retaining
+       * nextSeasonId and the previous year's August acknowledgement dates.
+       * Confirm BOTH historical acknowledgements predate this school year:
+       * never reset a genuine current-year recap or an interrupted rollover.
+       */
+      (recap.nextSeasonSeededSeasonId === currentSeasonId ||
+        recap.nextSeasonId === currentSeasonId) &&
+      /^hs-\\d{4}-\\d{4}$/.test(String(recap.archiveId || '')) &&
+      dateKey(recap.leagueRecapAcknowledgedAt) &&
+      dateKey(recap.playerRecapAcknowledgedAt) &&
+      dateKey(recap.leagueRecapAcknowledgedAt) <
+        `${currentSeasonId.slice(3, 7)}-09-01` &&
+      dateKey(recap.playerRecapAcknowledgedAt) <
+        `${currentSeasonId.slice(3, 7)}-09-01`
     ) {
       recap.leagueRecapAcknowledged = false;
       recap.leagueRecapAcknowledgedAt = null;
