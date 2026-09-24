@@ -80,6 +80,39 @@
     const text = String(value || '').slice(0, 10);
     return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
   };
+  const TRANSITION_TRACE_KEY = 'projectice_transition_trace_v1';
+  const transitionTrace = [];
+  function recordTransitionStage(stage, detail = null) {
+    const entry = { stage, at: new Date().toISOString(),
+      seasonId: String(WorldEngine.state?.season?.seasonId || ''),
+      date: String(WorldEngine.state?.season?.currentDate || ''),
+      detail };
+    transitionTrace.push(entry);
+    try { localStorage.setItem(TRANSITION_TRACE_KEY, JSON.stringify(transitionTrace.slice(-35))); } catch (_) {}
+    console.info('[Project Ice transition]', entry);
+    return entry;
+  }
+
+  function armTransitionWatchdog(root) {
+    let finished = false;
+    const timer = setTimeout(() => {
+      if (finished || !root.isConnected) return;
+      const box = document.createElement('div');
+      box.id = 'pi-transition-stall-diagnostic';
+      box.style.cssText = 'position:absolute;left:14px;right:14px;bottom:max(25px,env(safe-area-inset-bottom));z-index:1;padding:14px;border:1px solid #6594d9;border-radius:14px;background:#10233e;color:#eaf3ff;font:12px/1.5 system-ui;text-align:left;max-height:40vh;overflow:auto';
+      const heading = document.createElement('strong');
+      heading.textContent = 'Transition still processing — diagnostic';
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 monospace';
+      pre.textContent = JSON.stringify(transitionTrace.slice(-9), null, 2);
+      const note = document.createElement('div');
+      note.textContent = 'Screenshot this box if the animation remains here. Do not restart your career.';
+      box.append(heading, pre, note);
+      root.appendChild(box);
+    }, 12000);
+    return () => { finished = true; clearTimeout(timer); root.querySelector('#pi-transition-stall-diagnostic')?.remove(); };
+  }
+
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const state = () => WorldEngine.state || null;
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -318,14 +351,21 @@
       regularSeason: { started: false, completed: false, gamesPerTeam: 28 }, postseason: { qualified: false, started: false, completed: false },
       processedDates: [], processedWeeks: [], weeklyHistory: [], unresolvedEventIds: [], completedEventIds: [], lastProcessedDate: null, lastProcessedWeek: 0,
     };
+    recordTransitionStage('seed:advance-classes');
     advanceReturningClasses(identity);
+    recordTransitionStage('seed:reset-standings');
     resetTeamStandings();
+    recordTransitionStage('seed:reset-lifecycle');
     resetSeasonScopedLifecycle();
+    recordTransitionStage('seed:rebuild-schedule');
     rebuildNewSeasonSchedule(identity);
     syncDateCopies(identity.startDate);
     repairSyntheticDevBirthdate(identity, archive);
+    recordTransitionStage('seed:sync-ages');
     WorldEngine.syncPlayerAges?.(world, identity.startDate);
+    recordTransitionStage('seed:refresh-rosters');
     for (const team of world.teams || []) { try { WorldEngine.refreshTeamRosterManagement?.(team.teamId, { save: false }); } catch (_) {} }
+    recordTransitionStage('seed:rosters-refreshed');
     if (recap) {
       recap.nextSeasonTransitionComplete = false;
       recap.nextSeasonTransitionStarted = true;
@@ -334,6 +374,7 @@
       recap.nextSeasonId = identity.seasonId;
       recap.nextCareerYearIndex = identity.careerYearIndex;
     }
+    recordTransitionStage('seed:done', { seasonId: identity.seasonId });
     return true;
   }
 
@@ -350,29 +391,59 @@
   async function runTransition(options = {}) {
     if (WorldEngine.__nextHighSchoolSeasonTransitionInFlight === true) return false;
     WorldEngine.__nextHighSchoolSeasonTransitionInFlight = true;
+    recordTransitionStage('transition:start', { recovery: options.recovery === true });
+    let disarmWatchdog = () => {};
     try {
-    const recap = recapState();
-    if (!recap || recap.playerRecapAcknowledged !== true) return false;
-    if (recap.nextSeasonTransitionComplete === true && options.force !== true) return false;
-    const identity = nextIdentity();
-    if (!identity) return false;
-    document.getElementById('pi-player-season-recap-screen')?.remove();
-    const root = ensureRoot();
-    const archive = activeArchive();
-    const completedYear = archive?.syntheticDevFixture === true ? 'Freshman' : (archive?.identity?.schoolYear || 'High School');
-    await phase(root, `<div class="pi-ns-kicker">Project Ice</div><div class="pi-ns-title">${completedYear} Year Complete</div><div class="pi-ns-sub">One chapter closes.</div>`, 1300);
-    await phase(root, `<div class="pi-ns-kicker">Year ${identity.careerYearIndex + 1}</div><div class="pi-ns-title">${identity.schoolYear} Season</div><div class="pi-ns-sub">${identity.label}</div><div class="pi-ns-line"></div><div class="pi-ns-date">A new season begins</div>`, 1650);
-    seedNextSeasonIdentity(identity);
-    await WorldEngine.save?.();
-    hardRefreshRolloverUI(identity);
-    await phase(root, `<div class="pi-ns-kicker">Back to School</div><div class="pi-ns-title">September 1</div><div class="pi-ns-sub">${identity.startYear} · ${identity.schoolYear} season</div><div class="pi-ns-line"></div><div class="pi-ns-date">Returning tryouts are next</div>`, 1350);
-    root.classList.remove('is-visible');
-    await wait(460);
-    root.remove();
-    hardRefreshRolloverUI(identity);
-    window.dispatchEvent(new CustomEvent('projectice:next-high-school-season-started', { detail: { seasonId: identity.seasonId, careerYearIndex: identity.careerYearIndex, schoolYear: identity.schoolYear, startDate: identity.startDate, tryoutDate: identity.tryoutDate } }));
-    return true;
+      const recap = recapState();
+      if (!recap || recap.playerRecapAcknowledged !== true) {
+        recordTransitionStage('transition:blocked-recap');
+        return false;
+      }
+      if (recap.nextSeasonTransitionComplete === true && options.force !== true) {
+        recordTransitionStage('transition:already-complete');
+        return false;
+      }
+      const identity = nextIdentity();
+      if (!identity) {
+        recordTransitionStage('transition:no-next-identity');
+        return false;
+      }
+      document.getElementById('pi-player-season-recap-screen')?.remove();
+      const root = ensureRoot();
+      disarmWatchdog = armTransitionWatchdog(root);
+      const archive = activeArchive();
+      const completedYear = archive?.syntheticDevFixture === true ? 'Freshman' : (archive?.identity?.schoolYear || 'High School');
+
+      recordTransitionStage('cutscene:year-complete');
+      await phase(root, `<div class="pi-ns-kicker">Project Ice</div><div class="pi-ns-title">${completedYear} Year Complete</div><div class="pi-ns-sub">One chapter closes.</div>`, 1300);
+      recordTransitionStage('cutscene:new-season');
+      await phase(root, `<div class="pi-ns-kicker">Year ${identity.careerYearIndex + 1}</div><div class="pi-ns-title">${identity.schoolYear} Season</div><div class="pi-ns-sub">${identity.label}</div><div class="pi-ns-line"></div><div class="pi-ns-date">A new season begins</div>`, 1650);
+
+      recordTransitionStage('seed:start', { nextSeasonId: identity.seasonId });
+      seedNextSeasonIdentity(identity);
+      recordTransitionStage('save:seed-start');
+      const seedSave = await WorldEngine.save?.();
+      if (seedSave === false) throw new Error('New-season seed save failed');
+      recordTransitionStage('save:seed-finished');
+      recordTransitionStage('ui:first-refresh');
+      hardRefreshRolloverUI(identity);
+
+      recordTransitionStage('cutscene:back-to-school');
+      await phase(root, `<div class="pi-ns-kicker">Back to School</div><div class="pi-ns-title">September 1</div><div class="pi-ns-sub">${identity.startYear} · ${identity.schoolYear} season</div><div class="pi-ns-line"></div><div class="pi-ns-date">Returning tryouts are next</div>`, 1350);
+      root.classList.remove('is-visible');
+      await wait(460);
+      root.remove();
+      recordTransitionStage('ui:final-refresh');
+      hardRefreshRolloverUI(identity);
+      recordTransitionStage('transition:dispatch-boundary');
+      window.dispatchEvent(new CustomEvent('projectice:next-high-school-season-started', { detail: { seasonId: identity.seasonId, careerYearIndex: identity.careerYearIndex, schoolYear: identity.schoolYear, startDate: identity.startDate, tryoutDate: identity.tryoutDate } }));
+      recordTransitionStage('transition:base-finished');
+      return true;
+    } catch (error) {
+      recordTransitionStage('transition:error', { message: String(error?.message || error) });
+      throw error;
     } finally {
+      disarmWatchdog();
       WorldEngine.__nextHighSchoolSeasonTransitionInFlight = false;
     }
   }
