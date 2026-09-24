@@ -351,26 +351,55 @@
         <div class="pi-sr-note">This completed season is permanently preserved in League History.</div>
       </div>`;
 
-    root.querySelector('#pi-season-recap-continue')?.addEventListener('click', () => {
-      recap.leagueRecapAcknowledged = true;
-      recap.recapSeasonId = String(world()?.season?.seasonId || world()?.season?.id || '');
-      recap.leagueRecapAcknowledgedAt = currentDate() || checkpointDate();
-      recap.archiveId = archive.archiveId || archive.identity?.seasonId || null;
+    const continueButton = root.querySelector('#pi-season-recap-continue');
+    let submitting = false;
+    continueButton?.addEventListener('click', async () => {
+      if (submitting) return;
+      submitting = true;
+      continueButton.disabled = true;
+      const priorRecap = {
+        leagueRecapAcknowledged: recap.leagueRecapAcknowledged,
+        leagueRecapAcknowledgedAt: recap.leagueRecapAcknowledgedAt,
+        recapSeasonId: recap.recapSeasonId,
+        archiveId: recap.archiveId,
+      };
 
-      const event = ensureCheckpointEvent({ save: false });
-      if (event) {
-        event.completed = true;
-        event.played = true;
-        event.status = 'completed';
-        event.completedAt = recap.leagueRecapAcknowledgedAt;
-        event.requiresPlayerInteraction = false;
+      try {
+        recap.leagueRecapAcknowledged = true;
+        recap.recapSeasonId = String(world()?.season?.seasonId || world()?.season?.id || '');
+        recap.leagueRecapAcknowledgedAt = currentDate() || checkpointDate();
+        recap.archiveId = archive.archiveId || archive.identity?.seasonId || null;
+
+        const event = ensureCheckpointEvent({ save: false });
+        if (event) {
+          event.completed = true;
+          event.played = true;
+          event.isCompleted = true;
+          event.status = 'completed';
+          event.completedAt = recap.leagueRecapAcknowledgedAt;
+          event.requiresPlayerInteraction = false;
+        }
+
+        /*
+         * Persist acknowledgement BEFORE presenting the Player Recap. The
+         * older fire-and-forget save could race the next-season transaction,
+         * allowing an obsolete recap snapshot to overwrite later progress.
+         */
+        const saved = await WorldEngine.save?.();
+        if (saved === false) throw new Error('Could not save league recap');
+
+        root.remove();
+        window.dispatchEvent(new CustomEvent('projectice:league-season-recap-complete', {
+          detail: { archiveId: recap.archiveId }
+        }));
+      } catch (error) {
+        Object.assign(recap, priorRecap);
+        ensureCheckpointEvent({ save: false });
+        submitting = false;
+        continueButton.disabled = false;
+        console.error('[Season Recap] Save failed; player recap not started.', error);
+        alert('Could not save your season recap. Your season has not advanced; please try again.');
       }
-
-      WorldEngine.save?.();
-      root.remove();
-      window.dispatchEvent(new CustomEvent('projectice:league-season-recap-complete', {
-        detail: { archiveId: recap.archiveId }
-      }));
     });
 
     return true;
