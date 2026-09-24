@@ -222,6 +222,117 @@
     });
   }
 
+  /*
+   * An imported backup is tested ONLY against a unique disposable database.
+   * This deliberately never opens projectice_database or writes localStorage.
+   * The export remains the recovery source until an actual restore mechanism
+   * has separately been implemented and validated.
+   */
+  async function testDownloadedBackup(file) {
+    if (!file || !/\.json$/i.test(file.name || '')) {
+      throw new Error('Choose the downloaded Project Ice .json backup.');
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      throw new Error('The selected file is unexpectedly large.');
+    }
+    const backup = JSON.parse(await file.text());
+    const careerId = String(backup?.activeCareerId || '');
+    const original = backup?.activeRecord;
+    const world = original?.world;
+    if (backup?.format !== 'projectice-career-backup' ||
+        backup?.version !== 1 || !careerId ||
+        original?.id !== 'career:' + careerId ||
+        original?.careerId !== careerId ||
+        !world || !Array.isArray(world.teams) ||
+        !Array.isArray(world.externalProspects) ||
+        !world?.season?.seasonId || !world?.currentDate) {
+      throw new Error('Invalid or incomplete Project Ice backup envelope.');
+    }
+    const roster = world.teams.flatMap(team =>
+      Array.isArray(team?.roster) ? team.roster : []
+    );
+    const careerPlayers = roster.filter(player => player?.isCareerPlayer === true);
+    if (careerPlayers.length !== 1) {
+      throw new Error('Backup does not contain exactly one career player.');
+    }
+    const currentCareerId = localStorage.getItem(ACTIVE_KEY);
+    if (currentCareerId && currentCareerId !== careerId) {
+      throw new Error('Backup belongs to another career. Your current save was not touched.');
+    }
+
+    const testDbName = 'projectice_restore_disposable_test_' +
+      Date.now() + '_' + Math.random().toString(36).slice(2);
+    let database = null;
+    let opened = false;
+    let result = null;
+    let cleanupError = null;
+    try {
+      database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open(testDbName, 1);
+        request.onupgradeneeded = () => {
+          request.result.createObjectStore('worlds', { keyPath: 'id' });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Could not create isolated test database.'));
+      });
+      opened = true;
+      await new Promise((resolve, reject) => {
+        const tx = database.transaction('worlds', 'readwrite');
+        tx.objectStore('worlds').put(original);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error || new Error('Disposable restore write failed.'));
+        tx.onabort = () => reject(tx.error || new Error('Disposable restore aborted.'));
+      });
+      const restored = await new Promise((resolve, reject) => {
+        const tx = database.transaction('worlds', 'readonly');
+        const request = tx.objectStore('worlds').get(original.id);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Disposable restore read failed.'));
+      });
+      const restoredRoster = (restored?.world?.teams || []).flatMap(team =>
+        Array.isArray(team?.roster) ? team.roster : []
+      );
+      const restoredCareer = restoredRoster.find(player => player?.isCareerPlayer === true);
+      if (!restored || restored.id !== original.id ||
+          restored.careerId !== careerId ||
+          restored.revision !== original.revision ||
+          restored.world?.currentDate !== world.currentDate ||
+          restored.world?.season?.seasonId !== world.season.seasonId ||
+          restoredRoster.length !== roster.length ||
+          restored.world.externalProspects.length !== world.externalProspects.length ||
+          restoredCareer?.id !== careerPlayers[0].id ||
+          restoredCareer?.overall !== careerPlayers[0].overall ||
+          restoredCareer?.potential !== careerPlayers[0].potential ||
+          restoredCareer?.development?.potential !== careerPlayers[0].development?.potential) {
+        throw new Error('Isolated restore verification found mismatched saved data.');
+      }
+      result = {
+        date: world.currentDate,
+        season: world.season.seasonId,
+        player: [careerPlayers[0].firstName, careerPlayers[0].lastName].filter(Boolean).join(' '),
+        overall: careerPlayers[0].overall,
+        rosterCount: roster.length,
+        externalCount: world.externalProspects.length,
+      };
+    } finally {
+      if (database) database.close();
+      if (opened) {
+        try {
+          await new Promise((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(testDbName);
+            request.onsuccess = resolve;
+            request.onerror = () => reject(request.error || new Error('Could not delete disposable test database.'));
+            request.onblocked = () => reject(new Error('Disposable test database deletion was blocked.'));
+          });
+        } catch (error) {
+          cleanupError = error;
+        }
+      }
+    }
+    if (cleanupError) throw cleanupError;
+    return result;
+  }
+
   function ensureButton() {
     if (document.getElementById('pi-save-trace-button')) return;
 
@@ -341,6 +452,10 @@
           <p style="color:#abc3e9;font-size:13px">Export a copy of the complete active IndexedDB career record. This does not save, overwrite, or advance your game. Keep the downloaded JSON file private.</p>
           <button type="button" data-export-career ${activeRecord?.world ? '' : 'disabled'} style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#245fb2;color:white;font:700 14px system-ui">Download career backup (.json)</button>
           <p data-export-status style="font-size:12px;color:#abc3e9;margin:10px 0 0">${activeRecord?.world ? 'Active career record found.' : 'Active career record unavailable — no backup can be exported.'}</p>
+          <div style="height:1px;background:#36527d;margin:14px 0"></div>
+          <input data-backup-file type="file" accept=".json,application/json" style="display:none" />
+          <button data-verify-backup type="button" style="padding:10px 14px;border:1px solid #7aabed;border-radius:10px;background:#102b50;color:#fff;font:700 14px system-ui">Verify downloaded backup (isolated test)</button>
+          <p data-verify-status style="font-size:12px;color:#abc3e9;margin:10px 0 0">Choose the JSON file in iPhone Files. The test uses a separate temporary database and will never overwrite your career.</p>
         </div>
         <h2 style="color:#9fc4ff;font:800 15px system-ui">Season transition — last recorded stages</h2>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonTransitionTrace, null, 2)}</pre>
@@ -390,6 +505,31 @@
         if (status) status.textContent = 'Export initiated. Verify the JSON file is present in iPhone Files before proceeding. Do not share it publicly.';
       } catch (error) {
         if (status) status.textContent = 'Backup export failed: ' + String(error?.message || error);
+      }
+    });
+    const fileInput = panel.querySelector('[data-backup-file]');
+    const verifyButton = panel.querySelector('[data-verify-backup]');
+    const verifyStatus = panel.querySelector('[data-verify-status]');
+    verifyButton?.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', async () => {
+      const selected = fileInput.files?.[0];
+      if (!selected) return;
+      verifyButton.disabled = true;
+      verifyStatus.textContent = 'Verifying backup in a separate disposable database. This may take a minute for a large career file…';
+      try {
+        const result = await testDownloadedBackup(selected);
+        verifyStatus.textContent = 'PASS — isolated restore, read-back, and cleanup completed. ' +
+          result.player + ', ' + result.overall + ' OVR; ' + result.date +
+          '; ' + result.rosterCount + ' roster players; ' + result.externalCount +
+          ' external prospects. Live career untouched.';
+        verifyStatus.style.color = '#81e3ae';
+      } catch (error) {
+        verifyStatus.textContent = 'NOT VERIFIED — ' + String(error?.message || error) +
+          '. Live career was not overwritten; keep your original JSON backup.';
+        verifyStatus.style.color = '#ffb47e';
+      } finally {
+        fileInput.value = '';
+        verifyButton.disabled = false;
       }
     });
     panel.querySelector('[data-close]')?.addEventListener('click', () => panel.remove());
