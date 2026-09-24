@@ -141,6 +141,61 @@
     };
   }
 
+  /*
+   * Read-only annual recap diagnosis for the live iPhone save.
+   * Compare in-memory and persisted state before changing any season flags.
+   */
+  function seasonRecapAudit(world) {
+    if (!world || typeof world !== 'object') return null;
+    const season = world.season || {};
+    const recap = world.seasonTransition?.recap || {};
+    const seasonId = String(season.seasonId || season.id || '');
+    const liveId = seasonId ? 'high-school-season-recap:' + seasonId : null;
+    const events = (Array.isArray(world.schedule) ? world.schedule : [])
+      .filter(event => /high-school-season-recap|season.recap/i.test(
+        String(event?.eventId || event?.id || '') + ' ' +
+        String(event?.eventKey || event?.type || '') + ' ' +
+        String(event?.label || '')
+      ))
+      .map(event => ({
+        id: event?.eventId || event?.id || null,
+        date: event?.date || null,
+        completed: event?.completed ?? null,
+        played: event?.played ?? null,
+        isCompleted: event?.isCompleted ?? null,
+        status: event?.status || null,
+        requiresPlayerInteraction: event?.requiresPlayerInteraction ?? null,
+        completedAt: event?.completedAt || null,
+      }));
+    const archives = world.history?.highSchoolSeasonArchives;
+    return {
+      seasonId: seasonId || null,
+      date: dateOf(world),
+      phase: season.phase || null,
+      travelCompleted: world.travelHockey?.completed === true,
+      closeoutAcknowledged: world.travelHockey?.tournament?.closeoutAcknowledged ?? null,
+      closeoutAcknowledgedAt: world.travelHockey?.tournament?.closeoutAcknowledgedAt || null,
+      checkpointDate: world.offseasonDevelopment?.checkpointDate || null,
+      recap: {
+        recapSeasonId: recap.recapSeasonId || null,
+        archiveId: recap.archiveId || null,
+        leagueRecapAcknowledged: recap.leagueRecapAcknowledged ?? null,
+        leagueRecapAcknowledgedAt: recap.leagueRecapAcknowledgedAt || null,
+        playerRecapAcknowledged: recap.playerRecapAcknowledged ?? null,
+        playerRecapAcknowledgedAt: recap.playerRecapAcknowledgedAt || null,
+        nextSeasonTransitionComplete: recap.nextSeasonTransitionComplete ?? null,
+        nextSeasonTransitionStarted: recap.nextSeasonTransitionStarted ?? null,
+        nextSeasonSeededSeasonId: recap.nextSeasonSeededSeasonId || null,
+        nextSeasonId: recap.nextSeasonId || null,
+      },
+      liveEventId: liveId,
+      liveEvent: events.find(event => event.id === liveId) || null,
+      allRecapEvents: events,
+      archiveShape: Array.isArray(archives) ? 'array'
+        : archives && typeof archives === 'object' ? 'object' : null,
+    };
+  }
+
   async function readRecords() {
     return await new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -237,6 +292,7 @@
       activeCareerId: localStorage.getItem(ACTIVE_KEY) || null,
       pendingCareerId: localStorage.getItem(PENDING_KEY) || null,
       recoveryDiagnostic,
+      seasonRecapDiagnostic: { activeMemory: seasonRecapAudit(liveWorld?.state), activeSaved: seasonRecapAudit(activeRecord?.world) },
       postseasonAudit: postseasonAudit(liveWorld?.state),
       memory: {
         date: dateOf(liveWorld?.state),
@@ -279,6 +335,8 @@
           <button type="button" data-close style="border:1px solid #36527d;background:#10213d;color:#fff;border-radius:12px;padding:8px 12px">Close</button>
         </div>
         <p style="color:#8fb5f3;font-family:system-ui">Read-only recovery blocker diagnosis. Send the diagnosis below; no gameplay progress will be changed by Save Trace.</p>
+        <h2 style="color:#9fc4ff;font:800 15px system-ui">Season Recap — memory vs saved</h2>
+        <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify(payload.seasonRecapDiagnostic, null, 2)}</pre>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #8e6242;border-radius:12px;background:#201a17">${JSON.stringify(payload.recoveryDiagnostic, null, 2)}</pre>
         <pre style="white-space:pre-wrap;word-break:break-word;margin:0 0 22px;padding:12px;border:1px solid #36527d;border-radius:12px;background:#091a31">${JSON.stringify({memory:payload.postseasonAudit,savedActive:payload.indexedDB.find(record=>record.careerId===payload.activeCareerId)?.postseasonAudit||null},null,2)}</pre>
         <details><summary style="font:700 14px system-ui;color:#9fc4ff">Full persistence trace</summary>
