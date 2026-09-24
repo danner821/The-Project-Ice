@@ -13,7 +13,8 @@ const begin=publicCode.indexOf('  async function verifyCompleteBackupRecord(');
 const end=publicCode.indexOf('  /*\n   * An imported backup is tested ONLY',begin);
 assert.ok(begin>=0&&end>begin,'extract actual Save Trace comparator');
 const comparatorSource=publicCode.slice(begin,end);
-assert.ok(!/indexedDB|localStorage|\\.put\\(|\\.delete\\(/.test(comparatorSource),
+assert.ok(!['indexedDB','localStorage','.put(','.delete('].some(token =>
+  comparatorSource.includes(token)),
   'complete-record check never touches persistence');
 const verify=vm.runInNewContext(comparatorSource+
   '\nverifyCompleteBackupRecord;', {setTimeout});
