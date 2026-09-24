@@ -39123,7 +39123,7 @@ case 'career-defense':
     const careerPlayer = getCareerPlayerFromWorldState();
     const careerId = String(careerPlayer?.id || careerPlayer?.playerId || '');
 
-    races.forEach(race => {
+    if (!previewOnly) races.forEach(race => {
       const previousRace = previousByKey.get(race.key) || null;
       const oldLeader = previousRace?.contenders?.[0] || null;
       const newLeader = race.contenders?.[0] || null;
