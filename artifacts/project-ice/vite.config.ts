@@ -88,14 +88,14 @@ const runtimeModulesPlugin = {
     /* Phase 3.5: post-Travel offseason development + season transition. */
     if (!html.includes('/offseason-development-cadence.js')) scripts.push('    <script src="/offseason-development-cadence.js"></script>');
     if (!html.includes('/high-school-season-archive.js')) scripts.push('    <script src="/high-school-season-archive.js"></script>');
-    if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js"></script>');
+    if (!html.includes('/season-recap-checkpoint.js')) scripts.push('    <script src="/season-recap-checkpoint.js?v=20260923-safe-recap-1"></script>');
     if (!html.includes('/league-history-recap-view.js')) scripts.push('    <script src="/league-history-recap-view.js"></script>');
     if (!html.includes('/league-history-player-links.js')) scripts.push('    <script src="/league-history-player-links.js"></script>');
     if (!html.includes('/high-school-roster-rollover.js')) scripts.push('    <script src="/high-school-roster-rollover.js"></script>');
     if (!html.includes('/high-school-leadership.js')) scripts.push('    <script src="/high-school-leadership.js?v=20260920-1c2a-1"></script>');
     if (!html.includes('/high-school-season-stat-history.js')) scripts.push('    <script src="/high-school-season-stat-history.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/career-timeline.js')) scripts.push('    <script src="/career-timeline.js"></script>');
-    if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js?v=20260920-season-transition-2"></script>');
+    if (!html.includes('/player-season-recap-loader.js')) scripts.push('    <script src="/player-season-recap-loader.js?v=20260923-safe-recap-1"></script>');
     if (!html.includes('/high-school-next-season-transition.js')) scripts.push('    <script src="/high-school-next-season-transition.js?v=20260920-season-transition-2"></script>');
     if (!html.includes('/film-study-event.js')) scripts.push('    <script src="/film-study-event.js?v=20260919-blocking-1"></script>');
     if (!html.includes('/persistence-trace-debug.js')) scripts.push('    <script src="/persistence-trace-debug.js?v=20260922-postseason-audit-2"></script>');
