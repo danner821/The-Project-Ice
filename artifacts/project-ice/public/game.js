@@ -14044,11 +14044,66 @@ function updateHubScreen() {
             : 'Low'
       );
 
-    const rivalWatch =
-      scouting.rivalWatch &&
-      typeof scouting.rivalWatch === 'object'
+    /*
+     * A published rank and the weekly Rival Watch can hydrate separately.
+     * Use live published rankings when the saved watch is missing or stale,
+     * rather than declaring an already-ranked player "Not Ranked".
+     * This is read-only and does not generate scouting events or overwrite
+     * the next canonical weekly rival-watch update.
+     */
+    const savedRivalWatch =
+      scouting.rivalWatch && typeof scouting.rivalWatch === 'object'
         ? scouting.rivalWatch
         : null;
+    const publishedRivalRank = Number.isFinite(publicRank) && publicRank > 0
+      ? publicRank : 0;
+    const publishedPlayerId = String(player?.playerId || player?.id || '');
+    const rivalWatch = (() => {
+      if (!publishedRivalRank) return null;
+      if (Number(savedRivalWatch?.currentRank) === publishedRivalRank) {
+        return savedRivalWatch;
+      }
+      const candidates = (WorldEngine.getScoutingProspectUniverse?.() || [])
+        .filter(other => {
+          const id = String(other?.playerId || other?.id || '');
+          return id && id !== publishedPlayerId &&
+            Number(other?.scoutingProfile?.publicRank) > 0;
+        })
+        .map(other => ({
+          player: other,
+          rank: Number(other.scoutingProfile.publicRank),
+        }));
+      const snapshot = entry => {
+        if (!entry) return null;
+        const p = entry.player;
+        return {
+          playerId: String(p.playerId || p.id || ''),
+          name: p.name || p.playerName ||
+            [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Prospect',
+          rank: entry.rank,
+          position: p.position || '—',
+          teamName: p.teamName || p.currentTeam || null,
+          rankChange: Number(p.scoutingProfile?.previousRank || entry.rank) - entry.rank,
+        };
+      };
+      const above = candidates.filter(item => item.rank < publishedRivalRank)
+        .sort((a, b) => b.rank - a.rank)[0];
+      const below = candidates.filter(item => item.rank > publishedRivalRank)
+        .sort((a, b) => a.rank - b.rank)[0];
+      const position = String(player.position || '').trim().toUpperCase()
+        .replace(/^(LW|RW|C)$/, 'F').replace(/^(LD|RD)$/, 'D');
+      const positionRival = candidates
+        .filter(item => String(item.player.position || '').trim().toUpperCase()
+          .replace(/^(LW|RW|C)$/, 'F').replace(/^(LD|RD)$/, 'D') === position)
+        .sort((a, b) => Math.abs(a.rank - publishedRivalRank) -
+          Math.abs(b.rank - publishedRivalRank) || a.rank - b.rank)[0];
+      return {
+        currentRank: publishedRivalRank,
+        above: snapshot(above),
+        below: snapshot(below),
+        positionRival: snapshot(positionRival),
+      };
+    })();
 
     const rivalCurrentRank =
       document.getElementById(
