@@ -32,6 +32,14 @@ Baseline: career backup exported at game date 2025-09-04 (Junior 2025–26 prese
 - **Known canonical mismatch:** career player's top-level potential **74 / Medium / Rising**, but nested development potential **68 / High / Stable**. Do not silently pick a field and rewrite the save. Preserve both in the original backup. A read-only evidence audit found the career player's season production increased from 7 to 23 points over two 28-game seasons, with OVR 70→72. A candidate rating must be calibrated against position, deployment, competition and historical context before acceptance. **108 generated players have stale development.currentAge=14 despite roster age 15–18**; retrospective scoring must use archived season ages and current roster age, not development.currentAge.
 - Static backup envelope validation and Node structured-serialization round-trip passed. On September 24, 2026, the user confirmed **PASS — isolated IndexedDB restore, read-back, and temporary database cleanup verified on iPhone**, 2025-09-04, 160 roster players, 191 external prospects. This verifies a disposable restore, not yet a production restore or complete app boot from imported data. Keep the original JSON backup.
 
+## September 4 backup: preliminary shadow-evidence checkpoint
+
+- Isolated iPhone restore/read-back/disposal has now passed. This still does not validate a full gameplay boot from imported data.
+- Independent read-only local scoring across 148 generated HS players: 11 strong breakout-review flags, 10 additional strong-recent-production flags, 7 persistent low-relative-production flags, 7 insufficient-comparable-evidence flags, 113 ordinary.
+- Historical scoring used age recorded inside each season archive rather than stale nested development.currentAge. Same-group (F/D/G), age-near comparables; skater points per 60 minutes (>=10 GP), goalie save percentage (>=100 shots and 3 GP). These are saved-HS-world relative ranks, **not** NHL talent ratings or actual potential migrations.
+- Alacai: root 74 / nested 68 (unchanged); freshman 7 points / 28 GP, sophomore 23 points / 28 GP; age-/position-relative first-season 9.2 percentile and latest-season 95.7 percentile. Strong-breakout-review evidence, **no assigned new potential** pending the calibrated full evaluator.
+- All external and HS-rostered real prospect ratings remain excluded. Original backup SHA-256 397aefb65e24db4b0d36bea6d2b6481898c4f2ae78c5c25f215fa2fc19f2f25f.
+
 ## Implementation gates
 
 1. **Backup & isolated restore:** retain original JSON on user phone. Verify full envelope and that a disposable IndexedDB database can store and round-trip a 56 MB snapshot without affecting active storage. iPhone disposable restore has passed; next verify controlled full-game restoration separately before any mass migration. Do not offer destructive restore without explicit confirmation and a newer-live-save warning.
