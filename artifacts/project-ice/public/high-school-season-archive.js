@@ -217,6 +217,60 @@
     };
   }
 
+  /*
+   * Snapshot the career player's TRAVEL roster statistics with the season.
+   * HS roster player.travelStats is not authoritative: the travel engine owns
+   * separate roster copies and travelStatHistory owns completed tournaments.
+   * Match by canonical player ID and limit history to THIS school year;
+   * cumulative career travel totals would mix multiple summers.
+   */
+  function careerTravelStatsForSeason(identity = seasonIdentity()) {
+    const state = world();
+    const travel = state?.travelHockey;
+    const career = careerPlayer();
+    if (!travel || !career) return null;
+    const wantedIds = [career.sourcePlayerId, career.playerId, career.id]
+      .filter(Boolean).map(String);
+    const samePlayer = candidate => {
+      if (!candidate) return false;
+      if (candidate.isCareerPlayer === true) return true;
+      const ids = [candidate.sourcePlayerId, candidate.playerId, candidate.id]
+        .filter(Boolean).map(String);
+      return wantedIds.some(id => ids.includes(id));
+    };
+    const team = (travel.teams || []).find(item =>
+      String(item?.teamId || '') === String(travel.playerTeamId || travel.placementTeamId || '')
+    );
+    const livePlayer = (team?.roster || []).find(samePlayer) ||
+      (travel.teams || []).flatMap(item => item?.roster || []).find(samePlayer);
+    const liveStats = livePlayer?.travelStats;
+    if (Number(liveStats?.gp ?? liveStats?.gamesPlayed ?? 0) > 0) {
+      return clone(liveStats);
+    }
+
+    const historical = WorldEngine.getPlayerTravelStats?.(career);
+    const start = identity.startYear ? `${identity.startYear}-09-01` : null;
+    const end = identity.endYear ? `${identity.endYear}-08-31` : null;
+    const entries = (historical?.entries || []).filter(entry => {
+      const date = dateKey(entry?.date);
+      return Boolean(date && start && end && date >= start && date <= end &&
+        Number(entry?.stats?.gp ?? entry?.stats?.gamesPlayed ?? 0) > 0);
+    });
+    if (!entries.length) return null;
+    const combined = {
+      gp: 0, g: 0, a: 0, pts: 0, pim: 0, sog: 0,
+      wins: 0, losses: 0, shotsAgainst: 0, saves: 0, goalsAgainst: 0,
+    };
+    for (const entry of entries) {
+      for (const key of Object.keys(combined)) {
+        combined[key] += Number(entry.stats?.[key] || 0);
+      }
+    }
+    combined.savePercentage = combined.shotsAgainst > 0
+      ? combined.saves / combined.shotsAgainst : 0;
+    return combined;
+  }
+
   function travelSnapshot() {
     const travel = world()?.travelHockey || null;
     const tournament = travel?.tournament || null;
@@ -231,6 +285,9 @@
       completed: travel.completed === true,
       closeoutAcknowledged: tournament.closeoutAcknowledged === true,
       syntheticDevFixture: isSyntheticDevState(),
+      playerStats: careerTravelStatsForSeason(),
+      playerTeamId: travel.playerTeamId || travel.placementTeamId || null,
+      playerTeamName: (travel.teams || []).find(team => String(team?.teamId || '') === String(travel.playerTeamId || travel.placementTeamId || ''))?.name || null,
     };
   }
 
