@@ -5868,9 +5868,16 @@ function renderLeagueLeadersPreview() {
 
   const leaderPlayers = scopedStatsAvailable
     ? players.map(player => {
+        /* getLivePlayersFromTeams returns DISPLAY COPIES. Resolve the
+           canonical roster object so a freshly rebuilt playoffStats bucket
+           is visible to the regular-season stat provider immediately. */
+        const canonicalPlayer =
+          WorldEngine.getPlayerById?.(
+            player.playerId || player.id
+          ) || player;
         const regularStats =
           WorldEngine.getPlayerStatsByScope(
-            player,
+            canonicalPlayer,
             'regularSeason',
             { skipRebuild: true }
           );
