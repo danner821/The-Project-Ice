@@ -38992,7 +38992,8 @@ case 'career-defense':
     );
   }
 
-  function buildLivingWorldAwardRaces(dateString, weekKey) {
+  function buildLivingWorldAwardRaces(dateString, weekKey, options = {}) {
+    const previewOnly = options.previewOnly === true;
     const livingWorld = ensureLivingWorldState();
     if (!Array.isArray(livingWorld.awardRaceSnapshots)) livingWorld.awardRaceSnapshots = [];
 
@@ -39002,6 +39003,31 @@ case 'career-defense':
         teamId: team.teamId,
       }))
     );
+
+    /*
+     * Award races are REGULAR-SEASON awards. Once playoffs begin, the live
+     * seasonStats include playoff contributions, so never rank those totals.
+     * Share the same scoped source as Full Stats and League Leaders.
+     * Rebuild postseason lines once, not for each contender.
+     */
+    const scopedAwardStats =
+      typeof WorldEngine.getPlayerStatsByScope === 'function';
+    if (scopedAwardStats) {
+      WorldEngine.rebuildHighSchoolPostseasonStats?.();
+    }
+    const awardStatsByPlayer = new Map(players.map(({ player }) => {
+      const scoped = scopedAwardStats
+        ? WorldEngine.getPlayerStatsByScope(
+            player, 'regularSeason', { skipRebuild: true }
+          )
+        : null;
+      const playerStats = scoped
+        ? { ...player, seasonStats: scoped }
+        : player;
+      return [player, getLivingWorldPlayerStats(playerStats)];
+    }));
+    const awardStats = player =>
+      awardStatsByPlayer.get(player) || getLivingWorldPlayerStats(player);
 
     const previousSnapshot = livingWorld.awardRaceSnapshots.length
       ? livingWorld.awardRaceSnapshots[livingWorld.awardRaceSnapshots.length - 1]
@@ -39023,15 +39049,17 @@ case 'career-defense':
       position: entry.player?.position || '',
       overall: overall(entry.player),
       score: Number(score.toFixed(3)),
-      stats: getLivingWorldPlayerStats(entry.player),
+      stats: awardStats(entry.player),
     });
 
     const makeRace = (key, label, eligible, scoreFunction) => {
-      const priorRace = previousSnapshot?.races?.find(race => race.key === key) || null;
+      const priorRace = previewOnly
+        ? null
+        : previousSnapshot?.races?.find(race => race.key === key) || null;
       const priorRanks = new Map((priorRace?.contenders || []).map(item => [String(item.playerId), Number(item.rank)]));
       const contenders = players
-        .filter(entry => eligible(entry.player, getLivingWorldPlayerStats(entry.player)))
-        .map(entry => ({ entry, score: scoreFunction(entry.player, getLivingWorldPlayerStats(entry.player)) }))
+        .filter(entry => eligible(entry.player, awardStats(entry.player)))
+        .map(entry => ({ entry, score: scoreFunction(entry.player, awardStats(entry.player)) }))
         .sort((a,b) => (b.score - a.score) || (overall(b.entry.player) - overall(a.entry.player)) || playerId(a.entry.player).localeCompare(playerId(b.entry.player)))
         .slice(0, 5)
         .map((item,index) => snapshotPlayer(item.entry, index + 1, item.score, priorRanks.get(playerId(item.entry.player))));
@@ -39135,12 +39163,27 @@ case 'career-defense':
       }
     });
 
-    livingWorld.awardRaceSnapshots.push(snapshot);
-    livingWorld.awardRaceSnapshots = livingWorld.awardRaceSnapshots.slice(-60);
-    livingWorld.currentAwardRaces = structuredClone(races);
-    livingWorld.recentBeats = livingWorld.recentBeats.slice(-180);
+    if (!previewOnly) {
+      livingWorld.awardRaceSnapshots.push(snapshot);
+      livingWorld.awardRaceSnapshots = livingWorld.awardRaceSnapshots.slice(-60);
+      livingWorld.currentAwardRaces = structuredClone(races);
+      livingWorld.recentBeats = livingWorld.recentBeats.slice(-180);
+    }
 
     return snapshot;
+  }
+
+  function previewRegularSeasonAwardRaces() {
+    /*
+     * Pure presentation repair for saves whose last weekly award snapshot
+     * was calculated before playoff-stat separation existed. Do not append
+     * weekly snapshots or publish leader-change news when opening League.
+     */
+    return buildLivingWorldAwardRaces(
+      _state.season?.currentDate || _state.currentDate || null,
+      'regular-season-preview',
+      { previewOnly: true }
+    ).races;
   }
 
   function getLivingWorldLineupDescriptor(player = {}) {
@@ -46031,6 +46074,7 @@ case 'career-defense':
     WORLD_KEY,
 
     news,
+    previewRegularSeasonAwardRaces,
     save,
     load,
     listCareerSaves,
