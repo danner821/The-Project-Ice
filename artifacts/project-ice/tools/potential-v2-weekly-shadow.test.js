@@ -22,13 +22,16 @@ assert.equal(evaluate({...opts,previous:{...a.proposal}}).status,'already-evalua
 assert.equal(evaluate({...opts,weekKey:'2025-W43',previous:a.proposal}).reason,'NO_NEW_GAMES');
 assert.equal(evaluate({...opts,peers:[]}).reason,'INSUFFICIENT_SAME_LEVEL_TIER_PEERS');
 assert.equal(evaluate({...opts,player:{...career,development:{...career.development,potential:68}}}).reason,'UNRECONCILED_OR_MISSING_POTENTIAL');
-const JVPeers=peers.map(p=>({...p,teamLevel:'JV'}));
 const varsity={...career,teamLevel:'Varsity'};
-assert.equal(evaluate({...opts,player:varsity,peers:JVPeers}).reason,
-  'INSUFFICIENT_SAME_LEVEL_TIER_PEERS','JV must not benchmark Varsity');
+assert.equal(evaluate({...opts,player:varsity,peers}).status,
+  'evaluated','missing legacy HS labels normalize to Varsity');
 const varsityPeers=peers.map(p=>({...p,teamLevel:'Varsity'}));
-assert.equal(evaluate({...opts,player:varsity,peers:varsityPeers}).status,
-  'evaluated','Varsity must match Varsity');
+assert.equal(evaluate({...opts,player:career,peers:varsityPeers}).status,
+  'evaluated','all current HS players use the sole Varsity level');
+const AAA=peers.map(p=>({...p,leagueLevel:'TRAVEL',teamLevel:'AAA'}));
+const AA={...career,leagueLevel:'TRAVEL',teamLevel:'AA'};
+assert.equal(evaluate({...opts,player:AA,peers:AAA}).reason,
+  'INSUFFICIENT_SAME_LEVEL_TIER_PEERS','travel AA cannot benchmark against AAA');
 const realPeers=peers.map(p=>({...p,leagueLevel:'NHL'}));
 assert.equal(evaluate({...opts,peers:realPeers}).reason,'INSUFFICIENT_SAME_LEVEL_TIER_PEERS','no HS/NHL crossover');
 const low= {...career,seasonStats:{gamesPlayed:2,points:10,minutesPlayed:44}};
