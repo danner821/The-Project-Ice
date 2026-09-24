@@ -253,7 +253,8 @@
         original?.careerId !== careerId ||
         !world || !Array.isArray(world.teams) ||
         !Array.isArray(world.externalProspects) ||
-        !world?.season?.seasonId || !world?.currentDate) {
+        !(world?.season?.seasonId || world?.season?.id) ||
+        !world?.currentDate) {
       throw new Error('Invalid or incomplete Project Ice backup envelope.');
     }
     const roster = world.teams.flatMap(team =>
@@ -399,7 +400,7 @@
       const career = roster.filter(p => p?.isCareerPlayer === true);
       const date = String(dateOf(world) || '').slice(0, 10);
       return {
-        date, seasonId: String(world?.season?.seasonId || ''),
+        date, seasonId: String(world?.season?.seasonId || world?.season?.id || ''),
         rosterCount: roster.length, careerPlayers: career.length,
         playerId: career[0]?.id || career[0]?.playerId || null,
         overall: career[0]?.overall ?? null,
@@ -457,6 +458,12 @@
       return blocked('A valid saved revision is required.',
         { incoming, current });
     }
+    const oldSavedAt = Date.parse(saved.savedAt || '');
+    const liveSavedAt = Date.parse(live.savedAt || '');
+    const laterSave = Number.isFinite(oldSavedAt) &&
+      Number.isFinite(liveSavedAt) && liveSavedAt > oldSavedAt;
+    const revisionReset = laterSave && liveRevision < oldRevision &&
+      current.date >= incoming.date;
     const newer = liveRevision > oldRevision ||
       current.date > incoming.date;
     const divergence = liveRevision !== oldRevision ||
@@ -465,14 +472,19 @@
       current.rosterCount !== incoming.rosterCount ||
       current.externalProspects !== incoming.externalProspects;
     return {
-      verdict: newer ? 'OLDER_BACKUP' :
+      verdict: revisionReset ? 'REVISION_RESET_DETECTED' :
+        newer ? 'OLDER_BACKUP' :
         divergence ? 'DIFFERENT_SAVE_STATE' : 'SAME_RECOVERY_BASELINE',
       readOnly: true, restorePerformed: false,
       newerLiveProgress: newer, differentSavedState: divergence,
+      revisionReset, oldSavedAt: saved.savedAt || null,
+      liveSavedAt: live.savedAt || null,
       incoming, current, oldRevision, liveRevision,
-      action: newer
-        ? 'Keep playing from the live career. Export a NEW backup before considering recovery.'
-        : 'Preview complete. Restore is NOT enabled; keep the original JSON and verify a fresh live backup.'
+      action: revisionReset
+        ? 'A later save has a lower revision because the old load logic reset its counter. Keep BOTH backups; restoration remains disabled.'
+        : newer
+          ? 'Keep playing from the live career. Export a NEW backup before considering recovery.'
+          : 'Preview complete. Restore is NOT enabled; keep the original JSON and verify a fresh live backup.'
     };
   }
 
@@ -739,7 +751,8 @@
       try {
         const result = await previewDownloadedBackup(file);
         recoveryStatus.style.color = result.verdict === 'BLOCKED' ||
-          result.verdict === 'OLDER_BACKUP' || result.runtimeAheadOfDisk
+          result.verdict === 'OLDER_BACKUP' ||
+          result.verdict === 'REVISION_RESET_DETECTED' || result.runtimeAheadOfDisk
           ? '#ffb47e' : '#81e3ae';
         recoveryStatus.textContent = [
           'PREVIEW — ' + result.verdict,
@@ -753,9 +766,11 @@
             ' · external prospects=' + result.comparison.backupExternal +
             '/' + result.comparison.liveExternal : '',
           result.incoming ? 'Backup: ' + result.incoming.date + ' · ' +
-            result.incoming.seasonId + ' · ' + result.incoming.overall + ' OVR' : '',
+            result.incoming.seasonId + ' · ' + result.incoming.overall + ' OVR' +
+            ' · revision ' + result.oldRevision : '',
           result.current ? 'Current: ' + result.current.date + ' · ' +
-            result.current.seasonId + ' · ' + result.current.overall + ' OVR' : '',
+            result.current.seasonId + ' · ' + result.current.overall + ' OVR' +
+            ' · revision ' + result.liveRevision : '',
           result.fileFingerprint ? 'SHA-256: ' + result.fileFingerprint : '',
           result.action || '',
           'LIVE CAREER UNCHANGED. This screen cannot perform restoration.'
