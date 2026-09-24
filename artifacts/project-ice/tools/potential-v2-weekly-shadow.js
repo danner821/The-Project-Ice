@@ -128,12 +128,38 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
   const weeksSinceChange=Number(weekNumber)-lastChange;
   const ageAllowsUp=dateAge<=27||root<96&&dateAge<=32;
   const franchiseNext=tier(boundary(root,player.position,+1),player.position)==='Franchise';
-  const franchiseAgeBlock=franchiseNext&&dateAge>=28;
+  /*
+   * A Franchise promotion must reflect MULTI-SEASON NHL dominance and
+   * cannot be generated from one exceptional teenage high-school season.
+   * Accept only recorded distinct NHL seasons with >=20 GP and >=1.2 PPG
+   * (90+ points/82 GP equivalent). Never infer missing seasons.
+   */
+  const documented=(Array.isArray(player.documentedNHLSeasons)?
+    player.documentedNHLSeasons:[]).filter(s=>
+      level(s?.level)==='NHL'&&Number(s?.gamesPlayed)>=20&&
+      Number(s?.points)>=Number(s?.gamesPlayed)*1.2&&
+      s?.seasonId!=null);
+  const dominantSeasons=new Set(documented.map(s=>String(s.seasonId))).size;
+  const franchiseReady=!franchiseNext||(
+    levelName==='NHL'&&root>=90&&dateAge>=19&&dateAge<=27&&
+    dominantSeasons>=2&&weeksSinceChange>=24);
+  /* High-tier downgrades need preceding season-level evidence too. */
+  const weakSeasons=(Array.isArray(player.documentedWeakSeasons)?
+    player.documentedWeakSeasons:[]).filter(s=>
+      s?.seasonId!=null&&Number(s?.gamesPlayed)>=20&&
+      Number(s?.performanceVsExpectation)>0&&
+      Number(s?.performanceVsExpectation)<.72);
+  const prolongedDecline=root<84||
+    new Set(weakSeasons.map(s=>String(s.seasonId))).size>=2;
   const threshold=dateAge<=18?2.25:dateAge<=22?2.50:dateAge<=27?2.85:3.30;
+  const directionAllowed=signal>=0?ageAllowsUp&&franchiseReady:
+    prolongedDecline;
   const eligible=games>=changeAgeThreshold&&streak>=4&&intensity>=threshold&&
-    weeksSinceChange>=10&&confidence<=68&&
-    (signal<0||ageAllowsUp&&!franchiseAgeBlock);
-  const chance=eligible?clamp(.16+(intensity-threshold)*.09,0,.37):0;
+    weeksSinceChange>=10&&confidence<=68&&directionAllowed;
+  /* Promotions to Franchise remain rare even after eligibility. */
+  const chance=eligible?franchiseNext&&signal>0?
+    clamp(.015+(intensity-threshold)*.015,0,.055):
+    clamp(.16+(intensity-threshold)*.09,0,.37):0;
   const passed=eligible&&hashRoll([seasonId,weekKey,
     player.id||player.playerId,'potential-v2'].join(':'))<chance;
   const next=passed?boundary(root,player.position,signal>=0?1:-1):root;
@@ -150,6 +176,11 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
     trend:proposed.trend,evidence:round(evidence),
     relativeProduction:round(ratio),reference:base.units,
     peerCount:base.peerCount,eligibleForReview:eligible,
+    franchiseGate:franchiseNext?{documentedDominantNHLSeasons:dominantSeasons,
+      permitted:franchiseReady}:null,
+    highTierDeclineGate:root>=84?{documentedWeakSeasons:
+      new Set(weakSeasons.map(s=>String(s.seasonId))).size,
+      permitted:prolongedDecline}:null,
     deterministicRoll:round(hashRoll([seasonId,weekKey,
       player.id||player.playerId,'potential-v2'].join(':'))),
     proposal:proposed};
