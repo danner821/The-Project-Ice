@@ -1,0 +1,44 @@
+'use strict';
+/* Run node artifacts/project-ice/tools/potential-v2-xp-shadow.test.js */
+const assert=require('node:assert/strict');
+const {proposal,legacyCost,careerPreview}=require('./potential-v2-xp-shadow');
+const base={id:'career',age:16,position:'RW',overall:72,potential:74,
+ attributes:{wristShotPower:75},development:{potential:74,dna:{personality:'balanced'},
+ attributeXP:{wristShotPower:100},attributeUpgradeCounts:{wristShotPower:2}}};
+const old=JSON.stringify(base);
+let a=proposal(base,'wristShotPower');
+assert.equal(a.status,'preview');
+assert.equal(a.baselineCost,legacyCost(base,'wristShotPower'));
+assert.ok(a.proposedCost>a.baselineCost);
+assert.equal(JSON.stringify(base),old);
+let elite=proposal({...base,potential:90,development:{...base.development,potential:90}},'wristShotPower');
+assert.ok(elite.proposedCost<a.proposedCost,'Elite grows more easily at identical OVR');
+let over=proposal({...base,overall:78,potential:74,development:{...base.development,potential:74}},'wristShotPower');
+assert.ok(over.proposedCost>a.proposedCost,'over-projection growth more expensive');
+let eased=proposal({...base,overall:78},'wristShotPower',{breakoutEvidence:1});
+assert.ok(eased.proposedCost<over.proposedCost,'verified breakout eases XP penalty');
+assert.equal(eased.currentXP,100);
+let promoted=proposal({...base,overall:78,potential:84,development:{...base.development,potential:84}},'wristShotPower',{breakoutEvidence:1});
+assert.ok(promoted.proposedCost<eased.proposedCost,'potential promotion recalculates costs');
+let oldStar=proposal({...base,age:33,overall:86,potential:90,development:{...base.development,potential:90}},'wristShotPower',{breakoutEvidence:1});
+let oldNoBreakout=proposal({...base,age:33,overall:86,potential:90,development:{...base.development,potential:90}},'wristShotPower');
+assert.ok(oldNoBreakout.proposedCost-oldStar.proposedCost<over.proposedCost-eased.proposedCost,'older breakouts have less XP easing');
+let late=proposal({...base,development:{...base.development,dna:{personality:'lateBloomer'}}},'wristShotPower');
+assert.ok(late.proposedCost>a.proposedCost,'individual personality varies price');
+let conflict=proposal({...base,development:{...base.development,potential:68}},'wristShotPower');
+assert.equal(conflict.status,'potential-conflict');
+assert.equal(conflict.scenarios.length,2);
+assert.notEqual(conflict.scenarios[0].potential,conflict.scenarios[1].potential);
+assert.equal(conflict.currentXP,100);
+let goalie=proposal({...base,age:24,position:'G',overall:80,potential:85,attributes:{reflexes:85},development:{potential:85,attributeXP:{reflexes:5},attributeUpgradeCounts:{reflexes:1}}},'reflexes');
+assert.equal(goalie.status,'preview');
+assert.ok(goalie.proposedCost>0);
+let cap=proposal({...base,overall:85},'wristShotPower',{careerLevel:'HS'});
+assert.equal(cap.needsActualOverallCapCheck,true);
+assert.equal(cap.levelUpPerformed,false);
+let invalid=proposal(base,'doesNotExist');
+assert.equal(invalid.status,'unpriced-attribute');
+let career=careerPreview(base,['wristShotPower']);
+assert.equal(career.readOnly,true);
+assert.equal(career.attributes[0].currentXP,100);
+console.log('PASS 17 XP shadow assertions');
