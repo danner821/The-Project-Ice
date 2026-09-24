@@ -21,6 +21,10 @@ assert.equal(JSON.stringify(backup),original);
 assert.equal(preview(backup,r(5),id).action,'STOP_AND_BACK_UP_CURRENT_LIVE_CAREER');
 assert.equal(preview(backup,r(4,'2025-09-05'),id).wouldDiscardNewerProgress,true);
 assert.equal(preview(backup,r(4,'2025-09-04',{overall:74}),id).divergentSameDate,true);
+const oldAlias=r();oldAlias.world.season.id=oldAlias.world.season.seasonId;
+delete oldAlias.world.season.seasonId;
+assert.equal(preview(backup,oldAlias,id).status,'PREVIEW_ONLY',
+ 'season.id must work for complete legacy backups with missing seasonId');
 assert.equal(preview(backup,r(4,'2025-09-04',{seasonId:'other'}),id).divergentSameDate,true);
 assert.equal(preview({...backup,activeCareerId:'not-c1'},current,id).status,'BLOCKED');
 assert.equal(preview({...backup,activeRecord:r(4,'2025-09-04',{id:'career:c2'})},current,id).status,'BLOCKED');
