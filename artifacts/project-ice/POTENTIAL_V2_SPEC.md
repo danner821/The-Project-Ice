@@ -40,6 +40,15 @@ Baseline: career backup exported at game date 2025-09-04 (Junior 2025–26 prese
 - Alacai: root 74 / nested 68 (unchanged); freshman 7 points / 28 GP, sophomore 23 points / 28 GP; age-/position-relative first-season 9.2 percentile and latest-season 95.7 percentile. Strong-breakout-review evidence, **no assigned new potential** pending the calibrated full evaluator.
 - All external and HS-rostered real prospect ratings remain excluded. Original backup SHA-256 397aefb65e24db4b0d36bea6d2b6481898c4f2ae78c5c25f215fa2fc19f2f25f.
 
+## Second-stage read-only shadow evaluator (2026-09-24)
+
+- GitHub tools: `artifacts/project-ice/tools/potential-v2-shadow.js` (explicit, offline Node-only; **not loaded by the live game**) and `potential-v2-shadow.test.js` (12 passing synthetic checks).
+- Reads a user-exported JSON backup and writes a **separate report JSON only**. Preserves the source file, omits realPlayer/persistentProspect identities, excludes unfinished/future season archives, and never proposes a numeric rating. Deterministic, idempotent, no live browser DB mutations.
+- Uses complete high-school peer-group percentile measures: age-near position cohorts, points/60 (skaters) or save % (goalies) with supporting available contextual stats and recorded OVR change. Requires sample thresholds and records data gaps.
+- The independent local Python cross-check of the 2025-09-04 backup found **5 strong-breakout-review**, **5 additional breakout-review**, **10 decline-evidence-review**, **8 persistent-underperformance-review**, **7 missing-history** and **113 retained pending calibration**, totaling 148 generated HS players. These differ from the first screen's 11 breakout flags because the second pass additionally weighs shot production and plus/minus and uses stricter evidence thresholds. This Python run mirrors the JS formulas; it is **not yet a direct Node run of the GitHub script on this 56 MB backup**.
+- Alacai: prior 9.2nd percentile, latest 95.7th percentile on main position/age peer production, 91.9th percentile on the contextual blend, +2 OVR, provisional **Rapidly Rising evidence**. Root 74 and nested development 68 both remain unchanged. His precise potential/uncertainty is held for longitudinal tier calibration and explicit user review.
+- Next gate: position/level/potential-relative performance expectations, larger synthetic age/deployment/goalie and long-career scenarios, a clear before/after preview, and a real recovery mechanism before enabling any production migration.
+
 ## Implementation gates
 
 1. **Backup & isolated restore:** retain original JSON on user phone. Verify full envelope and that a disposable IndexedDB database can store and round-trip a 56 MB snapshot without affecting active storage. iPhone disposable restore has passed; next verify controlled full-game restoration separately before any mass migration. Do not offer destructive restore without explicit confirmation and a newer-live-save warning.
