@@ -84,7 +84,7 @@
        */
       (recap.nextSeasonSeededSeasonId === currentSeasonId ||
         recap.nextSeasonId === currentSeasonId) &&
-      /^hs-\\d{4}-\\d{4}$/.test(String(recap.archiveId || '')) &&
+      /^hs-\d{4}-\d{4}$/.test(String(recap.archiveId || '')) &&
       dateKey(recap.leagueRecapAcknowledgedAt) &&
       dateKey(recap.playerRecapAcknowledgedAt) &&
       dateKey(recap.leagueRecapAcknowledgedAt) <
