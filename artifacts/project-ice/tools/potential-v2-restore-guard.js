@@ -39,7 +39,17 @@ function preview(backup,liveRecord,activeCareerId){
  if(!Number.isSafeInteger(oldRevision)||!Number.isSafeInteger(liveRevision)||
     oldRevision<0||liveRevision<0)
    return fail('MISSING_REVISION',{backup:source,live:current});
- const newer=liveRevision>oldRevision||current.date>source.date;
+ const oldTime=Date.parse(older.savedAt||'');
+ const liveTime=Date.parse(live.savedAt||'');
+ const laterLiveSave=Number.isFinite(oldTime)&&
+   Number.isFinite(liveTime)&&liveTime>oldTime;
+ /* Reloads in older builds reset the in-memory counter. A genuinely newer
+  * save can have a SMALLER revision. Never authorize a rollback because
+  * the revision alone appears older. */
+ const revisionResetDetected=laterLiveSave&&liveRevision<oldRevision&&
+   current.date>=source.date;
+ const newer=liveRevision>oldRevision||current.date>source.date||
+   revisionResetDetected;
  const rollback=source.date<current.date;
  const divergent=source.date===current.date&&
    (oldRevision!==liveRevision||source.seasonId!==current.seasonId||
@@ -50,9 +60,12 @@ function preview(backup,liveRecord,activeCareerId){
  return {status:'PREVIEW_ONLY',readOnly:true,restorePerformed:false,writeAuthorized:false,
    candidateId:targetId,backup:source,live:current,
    backupRevision:oldRevision,liveRevision,
+   revisionResetDetected,laterLiveSave,
    wouldDiscardNewerProgress:newer,olderGameDate:rollback,
    divergentSameDate:divergent,
    action:newer?'STOP_AND_BACK_UP_CURRENT_LIVE_CAREER':'REVIEW_BEFORE_ANY_RESTORE',
-   warning};
+   warning:revisionResetDetected?
+     'Later save has a lower revision because an older load reset the counter. Keep BOTH exports and export a fresh live backup before any recovery.':
+     warning};
 }
 module.exports={core,preview};
