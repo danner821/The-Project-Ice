@@ -13,7 +13,9 @@ const level=p=>String(p||'').toUpperCase().replace(/\s+/g,'').replace(/-/g,'');
 /* Distinguish Varsity, JV and travel tiers within their broad league. */
 const competition=p=>{
   const broad=level(p?.leagueLevel||p?.currentLeague||p?.league||p?.teamLevel||p?.level);
-  const division=level(p?.competitionTier||p?.division||p?.teamLevel||p?.level);
+  const teamTier=level(p?.teamLevel);
+  const division=level(p?.competitionTier||p?.division||
+    (teamTier&&teamTier!==broad?p.teamLevel:null)||p?.level||p?.teamLevel);
   return broad+(division&&division!==broad?':'+division:'');
 };
 const tier=(p,pos)=>p>=96?'Franchise':p>=90?'Elite':
@@ -137,11 +139,12 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
    * A Franchise promotion must reflect MULTI-SEASON NHL dominance and
    * cannot be generated from one exceptional teenage high-school season.
    * Accept only recorded distinct NHL seasons with >=20 GP and >=1.2 PPG
-   * (90+ points/82 GP equivalent). Never infer missing seasons.
+   * and >=90 actual points. Never infer missing seasons.
    */
   const documented=(Array.isArray(player.documentedNHLSeasons)?
     player.documentedNHLSeasons:[]).filter(s=>
-      level(s?.level)==='NHL'&&Number(s?.gamesPlayed)>=20&&
+      level(s?.level)==='NHL'&&Number(s?.gamesPlayed)>=60&&
+      Number(s?.points)>=90&&
       Number(s?.points)>=Number(s?.gamesPlayed)*1.2&&
       s?.seasonId!=null);
   const dominantSeasons=new Set(documented.map(s=>String(s.seasonId))).size;
