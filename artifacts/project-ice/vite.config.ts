@@ -33,11 +33,11 @@ const runtimeModulesPlugin = {
     if (!html.includes('/career-age-timeline-repair.js')) scripts.push('    <script src="/career-age-timeline-repair.js"></script>');
     if (!html.includes('/canonical-high-school-timeline.js')) scripts.push('    <script src="/canonical-high-school-timeline.js"></script>');
     if (!html.includes('/season-development-snapshot.js')) scripts.push('    <script src="/season-development-snapshot.js"></script>');
-    if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js"></script>');
-    if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js?v=20260922-postseason-audit-2"></script>');
+    if (!html.includes('/season-lifecycle.js')) scripts.push('    <script src="/season-lifecycle.js?v=20260923-season-boundary-1"></script>');
+    if (!html.includes('/season-lifecycle-migrations.js')) scripts.push('    <script src="/season-lifecycle-migrations.js?v=20260923-season-boundary-1"></script>');
     if (!html.includes('/postseason-cadence.js')) scripts.push('    <script src="/postseason-cadence.js?v=20260920-nonqualifier-cadence-1"></script>');
     if (!html.includes('/schedule-open-day-fix.js')) scripts.push('    <script src="/schedule-open-day-fix.js"></script>');
-    if (!html.includes('/postseason-trigger.js')) scripts.push('    <script src="/postseason-trigger.js?v=20260922-postseason-audit-2"></script>');
+    if (!html.includes('/postseason-trigger.js')) scripts.push('    <script src="/postseason-trigger.js?v=20260923-season-boundary-1"></script>');
     if (!html.includes('/postseason-checkpoint-event.js')) scripts.push('    <script src="/postseason-checkpoint-event.js"></script>');
     if (!html.includes('/postseason-ui.js')) scripts.push('    <script src="/postseason-ui.js"></script>');
     if (!html.includes('/postseason-polish.js')) scripts.push('    <script src="/postseason-polish.js"></script>');
@@ -72,7 +72,7 @@ const runtimeModulesPlugin = {
      * One owner per Travel Hockey responsibility. In particular, only the
      * canonical profile repair runtime may modify Travel Team Profile DOM.
      */
-    if (!html.includes('/travel-hockey-foundation.js')) scripts.push('    <script src="/travel-hockey-foundation.js"></script>');
+    if (!html.includes('/travel-hockey-foundation.js')) scripts.push('    <script src="/travel-hockey-foundation.js?v=20260923-season-boundary-1"></script>');
     if (!html.includes('/travel-hockey-tryouts.js')) scripts.push('    <script src="/travel-hockey-tryouts.js"></script>');
     if (!html.includes('/travel-hockey-tryouts-v2-migration.js')) scripts.push('    <script src="/travel-hockey-tryouts-v2-migration.js"></script>');
     if (!html.includes('/travel-hockey-world.js')) scripts.push('    <script src="/travel-hockey-world.js"></script>');
