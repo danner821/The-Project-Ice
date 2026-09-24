@@ -42,13 +42,29 @@
     return world?.player?.teamId || world?.player?.highSchoolTeamId || null;
   }
 
+  function activeSeasonBounds() {
+    const season = WorldEngine.state?.season || {};
+    const match = String(season.seasonId || season.id || '').match(/^hs-(\d{4})-(\d{4})$/);
+    const start = match ? Number(match[1]) : Number(season.seasonStartYear);
+    const end = match ? Number(match[2]) : start + 1;
+    if (!Number.isInteger(start) || start < 2020 || start > 2100 ||
+        end !== start + 1) return null;
+    return { start: `${start}-09-01`, endExclusive: `${end}-09-01` };
+  }
+
   function isRegularSeasonGame(game) {
+    const bounds = activeSeasonBounds();
+    const date = dateKey(game?.date);
     return Boolean(
-      game &&
+      bounds &&
+      date &&
+      date >= bounds.start &&
+      date < bounds.endExclusive &&
       game?.isPlayoff !== true &&
+      game?.travelTournament !== true &&
+      game?.type !== 'travel-game' &&
       game?.homeTeamId &&
-      game?.awayTeamId &&
-      dateKey(game?.date)
+      game?.awayTeamId
     );
   }
 
@@ -224,10 +240,9 @@
     });
 
     /*
-     * Older lifecycle code may create a postseason object mid-advance with
-     * the previous Apr 30 checkpoint. If that inner wrapper stops one day
-     * early, normalize the newly created state to May 1 and finish the final
-     * single day before exposing the checkpoint to the UI.
+     * If the inner lifecycle wrapper stopped before this season's canonical
+     * checkpoint, normalize its date and finish the remaining day without
+     * crossing the checkpoint. Never assume a fixed calendar year.
      */
     if (
       mustStopAtCheckpoint &&
