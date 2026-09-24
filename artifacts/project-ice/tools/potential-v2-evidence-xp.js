@@ -66,7 +66,11 @@ function playerReview(world,attributeKeys=['wristShotPower','passing','speed']){
  const rows=players.map(p=>{
    const id=String(p.id||p.playerId||''),sh=shadowById.get(id),cal=calibratedById.get(id);
    const conflict=cal?.hasConflict===true;
-   const sourceList=conflict?['root','development']:['development'];
+   const rootValid=Number.isFinite(cal?.rootPotential)&&cal.rootPotential>=25;
+   const nestedValid=Number.isFinite(cal?.nestedPotential)&&cal.nestedPotential>=25;
+   const sourceList=conflict
+     ? [...(rootValid?['root']:[]),...(nestedValid?['development']:[])]
+     : nestedValid?['development']:rootValid?['root']:[];
    const scenarios=sourceList.map(source=>{
      const potential=source==='root'?cal?.rootPotential:cal?.nestedPotential;
      const hypothesis=source==='root'?cal?.rootHypothesis:cal?.developmentHypothesis;
@@ -85,7 +89,7 @@ function playerReview(world,attributeKeys=['wristShotPower','passing','speed']){
    return {id,name:cal?.name||null,position:cal?.position||null,
      conflict,review:sh?.review||'unknown',previousPercentile:sh?.previousMainPercentile??null,
      latestPercentile:sh?.latestMainPercentile??null,
-     potentialMigration:'NOT_AUTHORIZED',scenarios};
+     potentialMigration:'NOT_AUTHORIZED',needsPotentialData:sourceList.length===0,scenarios};
  });
  const statuses={};
  for(const r of rows)for(const scenario of r.scenarios){
