@@ -209,14 +209,22 @@
         }
         const tx = db.transaction(STORE_NAME, 'readonly');
         const getAll = tx.objectStore(STORE_NAME).getAll();
+        let records = [];
         getAll.onsuccess = () => {
-          const records = Array.isArray(getAll.result) ? getAll.result : [];
+          records = Array.isArray(getAll.result) ? getAll.result : [];
+        };
+        getAll.onerror = () => reject(getAll.error);
+        tx.oncomplete = () => {
           db.close();
           resolve(records);
         };
-        getAll.onerror = () => {
+        tx.onerror = () => {
           db.close();
-          reject(getAll.error);
+          reject(tx.error || new Error('Read-only career snapshot failed.'));
+        };
+        tx.onabort = () => {
+          db.close();
+          reject(tx.error || new Error('Read-only career snapshot aborted.'));
         };
       };
     });
@@ -414,7 +422,8 @@
     }
     const oldRevision = Number(saved.revision);
     const liveRevision = Number(live.revision);
-    if (!Number.isSafeInteger(oldRevision) ||
+    if (saved.revision == null || live.revision == null ||
+        !Number.isSafeInteger(oldRevision) ||
         !Number.isSafeInteger(liveRevision) ||
         oldRevision < 0 || liveRevision < 0) {
       return blocked('A valid saved revision is required.',
