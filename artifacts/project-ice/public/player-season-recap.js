@@ -227,7 +227,19 @@
     if (recap.playerRecapAcknowledged === true && options.force !== true) return false;
 
     const archive = activeArchive();
-    if (!archive?.careerPlayer) return false;
+    /*
+     * A just-finished season must have its OWN archive before any subsequent
+     * transition is offered. Falling back to last year's archive could replay
+     * a sophomore year or reset the wrong set of player statistics.
+     */
+    const activeSeasonId = String(world()?.season?.seasonId || world()?.season?.id || '');
+    const archiveSeasonId = String(archive?.identity?.seasonId || archive?.archiveId || '');
+    if (!activeSeasonId || archiveSeasonId !== activeSeasonId || !archive?.careerPlayer) {
+      console.warn('[Player Season Recap] Current season archive not ready:', {
+        activeSeasonId, archiveSeasonId,
+      });
+      return false;
+    }
 
     injectStyles();
     document.getElementById('pi-season-recap-screen')?.remove();
@@ -295,20 +307,47 @@
         <div class="pi-pr-note">Your completed season remains permanently preserved in League History.</div>
       </div>`;
 
-    root.querySelector('#pi-player-season-recap-continue')?.addEventListener('click', () => {
-      recap.playerRecapAcknowledged = true;
-      recap.playerRecapAcknowledgedAt = currentDate();
-      recap.nextCareerYearIndex = nextIndex;
-      recap.nextSeasonId = nextIdentity?.seasonId || null;
-      WorldEngine.save?.();
-      root.remove();
-      window.dispatchEvent(new CustomEvent('projectice:player-season-recap-complete', {
-        detail: {
-          archiveId: archive.archiveId || null,
-          nextCareerYearIndex: nextIndex,
-          nextSeasonId: nextIdentity?.seasonId || null,
-        },
-      }));
+    const continueButton = root.querySelector('#pi-player-season-recap-continue');
+    let submitting = false;
+    continueButton?.addEventListener('click', async () => {
+      if (submitting) return;
+      submitting = true;
+      continueButton.disabled = true;
+      const priorRecap = {
+        playerRecapAcknowledged: recap.playerRecapAcknowledged,
+        playerRecapAcknowledgedAt: recap.playerRecapAcknowledgedAt,
+        nextCareerYearIndex: recap.nextCareerYearIndex,
+        nextSeasonId: recap.nextSeasonId,
+      };
+
+      try {
+        recap.playerRecapAcknowledged = true;
+        recap.playerRecapAcknowledgedAt = currentDate();
+        recap.nextCareerYearIndex = nextIndex;
+        recap.nextSeasonId = nextIdentity?.seasonId || null;
+        /*
+         * Finish saving the CURRENT season before the rollover listener
+         * captures stat history and resets any active-season player totals.
+         * The next-season transaction already saves its own seeded world.
+         */
+        const saved = await WorldEngine.save?.();
+        if (saved === false) throw new Error('Could not save player recap');
+
+        root.remove();
+        window.dispatchEvent(new CustomEvent('projectice:player-season-recap-complete', {
+          detail: {
+            archiveId: archive.archiveId || null,
+            nextCareerYearIndex: nextIndex,
+            nextSeasonId: nextIdentity?.seasonId || null,
+          },
+        }));
+      } catch (error) {
+        Object.assign(recap, priorRecap);
+        submitting = false;
+        continueButton.disabled = false;
+        console.error('[Player Season Recap] Save failed; rollover not started.', error);
+        alert('Could not save your player recap. Your season has not advanced; please try again.');
+      }
     });
 
     return true;
