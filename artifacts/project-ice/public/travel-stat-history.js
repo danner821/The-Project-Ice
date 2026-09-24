@@ -512,10 +512,22 @@
   ensureCareerOptions();
   scheduleCareerOverlay();
 
+  /*
+   * Postseason adds several dynamic screens. A document-wide observer used to
+   * rerun three DOM scans for EVERY inserted node, including unrelated recap
+   * animations, schedule redraws, and our own UI. Coalesce those scans to
+   * one pass per animation frame; preserve the existing dynamic-tab behavior.
+   */
+  let presentationRefreshQueued = false;
   const observer = new MutationObserver(() => {
-    ensureCareerOptions();
-    if (!unifiedProfileScopeOwnerActive()) ensureProfileButtons();
-    installPostseasonArchivePresentation();
+    if (presentationRefreshQueued) return;
+    presentationRefreshQueued = true;
+    requestAnimationFrame(() => {
+      presentationRefreshQueued = false;
+      ensureCareerOptions();
+      if (!unifiedProfileScopeOwnerActive()) ensureProfileButtons();
+      installPostseasonArchivePresentation();
+    });
   });
   observer.observe(document.body,{childList:true,subtree:true});
 })();
