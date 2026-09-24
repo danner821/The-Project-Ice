@@ -12,7 +12,7 @@ function core(world){
    world.teams.flatMap(team=>Array.isArray(team?.roster)?team.roster:[]):[];
  const careers=roster.filter(p=>p?.isCareerPlayer===true);
  return {date:isoDate(world?.currentDate||season.currentDate),
-   seasonId:String(season.seasonId||''),rosterCount:roster.length,
+   seasonId:String(season.seasonId||season.id||''),rosterCount:roster.length,
    realProspectCount:Array.isArray(world?.externalProspects)?world.externalProspects.length:null,
    careerPlayers:careers.length,careerPlayerId:careers[0]?.id||careers[0]?.playerId||null,
    overall:careers[0]?.overall??null};
