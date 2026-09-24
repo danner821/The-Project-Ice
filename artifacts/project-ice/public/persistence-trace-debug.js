@@ -409,7 +409,7 @@
     };
     const incoming = summary(saved.world);
     const current = summary(live.world);
-    const valid = d => /^\\d{4}-\\d{2}-\\d{2}$/.test(d);
+    const valid = d => /^\d{4}-\d{2}-\d{2}$/.test(d);
     if (!valid(incoming.date) || !valid(current.date) ||
         !incoming.seasonId || !current.seasonId ||
         incoming.careerPlayers !== 1 || current.careerPlayers !== 1 ||
@@ -449,7 +449,7 @@
   }
 
   async function previewDownloadedBackup(file) {
-    if (!file || !/\\.json$/i.test(file.name || '') ||
+    if (!file || !/\.json$/i.test(file.name || '') ||
         file.size > 100 * 1024 * 1024) {
       throw new Error('Select a valid Project Ice JSON backup (under 100 MB).');
     }
