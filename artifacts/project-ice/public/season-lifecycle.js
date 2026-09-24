@@ -74,7 +74,7 @@
   function activeSeasonBounds() {
     const season = state()?.season || {};
     const id = String(season.seasonId || season.id || '');
-    const match = id.match(/^hs-(\\d{4})-(\\d{4})$/);
+    const match = id.match(/^hs-(\d{4})-(\d{4})$/);
     const start = match
       ? Number(match[1])
       : Number(season.seasonStartYear);
