@@ -10,6 +10,12 @@ const round=(n,d=3)=>Number(n.toFixed(d));
 const position=p=>String(p||'F').toUpperCase()==='G'?'G':
   ['D','LD','RD'].includes(String(p||'').toUpperCase())?'D':'F';
 const level=p=>String(p||'').toUpperCase().replace(/\s+/g,'').replace(/-/g,'');
+/* Distinguish Varsity, JV and travel tiers within their broad league. */
+const competition=p=>{
+  const broad=level(p?.leagueLevel||p?.currentLeague||p?.league||p?.teamLevel||p?.level);
+  const division=level(p?.competitionTier||p?.division||p?.teamLevel||p?.level);
+  return broad+(division&&division!==broad?':'+division:'');
+};
 const tier=(p,pos)=>p>=96?'Franchise':p>=90?'Elite':
   position(pos)==='G'?(p>=84?'Starter':p>=79?'Fringe Starter':p>=74?'Backup':'AHL Starter'):
   position(pos)==='D'?(p>=84?'Top 4 D':p>=79?'Top 6 D':p>=74?'7th D':'AHL Top 2 D'):
@@ -35,13 +41,13 @@ function metric(player,minimum=true){
   return{value:points*60/minutes,position:type,gp,volume:minutes,units:'pointsPer60'};
 }
 function cohort(player,peers){
-  const currentLevel=level(player?.leagueLevel||player?.teamLevel||player?.level);
+  const currentLevel=competition(player);
   const age=Number(player?.age),potential=Number(player?.potential);
   const group=position(player?.position),found=[];
   if(!currentLevel||!Number.isFinite(age)||!Number.isFinite(potential))return found;
   for(const p of peers||[]){
     if(!p||String(p.id||p.playerId)===String(player?.id||player?.playerId))continue;
-    if(level(p.leagueLevel||p.teamLevel||p.level)!==currentLevel||
+    if(competition(p)!==currentLevel||
       position(p.position)!==group||Math.abs(Number(p.age)-age)>2||
       Math.abs(Number(p.potential)-potential)>12)continue;
     const m=metric(p,false);
@@ -81,8 +87,7 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
       nestedPotential:Number.isFinite(nested)?nested:null};
   if(previous.seasonId===seasonId&&previous.lastEvaluatedWeek===weekKey)
     return{status:'already-evaluated',readOnly:true,proposal:{...previous}};
-  const stats=metric(player),base=baseline(player,peers),levelName=level(player.leagueLevel||
-    player.teamLevel||player.level),dateAge=Number(player.age);
+  const stats=metric(player),base=baseline(player,peers),levelName=competition(player),dateAge=Number(player.age);
   const prior=previous.seasonId===seasonId?previous:{};
   const pastGames=Math.max(0,Number(prior.gamesEvaluated)||0);
   const pastObserved=Math.max(0,Number(prior.observedGames)||0);
