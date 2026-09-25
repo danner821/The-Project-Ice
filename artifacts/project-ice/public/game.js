@@ -24643,7 +24643,23 @@ function recoverCareerPreviewFromWorld() {
 
 // ── App initialization ──────────────────────────────────────
 async function init() {
-  await WorldEngine.load();
+  const loaded = await WorldEngine.load();
+
+  /*
+   * A failed exact-career load is NOT a new career. Never generate
+   * default rosters on top of an existing active career ID after a
+   * storage or recovery error. Leave Continue visible for diagnosis.
+   * A genuinely new game (no active career ID) follows normal setup.
+   */
+  if (loaded !== true && WorldEngine.getActiveCareerId()) {
+    console.error(
+      '[Project Ice] Active career could not be loaded. Refusing to initialize substitute rosters.'
+    );
+    updateContinueButton();
+    updateDevShortcut();
+    showScreen('title');
+    return;
+  }
 
   await WorldEngine.ensureGeneratedRosters();
 
