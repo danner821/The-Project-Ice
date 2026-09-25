@@ -14,7 +14,8 @@ const npc={id:'npc',position:'D',age:17,overall:70,potential:79,
 const real={id:'real',realPlayer:true,position:'RW',potential:90,
  development:{potential:90}};
 const world={currentDate:'2025-09-04',season:{seasonId:'hs-2025-2026'},
- player:{id:'career-player',potential:74,development:{potential:68,
+ player:{id:'career-player',potential:74,potentialAccuracy:'Medium',
+ potentialConfidence:62,potentialTrend:'rising',development:{potential:68,
  attributeXP:{speed:62},potentialConfidence:87,potentialHistory:[{kind:'old',to:68}]}},
  teams:[{roster:[career,npc,real]}],externalProspects:[{id:'outside',potential:96}],
  schedule:[{date:'2025-09-18',home:'a',away:'b'}]};
@@ -40,6 +41,9 @@ assert.equal(staged.potentialTrend,'rising','public trend synchronized');
 assert.equal(staged.development.potentialHistory.length,2,'retain history');
 assert.equal(preview.previewWorld.player.potential,79,'root snapshot synchronized');
 assert.equal(preview.previewWorld.player.development.potential,79);
+assert.equal(preview.previewWorld.player.potentialAccuracy,'Medium');
+assert.equal(preview.previewWorld.player.potentialConfidence,55);
+assert.equal(preview.previewWorld.player.potentialTrend,'rising');
 assert.deepEqual(core(preview.previewWorld),core(world),'no unrelated player/world changes');
 assert.deepEqual(preview.previewWorld.teams[0].roster[2],real,'real prospect unchanged');
 assert.deepEqual(preview.previewWorld.externalProspects,world.externalProspects);
