@@ -87,4 +87,12 @@ assert.equal(baseline(career,peers.map((p,i)=>i<12?
  {...p,development:{potential:60}}:p)).status,
  'withheld','root/development-conflicted peers excluded');
 assert.equal(JSON.stringify({career,peers,opts}),orig,'identity check has no mutation');
+// Backup 3 contains just eight unquarantined generated goalies. If five
+// members of a synthetic nine-goalie cohort have played only two games,
+// the evaluator MUST wait rather than borrowing invalid/other-level peers.
+const shortGoaliePeers=goaliePeers.map((p,i)=>i<5?{
+ ...p,seasonStats:{gamesPlayed:2,saves:35,shotsAgainst:40}}:p);
+assert.equal(baseline(goalie,shortGoaliePeers).status,'withheld');
+assert.equal(evaluate({...opts,player:goalie,peers:shortGoaliePeers}).reason,
+ 'INSUFFICIENT_SAME_LEVEL_TIER_PEERS');
 console.log('PASS: weekly shadow deterministic, peer-level, age, confidence and save-safety checks');
