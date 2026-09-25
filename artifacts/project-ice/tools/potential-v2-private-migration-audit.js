@@ -39,7 +39,8 @@ function exactDiff(a,b){
 }
 const originalHash=crypto.createHash('sha256').update(JSON.stringify(world)).digest('hex');
 const tests=[];
-for(const target of [p.potential,Math.min(95,Math.max(p.potential,p.development.potential)+5)]){
+for(const target of [...new Set([p.development.potential,p.potential,
+  Math.min(95,Math.max(p.potential,p.development.potential)+5)])]){
  const result=rehearsal(backup,{expectedCareerId:backup.activeCareerId,
    expectedDate:world.currentDate,expectedRevision:backup.activeRecord.revision,
    players:[{id,fromRoot:p.potential,fromDevelopment:p.development.potential,
