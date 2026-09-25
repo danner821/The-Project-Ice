@@ -40,7 +40,7 @@ def main():
         ['node','-e',NODE,str(ROOT)],text=True))
     html=(ROOT/'index.html').read_text()
     import re
-    html=re.sub(r'<script\\s+src=["\\'][^"\\']+["\\']\\s*>\\s*</script>',
+    html=re.sub(r"""<script\s+[^>]*src=['"][^'"]+['"][^>]*>\s*</script>""",
                 '',html)
     fake=(TOOLS/'potential-v2-fake-indexeddb.js').read_text().replace(
         'module.exports={fakeIndexedDB};',
