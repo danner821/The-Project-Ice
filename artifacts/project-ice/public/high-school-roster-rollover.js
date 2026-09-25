@@ -224,6 +224,28 @@
     const position = graduate?.position || ['C','LW','RW','D','D','G'][seed % 6];
     const baseOverall = Number(graduate?.overall) || 66;
     const overall = Math.max(55, Math.min(72, Math.round(baseOverall - 5 - (seed % 6))));
+    // Graduates provide attribute templates, never the next player's history.
+    // Fresh DNA is initialized by the canonical development engine on use.
+    const freshSeed = hash(`${id}:development`) / 4294967296;
+    const graduateDevelopment = graduate?.development || {};
+    const startingPotential = Number(graduateDevelopment.potential ?? graduate?.potential) || overall + 12;
+    const development = {
+      ...graduateDevelopment,
+      xpAvailable: 0, xpEarnedCareer: 0, xpSpentCareer: 0,
+      xpEarnedByCategory: Object.fromEntries(
+        ['skating','shooting','passing','defense','physical','hockeyIQ','goalie','general']
+          .map(key => [key, 0])
+      ),
+      attributeXP: {}, attributeXPEarnedCareer: {}, attributeUpgradeCounts: {},
+      developmentSeed: freshSeed, dna: null,
+      potential: startingPotential, potentialAccuracy: 'Medium',
+      potentialConfidence: 50, potentialTrend: 'stable', potentialSignal: 0,
+      potentialHistory: [], lastPotentialChangeSeason: null,
+      lastPotentialChangeWeek: null, lastPotentialEvaluationWeek: null,
+      currentAge: 14, growthStartAge: 14, lastDevelopmentSeason: null,
+      totalOverallGrowth: 0, totalOverallRegression: 0,
+      seasonAttributeGrowth: {}, developmentHistory: [],
+    };
     const player = {
       ...JSON.parse(JSON.stringify(graduate || {})),
       id,
@@ -247,6 +269,23 @@
       overall,
       startingOverall: overall,
       attributes: adjustAttributes(graduate?.attributes, seed),
+      developmentSeed: freshSeed, development,
+      potential: startingPotential, potentialAccuracy: 'Medium',
+      potentialConfidence: 50, potentialTrend: 'stable',
+      captain: false, isCaptain: false, isAlternate: false,
+      alternate: false, alternateCaptain: false, isAlternateCaptain: false,
+      captainLetter: null, captainRole: null, leadershipLetter: null,
+      leadershipRole: null, teamAlternate: false,
+      coachTrust: 50, morale: 50, recentForm: 50,
+      reputationStars: 1, reputationPoints: 0,
+      careerStats: emptySeasonStats({ position }),
+      gameLog: [], accomplishments: [],
+      history: { seasons: [], teams: [], transactions: [], lineupChanges: [],
+        awards: [], championships: [], milestones: [], records: [], draft: null },
+      health: { status: 'healthy', injured: false, injury: null,
+        injuryRiskModifier: 0, gamesMissed: 0, lastRecoveryDate: null },
+      injured: false, injury: null,
+      specialTeamsAssignments: { powerPlay: [], penaltyKill: [] },
       rosterSlot: null,
       startingLine: null,
       lineupAssignment: null,
@@ -263,10 +302,14 @@
       generatedIncomingFreshman: true,
       incomingClassSeasonId: identity.seasonId,
       scoutingProfile: {
-        ...(graduate?.scoutingProfile && typeof graduate.scoutingProfile === 'object' ? graduate.scoutingProfile : {}),
-        publicRank: null,
-        previousRank: null,
-        trend: 'new',
+        publicRank: null, previousRank: null, rankChange: 0, lastRankedWeek: null,
+        interestLevel: 'Low', organizationsWatching: [], gamesObserved: 0,
+        interviewsCompleted: 0, strengthsKnown: [], weaknessesKnown: [],
+        evaluationAccuracy: 'Low', scoutingHistory: [], scoutingExposureScore: 0,
+        spotlightGamesObserved: 0, lastScoutedWeek: null,
+        organizationInterestHistory: [], potentialConfidenceObservedGamesCredited: 0,
+        potentialConfidenceExposureCredited: 0,
+        potentialConfidenceSpotlightCredited: 0, trend: 'new',
       },
     };
     resetStats(player);
