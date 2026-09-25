@@ -1,5 +1,8 @@
 # Potential 2.0 — Backup 3 read-only review checkpoint
 
+> **SUPERSEDED REVIEW COUNTS:** A subsequent chronological identity audit found 53 generated freshmen with impossible archived/current age transitions. The earlier 148-player review group counts below include suspect inherited history and must NOT drive any potential change. See [the corrected age-provenance checkpoint](POTENTIAL_V2_AGE_PROVENANCE.md): 95 coherent histories, 53 quarantined; 4 strong and 5 additional valid breakout review flags after excluding tainted players and peers. No numerical rating is approved.
+
+
 Status: offline audit PASS; live migration remains disabled.
 
 On the new user-verified revision-16 career export, the original Project Ice offline source scripts were executed directly: `potential-v2-shadow.js`, `potential-v2-calibration.js`, and `potential-v2-evidence-xp.js`. Their synthetic suites passed 12, 15, and 22 checks; the separate clone-only migration rehearsal suite passed 23 checks.
