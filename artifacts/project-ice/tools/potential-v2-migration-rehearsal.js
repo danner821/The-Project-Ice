@@ -4,7 +4,7 @@
  * cannot generate one. Use only after backup recovery/approval gates pass.
  */
 'use strict';
-const {tier}=require('./potential-v2-weekly-shadow');
+const {tier,suspectInheritedHistory}=require('./potential-v2-weekly-shadow');
 const jsonCopy=x=>JSON.parse(JSON.stringify(x));
 const validNumber=n=>Number.isInteger(n)&&n>=25&&n<=99;
 function core(world){
@@ -59,6 +59,8 @@ function rehearsal(backup,plan){
     const player=players[0];
     if(player.realPlayer===true||player.persistentProspect===true)
       throw Error('Real prospect is not eligible for historical recalibration: '+id);
+    if(suspectInheritedHistory(player))
+      throw Error('Player has pre-generation archived history; historical potential migration blocked: '+id);
     if(!validNumber(selection.fromRoot)||!validNumber(selection.fromDevelopment)||
        !validNumber(selection.to))
       throw Error('Explicit original root, development and target ratings required.');
