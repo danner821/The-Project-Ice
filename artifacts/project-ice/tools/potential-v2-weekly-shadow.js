@@ -46,13 +46,24 @@ function metric(player,minimum=true){
      minimum&&(gp<5||minutes<100))return null;
   return{value:points*60/minutes,position:type,gp,volume:minutes,units:'pointsPer60'};
 }
+// Archived seasons before a new freshman's incoming class belong to a
+// different identity. Exclude contaminated subjects AND peers from V2 evidence.
+function suspectInheritedHistory(player){
+  if(player?.generatedIncomingFreshman!==true)return false;
+  const year=Number(String(player.incomingClassSeasonId||'').match(/^hs-(\d{4})-/)?.[1]);
+  const history=player.highSchoolSeasonHistory||[];
+  if(!Array.isArray(history)||!history.length)return false;
+  if(!Number.isInteger(year)||year<1900)return true;
+  return history.some(entry=>!Number.isInteger(Number(entry?.seasonStartYear))||
+    Number(entry.seasonStartYear)<year);
+}
 function cohort(player,peers){
   const currentLevel=competition(player);
   const age=Number(player?.age),potential=Number(player?.potential);
   const group=position(player?.position),found=[];
   if(!currentLevel||!Number.isFinite(age)||!Number.isFinite(potential))return found;
   for(const p of peers||[]){
-    if(!p||String(p.id||p.playerId)===String(player?.id||player?.playerId))continue;
+    if(!p||suspectInheritedHistory(p)||String(p.id||p.playerId)===String(player?.id||player?.playerId))continue;
     if(competition(p)!==currentLevel||
       position(p.position)!==group||Math.abs(Number(p.age)-age)>2||
       Math.abs(Number(p.potential)-potential)>12)continue;
@@ -85,6 +96,8 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
   observedGames=0}={}){
   if(!player||typeof player!=='object'||!seasonId||!weekKey)
     return{status:'withheld',reason:'MISSING_WEEK_OR_PLAYER',readOnly:true};
+  if(suspectInheritedHistory(player))
+    return{status:'withheld',reason:'UNVERIFIED_ARCHIVED_PLAYER_IDENTITY',readOnly:true};
   const root=Number(player.potential),nested=Number(player.development?.potential);
   if(!Number.isFinite(root)||!Number.isFinite(nested)||root<25||root>99||
     nested<25||nested>99||root!==nested)
@@ -197,4 +210,4 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
       player.id||player.playerId,'potential-v2'].join(':'))),
     proposal:proposed};
 }
-module.exports={metric,cohort,baseline,evaluate,tier};
+module.exports={metric,cohort,baseline,evaluate,tier,suspectInheritedHistory};
