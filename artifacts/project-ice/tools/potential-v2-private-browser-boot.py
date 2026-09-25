@@ -59,6 +59,32 @@ with sync_playwright() as playwright:
       const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
       const env=JSON.parse(await new Response(stream).text()),r=env.activeRecord;
       window.__fake.addSentinel('projectice_DISPOSABLE_BROWSER_SMOKE',r.id,r);
+      window.__iceProjection=function(rec){
+        const w=rec.world,players=w.teams.flatMap(t=>t.roster||[]);
+        const p=players.find(x=>x.id===w.player?.id)||w.player;
+        return {revision:rec.revision,savedAt:rec.savedAt,
+          topKeys:Object.keys(w).sort(),date:w.currentDate,week:w.currentWeek,
+          season:w.currentSeason,
+          player:{id:p?.id,overall:p?.overall,potential:p?.potential,
+            developmentPotential:p?.development?.potential,
+            attributeXP:p?.development?.attributeXP,
+            attributeXPEarnedCareer:p?.development?.attributeXPEarnedCareer,
+            upgradeCounts:p?.development?.attributeUpgradeCounts,
+            archivedSeasons:p?.highSchoolSeasonHistory?.map(z=>({
+              seasonId:z.seasonId,overall:z.overall}))},
+          roster:players.map(x=>({id:x.id,overall:x.overall,
+            potential:x.potential,devPotential:x.development?.potential,
+            earned:x.development?.xpEarnedCareer,
+            attrXP:x.development?.attributeXP})),
+          prospects:(w.externalProspects||[]).map(x=>({
+            id:x.id,overall:x.overall,potential:x.potential,
+            devPotential:x.development?.potential})),
+          schedule:(w.schedule||[]).map(e=>({
+            id:e.id,status:e.status,played:e.played,
+            homeScore:e.homeScore,awayScore:e.awayScore}))};
+      };
+      window.__beforeContinue=window.__iceProjection(r);
+
       window.__fake.addSentinel('projectice_database','career:PROTECTED_CANARY',
         {id:'career:PROTECTED_CANARY',revision:444,world:{protected:true}});
       localStorage.setItem('projectice_active_career_id_v1',env.activeCareerId);
@@ -74,6 +100,29 @@ with sync_playwright() as playwright:
     assert page.locator('.career-save-card').count()==1, 'Expected exactly one save'
     page.locator('.career-save-card').first.click()
     page.wait_for_function("Game.screen==='hub'",timeout=25000)
+    diff=page.evaluate("""()=>{
+      const id='career:'+localStorage.getItem('projectice_active_career_id_v1');
+      const rec=window.__fake.registry.get('projectice_DISPOSABLE_BROWSER_SMOKE')
+        .records.get(id);
+      const a=window.__iceProjection(rec),b=window.__beforeContinue;
+      const differences={};
+      for(const key of Object.keys(b)){
+        if(key==='revision'||key==='savedAt')continue;
+        if(JSON.stringify(a[key])!==JSON.stringify(b[key])){
+          if(Array.isArray(b[key]))
+            differences[key]={beforeLength:b[key].length,afterLength:a[key].length,
+              changedIndices:b[key].reduce((n,x,i)=>
+                n+(JSON.stringify(x)!==JSON.stringify(a[key][i])?1:0),0)};
+          else differences[key]='Changed unexpectedly';
+        }
+      }
+      return {revisionBefore:b.revision,revisionAfter:a.revision,
+        persistedDataDifferences:differences};
+    }""")
+    assert diff['revisionBefore']==4 and diff['revisionAfter']>=4,diff
+    assert not diff['persistedDataDifferences'],diff
+    print('PASS: revision only, no projected roster/XP/potential/schedule changes',
+          json.dumps(diff),flush=True)
     result=page.evaluate("""()=>{
       const p=WorldEngine.getCareerPlayer(),s=WorldEngine.state;
       const id='career:'+localStorage.getItem('projectice_active_career_id_v1');
