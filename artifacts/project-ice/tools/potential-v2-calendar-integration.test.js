@@ -143,8 +143,28 @@ async function run(){
  assert(fake.counters.opens.every(n=>n===dbName),
   'every IDB open mapped to disposable adapter');
  assert.deepEqual(fake.registry.get('projectice_database').records.get(other.id),other);
+ // The first scheduled career game must STOP the calendar for the user's
+ // Play/Sim decision; a shadow pass may not count it as a completed game.
+ reboot.engine.state.schedule.push({id:'career-game',date:'2025-09-19',
+  type:'game',homeTeamId:reboot.engine.state.teams[0].teamId,
+  awayTeamId:reboot.engine.state.teams[3].teamId,played:false});
+ const blocked=reboot.engine.advanceToDate('2025-09-23',{
+  save:false,maximumDays:10});
+ assert.equal(blocked.success,false);
+ assert.equal(blocked.stopSimulation,true);
+ assert.equal(blocked.currentDate,'2025-09-19');
+ assert.equal(blocked.blockingEventResult.reason,
+  'career-game-awaiting-user-choice');
+ assert.equal(reboot.engine.state.schedule.at(-1).played,false);
+ assert.equal(reboot.engine.getCareerPlayer().seasonStats.gamesPlayed,0);
+ assert.equal(evaluate({player:{...reboot.engine.getCareerPlayer(),leagueLevel:'HS'},
+  peers,seasonId,weekKey:'2025-09-19',weekNumber:3}).reason,
+  'UNRECONCILED_OR_MISSING_POTENTIAL');
+ assert.deepEqual(copy(fake.registry.get(dbName).records.get(key)),persisted,
+  'blocked, unsaved career game cannot overwrite disposable save');
  console.log('PASS: actual WorldEngine 14-day calendar, two crossed weeks, '+
-   'NPC game and stats, V2 shadow 160/160, no premature ratings, '+
+   'NPC game and stats, held career game, V2 shadow 160/160, '+
+   'no premature ratings, '+
    'disposable save/reboot, protected database untouched');
  console.log('SHADOW:',JSON.stringify(reasons));
 }
