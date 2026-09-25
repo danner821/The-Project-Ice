@@ -59,5 +59,14 @@ assert.throws(()=>rehearsal(backup,{...valid,players:[
  {...valid.players[0],id:'real',fromRoot:90,fromDevelopment:90}]}));
 assert.throws(()=>rehearsal(backup,{...valid,players:[
  valid.players[0],valid.players[0]]}));
+// Even a marked-reviewed plan cannot rerate a freshman with pre-generation archives.
+const suspectFreshman={...npc,generatedIncomingFreshman:true,
+ incomingClassSeasonId:'hs-2025-2026',
+ highSchoolSeasonHistory:[{seasonStartYear:2024,age:17}]};
+const compromised={...backup,activeRecord:{...backup.activeRecord,
+ world:{...world,teams:[{roster:[career,suspectFreshman,real]}]}}};
+assert.throws(()=>rehearsal(compromised,{...valid,players:[
+ {id:'npc',fromRoot:79,fromDevelopment:79,to:84,reviewed:true,
+ reason:'explicitly reviewed but identity invalid'}]}),/pre-generation archived history/);
 assert.equal(JSON.stringify(backup),before,'blocked plans do not mutate');
 console.log('PASS: migration rehearsal including legacy public potential metadata synchronization');
