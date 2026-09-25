@@ -23,6 +23,8 @@ function core(world){
     worldPlayerNonPotential:(()=>{
       const player=jsonCopy(world.player||{});
       delete player.potential;delete player.potentialRole;
+      delete player.potentialAccuracy;delete player.potentialConfidence;
+      delete player.potentialTrend;delete player.potentialHistory;
       if(player.development){
         delete player.development.potential;
         delete player.development.potentialRole;
@@ -81,6 +83,11 @@ function rehearsal(backup,plan){
       player.development.potentialConfidence=55;
       player.development.potentialAccuracy='Medium';
       player.development.potentialTrend=direction;
+      // Keep existing player-facing legacy fields consistent with the canonical
+      // development projection. This is a disposable rehearsal, not live code.
+      player.potentialAccuracy='Medium';
+      player.potentialConfidence=55;
+      player.potentialTrend=direction;
       player.development.potentialHistory=[
         ...(Array.isArray(player.development.potentialHistory)?
           player.development.potentialHistory:[]),
@@ -98,6 +105,14 @@ function rehearsal(backup,plan){
         throw Error('Root career player identity conflicts with roster: '+id);
       clone.player.potential=selection.to;
       clone.player.potentialRole=next;
+      if(changed){
+        if(Object.hasOwn(clone.player,'potentialAccuracy'))
+          clone.player.potentialAccuracy='Medium';
+        if(Object.hasOwn(clone.player,'potentialConfidence'))
+          clone.player.potentialConfidence=55;
+        if(Object.hasOwn(clone.player,'potentialTrend'))
+          clone.player.potentialTrend=direction;
+      }
       if(clone.player.development){
         clone.player.development.potential=selection.to;
         clone.player.development.potentialRole=next;
