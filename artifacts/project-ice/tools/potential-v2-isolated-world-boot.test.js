@@ -4,9 +4,9 @@
  *
  * Runs the ACTUAL, complete production world.js WorldEngine.load()/save()
  * in a Node VM with separately injected in-memory IndexedDB/localStorage.
- * The fixture contains 160 SYNTHETIC varsity roster slots, 191 SYNTHETIC
+ * The fixture contains 160 SYNTHETIC varsity roster slots, 191 CURRENT CURATED
  * real/external prospects and an intentionally conflicted 74/68 career.
- * There is no real browser storage, no real-world player's identity, no
+ * There is no real browser storage, no real user career identity, no
  * game.js UI boot, and no live user career record.
  *
  * Optional real backup use is intentionally NOT automatic: only after
@@ -18,6 +18,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const {fakeIndexedDB}=require('./potential-v2-fake-indexeddb');
 const source=fs.readFileSync(path.join(__dirname,'../public/world.js'),'utf8');
+const curatedProspects=fs.readFileSync(path.join(__dirname,'../public/prospects.js'),'utf8');
 const copy=x=>JSON.parse(JSON.stringify(x));
 const id='synthetic-boot-career';
 const key='career:'+id;
@@ -29,20 +30,18 @@ function createRuntime(db,trace){
    setItem(k,v){local.set(k,String(v));},
    removeItem(k){local.delete(k);}
  };
- const real=Array.from({length:191},(_,i)=>({
-   id:'synthetic-real-'+i,firstName:'External',lastName:'Fixture',
-   position:'RW',age:16,draftYear:2027,overall:70,potential:90,
-   realPlayer:true
- }));
  const context={indexedDB:db.indexedDB,localStorage:storage,
-   structuredClone:copy,REAL_PROSPECTS:real,
+   structuredClone:copy,
    console:{log(){},warn:(...args)=>trace.push(String(args[0])),
      error:(...args)=>trace.push(String(args[0]))},
    window:{},document:{},setTimeout,clearTimeout,Date,Math};
  vm.createContext(context);
- vm.runInContext(source+'\nthis.IsolatedWorldEngine=WorldEngine;',
-   context,{filename:'production-world.js',timeout:25000});
- return{engine:context.IsolatedWorldEngine,real};
+ vm.runInContext(curatedProspects+'\\n'+source+
+   '\\nthis.IsolatedWorldEngine=WorldEngine;'+
+   '\\nthis.IsolatedCuratedProspects=REAL_PROSPECTS;',
+   context,{filename:'production-prospects-and-world.js',timeout:30000});
+ return{engine:context.IsolatedWorldEngine,
+   real:context.IsolatedCuratedProspects};
 }
 function buildWorld(engine,real){
  const world=copy(engine.state);
@@ -97,6 +96,7 @@ async function run(){
  fake.addSentinel('projectice_database',forbiddenKey,sentinel);
  const trace=[];
  const runtime=createRuntime(fake,trace);
+ assert.equal(runtime.real.length,191,'current curated prospect count');
  const fixture=buildWorld(runtime.engine,runtime.real);
  const saved={id:key,careerId:id,revision:4,
    savedAt:'2026-09-24T05:56:01Z',world:fixture};
