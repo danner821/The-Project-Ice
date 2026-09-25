@@ -3326,6 +3326,9 @@ function hasCanonicalCareerWorld() {
         )
       ) ||
       hasCanonicalCareerWorld() ||
+      // An existing active career must remain reachable for diagnosis
+      // even when its IndexedDB load failed and preview is absent.
+      Boolean(WorldEngine.getActiveCareerId()) ||
       (() => {
         try {
           const saves = JSON.parse(localStorage.getItem('projectice_career_save_index_v1') || '[]');
