@@ -12,6 +12,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKUP = Path(sys.argv[1]).resolve()
+FAIL_CLOSED_ONLY = '--fail-closed-only' in sys.argv[2:]
 if not BACKUP.is_file():
     raise SystemExit('Provide an existing local backup file')
 with BACKUP.open('rb') as f:
@@ -95,6 +96,44 @@ with sync_playwright() as playwright:
     del compressed
     for name in ('prospects.js','world.js','game.js'):
         page.add_script_tag(content=(ROOT/'public'/name).read_text())
+    if FAIL_CLOSED_ONLY:
+        page.evaluate("""()=>{
+          window.__priorLoad=WorldEngine.load;
+          window.__priorEnsure=WorldEngine.ensureGeneratedRosters;
+          window.__ensureCalls=0;
+          WorldEngine.load=async()=>false;
+          WorldEngine.ensureGeneratedRosters=async(...args)=>{
+            window.__ensureCalls++;
+            return window.__priorEnsure(...args);
+          };
+          const store=window.__fake.registry.get('projectice_DISPOSABLE_BROWSER_SMOKE');
+          window.__beforeFailure=JSON.stringify([...store.records.values()][0]);
+        }""")
+        page.evaluate('async()=>{await init();}')
+        failure=page.evaluate("""()=>{
+          const store=window.__fake.registry.get('projectice_DISPOSABLE_BROWSER_SMOKE');
+          const record=[...store.records.values()][0];
+          return {
+            screen:Game.screen,
+            continueEnabled:!document.getElementById('btn-continue').disabled,
+            synthesizedRosters:window.__ensureCalls,
+            revision:record.revision,
+            recordIdentical:window.__beforeFailure===JSON.stringify(record),
+            canary:window.__fake.registry.get('projectice_database')
+              .records.get('career:PROTECTED_CANARY').revision
+          };
+        }""")
+        assert failure=={'screen':'title','continueEnabled':True,
+          'synthesizedRosters':0,'revision':4,'recordIdentical':True,
+          'canary':444},failure
+        with BACKUP.open('rb') as source:
+            assert hashlib.file_digest(source,'sha256').hexdigest()==original_hash
+        print(json.dumps({'result':'PASS','test':'full original backup fail-closed DOM',
+          'detail':failure,'sourceSHA256':original_hash,
+          'limitation':'Injected load failure; simulated IndexedDB, not WebKit'},
+          indent=2))
+        browser.close()
+        sys.exit(0)
     page.evaluate('async()=>{await init();}')
     assert page.locator('#btn-continue').is_enabled(), 'Continue disabled'
     page.locator('#btn-continue').click()
