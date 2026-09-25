@@ -37,6 +37,7 @@ function fakeIndexedDB(options={}){
      };
      return{
        get(key){return request(()=>clone(tx.stage.get(key)));},
+       getAll(){return request(()=>[...tx.stage.values()].map(clone));},
        put(object){
          if(tx.mode!=='readwrite')throw Error('ReadOnlyError');
          if(!object||!object.id)throw Error('Missing keyPath id');
@@ -102,7 +103,8 @@ function fakeIndexedDB(options={}){
    addSentinel(name,id,record){
      if(!registry.has(name))registry.set(name,{
        records:new Map(),objectStoreNames:{contains:k=>k==='worlds'},
-       createObjectStore:()=>({}),close:()=>{}
+       createObjectStore:()=>({}),transaction:(store,mode)=>
+         new Transaction(registry.get(name),mode),close:()=>{}
      });
      registry.get(name).records.set(id,clone(record));
    }};
