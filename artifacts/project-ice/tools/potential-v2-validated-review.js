@@ -5,6 +5,13 @@ const {evaluateWorld}=require('./potential-v2-shadow');
 const {calibrate}=require('./potential-v2-calibration');
 const {playerReview}=require('./potential-v2-evidence-xp');
 function provenance(p,history){
+ // An incoming freshman has a new identity. No archived season may precede
+ // that player's incoming class, even when recycled ages look plausible.
+ const incomingYear=Number(String(p?.incomingClassSeasonId||'').match(/^hs-(\d{4})-/)?.[1]);
+ if(p?.generatedIncomingFreshman===true && Number.isInteger(incomingYear) &&
+   (history||[]).some(h=>Number.isInteger(Number(h?.seasonStartYear)) &&
+     Number(h.seasonStartYear)<incomingYear))
+  return{status:'quarantined',reason:'ARCHIVE_PREDATES_PLAYER_GENERATION'};
  const h=(history||[]).slice(-2);
  if(h.length!==2)return{status:'missing-archive',reason:'TWO_COMPLETED_SEASONS_REQUIRED'};
  const a=Number(h[0].age),b=Number(h[1].age),current=Number(p.age);
