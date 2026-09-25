@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<title>Project Ice — Private Safari Storage Check</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color-scheme:dark;background:#081521;color:#eef5ff}
+body{max-width:550px;margin:0 auto;padding:22px 18px 65px;line-height:1.5}
+h1{font-size:1.6rem}p,.muted{color:#abc3d5}.card{border:1px solid #27445e;border-radius:13px;padding:16px;margin:16px 0;background:#102337}
+button,.file{display:block;box-sizing:border-box;width:100%;text-align:center;margin:12px 0;padding:14px;border-radius:11px;border:0;background:#50abeb;color:#061523;font-weight:750;font-size:1rem}
+button:disabled{opacity:.42}button.secondary{background:#27445e;color:white}input{width:100%;margin:10px 0}
+pre{font-size:.77rem;white-space:pre-wrap;overflow-wrap:anywhere;background:#03101d;padding:13px;border-radius:9px}
+.warn{border-left:3px solid #ffcf67;padding-left:10px}
+</style></head><body>
+<h1>Project Ice: private storage check</h1>
+<p>Tests Safari's actual IndexedDB without opening or changing your live Project Ice career. All operations use a uniquely named diagnostic database. No network requests are made.</p>
+<div class="card"><h2>1. Small storage test</h2><p>Stores only fictional data, commits it and reopens the separate diagnostic database.</p><button id="small">Run small test</button></div>
+<div class="card"><h2>2. Optional full-size test</h2>
+<p class="warn">Select a <strong>copy</strong> of your career JSON in Files. Safari writes a second, temporary diagnostic copy (~56 MB or more of device storage). The file is processed locally and is never uploaded. Your live career is not opened.</p>
+<input id="backup" type="file" accept=".json,application/json"><button id="full" disabled>Test full backup privately</button></div>
+<div class="card"><h2>3. Verify retention and clean up</h2>
+<p>After a test passes, reload this page. Verify the diagnostic save survived, then delete only the diagnostic database.</p>
+<button id="recheck" class="secondary">Check after page reload</button><button id="cleanup" class="secondary">Delete diagnostic data only</button></div>
+<div class="card"><h2>Status</h2><pre id="status" role="status" aria-live="polite">Ready. No Project Ice career data accessed.</pre></div>
+<script>
+(()=>{'use strict';
+const PREFIX='projectice_DIAGNOSTIC_ONLY_20260925_',META='projectice_DIAGNOSTIC_META_20260925';
+const status=document.getElementById('status'),file=document.getElementById('backup');
+const buttons=['small','full','recheck','cleanup'].map(id=>document.getElementById(id));
+let busy=false;
+function say(message){status.textContent=message}
+function lock(value){busy=value;for(const button of buttons)button.disabled=value;
+ if(!value)document.getElementById('full').disabled=!file.files.length}
+file.addEventListener('change',()=>document.getElementById('full').disabled=!file.files.length||busy);
+function req(r){return new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error||Error('IndexedDB operation failed'))})}
+function open(name){return new Promise((resolve,reject)=>{const r=indexedDB.open(name,1);
+ r.onupgradeneeded=()=>r.result.createObjectStore('diagnostic',{keyPath:'id'});
+ r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error||Error('IndexedDB open failed'));
+ r.onblocked=()=>reject(Error('Close other tabs with this diagnostic open'))})}
+function close(db){if(db)db.close()}
+function erase(name){if(!name||!name.startsWith(PREFIX))throw Error('Refusing to delete a non-diagnostic database');
+ return new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase(name);
+ r.onsuccess=resolve;r.onerror=()=>reject(r.error||Error('Diagnostic cleanup failed'));
+ r.onblocked=()=>reject(Error('Close other copies of this diagnostic page'))})}
+function done(tx){return new Promise((resolve,reject)=>{
+ tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error||Error('Transaction aborted'));
+ tx.onerror=()=>reject(tx.error||Error('Transaction failed'))})}
+async function write(db,record){const t=db.transaction('diagnostic','readwrite');
+ const complete=done(t);t.objectStore('diagnostic').put(record);await complete}
+async function read(db){const t=db.transaction('diagnostic','readonly');return req(t.objectStore('diagnostic').get('probe'))}
+async function sha(record){const bytes=new TextEncoder().encode(JSON.stringify(record));
+ const hash=await crypto.subtle.digest('SHA-256',bytes);
+ return [...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,'0')).join('')}
+function summary(r){return{id:r.id,revision:r.revision,date:r.world?.currentDate,
+ teams:r.world?.teams?.length,roster:r.world?.teams?.reduce((n,t)=>n+(t.roster?.length||0),0),
+ schedule:r.world?.schedule?.length}}
+async function test(record,kind){
+ if(sessionStorage.getItem(META))throw Error('Finish or delete the previous diagnostic test first');
+ const name=PREFIX+crypto.randomUUID();let db;
+ try{
+  say('Opening separate diagnostic database…');db=await open(name);
+  const digest=await sha(record);
+  say('Committing test data…');await write(db,record);close(db);db=null;
+  db=await open(name);say('Reopened. Comparing SHA-256…');
+  const stored=await read(db);if(!stored)throw Error('Record missing after reopening');
+  if(await sha(stored)!==digest)throw Error('Stored record checksum mismatch');
+  sessionStorage.setItem(META,JSON.stringify({name,kind,digest,summary:summary(stored)}));
+  say('PASS — '+kind+' saved, committed, reopened and checksum verified.\n\n'+
+      JSON.stringify(summary(stored),null,2)+'\n\nReload this page and tap Check after page reload.');
+ }catch(error){
+  close(db);db=null;
+  try{await erase(name)}catch(cleanup){say('Cleanup may be required for diagnostic '+name)}
+  throw error
+ }finally{close(db)}
+}
+async function run(task){if(busy)return;lock(true);
+ try{await task()}catch(error){say('FAIL — '+(error?.message||String(error))+
+ '\nYour live career was not accessed.')}finally{lock(false)}}
+document.getElementById('small').onclick=()=>run(async()=>test(
+ {id:'probe',kind:'fictional',payload:'ICE-SAFE-TEST-'+('x'.repeat(8192))},'small synthetic'));
+document.getElementById('full').onclick=()=>run(async()=>{
+ const selected=file.files[0];if(!selected)throw Error('Select a JSON backup first');
+ say('Reading the backup locally. Nothing is uploaded…');
+ const backup=JSON.parse(await selected.text());
+ if(backup?.format!=='projectice-career-backup'||!backup.activeRecord?.world||!backup.activeCareerId)
+   throw Error('Not a Project Ice career backup');
+ await test({...backup.activeRecord,id:'probe'},'full private career');
+});
+document.getElementById('recheck').onclick=()=>run(async()=>{
+ const saved=sessionStorage.getItem(META);if(!saved)throw Error('Run a diagnostic test first');
+ const meta=JSON.parse(saved);if(!meta.name.startsWith(PREFIX))throw Error('Unexpected database name');
+ let db;try{db=await open(meta.name);
+  const record=await read(db);if(!record)throw Error('Diagnostic record did not survive reload');
+  if(await sha(record)!==meta.digest)throw Error('Checksum changed after reload');
+  say('PASS — '+meta.kind+' data survived page reload with the same checksum.\n\n'+
+      JSON.stringify(meta.summary,null,2)+'\n\nNow tap Delete diagnostic data only.');
+ }finally{close(db)}
+});
+document.getElementById('cleanup').onclick=()=>run(async()=>{
+ const saved=sessionStorage.getItem(META);
+ if(!saved){say('No recorded diagnostic database in this tab; nothing deleted.');return}
+ const meta=JSON.parse(saved);await erase(meta.name);
+ sessionStorage.removeItem(META);file.value='';
+ say('PASS — only the diagnostic database was deleted. Your Project Ice career was never opened or changed.');
+});
+if(sessionStorage.getItem(META))say('A diagnostic result is waiting. Tap Check after page reload, then delete diagnostic data.');
+})();
+</script></body></html>
