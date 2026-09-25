@@ -2,7 +2,8 @@
 const assert=require('node:assert/strict');
 const {rehearsal,core}=require('./potential-v2-migration-rehearsal');
 const career={id:'career-player',isCareerPlayer:true,position:'RW',age:16,
- overall:72,potential:74,potentialRole:'Bottom 6 F',attributes:{speed:78},
+ overall:72,potential:74,potentialRole:'Bottom 6 F',potentialAccuracy:'Medium',
+ potentialConfidence:62,potentialTrend:'rising',attributes:{speed:78},
  seasonStats:{gamesPlayed:0},highSchoolSeasonHistory:[{seasonStartYear:2024,gp:28}],
  development:{potential:68,potentialRole:'AHL Top 6 F',potentialConfidence:87,
  potentialAccuracy:'High',potentialTrend:'stable',
@@ -33,6 +34,9 @@ assert.equal(staged.potential,79);
 assert.equal(staged.development.potential,79);
 assert.equal(staged.development.potentialAccuracy,'Medium');
 assert.equal(staged.development.potentialConfidence,55);
+assert.equal(staged.potentialAccuracy,'Medium','public confidence label synchronized');
+assert.equal(staged.potentialConfidence,55,'public confidence score synchronized');
+assert.equal(staged.potentialTrend,'rising','public trend synchronized');
 assert.equal(staged.development.potentialHistory.length,2,'retain history');
 assert.equal(preview.previewWorld.player.potential,79,'root snapshot synchronized');
 assert.equal(preview.previewWorld.player.development.potential,79);
@@ -52,4 +56,4 @@ assert.throws(()=>rehearsal(backup,{...valid,players:[
 assert.throws(()=>rehearsal(backup,{...valid,players:[
  valid.players[0],valid.players[0]]}));
 assert.equal(JSON.stringify(backup),before,'blocked plans do not mutate');
-console.log('PASS: 23 migration rehearsal safety assertions');
+console.log('PASS: migration rehearsal including legacy public potential metadata synchronization');
