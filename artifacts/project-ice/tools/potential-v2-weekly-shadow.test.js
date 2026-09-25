@@ -52,7 +52,7 @@ assert.equal(tier(96,'G'),'Franchise');
 assert.equal(tier(84,'D'),'Top 4 D');
 const thirty={...career,age:30,potential:90,development:{potential:90,potentialConfidence:45}};
 const oldPeers=Array.from({length:12},(_,i)=>({...thirty,id:'old'+i,potential:88+i%5,
- seasonStats:{gamesPlayed:20,points:10+i,minutesPlayed:420}}));
+ development:{...thirty.development,potential:88+i%5},seasonStats:{gamesPlayed:20,points:10+i,minutesPlayed:420}}));
 const future=evaluate({...opts,player:thirty,peers:oldPeers,previous:{seasonId:opts.seasonId,
  signal:3.9,streak:20,confidence:45,gamesEvaluated:8,lastChangedWeek:-50},
  weekNumber:31});
@@ -79,5 +79,12 @@ const validIncoming={...career,generatedIncomingFreshman:true,
  incomingClassSeasonId:'hs-2024-2025',
  highSchoolSeasonHistory:[{seasonStartYear:2024,age:15}]};
 assert.equal(evaluate({...opts,player:validIncoming}).status,'evaluated');
+assert.equal(evaluate({...opts,player:{...career,realPlayer:true}}).reason,
+ 'REAL_PLAYER_WEEKLY_RERATE_NOT_ENABLED');
+assert.equal(baseline(career,peers.map((p,i)=>i<12?{...p,realPlayer:true}:p)).status,
+ 'withheld','real HS-rostered players excluded pending reviewed model');
+assert.equal(baseline(career,peers.map((p,i)=>i<12?
+ {...p,development:{potential:60}}:p)).status,
+ 'withheld','root/development-conflicted peers excluded');
 assert.equal(JSON.stringify({career,peers,opts}),orig,'identity check has no mutation');
 console.log('PASS: weekly shadow deterministic, peer-level, age, confidence and save-safety checks');
