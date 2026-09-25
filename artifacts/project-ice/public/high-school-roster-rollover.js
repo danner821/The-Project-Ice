@@ -256,6 +256,8 @@
       awardHistory: [],
       records: [],
       careerTimeline: [],
+      // A new player must never inherit the graduating player's archived seasons.
+      highSchoolSeasonHistory: [],
       seasonHistory: [],
       travelHistory: [],
       generatedIncomingFreshman: true,
