@@ -84,6 +84,7 @@ with sync_playwright() as playwright:
             homeScore:e.homeScore,awayScore:e.awayScore}))};
       };
       window.__beforeContinue=window.__iceProjection(r);
+      window.__exactWorldBefore=JSON.stringify(r.world);
 
       window.__fake.addSentinel('projectice_database','career:PROTECTED_CANARY',
         {id:'career:PROTECTED_CANARY',revision:444,world:{protected:true}});
@@ -100,6 +101,35 @@ with sync_playwright() as playwright:
     assert page.locator('.career-save-card').count()==1, 'Expected exactly one save'
     page.locator('.career-save-card').first.click()
     page.wait_for_function("Game.screen==='hub'",timeout=25000)
+    exact=page.evaluate("""()=>{
+      const id='career:'+localStorage.getItem('projectice_active_career_id_v1');
+      const rec=window.__fake.registry.get('projectice_DISPOSABLE_BROWSER_SMOKE')
+        .records.get(id),after=JSON.stringify(rec.world),
+        before=window.__exactWorldBefore,differences=[];
+      if(before!==after){
+        const todo=[[JSON.parse(before),JSON.parse(after),'world']];
+        while(todo.length){
+          const [left,right,path]=todo.pop();
+          if(left===right)continue;
+          if(left===null||right===null
+             ||typeof left!=='object'||typeof right!=='object'){
+            differences.push({path,before:left,after:right});
+            if(differences.length>30)break;
+            continue;
+          }
+          const keys=new Set([...Object.keys(left),...Object.keys(right)]);
+          for(const k of keys)todo.push([left[k],right[k],path+'.'+k]);
+        }
+      }
+      return {fullWorldByteLengthBefore:before.length,
+        fullWorldByteLengthAfter:after.length,
+        differences,recordRevision:rec.revision};
+    }""")
+    assert exact['differences']==[
+        {'path':'world.persistence.revision','before':4,'after':9}
+    ],exact
+    print('PASS: exhaustive private world field comparison; only '
+          'world.persistence.revision 4->9 changed',flush=True)
     diff=page.evaluate("""()=>{
       const id='career:'+localStorage.getItem('projectice_active_career_id_v1');
       const rec=window.__fake.registry.get('projectice_DISPOSABLE_BROWSER_SMOKE')
