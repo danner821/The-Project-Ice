@@ -36,9 +36,9 @@ function createRuntime(db,trace){
      error:(...args)=>trace.push(String(args[0]))},
    window:{},document:{},setTimeout,clearTimeout,Date,Math};
  vm.createContext(context);
- vm.runInContext(curatedProspects+'\\n'+source+
-   '\\nthis.IsolatedWorldEngine=WorldEngine;'+
-   '\\nthis.IsolatedCuratedProspects=REAL_PROSPECTS;',
+ vm.runInContext(curatedProspects+'\n'+source+
+   '\nthis.IsolatedWorldEngine=WorldEngine;'+
+   '\nthis.IsolatedCuratedProspects=REAL_PROSPECTS;',
    context,{filename:'production-prospects-and-world.js',timeout:30000});
  return{engine:context.IsolatedWorldEngine,
    real:context.IsolatedCuratedProspects};
