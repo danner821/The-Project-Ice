@@ -25,4 +25,20 @@ assert.equal(out.shadowReviews['quarantined-age-identity'],1);
 assert.equal(out.calibrationStatuses['quarantined-age-identity'],1);
 assert.equal(out.players.length,2,'real players must be excluded');
 assert.equal(out.players.find(p=>p.id==='bad').evidence.scenarios[0].evidence.status,'withheld');
-console.log('PASS: 15 offline age identity, quarantine and immutability assertions');
+// Incoming class is independent identity evidence, even if the ages match.
+const coincidental={...make('coincidental',17,seasons(15,16)),
+ generatedIncomingFreshman:true,incomingClassSeasonId:'hs-2024-2025'};
+assert.equal(provenance(coincidental,coincidental.highSchoolSeasonHistory).reason,
+ 'ARCHIVE_PREDATES_PLAYER_GENERATION');
+const legitimate={...make('legitimate',16,
+ [{seasonStartYear:2024,age:15},{seasonStartYear:2025,age:16}]),
+ generatedIncomingFreshman:true,incomingClassSeasonId:'hs-2024-2025'};
+assert.equal(provenance(legitimate,legitimate.highSchoolSeasonHistory).status,'coherent');
+const extended={...world,teams:[{roster:[...world.teams[0].roster,coincidental,legitimate]}]};
+const frozen=JSON.stringify(extended),verified=validate(extended);
+assert.equal(JSON.stringify(extended),frozen,'audit is immutable');
+assert.equal(verified.integrity.ARCHIVE_PREDATES_PLAYER_GENERATION,1);
+assert.equal(verified.shadowReviews['quarantined-age-identity'],2);
+assert.equal(verified.players.find(p=>p.id==='coincidental').evidence.scenarios[0].evidence.status,'withheld');
+console.log('PASS: age + incoming-class identity guards, clean peers and immutable source');
+
