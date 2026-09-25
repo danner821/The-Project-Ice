@@ -158,6 +158,17 @@ async function run(){
  assert.equal(persisted.world.teams[0].roster[0].development.attributeXP.speed,62);
  assert.deepEqual(fake.registry.get('projectice_database').records.get(forbiddenKey),
    originalSentinel,'unrelated career untouched after explicit sandbox save');
+ // Active-career authority: a nonexistent ID must NEVER load or overwrite
+ // the current fixture, even if some other career exists in the database.
+ local.set('projectice_active_career_id_v1','missing-career');
+ const missing=createRuntime(fake,trace);
+ assert.equal(await missing.engine.load(),false,
+   'missing exact career must fail closed, no default fallback');
+ assert.deepEqual(fake.registry.get('projectice_database').records.get(forbiddenKey),
+   originalSentinel,'failed load cannot touch unrelated active data');
+ assert.equal(fake.registry.get(disposableName).records.get(key).revision,5,
+   'failed load cannot overwrite the existing isolated saved career');
+ local.set('projectice_active_career_id_v1',id);
  assert.ok(fake.counters.opens.every(name=>name===disposableName),
    'underlying fake adapter must never open the actual database name');
  assert.deepEqual([...fake.registry.keys()].sort(),
