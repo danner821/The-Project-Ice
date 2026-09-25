@@ -63,7 +63,10 @@ function cohort(player,peers){
   const group=position(player?.position),found=[];
   if(!currentLevel||!Number.isFinite(age)||!Number.isFinite(potential))return found;
   for(const p of peers||[]){
-    if(!p||suspectInheritedHistory(p)||String(p.id||p.playerId)===String(player?.id||player?.playerId))continue;
+    if(!p||p.realPlayer===true||p.persistentProspect===true||
+      suspectInheritedHistory(p)||
+      (p.development?.potential!=null && Number(p.development.potential)!==Number(p.potential))||
+      String(p.id||p.playerId)===String(player?.id||player?.playerId))continue;
     if(competition(p)!==currentLevel||
       position(p.position)!==group||Math.abs(Number(p.age)-age)>2||
       Math.abs(Number(p.potential)-potential)>12)continue;
@@ -98,6 +101,8 @@ function evaluate({player,peers=[],previous={},seasonId,weekKey,weekNumber=0,
     return{status:'withheld',reason:'MISSING_WEEK_OR_PLAYER',readOnly:true};
   if(suspectInheritedHistory(player))
     return{status:'withheld',reason:'UNVERIFIED_ARCHIVED_PLAYER_IDENTITY',readOnly:true};
+  if(player.realPlayer===true||player.persistentProspect===true)
+    return{status:'withheld',reason:'REAL_PLAYER_WEEKLY_RERATE_NOT_ENABLED',readOnly:true};
   const root=Number(player.potential),nested=Number(player.development?.potential);
   if(!Number.isFinite(root)||!Number.isFinite(nested)||root<25||root>99||
     nested<25||nested>99||root!==nested)
