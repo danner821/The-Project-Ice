@@ -63,4 +63,21 @@ const down=evaluate({...opts,player:reduced,previous:{seasonId:opts.seasonId,con
 assert.ok(down.proposal.confidence<80,'sustained mismatch reduces confidence');
 assert.equal(down.trend,'falling');
 assert.equal(a.proposal.lastEvaluatedWeek,opts.weekKey);
+// A recycled incoming freshman's older archive must not supply current
+// evidence or inflate the peer pool, even if their ages look plausible.
+const tainted={...peers[0],generatedIncomingFreshman:true,
+ incomingClassSeasonId:'hs-2025-2026',
+ highSchoolSeasonHistory:[{seasonStartYear:2024,age:16}]};
+const suspect={...career,generatedIncomingFreshman:true,
+ incomingClassSeasonId:'hs-2025-2026',
+ highSchoolSeasonHistory:[{seasonStartYear:2024,age:16}]};
+assert.equal(evaluate({...opts,player:suspect}).reason,
+ 'UNVERIFIED_ARCHIVED_PLAYER_IDENTITY');
+assert.equal(baseline(career,peers.map((p,i)=>i<12?{...tainted,id:p.id}:p)).status,
+ 'withheld','invalid history peers cannot establish tier baseline');
+const validIncoming={...career,generatedIncomingFreshman:true,
+ incomingClassSeasonId:'hs-2024-2025',
+ highSchoolSeasonHistory:[{seasonStartYear:2024,age:15}]};
+assert.equal(evaluate({...opts,player:validIncoming}).status,'evaluated');
+assert.equal(JSON.stringify({career,peers,opts}),orig,'identity check has no mutation');
 console.log('PASS: weekly shadow deterministic, peer-level, age, confidence and save-safety checks');
