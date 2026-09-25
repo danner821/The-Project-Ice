@@ -4,7 +4,7 @@
  *
  * Runs the ACTUAL, complete production world.js WorldEngine.load()/save()
  * in a Node VM with separately injected in-memory IndexedDB/localStorage.
- * The fixture contains 160 SYNTHETIC varsity roster slots, 191 CURRENT CURATED
+ * The fixture contains 160 SYNTHETIC varsity roster slots, 191 ACTUAL CURATED
  * real/external prospects and an intentionally conflicted 74/68 career.
  * There is no real browser storage, no real user career identity, no
  * game.js UI boot, and no live user career record.
@@ -24,13 +24,28 @@ const id='synthetic-boot-career';
 const key='career:'+id;
 const local=new Map([['projectice_active_career_id_v1',id]]);
 const forbiddenKey='career:actual-player-must-never-be-read';
+const disposableName='projectice_boot_disposable_synthetic_fixture';
 function createRuntime(db,trace){
  const storage={
    getItem(k){return local.has(k)?local.get(k):null;},
    setItem(k,v){local.set(k,String(v));},
    removeItem(k){local.delete(k);}
  };
- const context={indexedDB:db.indexedDB,localStorage:storage,
+ /* WorldEngine receives its usual database name, but ONLY this injected
+  * fake provider exists. Remap every requested open to a distinct disposable
+  * database and never permit a deletion of the real name.
+  */
+ const guardedIndexedDB={
+   open(name,version){
+     assert.equal(name,'projectice_database',
+       'unexpected WorldEngine database name');
+     return db.indexedDB.open(disposableName,version);
+   },
+   deleteDatabase(name){
+     throw Error('WorldEngine attempted database deletion: '+name);
+   }
+ };
+ const context={indexedDB:guardedIndexedDB,localStorage:storage,
    structuredClone:copy,
    console:{log(){},warn:(...args)=>trace.push(String(args[0])),
      error:(...args)=>trace.push(String(args[0]))},
@@ -100,11 +115,16 @@ async function run(){
  const fixture=buildWorld(runtime.engine,runtime.real);
  const saved={id:key,careerId:id,revision:4,
    savedAt:'2026-09-24T05:56:01Z',world:fixture};
- fake.addSentinel('projectice_database',key,saved);
+ fake.addSentinel(disposableName,key,saved);
  const original=copy(saved),originalSentinel=copy(sentinel);
  assert.equal(await runtime.engine.load(),true,
    'actual WorldEngine.load() must hydrate exact selected record');
  const after=snapshot(runtime.engine);
+ assert.equal(runtime.engine.getCareerPlayer()?.id,'fixture-career',
+   'production API resolves the career player after boot');
+ assert.equal(runtime.engine.getTeamById(runtime.engine.state.teams[0].teamId)
+   ?.teamId,runtime.engine.state.teams[0].teamId,
+   'production API resolves the imported team');
  assert.deepEqual(after,{
    date:'2025-09-04',seasonId:'hs-2025-2026',year:2,
    schoolYear:'Junior',phase:'preseason',rosterCount:160,
@@ -112,7 +132,7 @@ async function run(){
    rootPotential:74,developmentPotential:68,savedSpeedXP:62,
    historyLength:2
  },'production boot must preserve entire career fingerprint');
- assert.deepEqual(fake.registry.get('projectice_database').records.get(key),
+ assert.deepEqual(fake.registry.get(disposableName).records.get(key),
    original,'no accidental saved data change on normal boot');
  assert.deepEqual(fake.registry.get('projectice_database').records.get(forbiddenKey),
    originalSentinel,'another career remains untouched');
@@ -125,12 +145,12 @@ async function run(){
  assert.equal(await again.engine.load(),true,'repeat production boot');
  assert.deepEqual(snapshot(again.engine),after,
    'repeat boot must preserve season, real prospects and development');
- assert.deepEqual(fake.registry.get('projectice_database').records.get(key),
+ assert.deepEqual(fake.registry.get(disposableName).records.get(key),
    original,'second boot must not overwrite saved data');
  // Finally execute an explicit ordinary save INSIDE THE SANDBOX ONLY.
  // Its revision must continue from 4 to 5 instead of restarting at 1.
  assert.equal(await again.engine.save(),true,'sandbox ordinary save');
- const persisted=fake.registry.get('projectice_database').records.get(key);
+ const persisted=fake.registry.get(disposableName).records.get(key);
  assert.equal(persisted.revision,5,'revision must advance monotonically');
  assert.equal(persisted.world.season.careerYearIndex,2);
  assert.equal(persisted.world.teams.flatMap(t=>t.roster).length,160);
@@ -138,8 +158,11 @@ async function run(){
  assert.equal(persisted.world.teams[0].roster[0].development.attributeXP.speed,62);
  assert.deepEqual(fake.registry.get('projectice_database').records.get(forbiddenKey),
    originalSentinel,'unrelated career untouched after explicit sandbox save');
- assert.ok(fake.counters.opens.every(name=>name==='projectice_database'),
-   'the fake adapter must be the only available database provider');
+ assert.ok(fake.counters.opens.every(name=>name===disposableName),
+   'underlying fake adapter must never open the actual database name');
+ assert.deepEqual([...fake.registry.keys()].sort(),
+   ['projectice_database',disposableName].sort(),
+   'all simulated writes confined to the disposable database');
  console.log('PASS: actual production WorldEngine load twice + sandbox save; 160 roster, '+
    '191 external prospects, historical XP, season metadata, other-career isolation');
 }
