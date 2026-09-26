@@ -53,4 +53,7 @@ vm.runInContext(fs.readFileSync(path.join(publicDir,'prospects.js'),'utf8')+
  assert.equal(fake.registry.get('projectice_database').records.get('career:protected').world.canary,42);
  assert.equal(hash(fs.readFileSync(filename)),originalHash,'private input unchanged');
  console.log('PASS: actual production first-week calendar, protected 160 player potential records; 74/68 intact; no real DB touched');
+ // Production WorldEngine may leave housekeeping timers armed in the VM.
+ // All assertions are complete; exit so standalone/CI verification cannot hang.
+ process.exit(0);
 })().catch(e=>{console.error(e);process.exitCode=1;});
