@@ -1,0 +1,51 @@
+name: Potential V2 staging guard (synthetic only)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'artifacts/project-ice/public/world.js'
+      - 'artifacts/project-ice/tools/potential-v2-*'
+      - '.github/workflows/potential-v2-staging-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check staged engine and guard
+        run: |
+          node --check artifacts/project-ice/public/world.js
+          node --check artifacts/project-ice/tools/potential-v2-legacy-authority.test.js
+          node --check artifacts/project-ice/tools/potential-v2-private-first-week-gate.js
+      - name: Synthetic-only isolated regression suites
+        working-directory: artifacts/project-ice
+        run: |
+          set -e
+          for test in \
+            potential-v2-legacy-authority.test.js \
+            potential-v2-weekly-shadow.test.js \
+            potential-v2-weekly-longitudinal.test.js \
+            potential-v2-multiweek-cohort.test.js \
+            potential-v2-preseason-policy.test.js \
+            potential-v2-preseason-shadow-run.test.js \
+            potential-v2-isolated-world-boot.test.js \
+            potential-v2-private-world-boot.test.js \
+            potential-v2-staged-production-boot.test.js \
+            potential-v2-recovery-rehearsal.test.js \
+            potential-v2-restore-guard.test.js \
+            potential-v2-calendar-integration.test.js
+          do
+            node --max-old-space-size=2048 "tools/$test"
+          done
+      - name: Explicitly block private career backups
+        run: |
+          if find . -name '*career-backup*.json' -o -name 'Backup 3.json' | grep .; then
+            echo 'ERROR: private backup must never enter the repository.'
+            exit 1
+          fi

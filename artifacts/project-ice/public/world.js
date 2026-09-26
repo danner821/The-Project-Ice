@@ -37345,7 +37345,51 @@ case 'career-defense':
 
     const players = getAllWorldPlayers();
 
-    const results = players.map(player => evaluatePlayerPotentialWeek(player, normalizedDate));
+    /*
+     * Potential 2.0 release gate: the old weekly evaluator is the sole
+     * ACTIVE mutation authority until V2 is explicitly released. Do not
+     * let it reconcile conflicting legacy fields or rewrite players whose
+     * inherited history belongs to an earlier incoming class.
+     * This check does not enable V2 or modify protected player records.
+     */
+    const eligibleForLegacyPotentialWeek = player => {
+      if (player?.realPlayer === true || player?.persistentProspect === true) {
+        return { allowed: false, reason: 'real-player-potential-held' };
+      }
+      if (player?.generatedIncomingFreshman === true) {
+        const match = String(player.incomingClassSeasonId || '')
+          .match(/^hs-(\d{4})-/);
+        const incomingYear = match ? Number(match[1]) : NaN;
+        const histories = Array.isArray(player.highSchoolSeasonHistory)
+          ? player.highSchoolSeasonHistory : [];
+        if (histories.length && (!Number.isInteger(incomingYear) ||
+            histories.some(entry => !Number.isInteger(Number(entry?.seasonStartYear)) ||
+              Number(entry.seasonStartYear) < incomingYear))) {
+          return { allowed: false, reason: 'pre-generation-history-held' };
+        }
+      }
+      const root = player?.potential;
+      const canonical = player?.development?.potential;
+      if (!Number.isInteger(root) || !Number.isInteger(canonical) ||
+          root < 25 || root > 99 || canonical < 25 || canonical > 99 ||
+          root !== canonical) {
+        return { allowed: false, reason: 'unreviewed-potential-conflict-held' };
+      }
+      const games = Number(player?.seasonStats?.gamesPlayed) || 0;
+      if (games < 5) {
+        return { allowed: false, reason: 'insufficient-current-season-games' };
+      }
+      return { allowed: true };
+    };
+
+    const results = players.map(player => {
+      const eligibility = eligibleForLegacyPotentialWeek(player);
+      return eligibility.allowed
+        ? evaluatePlayerPotentialWeek(player, normalizedDate)
+        : { success: true, changed: false, skipped: true,
+            reason: eligibility.reason, weekKey,
+            playerId: player?.id || player?.playerId || null };
+    });
     const changes = results.filter(result => result?.changed === true);
     const careerPlayer = getCareerPlayerFromWorldState();
     const careerId = String(careerPlayer?.id || careerPlayer?.playerId || 'career-player');
