@@ -89,15 +89,70 @@ VERIFY=r"""async () => {
     roster:players.length,root:players[0].potential,nested:players[0].development.potential,
     storageRevision:records[0]?.revision,records:records.length};
 }"""
+LARGE_STORAGE=r"""async () => {
+  // 58,201,562 bytes of fictional data, matching Backup 3 export size.
+  // Never open or copy the user's real backup in browser CI.
+  const name='projectice_POTENTIAL_V2_DISPOSABLE_LARGE_ONLY';
+  const payload='S'.repeat(58201562);
+  const digest=async text=>Array.from(new Uint8Array(
+    await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))))
+      .map(x=>x.toString(16).padStart(2,'0')).join('');
+  const expected=await digest(payload);
+  const db=await new Promise((resolve,reject)=>{
+    const r=indexedDB.open(name,1);
+    r.onupgradeneeded=()=>r.result.createObjectStore('fixture');
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  await new Promise((resolve,reject)=>{
+    const tx=db.transaction('fixture','readwrite');
+    tx.objectStore('fixture').put(payload,'fictional-data');
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  });
+  db.close();
+  sessionStorage.setItem('V2_SYNTHETIC_LARGE_SHA256',expected);
+  const check=await new Promise((resolve,reject)=>{
+    const r=indexedDB.open(name);
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  const got=await new Promise((resolve,reject)=>{
+    const r=check.transaction('fixture','readonly').objectStore('fixture').get('fictional-data');
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  check.close();
+  return{bytes:got?.length,shaMatched:(await digest(got))===expected};
+}"""
+RECHECK_LARGE=r"""async () => {
+  const name='projectice_POTENTIAL_V2_DISPOSABLE_LARGE_ONLY';
+  const db=await new Promise((resolve,reject)=>{
+    const r=indexedDB.open(name);
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  const text=await new Promise((resolve,reject)=>{
+    const r=db.transaction('fixture','readonly').objectStore('fixture').get('fictional-data');
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+  db.close();
+  const bytes=new TextEncoder().encode(text);
+  const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)))
+    .map(x=>x.toString(16).padStart(2,'0')).join('');
+  const expected=sessionStorage.getItem('V2_SYNTHETIC_LARGE_SHA256');
+  const deleted=await new Promise((resolve,reject)=>{
+    const r=indexedDB.deleteDatabase(name);
+    r.onsuccess=()=>resolve(true);r.onerror=()=>reject(r.error);
+  });
+  sessionStorage.removeItem('V2_SYNTHETIC_LARGE_SHA256');
+  return{bytes:bytes.length,shaMatched:hash===expected,deleted};
+}"""
 def main():
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     threading.Thread(target=server.serve_forever,daemon=True).start()
     url=f"http://127.0.0.1:{server.server_port}/staging-blank"
     try:
         with sync_playwright() as p:
-            for name in ('chromium','webkit'):
-                browser=getattr(p,name).launch(headless=True)
-                context=browser.new_context()
+            for name in ('chromium','webkit','webkit-iphone-emulated'):
+                browser=getattr(p,'webkit' if name.startswith('webkit') else name).launch(headless=True)
+                device={k:v for k,v in p.devices['iPhone 13'].items() if k!='default_browser_type'} if name=='webkit-iphone-emulated' else {}
+                context=browser.new_context(**device)
                 page=context.new_page()
                 page.goto(url)
                 page.add_script_tag(url=f"http://127.0.0.1:{server.server_port}/prospects.js")
@@ -108,7 +163,11 @@ def main():
                 assert checked['immutable'] and checked['weekCount']==1,(name,checked)
                 assert checked['roster']==160 and checked['root']==74 and checked['nested']==68,(name,checked)
                 assert checked['storageRevision']==4 and checked['records']==1,(name,checked)
+                large=page.evaluate(LARGE_STORAGE)
+                assert large=={'bytes':58201562,'shaMatched':True},(name,large)
                 page.reload()
+                checked_large=page.evaluate(RECHECK_LARGE)
+                assert checked_large=={'bytes':58201562,'shaMatched':True,'deleted':True},(name,checked_large)
                 page.add_script_tag(url=f"http://127.0.0.1:{server.server_port}/prospects.js")
                 page.add_script_tag(url=f"http://127.0.0.1:{server.server_port}/world.js")
                 assert page.evaluate('WorldEngine.load()') is True,name
@@ -119,6 +178,6 @@ def main():
                   const r=indexedDB.deleteDatabase('projectice_database');
                   r.onsuccess=res;r.onerror=()=>rej(r.error)});localStorage.clear()}""")
                 browser.close()
-                print('PASS',name,'native IndexedDB durable reload, actual calendar, 160 protected records')
+                print('PASS',name,'native IndexedDB durable reload, 58MB synthetic SHA, actual calendar, 160 protected records')
     finally:server.shutdown()
 if __name__=='__main__':main()
