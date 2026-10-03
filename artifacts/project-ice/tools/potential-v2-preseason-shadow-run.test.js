@@ -8,7 +8,7 @@ const roster=[p('clean'),p('real',{realPlayer:true}),
  p('career',{development:{potential:68}})];
 const backup={format:'projectice-career-backup',version:1,activeCareerId:'fixture',
  activeRecord:{id:'career:fixture',revision:16,world:{currentDate:'2025-09-04',
- currentSeason:'2025-26',currentWeek:1,teams:[{roster}]}};
+ currentSeason:'2025-26',currentWeek:1,teams:[{roster}]}}};
 const before=JSON.stringify(backup),r=run(backup);
 assert.deepEqual(r.weeklyOutcomes,{
  INSUFFICIENT_PLAYER_SAMPLE:1,REAL_PLAYER_NOT_ELIGIBLE:1,
