@@ -1,0 +1,31 @@
+name: Potential V2 legacy root-cause provenance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'artifacts/project-ice/tools/potential-v2-root-cause-provenance.test.js'
+      - 'artifacts/project-ice/POTENTIAL_V2_ROOT_CAUSE_74_68.md'
+      - '.github/workflows/potential-v2-root-cause-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  historical-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run synthetic historical source provenance regression
+        working-directory: artifacts/project-ice
+        run: node tools/potential-v2-root-cause-provenance.test.js
+      - name: Refuse private career backups in repository
+        run: |
+          if find . -name '*career-backup*.json' -o -name 'Backup 3.json' | grep .; then
+            echo 'ERROR: private backup must never enter GitHub.'
+            exit 1
+          fi
