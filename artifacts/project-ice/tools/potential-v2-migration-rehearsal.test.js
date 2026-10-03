@@ -44,6 +44,27 @@ assert.equal(preview.previewWorld.player.development.potential,79);
 assert.equal(preview.previewWorld.player.potentialAccuracy,'Medium');
 assert.equal(preview.previewWorld.player.potentialConfidence,55);
 assert.equal(preview.previewWorld.player.potentialTrend,'rising');
+
+// A provenance reseed reconciles broken legacy authorities; the migration itself
+// is not fresh performance evidence and must therefore start Stable / Medium.
+const reseed=rehearsal(backup,{...baseline,players:[{id:'career-player',
+ fromRoot:74,fromDevelopment:68,to:79,reason:'legacy authorities independently invalidated',
+ reviewed:true,migrationKind:'legacy-provenance-reseed'}]});
+const reseeded=reseed.previewWorld.teams[0].roster[0];
+assert.equal(reseeded.potential,79);
+assert.equal(reseeded.development.potential,79);
+assert.equal(reseeded.potentialTrend,'stable');
+assert.equal(reseeded.development.potentialTrend,'stable');
+assert.equal(reseeded.potentialConfidence,55);
+assert.equal(reseeded.development.potentialConfidence,55);
+assert.equal(reseeded.development.potentialAccuracy,'Medium');
+assert.equal(reseeded.development.potentialHistory.at(-1).kind,'legacy-provenance-reseed');
+assert.equal(reseeded.development.potentialHistory.at(-1).trend,'stable');
+assert.equal(reseed.previewWorld.player.potential,79);
+assert.equal(reseed.previewWorld.player.potentialTrend,'stable');
+assert.deepEqual(core(reseed.previewWorld),core(world),'provenance reseed changes only potential fields');
+assert.throws(()=>rehearsal(backup,{...baseline,players:[{...valid.players[0],
+ migrationKind:'unknown-migration-kind'}]}),/Unsupported potential migration kind/);
 assert.deepEqual(core(preview.previewWorld),core(world),'no unrelated player/world changes');
 assert.deepEqual(preview.previewWorld.teams[0].roster[2],real,'real prospect unchanged');
 assert.deepEqual(preview.previewWorld.externalProspects,world.externalProspects);
