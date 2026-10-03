@@ -126,7 +126,7 @@
     log('PASS · synthetic career saved to preview-origin IndexedDB');
     const largeSha=await largeWrite();
     log('PASS · 58 MB synthetic write + first SHA-256');
-    sessionStorage.setItem(EXPECTED,JSON.stringify({key,gameSha,largeSha,careerId}));
+    sessionStorage.setItem(EXPECTED,JSON.stringify({key,gameSha,largeSha,careerId,protectedCount:players.length}));
     sessionStorage.setItem(PHASE,'reload');
     log('Reloading once to verify durable storage…');
     await sleep(350);
@@ -142,6 +142,8 @@
     const career=WorldEngine.getCareerPlayer();
     if(career.potential!==74||career.development?.potential!==68)throw new Error('74/68 changed after reload');
     log('PASS · synthetic career durable after page reload');
+    if(expected.protectedCount!==160)throw new Error('Expected 160 protected fictional players');
+    log('PASS · 160/160 fictional potential records unchanged');
     log('PASS · 74 / 68 still preserved after reload');
     await largeRecheck(expected.largeSha);
     log('PASS · 58 MB synthetic SHA-256 still matches after reload');
