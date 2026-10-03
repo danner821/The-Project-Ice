@@ -49,11 +49,14 @@ A disposable Backup 3 clone was rehearsed at target 84 through the existing stri
 - result remained read-only and not approved for live use;
 - role became Top 6 F;
 - certainty reset to 55 / Medium;
-- trend preview was Rising under the existing migration-direction rule;
-- exactly 16 potential-related leaves changed across the canonical roster record and root career mirror;
+- the earlier generic rehearsal previewed Rising solely because 84 exceeded the broken root 74; that behavior is superseded by PR #7's provenance-safe reseed mode;
+- under the provenance-safe rehearsal the reseed starts **Stable / Medium (55)**, because the migration itself is not new performance evidence;
+- exactly **17 potential-related leaves** change across the canonical roster record and root career mirror, including one explicit `legacy-provenance-reseed` history entry;
 - no XP balance, attribute, OVR, stat, schedule, history archive, roster identity or external prospect changed.
 
 Potential-sensitive XP pricing was also reviewed without spending XP. Existing earned XP remains intact; at an 84 seed, three currently banked attribute balances would become affordable under the locked prospective cost rules, but **no upgrade is automatic**.
+
+The provenance-safe 84 clone rehearsal was independently repeated against **both** verified private exports. Both produced the same 17 potential-only leaf changes and preserved every non-potential gameplay field; the two source files remained byte-identical.
 
 Scouting rankings are persistent publications. The migration itself does not republish or rewrite the current board; future legitimate scouting publication cadence remains responsible for any rank movement.
 
@@ -67,6 +70,6 @@ Scouting rankings are persistent publications. The migration itself does not rep
 
 ## Remaining gate
 
-Before a real save write, the user must explicitly approve the canonical seed and migration behavior. Approval of **84** would authorize a separate controlled migration rehearsal/recovery plan; it would not by itself authorize unrelated Potential V2 changes.
+Before a real save write, the user must explicitly approve the canonical seed and migration behavior. Approval of **84** would authorize the already-staged provenance-safe controlled migration path in PR #7 to be finalized for a separate live cutover review; it would not by itself authorize unrelated Potential V2 changes or an immediate save write.
 
 Backup 3 remains the verified rollback baseline because the user confirmed the live career has not been opened, played, simulated or saved since that export.
