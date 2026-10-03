@@ -73,7 +73,10 @@ function rehearsal(backup,plan){
     const oldRole=tier(selection.fromRoot,player.position);
     const changed=selection.to!==selection.fromRoot||
       selection.to!==selection.fromDevelopment;
-    const direction=selection.to>selection.fromRoot?'rising':
+    const provenanceReseed=
+      selection.migrationKind==='legacy-provenance-reseed';
+    const direction=provenanceReseed?'stable':
+      selection.to>selection.fromRoot?'rising':
       selection.to<selection.fromRoot?'falling':'stable';
     if(!player.development||typeof player.development!=='object')
       throw Error('Canonical development record missing: '+id);
@@ -93,9 +96,11 @@ function rehearsal(backup,plan){
       player.development.potentialHistory=[
         ...(Array.isArray(player.development.potentialHistory)?
           player.development.potentialHistory:[]),
-        {kind:'reviewed-migration-preview',date:currentDate,
+        {kind:provenanceReseed?'legacy-provenance-reseed':'reviewed-migration-preview',
+         date:currentDate,
          from:selection.fromRoot,nestedFrom:selection.fromDevelopment,
          to:selection.to,fromRole:oldRole,toRole:next,confidence:55,
+         trend:direction,
          reason:String(selection.reason)}
       ];
     }
