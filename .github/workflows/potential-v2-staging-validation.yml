@@ -29,6 +29,7 @@ jobs:
           set -e
           for test in \
             potential-v2-legacy-authority.test.js \
+            potential-v2-provenance-reseed.test.js \
             potential-v2-weekly-shadow.test.js \
             potential-v2-weekly-longitudinal.test.js \
             potential-v2-multiweek-cohort.test.js \
