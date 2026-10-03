@@ -45,3 +45,12 @@ Those remain later, separately reviewed gates.
 ## Rollback rule
 
 If production merge behaves unexpectedly, do not simulate forward or restore over the career reflexively. Preserve the current device state, export a new diagnostic backup if possible, compare it read-only, and use the already verified rollback export only through the isolated recovery protocol after review.
+
+
+## Final pre-merge checkpoint — October 3, 2026
+
+- User explicitly confirmed the live production career has **not been opened, played, simulated or saved since verified Backup 3**. No fresh export is required; Backup 3 plus the original export remain the verified rollback pair.
+- Retired Replit metadata was cleaned separately and merged to `main` in PR #3; Project Ice's active workflow is now explicitly GitHub + Cloudflare. The Potential 2.0 staging branch was synchronized to the same file state so this PR does not depend on Replit.
+- After current `main` advanced, the exact PR merge state was re-tested by GitHub Actions run **37144615949**. Both jobs PASS: all isolated regression suites plus native Chromium, desktop WebKit, iPhone-sized WebKit, 58 MB synthetic SHA durability and the exact staging UI reload/cleanup.
+- Physical iPhone Safari on the isolated Cloudflare branch preview already PASSed the same staging page. The user's production career was never opened by that test.
+- Therefore the **only remaining pre-merge gate for PR #2 is explicit user approval of the prospective writer-guard behavior described above**. Approval of PR #2 must not be interpreted as approval of 74-vs-68 canonical selection or full Potential 2.0 migration.
