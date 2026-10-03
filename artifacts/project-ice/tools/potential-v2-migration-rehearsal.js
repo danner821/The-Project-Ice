@@ -73,7 +73,12 @@ function rehearsal(backup,plan){
     const oldRole=tier(selection.fromRoot,player.position);
     const changed=selection.to!==selection.fromRoot||
       selection.to!==selection.fromDevelopment;
-    const direction=selection.to>selection.fromRoot?'rising':
+    const migrationKind=String(selection.migrationKind||'reviewed-migration-preview');
+    const provenanceReseed=migrationKind==='legacy-provenance-reseed';
+    if(!['reviewed-migration-preview','legacy-provenance-reseed'].includes(migrationKind))
+      throw Error('Unsupported potential migration kind: '+migrationKind);
+    const direction=provenanceReseed?'stable':
+      selection.to>selection.fromRoot?'rising':
       selection.to<selection.fromRoot?'falling':'stable';
     if(!player.development||typeof player.development!=='object')
       throw Error('Canonical development record missing: '+id);
@@ -93,10 +98,10 @@ function rehearsal(backup,plan){
       player.development.potentialHistory=[
         ...(Array.isArray(player.development.potentialHistory)?
           player.development.potentialHistory:[]),
-        {kind:'reviewed-migration-preview',date:currentDate,
+        {kind:migrationKind,date:currentDate,
          from:selection.fromRoot,nestedFrom:selection.fromDevelopment,
          to:selection.to,fromRole:oldRole,toRole:next,confidence:55,
-         reason:String(selection.reason)}
+         trend:direction,reason:String(selection.reason)}
       ];
     }
     if(player.isCareerPlayer===true){
@@ -129,7 +134,7 @@ function rehearsal(backup,plan){
     }
     changes.push({id,fromRoot:selection.fromRoot,
       fromDevelopment:selection.fromDevelopment,to:selection.to,
-      role:next,changed});
+      role:next,trend:direction,migrationKind,changed});
   }
   if(JSON.stringify(core(original))!==JSON.stringify(core(clone)))
     throw Error('Non-potential gameplay fields changed in migration rehearsal.');
