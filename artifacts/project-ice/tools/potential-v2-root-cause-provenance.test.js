@@ -16,9 +16,11 @@ const fs=require('node:fs');
 const crypto=require('node:crypto');
 const cp=require('node:child_process');
 
-const WORLD='artifacts/project-ice/public/world.js';
-const GAME='artifacts/project-ice/public/game.js';
-const TRAVEL='artifacts/project-ice/public/travel-hockey-canonical-ui.js';
+const LOCAL_WORLD='public/world.js';
+const LOCAL_GAME='public/game.js';
+const HIST_WORLD='artifacts/project-ice/public/world.js';
+const HIST_GAME='artifacts/project-ice/public/game.js';
+const HIST_TRAVEL='artifacts/project-ice/public/travel-hockey-canonical-ui.js';
 
 const WEEKLY_REF='4466aa38f66e';
 const TRAVEL_REF='6001bc38345c';
@@ -35,27 +37,27 @@ function section(source,startNeedle,endNeedle){
 }
 
 /* Historical source proof. */
-const weekly=show(WEEKLY_REF,WORLD);
+const weekly=show(WEEKLY_REF,HIST_WORLD);
 const evaluate=section(weekly,'  function evaluatePlayerPotentialWeek(', '\n  function processPotentialWeek(');
 assert.match(evaluate,/development\.potential\s*\?\?\s*player\.potential/);
 assert.match(evaluate,/evidence\.overall\s*\+\s*\(evidence\.age\s*<=\s*23\s*\?\s*2\s*:\s*0\)/);
 assert.match(evaluate,/development\.potential\s*=\s*newPotential/);
 assert.match(evaluate,/player\.potential\s*=\s*newPotential/);
 
-const travel=show(TRAVEL_REF,TRAVEL);
+const travel=show(TRAVEL_REF,HIST_TRAVEL);
 const travelSync=section(travel,'  function syncCareer()', '\n  const originalSelect');
 assert.match(travelSync,/['"]potential['"]/);
 assert.doesNotMatch(travelSync,/['"]development['"]/,
   'historical Travel root sync intentionally did not copy development');
 
-const preFixGame=show(PREFX_REF,GAME);
+const preFixGame=show(PREFX_REF,HIST_GAME);
 const oldSync=section(preFixGame,'function syncCareerPlayerWithWorld()', '\n/*\n * ============================================================\n * CAREER LOAD');
 assert.match(oldSync,/WorldEngine\.getPlayerById\(\s*careerPlayerId\s*\)/);
 assert.doesNotMatch(oldSync,/WorldEngine\s*\.getCareerPlayer/,
   'pre-fix sync had no permanent career-player fallback');
 assert.match(oldSync,/WorldEngine\.upsertCareerPlayer\(\{\s*\.\.\.Game\.player/s);
 
-const preFixWorld=show(PREFX_REF,WORLD);
+const preFixWorld=show(PREFX_REF,HIST_WORLD);
 const defaultDev=section(preFixWorld,'  function createDefaultDevelopmentState(', '\n  function createDefaultHealthState(');
 assert.match(defaultDev,/Number\(player\.potential\)\s*\|\|\s*\n?\s*Number\(player\.overall\)/);
 const contract=section(preFixWorld,'  function ensureCanonicalPlayerContract(', '\n  function getPlayerDevelopmentStage(');
@@ -66,10 +68,10 @@ assert.match(upsert,/development:\s*\{\s*\.\.\.\(playerData\.development\s*\|\|\
 assert.match(upsert,/ensureCanonicalPlayerContract\(\s*careerPlayer\s*\)/);
 
 /* Current source proves the identity reset path is now closed. */
-const currentGame=fs.readFileSync(GAME,'utf8');
+const currentGame=fs.readFileSync(LOCAL_GAME,'utf8');
 const currentSync=section(currentGame,'function syncCareerPlayerWithWorld()', '\n/*\n * ============================================================\n * CAREER LOAD');
 assert.match(currentSync,/WorldEngine\s*\.getCareerPlayer/);
-const currentWorld=fs.readFileSync(WORLD,'utf8');
+const currentWorld=fs.readFileSync(LOCAL_WORLD,'utf8');
 assert.match(currentWorld,/getCareerPlayer:\s*\(\)\s*=>\s*\n?\s*getCareerRosterPlayerFromWorldState\(\)/);
 
 /*
