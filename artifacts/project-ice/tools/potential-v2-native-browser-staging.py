@@ -3,7 +3,8 @@ Run inside a clean checkout: python tools/potential-v2-native-browser-staging.py
 Requires playwright and installed Chromium/WebKit.
 Local ephemeral HTTP origin cannot access the deployed Project Ice origin.
 """
-import os, threading, json
+import os, threading, json, mimetypes
+from urllib.parse import urlparse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from playwright.sync_api import sync_playwright
 
@@ -11,14 +12,17 @@ PUBLIC=os.path.abspath(os.path.join(os.path.dirname(__file__),'..','public'))
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,*args): pass
     def do_GET(self):
-        if self.path=="/staging-blank":
+        request_path=urlparse(self.path).path
+        if request_path=="/staging-blank":
             body=b"<!doctype html><title>Disposable Potential 2.0 browser test</title>"
             mime="text/html"
-        elif self.path in ("/prospects.js","/world.js"):
-            with open(os.path.join(PUBLIC,self.path[1:]),'rb') as f:body=f.read()
-            mime="application/javascript"
         else:
-            self.send_error(404);return
+            rel=request_path.lstrip("/")
+            full=os.path.abspath(os.path.join(PUBLIC,rel))
+            if not full.startswith(PUBLIC+os.sep) or not os.path.isfile(full):
+                self.send_error(404);return
+            with open(full,'rb') as f:body=f.read()
+            mime=mimetypes.guess_type(full)[0] or "application/octet-stream"
         self.send_response(200);self.send_header("Content-Type",mime)
         self.send_header("Cache-Control","no-store")
         self.end_headers();self.wfile.write(body)
@@ -179,5 +183,22 @@ def main():
                   r.onsuccess=res;r.onerror=()=>rej(r.error)});localStorage.clear()}""")
                 browser.close()
                 print('PASS',name,'native IndexedDB durable reload, 58MB synthetic SHA, actual calendar, 160 protected records')
+            # Exercise the exact user-facing staging page under mobile WebKit.
+            browser=p.webkit.launch(headless=True)
+            device={k:v for k,v in p.devices['iPhone 13'].items() if k!='default_browser_type'}
+            context=browser.new_context(**device)
+            page=context.new_page()
+            page.goto(f"http://127.0.0.1:{server.server_port}/potential-v2-staging-check.html?ci=1")
+            assert page.locator('#runButton').is_enabled(),'staging page host gate should allow explicit localhost CI'
+            page.locator('#runButton').click()
+            page.wait_for_function(
+              "() => document.getElementById('resultTitle')?.textContent?.startsWith('PASS')",
+              timeout=180000)
+            ui_status=page.locator('#status').inner_text()
+            assert '160/160 fictional potential records unchanged' in ui_status,ui_status
+            assert '58 MB synthetic SHA-256 still matches after reload' in ui_status,ui_status
+            assert 'Your real Project Ice career was never opened.' in ui_status,ui_status
+            browser.close()
+            print('PASS webkit-iphone-emulated exact staging UI page, reload and cleanup')
     finally:server.shutdown()
 if __name__=='__main__':main()
