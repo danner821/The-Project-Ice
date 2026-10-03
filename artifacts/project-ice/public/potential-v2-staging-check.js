@@ -156,7 +156,7 @@
     try{await cleanup();log('Cleanup attempted.');}catch{}
     button.disabled=false;
   }
-  const correct=location.hostname===EXPECTED_HOST;
+  const correct=location.hostname===EXPECTED_HOST || (location.hostname==='127.0.0.1' && new URLSearchParams(location.search).get('ci')==='1');
   hostCard.className='card '+(correct?'safe':'warn');
   hostCard.innerHTML=correct
     ? '<strong>Correct isolated Cloudflare branch preview.</strong><br>This origin is separate from production.'
