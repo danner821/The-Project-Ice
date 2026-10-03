@@ -1,0 +1,34 @@
+name: Potential V2 canonical seed review
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'artifacts/project-ice/tools/potential-v2-canonical-seed-policy.js'
+      - 'artifacts/project-ice/tools/potential-v2-canonical-seed-policy.test.js'
+      - 'artifacts/project-ice/POTENTIAL_V2_CANONICAL_SEED_REVIEW.md'
+      - '.github/workflows/potential-v2-canonical-seed-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seed-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check artifacts/project-ice/tools/potential-v2-canonical-seed-policy.js
+          node --check artifacts/project-ice/tools/potential-v2-canonical-seed-policy.test.js
+      - name: Run pure seed policy regression
+        working-directory: artifacts/project-ice
+        run: node tools/potential-v2-canonical-seed-policy.test.js
+      - name: Refuse private career backups
+        run: |
+          if find . -name '*career-backup*.json' -o -name 'Backup 3.json' | grep .; then
+            echo 'ERROR: private backup must never enter GitHub.'
+            exit 1
+          fi
